@@ -4,55 +4,73 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeadQualif IA - Formulaire de qualification</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    /* ... (Votre CSS reste identique, je le raccourcis pour la clarté) ... */
-    :root { --primary: #007bff; --bg: #f8f9fa; --text-main: #1f2933; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
-    .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; width: 100%; }
-    h1 { color: #333; text-align: center; }
-    input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;}
-    button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-    button:hover { background: #0056b3; }
-    .status-message { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; }
-    .error { background: #fee2e2; color: #991b1b; }
-    .success { background: #dcfce7; color: #166534; }
+    /* --- VOTRE DESIGN PROFESSIONNEL RESTAURÉ --- */
+    :root { --primary: #007bff; --primary-dark: #0056b3; --bg: #f8f9fa; --text-main: #1f2933; --text-muted: #6c7a89; --border: #dde2eb; --radius-lg: 12px; --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08); }
+    body { margin: 0; min-height: 100vh; font-family: 'Inter', sans-serif; background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%); color: var(--text-main); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .page-wrapper { max-width: 1100px; width: 100%; background: #ffffff; border-radius: 24px; box-shadow: var(--shadow-soft); padding: 32px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; }
+    .logo-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #5aa8ff); display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; box-shadow: 0 10px 25px rgba(0, 123, 255, 0.35); }
+    .form-card { background: #ffffff; border-radius: 18px; border: 1px solid #e2e6f0; padding: 25px; }
+    input { width: 100%; height: 42px; border-radius: 10px; border: 1px solid var(--border); padding: 0 12px; margin-bottom: 15px; background: #f9fafb; }
+    .submit-btn { width: 100%; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-weight: 600; padding: 14px; cursor: pointer; box-shadow: 0 12px 24px rgba(0, 123, 255, 0.35); }
+    .status-message { margin-top: 15px; font-size: 14px; text-align: center; padding: 10px; border-radius: 8px; }
+    .error { background: #fee2e2; color: #b91c1c; }
+    .success { background: #dcfce7; color: #15803d; }
+    @media (max-width: 900px) { .page-wrapper { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>🏡 Estimation IA</h1>
-    <p style="text-align:center; color:#666;">Recevez l'analyse de votre bien en 2 secondes.</p>
-    
-    <form id="leadForm">
-      <input type="text" id="nom" placeholder="Nom complet" required />
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="tel" id="telephone" placeholder="Téléphone" required />
-      <input type="text" id="adresse" placeholder="Adresse du bien" required />
-      <input type="number" id="prix" placeholder="Prix estimé (ex: 350000)" />
+  <div class="page-wrapper">
+    <div>
+      <div class="logo"><div class="logo-mark">LQ</div></div>
+      <h1>Découvrez la valeur de votre bien</h1>
+      <p>Analyse intelligente par IA pour votre projet immobilier.</p>
       
-      <button type="submit" id="submitBtn">Lancer l'analyse</button>
-    </form>
+      <div class="form-card">
+        <form id="leadForm">
+          <label>Nom complet</label>
+          <input type="text" id="nom" placeholder="Ex: Marie Dupont" required />
+          
+          <label>Email</label>
+          <input type="email" id="email" placeholder="marie@email.com" required />
+          
+          <label>Téléphone</label>
+          <input type="tel" id="telephone" placeholder="06 12 34 56 78" required />
+          
+          <label>Adresse du bien</label>
+          <input type="text" id="adresse" placeholder="Adresse complète" required />
+          
+          <label>Prix estimé (€)</label>
+          <input type="number" id="prix" placeholder="Ex: 350000" />
+          
+          <button type="submit" class="submit-btn" id="submitBtn">Obtenir mon analyse IA</button>
+        </form>
+        <div id="statusMessage"></div>
+      </div>
+    </div>
     
-    <div id="statusMessage"></div>
+    <div style="background: #0f172a; color: white; border-radius: 18px; padding: 30px;">
+      <h2 style="color: #4ade80;">✓ Qualification Immédiate</h2>
+      <p>Notre IA analyse votre secteur et votre budget pour vous donner un score de priorité.</p>
+    </div>
   </div>
 
   <script>
-    // --- CORRECTION MAJEURE ICI ---
-    // On force le port 5005 car c'est celui qui marche sur votre machine
-     const API_URL = 'https://leadqualif-backend.onrender.com/api/submit-lead';
+    // --- CONNEXION AU SAAS (RENDER) ---
+    const API_URL = 'https://leadqualif-backend.onrender.com/api/submit-lead';
 
     const form = document.getElementById('leadForm');
     const statusMessage = document.getElementById('statusMessage');
     const submitBtn = document.getElementById('submitBtn');
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Analyse en cours...';
-      statusMessage.textContent = '';
-      statusMessage.className = '';
-
+      submitBtn.textContent = 'Analyse par l\'IA...';
+      
       const payload = {
         nom: document.getElementById('nom').value,
         email: document.getElementById('email').value,
@@ -62,8 +80,6 @@
       };
 
       try {
-        console.log("Tentative de connexion vers : " + API_URL);
-        
         const response = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -73,31 +89,20 @@
         const data = await response.json();
 
         if (response.ok) {
-          // Succès !
-          statusMessage.textContent = "✅ " + (data.recommandation_ia || "Dossier reçu !");
           statusMessage.className = 'status-message success';
-          
-          // Sauvegarde pour la page merci
+          statusMessage.textContent = "✅ Analyse réussie ! Redirection...";
           sessionStorage.setItem('ia_reponse', JSON.stringify(data));
-          
-          setTimeout(() => { window.location.href = 'merci.html'; }, 1000);
+          setTimeout(() => { window.location.href = 'merci.html'; }, 1500);
         } else {
-          throw new Error(data.message || 'Erreur inconnue');
+          throw new Error(data.message || 'Erreur serveur');
         }
-
-      } catch (error) {
-        console.error(error);
-        // Ici, on change le message pour qu'il soit cohérent !
-        statusMessage.innerHTML = `
-            <strong>Échec de connexion !</strong><br>
-            Le formulaire cherche le port <strong>5005</strong>.<br>
-            Vérifiez que votre terminal affiche bien :<br> 
-            <em>Running on http://127.0.0.1:5005</em>
-        `;
+      } catch (err) {
         statusMessage.className = 'status-message error';
+        statusMessage.textContent = "Le serveur IA est en cours de réveil (cela peut prendre 30s sur Render gratuit). Réessayez dans un instant.";
+        console.error(err);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Lancer l'analyse";
+        submitBtn.textContent = 'Obtenir mon analyse IA';
       }
     });
   </script>
