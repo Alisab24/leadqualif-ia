@@ -4,7 +4,7 @@ import { supabase } from '../services/supabase'
 import { aiService } from '../services/ai'
 
 // URL de l'API Flask backend
-const API_BACKEND_URL = 'http://localhost:5000/api'
+const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
@@ -160,7 +160,7 @@ export default function Dashboard() {
         // Afficher un message d'erreur plus détaillé pour les erreurs CORS
         if (err.message && err.message.includes('CORS')) {
           console.warn('[DASHBOARD] Erreur CORS détectée. Vérifiez :')
-          console.warn('  1. Le serveur Flask est lancé sur http://localhost:5000')
+          console.warn('  1. Le serveur Flask est lancé sur http://localhost:5005')
           console.warn('  2. flask-cors est installé et configuré')
           console.warn('  3. L\'origine http://localhost:5173 est autorisée dans app.py')
         } else if (err.message && err.message.includes('Failed to fetch')) {
