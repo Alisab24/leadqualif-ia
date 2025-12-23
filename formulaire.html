@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeadQualif IA - Formulaire de qualification</title>
+  <style>
+    /* ... (Votre CSS reste identique, je le raccourcis pour la clarté) ... */
+    :root { --primary: #007bff; --bg: #f8f9fa; --text-main: #1f2933; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+    .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; width: 100%; }
+    h1 { color: #333; text-align: center; }
+    input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;}
+    button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+    button:hover { background: #0056b3; }
+    .status-message { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; }
+    .error { background: #fee2e2; color: #991b1b; }
+    .success { background: #dcfce7; color: #166534; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🏡 Estimation IA</h1>
+    <p style="text-align:center; color:#666;">Recevez l'analyse de votre bien en 2 secondes.</p>
+    
+    <form id="leadForm">
+      <input type="text" id="nom" placeholder="Nom complet" required />
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="tel" id="telephone" placeholder="Téléphone" required />
+      <input type="text" id="adresse" placeholder="Adresse du bien" required />
+      <input type="number" id="prix" placeholder="Prix estimé (ex: 350000)" />
+      
+      <button type="submit" id="submitBtn">Lancer l'analyse</button>
+    </form>
+    
+    <div id="statusMessage"></div>
+  </div>
+
+  <script>
+    // --- CORRECTION MAJEURE ICI ---
+    // On force le port 5005 car c'est celui qui marche sur votre machine
+    const API_URL = 'http://localhost:5005/api/submit-lead';
+
+    const form = document.getElementById('leadForm');
+    const statusMessage = document.getElementById('statusMessage');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Analyse en cours...';
+      statusMessage.textContent = '';
+      statusMessage.className = '';
+
+      const payload = {
+        nom: document.getElementById('nom').value,
+        email: document.getElementById('email').value,
+        telephone: document.getElementById('telephone').value,
+        adresse: document.getElementById('adresse').value,
+        prix: document.getElementById('prix').value || 0
+      };
+
+      try {
+        console.log("Tentative de connexion vers : " + API_URL);
+        
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Succès !
+          statusMessage.textContent = "✅ " + (data.recommandation_ia || "Dossier reçu !");
+          statusMessage.className = 'status-message success';
+          
+          // Sauvegarde pour la page merci
+          sessionStorage.setItem('ia_reponse', JSON.stringify(data));
+          
+          setTimeout(() => { window.location.href = 'merci.html'; }, 1000);
+        } else {
+          throw new Error(data.message || 'Erreur inconnue');
+        }
+
+      } catch (error) {
+        console.error(error);
+        // Ici, on change le message pour qu'il soit cohérent !
+        statusMessage.innerHTML = `
+            <strong>Échec de connexion !</strong><br>
+            Le formulaire cherche le port <strong>5005</strong>.<br>
+            Vérifiez que votre terminal affiche bien :<br> 
+            <em>Running on http://127.0.0.1:5005</em>
+        `;
+        statusMessage.className = 'status-message error';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Lancer l'analyse";
+      }
+    });
+  </script>
+</body>
+</html>

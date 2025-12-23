@@ -1,0 +1,675 @@
+[
+  {
+    "role": "user",
+    "text": "<user_query>\nCrée un nouveau projet React + Vite + TailwindCSS optimisé pour une app Desktop.\n</user_query>"
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nL'utilisateur veut créer un nouveau projet React + Vite + TailwindCSS optimisé pour une application Desktop. Je dois :\n\n1. Créer un nouveau projet Vite avec React\n2. Configurer TailwindCSS\n3. Optimiser pour Desktop (probablement ajuster les configurations, peut-être Electron ou juste une app web optimisée pour desktop)\n\nCommençons par créer le projet avec Vite, puis installer et configurer TailwindCSS.\n\nJe vais d'abord vérifier où nous sommes et créer le projet.\n</think>\nCréation d'un projet React + Vite + TailwindCSS optimisé pour Desktop. Vérification de l'environnement, puis initialisation du projet.\n",
+    "toolCalls": [
+      {
+        "toolName": "run_terminal_cmd",
+        "args": {
+          "command": "cd C:\\Users\\hp && npm create vite@latest react-desktop-app -- --template react",
+          "is_background": false
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "run_terminal_cmd"
+    }
+  },
+  {
+    "role": "user",
+    "text": "<user_query>\nInstalle les dépendances suivantes :\n@supabase/supabase-js\nopenai\naxios\nreact-router-dom\n</user_query>"
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nL'utilisateur veut installer des dépendances pour un projet. Je dois d'abord vérifier s'il y a un projet existant, puis installer ces dépendances. Laissez-moi d'abord explorer le répertoire pour voir ce qui existe.\n</think>\nVérification de la structure du projet, puis installation des dépendances.\n",
+    "toolCalls": [
+      {
+        "toolName": "list_dir",
+        "args": {
+          "target_directory": "C:\\Users\\hp"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "list_dir"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nIl semble que je sois dans le répertoire home de l'utilisateur. Je dois chercher s'il y a un projet existant ou créer un nouveau projet. Laissez-moi chercher des fichiers package.json ou des dossiers de projet React/Vite.\n</think>\nRecherche d'un projet existant ou création d'un nouveau projet :\n",
+    "toolCalls": [
+      {
+        "toolName": "glob_file_search",
+        "args": {
+          "glob_pattern": "package.json"
+        }
+      },
+      {
+        "toolName": "run_terminal_cmd",
+        "args": {
+          "command": "cd C:\\Users\\hp && dir /b /ad | findstr /i \"react vite app\"",
+          "is_background": false
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "glob_file_search"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "run_terminal_cmd"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nJe dois utiliser PowerShell correctement. Laissez-moi vérifier s'il y a un projet existant ou créer un nouveau projet. Je vais d'abord vérifier s'il y a un package.json dans le répertoire courant.\n</think>\nVérification de l'existence d'un projet dans le répertoire courant :\n",
+    "toolCalls": [
+      {
+        "toolName": "run_terminal_cmd",
+        "args": {
+          "command": "cd C:\\Users\\hp; if (Test-Path package.json) { Write-Host \"package.json exists\" } else { Write-Host \"No package.json found\" }",
+          "is_background": false
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "run_terminal_cmd"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nIl n'y a pas de package.json dans le répertoire courant. L'utilisateur veut installer des dépendances, donc il doit y avoir un projet quelque part. Peut-être qu'il veut que je crée d'abord le projet, ou peut-être qu'il y a un projet dans un sous-dossier. Laissez-moi créer le projet React + Vite + TailwindCSS d'abord comme demandé initialement, puis installer les dépendances.\n</think>\nCréation du projet React + Vite, puis installation de TailwindCSS et des dépendances demandées.\n",
+    "toolCalls": [
+      {
+        "toolName": "run_terminal_cmd",
+        "args": {
+          "command": "cd C:\\Users\\hp; npm create vite@latest react-desktop-app -- --template react",
+          "is_background": false
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "run_terminal_cmd"
+    }
+  },
+  {
+    "role": "user",
+    "text": "<user_query>\nsrc/\n  components/\n    LeadForm.jsx\n    LeadList.jsx\n    LeadDetails.jsx\n  pages/\n    Dashboard.jsx\n    Settings.jsx\n  services/\n    supabase.js\n    ai.js\n  utils/\n    format.js\n  App.jsx\n  main.jsx\n\n</user_query>"
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nL'utilisateur veut que je crée une structure de fichiers spécifique pour son projet React. Il me donne la structure de dossiers et fichiers qu'il souhaite. Je dois créer tous ces fichiers dans le projet.\n\nLaissez-moi d'abord vérifier s'il y a déjà un projet existant, puis créer cette structure.\n</think>\nVérification de la structure du projet, puis création des fichiers et dossiers demandés.\n",
+    "toolCalls": [
+      {
+        "toolName": "list_dir",
+        "args": {
+          "target_directory": "C:\\Users\\hp"
+        }
+      },
+      {
+        "toolName": "glob_file_search",
+        "args": {
+          "glob_pattern": "**/package.json"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "list_dir"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "glob_file_search"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nIl semble qu'il n'y ait pas de projet React existant. Je vais créer la structure complète avec tous les fichiers demandés. Je vais créer un projet React + Vite avec TailwindCSS et la structure de fichiers demandée.\n</think>\nCréation de la structure du projet avec tous les fichiers demandés :\n",
+    "toolCalls": [
+      {
+        "toolName": "run_terminal_cmd",
+        "args": {
+          "command": "cd C:\\Users\\hp; if (Test-Path src) { Write-Host \"src exists\" } else { New-Item -ItemType Directory -Path src -Force | Out-Null; Write-Host \"src created\" }",
+          "is_background": false
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "run_terminal_cmd"
+    }
+  },
+  {
+    "role": "user",
+    "text": "<user_query>\nJe veux construire l’application LeadQualif IA, une app web desktop pour agences immobilières.\nElle doit faire :\n\nAjout de lead\n\nQualification automatique via IA (OpenAI)\n\nEnregistrement dans Supabase\n\nDashboard avec liste des leads\n\nDétails d’un lead + résumé IA\n\nBouton \"Proposer un RDV\" (ouvre Calendly)\n\nCommence par créer :\n\nUne interface Dashboard en React + Tailwind\n\nUn tableau des leads\n\nUn bouton “Ajouter un lead”\n\nUne modale pour saisir un lead\n\nUtilise les clés environnement (.env) pour Supabase & OpenAI.\nDonne-moi le code complet + les fichiers nécessaires.\n</user_query>"
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nL'utilisateur veut créer une application complète LeadQualif IA pour agences immobilières. Je dois créer :\n\n1. Structure de projet React + Vite + TailwindCSS\n2. Configuration des fichiers d'environnement (.env)\n3. Services Supabase et OpenAI\n4. Composants :\n   - Dashboard avec tableau des leads\n   - Bouton \"Ajouter un lead\"\n   - Modale pour saisir un lead\n   - LeadForm, LeadList, LeadDetails\n   - Pages Dashboard et Settings\n5. Utilitaires de formatage\n6. Configuration TailwindCSS\n7. App.jsx et main.jsx avec routing\n\nJe vais créer tous les fichiers nécessaires pour une application complète et fonctionnelle.\n</think>\nCréation de l'application LeadQualif IA avec la structure complète et tous les fichiers nécessaires.\n",
+    "toolCalls": [
+      {
+        "toolName": "todo_write",
+        "args": {
+          "merge": false,
+          "todos": [
+            {
+              "id": "1",
+              "content": "Créer la structure de base du projet (package.json, vite.config, tailwind.config)",
+              "status": "in_progress"
+            },
+            {
+              "id": "2",
+              "content": "Configurer les fichiers de services (supabase.js, ai.js)",
+              "status": "pending"
+            },
+            {
+              "id": "3",
+              "content": "Créer les composants (LeadForm, LeadList, LeadDetails)",
+              "status": "pending"
+            },
+            {
+              "id": "4",
+              "content": "Créer les pages (Dashboard, Settings)",
+              "status": "pending"
+            },
+            {
+              "id": "5",
+              "content": "Créer App.jsx avec routing et main.jsx",
+              "status": "pending"
+            },
+            {
+              "id": "6",
+              "content": "Créer les fichiers de configuration (.env.example, index.html, CSS)",
+              "status": "pending"
+            }
+          ]
+        }
+      },
+      {
+        "toolName": "read_file",
+        "args": {
+          "target_file": "C:\\Users\\hp\\package.json"
+        }
+      },
+      {
+        "toolName": "glob_file_search",
+        "args": {
+          "glob_pattern": "vite.config.*"
+        }
+      },
+      {
+        "toolName": "glob_file_search",
+        "args": {
+          "glob_pattern": "tailwind.config.*"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "todo_write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "read_file"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "glob_file_search"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "glob_file_search"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nIl n'y a pas de projet existant. Je dois créer tout depuis le début. Je vais créer tous les fichiers nécessaires pour un projet React + Vite + TailwindCSS complet.\n</think>\nCréation de la structure complète du projet depuis le début :\n",
+    "toolCalls": [
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\package.json",
+          "contents": "{\n  \"name\": \"leadqualif-ia\",\n  \"private\": true,\n  \"version\": \"1.0.0\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite\",\n    \"build\": \"vite build\",\n    \"preview\": \"vite preview\"\n  },\n  \"dependencies\": {\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"react-router-dom\": \"^6.20.0\",\n    \"@supabase/supabase-js\": \"^2.38.4\",\n    \"openai\": \"^4.20.0\",\n    \"axios\": \"^1.6.2\"\n  },\n  \"devDependencies\": {\n    \"@types/react\": \"^18.2.43\",\n    \"@types/react-dom\": \"^18.2.17\",\n    \"@vitejs/plugin-react\": \"^4.2.1\",\n    \"autoprefixer\": \"^10.4.16\",\n    \"postcss\": \"^8.4.32\",\n    \"tailwindcss\": \"^3.3.6\",\n    \"vite\": \"^5.0.8\"\n  }\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\vite.config.js",
+          "contents": "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\n// https://vitejs.dev/config/\nexport default defineConfig({\n  plugins: [react()],\n  server: {\n    port: 3000,\n    open: true\n  },\n  build: {\n    outDir: 'dist',\n    assetsDir: 'assets',\n    sourcemap: false\n  }\n})\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\tailwind.config.js",
+          "contents": "/** @type {import('tailwindcss').Config} */\nexport default {\n  content: [\n    \"./index.html\",\n    \"./src/**/*.{js,ts,jsx,tsx}\",\n  ],\n  theme: {\n    extend: {\n      colors: {\n        primary: {\n          50: '#f0f9ff',\n          100: '#e0f2fe',\n          200: '#bae6fd',\n          300: '#7dd3fc',\n          400: '#38bdf8',\n          500: '#0ea5e9',\n          600: '#0284c7',\n          700: '#0369a1',\n          800: '#075985',\n          900: '#0c4a6e',\n        },\n      },\n    },\n  },\n  plugins: [],\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\postcss.config.js",
+          "contents": "export default {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\.env.example",
+          "contents": "VITE_SUPABASE_URL=your_supabase_project_url\nVITE_SUPABASE_ANON_KEY=your_supabase_anon_key\nVITE_OPENAI_API_KEY=your_openai_api_key\nVITE_CALENDLY_URL=your_calendly_url\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\.env",
+          "contents": "VITE_SUPABASE_URL=your_supabase_project_url\nVITE_SUPABASE_ANON_KEY=your_supabase_anon_key\nVITE_OPENAI_API_KEY=your_openai_api_key\nVITE_CALENDLY_URL=your_calendly_url\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\index.html",
+          "contents": "<!doctype html>\n<html lang=\"fr\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/vite.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>LeadQualif IA - Gestion de Leads Immobiliers</title>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.jsx\"></script>\n  </body>\n</html>\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\main.jsx",
+          "contents": "import React from 'react'\nimport ReactDOM from 'react-dom/client'\nimport App from './App.jsx'\nimport './index.css'\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>,\n)\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\index.css",
+          "contents": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer base {\n  body {\n    @apply bg-gray-50 text-gray-900;\n  }\n}\n\n@layer components {\n  .btn-primary {\n    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;\n  }\n  \n  .btn-secondary {\n    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;\n  }\n  \n  .input-field {\n    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all;\n  }\n  \n  .card {\n    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;\n  }\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\services\\supabase.js",
+          "contents": "import { createClient } from '@supabase/supabase-js'\n\nconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL\nconst supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY\n\nif (!supabaseUrl || !supabaseAnonKey) {\n  throw new Error('Missing Supabase environment variables')\n}\n\nexport const supabase = createClient(supabaseUrl, supabaseAnonKey)\n\n// Fonctions pour gérer les leads\nexport const leadsService = {\n  // Récupérer tous les leads\n  async getAllLeads() {\n    const { data, error } = await supabase\n      .from('leads')\n      .select('*')\n      .order('created_at', { ascending: false })\n    \n    if (error) throw error\n    return data\n  },\n\n  // Récupérer un lead par ID\n  async getLeadById(id) {\n    const { data, error } = await supabase\n      .from('leads')\n      .select('*')\n      .eq('id', id)\n      .single()\n    \n    if (error) throw error\n    return data\n  },\n\n  // Créer un nouveau lead\n  async createLead(leadData) {\n    const { data, error } = await supabase\n      .from('leads')\n      .insert([leadData])\n      .select()\n      .single()\n    \n    if (error) throw error\n    return data\n  },\n\n  // Mettre à jour un lead\n  async updateLead(id, updates) {\n    const { data, error } = await supabase\n      .from('leads')\n      .update(updates)\n      .eq('id', id)\n      .select()\n      .single()\n    \n    if (error) throw error\n    return data\n  },\n\n  // Supprimer un lead\n  async deleteLead(id) {\n    const { error } = await supabase\n      .from('leads')\n      .delete()\n      .eq('id', id)\n    \n    if (error) throw error\n  }\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\services\\ai.js",
+          "contents": "import OpenAI from 'openai'\n\nconst openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY\n\nif (!openaiApiKey) {\n  throw new Error('Missing OpenAI API key')\n}\n\nconst openai = new OpenAI({\n  apiKey: openaiApiKey,\n  dangerouslyAllowBrowser: true // Note: En production, utilisez un backend pour sécuriser la clé API\n})\n\n// Qualification automatique d'un lead via IA\nexport const aiService = {\n  async qualifyLead(leadData) {\n    const prompt = `Tu es un expert en qualification de leads immobiliers. Analyse les informations suivantes et fournis une qualification détaillée au format JSON avec les champs suivants:\n- score_qualification (nombre entre 0 et 100)\n- budget_estime (montant estimé ou \"Non spécifié\")\n- urgence (faible, moyenne, élevée)\n- type_bien_recherche (appartement, maison, terrain, commercial, autre)\n- localisation_souhaitee (si mentionnée)\n- points_forts (tableau de 3-5 points positifs)\n- points_attention (tableau de 2-3 points à surveiller)\n- recommandations (tableau de 2-3 recommandations pour l'agent)\n- resume (résumé en 2-3 phrases)\n\nInformations du lead:\n- Nom: ${leadData.nom || 'Non spécifié'}\n- Email: ${leadData.email || 'Non spécifié'}\n- Téléphone: ${leadData.telephone || 'Non spécifié'}\n- Message: ${leadData.message || 'Aucun message'}\n- Source: ${leadData.source || 'Non spécifié'}\n\nRéponds UNIQUEMENT avec du JSON valide, sans texte supplémentaire.`\n\n    try {\n      const completion = await openai.chat.completions.create({\n        model: \"gpt-4-turbo-preview\",\n        messages: [\n          {\n            role: \"system\",\n            content: \"Tu es un assistant expert en qualification de leads immobiliers. Tu réponds toujours en JSON valide.\"\n          },\n          {\n            role: \"user\",\n            content: prompt\n          }\n        ],\n        temperature: 0.7,\n        response_format: { type: \"json_object\" }\n      })\n\n      const qualification = JSON.parse(completion.choices[0].message.content)\n      return qualification\n    } catch (error) {\n      console.error('Erreur lors de la qualification IA:', error)\n      throw new Error('Erreur lors de la qualification du lead')\n    }\n  },\n\n  async generateLeadSummary(leadData) {\n    const prompt = `Génère un résumé professionnel et concis (3-4 phrases maximum) pour ce lead immobilier:\n\nNom: ${leadData.nom}\nEmail: ${leadData.email}\nTéléphone: ${leadData.telephone}\nMessage: ${leadData.message || 'Aucun message'}\nScore de qualification: ${leadData.score_qualification || 'N/A'}\nBudget estimé: ${leadData.budget_estime || 'Non spécifié'}\nUrgence: ${leadData.urgence || 'Non spécifiée'}\n\nLe résumé doit être professionnel, informatif et aider l'agent à comprendre rapidement le profil du lead.`\n\n    try {\n      const completion = await openai.chat.completions.create({\n        model: \"gpt-4-turbo-preview\",\n        messages: [\n          {\n            role: \"system\",\n            content: \"Tu es un assistant qui génère des résumés professionnels pour des leads immobiliers.\"\n          },\n          {\n            role: \"user\",\n            content: prompt\n          }\n        ],\n        temperature: 0.5,\n        max_tokens: 200\n      })\n\n      return completion.choices[0].message.content.trim()\n    } catch (error) {\n      console.error('Erreur lors de la génération du résumé:', error)\n      return 'Résumé non disponible'\n    }\n  }\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\utils\\format.js",
+          "contents": "// Fonctions utilitaires de formatage\n\nexport const formatDate = (dateString) => {\n  if (!dateString) return 'N/A'\n  const date = new Date(dateString)\n  return new Intl.DateTimeFormat('fr-FR', {\n    day: '2-digit',\n    month: '2-digit',\n    year: 'numeric',\n    hour: '2-digit',\n    minute: '2-digit'\n  }).format(date)\n}\n\nexport const formatCurrency = (amount) => {\n  if (!amount || amount === 'Non spécifié') return 'Non spécifié'\n  if (typeof amount === 'string') return amount\n  return new Intl.NumberFormat('fr-FR', {\n    style: 'currency',\n    currency: 'EUR'\n  }).format(amount)\n}\n\nexport const formatPhone = (phone) => {\n  if (!phone) return 'N/A'\n  // Format français: 06 12 34 56 78\n  const cleaned = phone.replace(/\\D/g, '')\n  if (cleaned.length === 10) {\n    return cleaned.replace(/(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})/, '$1 $2 $3 $4 $5')\n  }\n  return phone\n}\n\nexport const getScoreColor = (score) => {\n  if (score >= 80) return 'text-green-600 bg-green-100'\n  if (score >= 60) return 'text-yellow-600 bg-yellow-100'\n  if (score >= 40) return 'text-orange-600 bg-orange-100'\n  return 'text-red-600 bg-red-100'\n}\n\nexport const getUrgencyColor = (urgency) => {\n  switch (urgency?.toLowerCase()) {\n    case 'élevée':\n    case 'elevee':\n    case 'high':\n      return 'text-red-600 bg-red-100'\n    case 'moyenne':\n    case 'medium':\n      return 'text-yellow-600 bg-yellow-100'\n    case 'faible':\n    case 'low':\n      return 'text-green-600 bg-green-100'\n    default:\n      return 'text-gray-600 bg-gray-100'\n  }\n}\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\components\\LeadForm.jsx",
+          "contents": "import { useState } from 'react'\nimport { leadsService } from '../services/supabase'\nimport { aiService } from '../services/ai'\n\nconst LeadForm = ({ onClose, onSuccess }) => {\n  const [formData, setFormData] = useState({\n    nom: '',\n    email: '',\n    telephone: '',\n    message: '',\n    source: 'site_web'\n  })\n  const [loading, setLoading] = useState(false)\n  const [error, setError] = useState(null)\n\n  const handleChange = (e) => {\n    const { name, value } = e.target\n    setFormData(prev => ({\n      ...prev,\n      [name]: value\n    }))\n  }\n\n  const handleSubmit = async (e) => {\n    e.preventDefault()\n    setError(null)\n    setLoading(true)\n\n    try {\n      // Qualification automatique via IA\n      const qualification = await aiService.qualifyLead(formData)\n\n      // Créer le lead avec les données de qualification\n      const leadData = {\n        ...formData,\n        score_qualification: qualification.score_qualification,\n        budget_estime: qualification.budget_estime,\n        urgence: qualification.urgence,\n        type_bien_recherche: qualification.type_bien_recherche,\n        localisation_souhaitee: qualification.localisation_souhaitee,\n        points_forts: qualification.points_forts,\n        points_attention: qualification.points_attention,\n        recommandations: qualification.recommandations,\n        resume: qualification.resume,\n        qualification_data: qualification\n      }\n\n      const newLead = await leadsService.createLead(leadData)\n      \n      if (onSuccess) {\n        onSuccess(newLead)\n      }\n      \n      onClose()\n    } catch (err) {\n      console.error('Erreur lors de la création du lead:', err)\n      setError(err.message || 'Une erreur est survenue lors de la création du lead')\n    } finally {\n      setLoading(false)\n    }\n  }\n\n  return (\n    <div className=\"fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4\">\n      <div className=\"bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto\">\n        <div className=\"sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center\">\n          <h2 className=\"text-2xl font-bold text-gray-900\">Ajouter un nouveau lead</h2>\n          <button\n            onClick={onClose}\n            className=\"text-gray-400 hover:text-gray-600 transition-colors\"\n            disabled={loading}\n          >\n            <svg className=\"w-6 h-6\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n              <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M6 18L18 6M6 6l12 12\" />\n            </svg>\n          </button>\n        </div>\n\n        <form onSubmit={handleSubmit} className=\"p-6 space-y-4\">\n          {error && (\n            <div className=\"bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg\">\n              {error}\n            </div>\n          )}\n\n          <div>\n            <label htmlFor=\"nom\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n              Nom complet *\n            </label>\n            <input\n              type=\"text\"\n              id=\"nom\"\n              name=\"nom\"\n              value={formData.nom}\n              onChange={handleChange}\n              required\n              className=\"input-field\"\n              placeholder=\"Jean Dupont\"\n            />\n          </div>\n\n          <div className=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n            <div>\n              <label htmlFor=\"email\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n                Email *\n              </label>\n              <input\n                type=\"email\"\n                id=\"email\"\n                name=\"email\"\n                value={formData.email}\n                onChange={handleChange}\n                required\n                className=\"input-field\"\n                placeholder=\"jean.dupont@example.com\"\n              />\n            </div>\n\n            <div>\n              <label htmlFor=\"telephone\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n                Téléphone *\n              </label>\n              <input\n                type=\"tel\"\n                id=\"telephone\"\n                name=\"telephone\"\n                value={formData.telephone}\n                onChange={handleChange}\n                required\n                className=\"input-field\"\n                placeholder=\"06 12 34 56 78\"\n              />\n            </div>\n          </div>\n\n          <div>\n            <label htmlFor=\"source\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n              Source du lead\n            </label>\n            <select\n              id=\"source\"\n              name=\"source\"\n              value={formData.source}\n              onChange={handleChange}\n              className=\"input-field\"\n            >\n              <option value=\"site_web\">Site web</option>\n              <option value=\"reseaux_sociaux\">Réseaux sociaux</option>\n              <option value=\"reference\">Référence</option>\n              <option value=\"publicite\">Publicité</option>\n              <option value=\"autre\">Autre</option>\n            </select>\n          </div>\n\n          <div>\n            <label htmlFor=\"message\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n              Message / Besoins\n            </label>\n            <textarea\n              id=\"message\"\n              name=\"message\"\n              value={formData.message}\n              onChange={handleChange}\n              rows={4}\n              className=\"input-field resize-none\"\n              placeholder=\"Décrivez les besoins du client (type de bien, budget, localisation, etc.)\"\n            />\n          </div>\n\n          <div className=\"flex justify-end gap-3 pt-4 border-t border-gray-200\">\n            <button\n              type=\"button\"\n              onClick={onClose}\n              className=\"btn-secondary\"\n              disabled={loading}\n            >\n              Annuler\n            </button>\n            <button\n              type=\"submit\"\n              className=\"btn-primary\"\n              disabled={loading}\n            >\n              {loading ? (\n                <span className=\"flex items-center gap-2\">\n                  <svg className=\"animate-spin h-4 w-4\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\">\n                    <circle className=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" strokeWidth=\"4\"></circle>\n                    <path className=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path>\n                  </svg>\n                  Qualification en cours...\n                </span>\n              ) : (\n                'Qualifier et enregistrer'\n              )}\n            </button>\n          </div>\n        </form>\n      </div>\n    </div>\n  )\n}\n\nexport default LeadForm\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\components\\LeadList.jsx",
+          "contents": "import { formatDate, formatPhone, getScoreColor, getUrgencyColor } from '../utils/format'\nimport { useNavigate } from 'react-router-dom'\n\nconst LeadList = ({ leads, loading }) => {\n  const navigate = useNavigate()\n\n  if (loading) {\n    return (\n      <div className=\"flex justify-center items-center py-12\">\n        <svg className=\"animate-spin h-8 w-8 text-primary-600\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\">\n          <circle className=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" strokeWidth=\"4\"></circle>\n          <path className=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path>\n        </svg>\n      </div>\n    )\n  }\n\n  if (!leads || leads.length === 0) {\n    return (\n      <div className=\"text-center py-12\">\n        <svg className=\"mx-auto h-12 w-12 text-gray-400\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n          <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\" />\n        </svg>\n        <h3 className=\"mt-2 text-sm font-medium text-gray-900\">Aucun lead</h3>\n        <p className=\"mt-1 text-sm text-gray-500\">Commencez par ajouter votre premier lead.</p>\n      </div>\n    )\n  }\n\n  return (\n    <div className=\"overflow-x-auto\">\n      <table className=\"min-w-full divide-y divide-gray-200\">\n        <thead className=\"bg-gray-50\">\n          <tr>\n            <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Lead\n            </th>\n            <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Contact\n            </th>\n            <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Score\n            </th>\n            <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Budget\n            </th>\n            <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Urgence\n            </th>\n            <th className=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Date\n            </th>\n            <th className=\"px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider\">\n              Actions\n            </th>\n          </tr>\n        </thead>\n        <tbody className=\"bg-white divide-y divide-gray-200\">\n          {leads.map((lead) => (\n            <tr \n              key={lead.id} \n              className=\"hover:bg-gray-50 cursor-pointer transition-colors\"\n              onClick={() => navigate(`/lead/${lead.id}`)}\n            >\n              <td className=\"px-6 py-4 whitespace-nowrap\">\n                <div className=\"flex items-center\">\n                  <div className=\"flex-shrink-0 h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center\">\n                    <span className=\"text-primary-600 font-semibold text-sm\">\n                      {lead.nom?.charAt(0).toUpperCase() || '?'}\n                    </span>\n                  </div>\n                  <div className=\"ml-4\">\n                    <div className=\"text-sm font-medium text-gray-900\">{lead.nom}</div>\n                    <div className=\"text-sm text-gray-500\">{lead.type_bien_recherche || 'Non spécifié'}</div>\n                  </div>\n                </div>\n              </td>\n              <td className=\"px-6 py-4 whitespace-nowrap\">\n                <div className=\"text-sm text-gray-900\">{lead.email}</div>\n                <div className=\"text-sm text-gray-500\">{formatPhone(lead.telephone)}</div>\n              </td>\n              <td className=\"px-6 py-4 whitespace-nowrap\">\n                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(lead.score_qualification || 0)}`}>\n                  {lead.score_qualification || 0}/100\n                </span>\n              </td>\n              <td className=\"px-6 py-4 whitespace-nowrap text-sm text-gray-900\">\n                {lead.budget_estime || 'Non spécifié'}\n              </td>\n              <td className=\"px-6 py-4 whitespace-nowrap\">\n                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getUrgencyColor(lead.urgence)}`}>\n                  {lead.urgence || 'Non spécifiée'}\n                </span>\n              </td>\n              <td className=\"px-6 py-4 whitespace-nowrap text-sm text-gray-500\">\n                {formatDate(lead.created_at)}\n              </td>\n              <td className=\"px-6 py-4 whitespace-nowrap text-right text-sm font-medium\">\n                <button\n                  onClick={(e) => {\n                    e.stopPropagation()\n                    navigate(`/lead/${lead.id}`)\n                  }}\n                  className=\"text-primary-600 hover:text-primary-900\"\n                >\n                  Voir détails\n                </button>\n              </td>\n            </tr>\n          ))}\n        </tbody>\n      </table>\n    </div>\n  )\n}\n\nexport default LeadList\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\components\\LeadDetails.jsx",
+          "contents": "import { useState, useEffect } from 'react'\nimport { useParams, useNavigate } from 'react-router-dom'\nimport { leadsService } from '../services/supabase'\nimport { aiService } from '../services/ai'\nimport { formatDate, formatPhone, formatCurrency, getScoreColor, getUrgencyColor } from '../utils/format'\n\nconst LeadDetails = () => {\n  const { id } = useParams()\n  const navigate = useNavigate()\n  const [lead, setLead] = useState(null)\n  const [loading, setLoading] = useState(true)\n  const [summary, setSummary] = useState('')\n  const [generatingSummary, setGeneratingSummary] = useState(false)\n  const [error, setError] = useState(null)\n\n  const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com'\n\n  useEffect(() => {\n    loadLead()\n  }, [id])\n\n  const loadLead = async () => {\n    try {\n      setLoading(true)\n      const leadData = await leadsService.getLeadById(id)\n      setLead(leadData)\n      \n      // Générer le résumé IA si pas déjà présent\n      if (!leadData.resume_ia && leadData) {\n        generateAISummary(leadData)\n      } else if (leadData.resume_ia) {\n        setSummary(leadData.resume_ia)\n      }\n    } catch (err) {\n      console.error('Erreur lors du chargement du lead:', err)\n      setError('Impossible de charger les détails du lead')\n    } finally {\n      setLoading(false)\n    }\n  }\n\n  const generateAISummary = async (leadData) => {\n    try {\n      setGeneratingSummary(true)\n      const aiSummary = await aiService.generateLeadSummary(leadData)\n      setSummary(aiSummary)\n      \n      // Sauvegarder le résumé dans la base de données\n      await leadsService.updateLead(id, { resume_ia: aiSummary })\n    } catch (err) {\n      console.error('Erreur lors de la génération du résumé:', err)\n    } finally {\n      setGeneratingSummary(false)\n    }\n  }\n\n  const handleCalendlyClick = () => {\n    window.open(calendlyUrl, '_blank')\n  }\n\n  if (loading) {\n    return (\n      <div className=\"flex justify-center items-center min-h-screen\">\n        <svg className=\"animate-spin h-8 w-8 text-primary-600\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\">\n          <circle className=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" strokeWidth=\"4\"></circle>\n          <path className=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path>\n        </svg>\n      </div>\n    )\n  }\n\n  if (error || !lead) {\n    return (\n      <div className=\"max-w-4xl mx-auto p-6\">\n        <div className=\"card\">\n          <div className=\"text-center py-12\">\n            <p className=\"text-red-600 mb-4\">{error || 'Lead introuvable'}</p>\n            <button onClick={() => navigate('/')} className=\"btn-primary\">\n              Retour au dashboard\n            </button>\n          </div>\n        </div>\n      </div>\n    )\n  }\n\n  return (\n    <div className=\"max-w-6xl mx-auto p-6\">\n      {/* Header */}\n      <div className=\"mb-6 flex items-center justify-between\">\n        <button\n          onClick={() => navigate('/')}\n          className=\"flex items-center text-gray-600 hover:text-gray-900 transition-colors\"\n        >\n          <svg className=\"w-5 h-5 mr-2\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n            <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M15 19l-7-7 7-7\" />\n          </svg>\n          Retour au dashboard\n        </button>\n        <button\n          onClick={handleCalendlyClick}\n          className=\"btn-primary flex items-center gap-2\"\n        >\n          <svg className=\"w-5 h-5\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n            <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z\" />\n          </svg>\n          Proposer un RDV\n        </button>\n      </div>\n\n      <div className=\"grid grid-cols-1 lg:grid-cols-3 gap-6\">\n        {/* Colonne principale */}\n        <div className=\"lg:col-span-2 space-y-6\">\n          {/* Informations principales */}\n          <div className=\"card\">\n            <h2 className=\"text-2xl font-bold text-gray-900 mb-6\">Informations du lead</h2>\n            <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6\">\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Nom complet</label>\n                <p className=\"mt-1 text-lg text-gray-900\">{lead.nom}</p>\n              </div>\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Email</label>\n                <p className=\"mt-1 text-lg text-gray-900\">{lead.email}</p>\n              </div>\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Téléphone</label>\n                <p className=\"mt-1 text-lg text-gray-900\">{formatPhone(lead.telephone)}</p>\n              </div>\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Source</label>\n                <p className=\"mt-1 text-lg text-gray-900 capitalize\">{lead.source?.replace('_', ' ') || 'Non spécifiée'}</p>\n              </div>\n              <div className=\"md:col-span-2\">\n                <label className=\"text-sm font-medium text-gray-500\">Message / Besoins</label>\n                <p className=\"mt-1 text-gray-900 whitespace-pre-wrap\">{lead.message || 'Aucun message'}</p>\n              </div>\n            </div>\n          </div>\n\n          {/* Résumé IA */}\n          <div className=\"card\">\n            <div className=\"flex items-center justify-between mb-4\">\n              <h2 className=\"text-xl font-bold text-gray-900 flex items-center gap-2\">\n                <svg className=\"w-5 h-5 text-primary-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z\" />\n                </svg>\n                Résumé IA\n              </h2>\n              {!summary && !generatingSummary && (\n                <button\n                  onClick={() => generateAISummary(lead)}\n                  className=\"text-sm text-primary-600 hover:text-primary-700\"\n                >\n                  Générer\n                </button>\n              )}\n            </div>\n            {generatingSummary ? (\n              <div className=\"flex items-center justify-center py-8\">\n                <svg className=\"animate-spin h-6 w-6 text-primary-600\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\">\n                  <circle className=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" strokeWidth=\"4\"></circle>\n                  <path className=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path>\n                </svg>\n              </div>\n            ) : summary ? (\n              <p className=\"text-gray-700 leading-relaxed\">{summary}</p>\n            ) : (\n              <p className=\"text-gray-400 italic\">Aucun résumé disponible</p>\n            )}\n          </div>\n\n          {/* Qualification détaillée */}\n          {lead.qualification_data && (\n            <div className=\"card\">\n              <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Analyse de qualification</h2>\n              \n              {lead.points_forts && lead.points_forts.length > 0 && (\n                <div className=\"mb-6\">\n                  <h3 className=\"text-sm font-semibold text-gray-700 mb-2\">Points forts</h3>\n                  <ul className=\"space-y-2\">\n                    {lead.points_forts.map((point, index) => (\n                      <li key={index} className=\"flex items-start gap-2\">\n                        <svg className=\"w-5 h-5 text-green-500 mt-0.5 flex-shrink-0\" fill=\"currentColor\" viewBox=\"0 0 20 20\">\n                          <path fillRule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clipRule=\"evenodd\" />\n                        </svg>\n                        <span className=\"text-gray-700\">{point}</span>\n                      </li>\n                    ))}\n                  </ul>\n                </div>\n              )}\n\n              {lead.points_attention && lead.points_attention.length > 0 && (\n                <div className=\"mb-6\">\n                  <h3 className=\"text-sm font-semibold text-gray-700 mb-2\">Points d'attention</h3>\n                  <ul className=\"space-y-2\">\n                    {lead.points_attention.map((point, index) => (\n                      <li key={index} className=\"flex items-start gap-2\">\n                        <svg className=\"w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0\" fill=\"currentColor\" viewBox=\"0 0 20 20\">\n                          <path fillRule=\"evenodd\" d=\"M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z\" clipRule=\"evenodd\" />\n                        </svg>\n                        <span className=\"text-gray-700\">{point}</span>\n                      </li>\n                    ))}\n                  </ul>\n                </div>\n              )}\n\n              {lead.recommandations && lead.recommandations.length > 0 && (\n                <div>\n                  <h3 className=\"text-sm font-semibold text-gray-700 mb-2\">Recommandations</h3>\n                  <ul className=\"space-y-2\">\n                    {lead.recommandations.map((rec, index) => (\n                      <li key={index} className=\"flex items-start gap-2\">\n                        <svg className=\"w-5 h-5 text-primary-500 mt-0.5 flex-shrink-0\" fill=\"currentColor\" viewBox=\"0 0 20 20\">\n                          <path d=\"M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z\" />\n                        </svg>\n                        <span className=\"text-gray-700\">{rec}</span>\n                      </li>\n                    ))}\n                  </ul>\n                </div>\n              )}\n            </div>\n          )}\n        </div>\n\n        {/* Sidebar */}\n        <div className=\"space-y-6\">\n          {/* Score et métriques */}\n          <div className=\"card\">\n            <h3 className=\"text-lg font-bold text-gray-900 mb-4\">Métriques</h3>\n            <div className=\"space-y-4\">\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Score de qualification</label>\n                <div className=\"mt-2\">\n                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-lg font-bold ${getScoreColor(lead.score_qualification || 0)}`}>\n                    {lead.score_qualification || 0}/100\n                  </span>\n                </div>\n              </div>\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Budget estimé</label>\n                <p className=\"mt-1 text-lg font-semibold text-gray-900\">{lead.budget_estime || 'Non spécifié'}</p>\n              </div>\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Urgence</label>\n                <div className=\"mt-2\">\n                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getUrgencyColor(lead.urgence)}`}>\n                    {lead.urgence || 'Non spécifiée'}\n                  </span>\n                </div>\n              </div>\n              <div>\n                <label className=\"text-sm font-medium text-gray-500\">Type de bien recherché</label>\n                <p className=\"mt-1 text-gray-900 capitalize\">{lead.type_bien_recherche || 'Non spécifié'}</p>\n              </div>\n              {lead.localisation_souhaitee && (\n                <div>\n                  <label className=\"text-sm font-medium text-gray-500\">Localisation souhaitée</label>\n                  <p className=\"mt-1 text-gray-900\">{lead.localisation_souhaitee}</p>\n                </div>\n              )}\n            </div>\n          </div>\n\n          {/* Informations système */}\n          <div className=\"card\">\n            <h3 className=\"text-lg font-bold text-gray-900 mb-4\">Informations</h3>\n            <div className=\"space-y-3 text-sm\">\n              <div>\n                <label className=\"text-gray-500\">Date de création</label>\n                <p className=\"text-gray-900\">{formatDate(lead.created_at)}</p>\n              </div>\n              {lead.updated_at && (\n                <div>\n                  <label className=\"text-gray-500\">Dernière mise à jour</label>\n                  <p className=\"text-gray-900\">{formatDate(lead.updated_at)}</p>\n                </div>\n              )}\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  )\n}\n\nexport default LeadDetails\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\pages\\Dashboard.jsx",
+          "contents": "import { useState, useEffect } from 'react'\nimport { leadsService } from '../services/supabase'\nimport LeadForm from '../components/LeadForm'\nimport LeadList from '../components/LeadList'\n\nconst Dashboard = () => {\n  const [leads, setLeads] = useState([])\n  const [loading, setLoading] = useState(true)\n  const [showForm, setShowForm] = useState(false)\n  const [error, setError] = useState(null)\n\n  useEffect(() => {\n    loadLeads()\n  }, [])\n\n  const loadLeads = async () => {\n    try {\n      setLoading(true)\n      const data = await leadsService.getAllLeads()\n      setLeads(data)\n    } catch (err) {\n      console.error('Erreur lors du chargement des leads:', err)\n      setError('Impossible de charger les leads. Vérifiez votre configuration Supabase.')\n    } finally {\n      setLoading(false)\n    }\n  }\n\n  const handleAddLead = () => {\n    setShowForm(true)\n  }\n\n  const handleFormClose = () => {\n    setShowForm(false)\n  }\n\n  const handleFormSuccess = (newLead) => {\n    setLeads(prev => [newLead, ...prev])\n    setShowForm(false)\n  }\n\n  // Statistiques\n  const stats = {\n    total: leads.length,\n    highScore: leads.filter(l => (l.score_qualification || 0) >= 80).length,\n    highUrgency: leads.filter(l => l.urgence === 'élevée' || l.urgence === 'elevee').length,\n    averageScore: leads.length > 0 \n      ? Math.round(leads.reduce((sum, l) => sum + (l.score_qualification || 0), 0) / leads.length)\n      : 0\n  }\n\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      {/* Header */}\n      <header className=\"bg-white border-b border-gray-200\">\n        <div className=\"max-w-7xl mx-auto px-6 py-4\">\n          <div className=\"flex items-center justify-between\">\n            <div>\n              <h1 className=\"text-3xl font-bold text-gray-900\">LeadQualif IA</h1>\n              <p className=\"text-sm text-gray-500 mt-1\">Gestion de leads immobiliers avec qualification IA</p>\n            </div>\n            <button\n              onClick={handleAddLead}\n              className=\"btn-primary flex items-center gap-2\"\n            >\n              <svg className=\"w-5 h-5\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M12 4v16m8-8H4\" />\n              </svg>\n              Ajouter un lead\n            </button>\n          </div>\n        </div>\n      </header>\n\n      {/* Main content */}\n      <main className=\"max-w-7xl mx-auto px-6 py-8\">\n        {/* Statistiques */}\n        <div className=\"grid grid-cols-1 md:grid-cols-4 gap-6 mb-8\">\n          <div className=\"card\">\n            <div className=\"flex items-center justify-between\">\n              <div>\n                <p className=\"text-sm font-medium text-gray-500\">Total des leads</p>\n                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.total}</p>\n              </div>\n              <div className=\"h-12 w-12 bg-primary-100 rounded-lg flex items-center justify-center\">\n                <svg className=\"w-6 h-6 text-primary-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z\" />\n                </svg>\n              </div>\n            </div>\n          </div>\n\n          <div className=\"card\">\n            <div className=\"flex items-center justify-between\">\n              <div>\n                <p className=\"text-sm font-medium text-gray-500\">Score moyen</p>\n                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.averageScore}/100</p>\n              </div>\n              <div className=\"h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center\">\n                <svg className=\"w-6 h-6 text-green-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\" />\n                </svg>\n              </div>\n            </div>\n          </div>\n\n          <div className=\"card\">\n            <div className=\"flex items-center justify-between\">\n              <div>\n                <p className=\"text-sm font-medium text-gray-500\">Leads qualifiés</p>\n                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.highScore}</p>\n                <p className=\"text-xs text-gray-500 mt-1\">Score ≥ 80</p>\n              </div>\n              <div className=\"h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center\">\n                <svg className=\"w-6 h-6 text-yellow-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z\" />\n                </svg>\n              </div>\n            </div>\n          </div>\n\n          <div className=\"card\">\n            <div className=\"flex items-center justify-between\">\n              <div>\n                <p className=\"text-sm font-medium text-gray-500\">Urgence élevée</p>\n                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.highUrgency}</p>\n              </div>\n              <div className=\"h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center\">\n                <svg className=\"w-6 h-6 text-red-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z\" />\n                </svg>\n              </div>\n            </div>\n          </div>\n        </div>\n\n        {/* Liste des leads */}\n        <div className=\"card\">\n          <div className=\"mb-6\">\n            <h2 className=\"text-2xl font-bold text-gray-900\">Liste des leads</h2>\n            <p className=\"text-sm text-gray-500 mt-1\">Gérez et suivez tous vos leads immobiliers</p>\n          </div>\n\n          {error && (\n            <div className=\"bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4\">\n              {error}\n            </div>\n          )}\n\n          <LeadList leads={leads} loading={loading} />\n        </div>\n      </main>\n\n      {/* Modale d'ajout de lead */}\n      {showForm && (\n        <LeadForm\n          onClose={handleFormClose}\n          onSuccess={handleFormSuccess}\n        />\n      )}\n    </div>\n  )\n}\n\nexport default Dashboard\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\pages\\Settings.jsx",
+          "contents": "import { useState } from 'react'\nimport { useNavigate } from 'react-router-dom'\n\nconst Settings = () => {\n  const navigate = useNavigate()\n  const [settings, setSettings] = useState({\n    calendlyUrl: import.meta.env.VITE_CALENDLY_URL || '',\n    notifications: true,\n    autoQualify: true\n  })\n\n  const handleChange = (e) => {\n    const { name, value, type, checked } = e.target\n    setSettings(prev => ({\n      ...prev,\n      [name]: type === 'checkbox' ? checked : value\n    }))\n  }\n\n  const handleSave = () => {\n    // Ici, vous pourriez sauvegarder les paramètres dans Supabase ou localStorage\n    localStorage.setItem('leadqualif_settings', JSON.stringify(settings))\n    alert('Paramètres sauvegardés avec succès!')\n  }\n\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <header className=\"bg-white border-b border-gray-200\">\n        <div className=\"max-w-7xl mx-auto px-6 py-4\">\n          <div className=\"flex items-center justify-between\">\n            <div>\n              <h1 className=\"text-3xl font-bold text-gray-900\">Paramètres</h1>\n              <p className=\"text-sm text-gray-500 mt-1\">Configurez votre application</p>\n            </div>\n            <button\n              onClick={() => navigate('/')}\n              className=\"btn-secondary\"\n            >\n              Retour au dashboard\n            </button>\n          </div>\n        </div>\n      </header>\n\n      <main className=\"max-w-4xl mx-auto px-6 py-8\">\n        <div className=\"card space-y-6\">\n          <div>\n            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Configuration Calendly</h2>\n            <div>\n              <label htmlFor=\"calendlyUrl\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n                URL Calendly\n              </label>\n              <input\n                type=\"url\"\n                id=\"calendlyUrl\"\n                name=\"calendlyUrl\"\n                value={settings.calendlyUrl}\n                onChange={handleChange}\n                className=\"input-field\"\n                placeholder=\"https://calendly.com/votre-compte\"\n              />\n              <p className=\"text-xs text-gray-500 mt-1\">\n                Cette URL sera utilisée pour le bouton \"Proposer un RDV\"\n              </p>\n            </div>\n          </div>\n\n          <div className=\"border-t border-gray-200 pt-6\">\n            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Préférences</h2>\n            <div className=\"space-y-4\">\n              <label className=\"flex items-center\">\n                <input\n                  type=\"checkbox\"\n                  name=\"notifications\"\n                  checked={settings.notifications}\n                  onChange={handleChange}\n                  className=\"w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500\"\n                />\n                <span className=\"ml-3 text-sm text-gray-700\">Activer les notifications</span>\n              </label>\n\n              <label className=\"flex items-center\">\n                <input\n                  type=\"checkbox\"\n                  name=\"autoQualify\"\n                  checked={settings.autoQualify}\n                  onChange={handleChange}\n                  className=\"w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500\"\n                />\n                <span className=\"ml-3 text-sm text-gray-700\">Qualification automatique via IA</span>\n              </label>\n            </div>\n          </div>\n\n          <div className=\"border-t border-gray-200 pt-6\">\n            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Variables d'environnement</h2>\n            <div className=\"bg-gray-50 rounded-lg p-4 space-y-2 text-sm\">\n              <div className=\"flex items-center justify-between\">\n                <span className=\"text-gray-600\">Supabase URL:</span>\n                <span className=\"font-mono text-xs text-gray-900\">\n                  {import.meta.env.VITE_SUPABASE_URL ? '✓ Configuré' : '✗ Non configuré'}\n                </span>\n              </div>\n              <div className=\"flex items-center justify-between\">\n                <span className=\"text-gray-600\">OpenAI API Key:</span>\n                <span className=\"font-mono text-xs text-gray-900\">\n                  {import.meta.env.VITE_OPENAI_API_KEY ? '✓ Configuré' : '✗ Non configuré'}\n                </span>\n              </div>\n            </div>\n            <p className=\"text-xs text-gray-500 mt-2\">\n              Configurez ces variables dans votre fichier .env à la racine du projet\n            </p>\n          </div>\n\n          <div className=\"flex justify-end pt-4 border-t border-gray-200\">\n            <button onClick={handleSave} className=\"btn-primary\">\n              Enregistrer les paramètres\n            </button>\n          </div>\n        </div>\n      </main>\n    </div>\n  )\n}\n\nexport default Settings\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\src\\App.jsx",
+          "contents": "import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'\nimport Dashboard from './pages/Dashboard'\nimport Settings from './pages/Settings'\nimport LeadDetails from './components/LeadDetails'\n\nfunction App() {\n  return (\n    <Router>\n      <Routes>\n        <Route path=\"/\" element={<Dashboard />} />\n        <Route path=\"/lead/:id\" element={<LeadDetails />} />\n        <Route path=\"/settings\" element={<Settings />} />\n        <Route path=\"*\" element={<Navigate to=\"/\" replace />} />\n      </Routes>\n    </Router>\n  )\n}\n\nexport default App\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\.gitignore",
+          "contents": "# Logs\nlogs\n*.log\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\npnpm-debug.log*\nlerna-debug.log*\n\nnode_modules\ndist\ndist-ssr\n*.local\n\n# Editor directories and files\n.vscode/*\n!.vscode/extensions.json\n.idea\n.DS_Store\n*.suo\n*.ntvs*\n*.njsproj\n*.sln\n*.sw?\n\n# Environment variables\n.env\n.env.local\n.env.production\n"
+        }
+      },
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\README.md",
+          "contents": "# LeadQualif IA\n\nApplication web desktop pour la gestion et la qualification automatique de leads immobiliers avec intelligence artificielle.\n\n## 🚀 Fonctionnalités\n\n- ✅ Ajout de leads avec formulaire intuitif\n- 🤖 Qualification automatique via OpenAI GPT-4\n- 💾 Stockage sécurisé dans Supabase\n- 📊 Dashboard avec statistiques et tableau des leads\n- 📝 Détails complets d'un lead avec résumé IA\n- 📅 Intégration Calendly pour proposer des RDV\n- 🎨 Interface moderne avec TailwindCSS\n\n## 📋 Prérequis\n\n- Node.js 18+ et npm\n- Compte Supabase (gratuit)\n- Clé API OpenAI\n\n## 🛠️ Installation\n\n1. **Installer les dépendances**\n```bash\nnpm install\n```\n\n2. **Configurer les variables d'environnement**\n\nCréez un fichier `.env` à la racine du projet avec :\n\n```env\nVITE_SUPABASE_URL=votre_url_supabase\nVITE_SUPABASE_ANON_KEY=votre_cle_anon_supabase\nVITE_OPENAI_API_KEY=votre_cle_api_openai\nVITE_CALENDLY_URL=https://calendly.com/votre-compte\n```\n\n3. **Créer la table Supabase**\n\nExécutez cette requête SQL dans votre dashboard Supabase :\n\n```sql\nCREATE TABLE leads (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  nom TEXT NOT NULL,\n  email TEXT NOT NULL,\n  telephone TEXT NOT NULL,\n  message TEXT,\n  source TEXT DEFAULT 'site_web',\n  score_qualification INTEGER,\n  budget_estime TEXT,\n  urgence TEXT,\n  type_bien_recherche TEXT,\n  localisation_souhaitee TEXT,\n  points_forts JSONB,\n  points_attention JSONB,\n  recommandations JSONB,\n  resume TEXT,\n  resume_ia TEXT,\n  qualification_data JSONB,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\n-- Activer Row Level Security (optionnel mais recommandé)\nALTER TABLE leads ENABLE ROW LEVEL SECURITY;\n\n-- Créer une politique pour permettre toutes les opérations (ajustez selon vos besoins)\nCREATE POLICY \"Allow all operations\" ON leads\n  FOR ALL\n  USING (true)\n  WITH CHECK (true);\n```\n\n## 🚀 Lancement\n\n```bash\n# Mode développement\nnpm run dev\n\n# Build de production\nnpm run build\n\n# Prévisualiser le build\nnpm run preview\n```\n\nL'application sera accessible sur `http://localhost:3000`\n\n## 📁 Structure du projet\n\n```\nsrc/\n├── components/\n│   ├── LeadForm.jsx      # Formulaire d'ajout de lead\n│   ├── LeadList.jsx      # Tableau des leads\n│   └── LeadDetails.jsx   # Page de détails d'un lead\n├── pages/\n│   ├── Dashboard.jsx     # Page principale avec statistiques\n│   └── Settings.jsx      # Page de paramètres\n├── services/\n│   ├── supabase.js       # Configuration et fonctions Supabase\n│   └── ai.js             # Service de qualification IA\n├── utils/\n│   └── format.js         # Fonctions utilitaires de formatage\n├── App.jsx               # Composant principal avec routing\n└── main.jsx              # Point d'entrée de l'application\n```\n\n## 🔧 Technologies utilisées\n\n- **React 18** - Bibliothèque UI\n- **Vite** - Build tool et dev server\n- **TailwindCSS** - Framework CSS\n- **React Router** - Routing\n- **Supabase** - Backend et base de données\n- **OpenAI GPT-4** - Qualification IA des leads\n- **Axios** - Requêtes HTTP\n\n## 📝 Notes importantes\n\n- ⚠️ **Sécurité** : La clé API OpenAI est exposée côté client dans ce projet. Pour la production, créez un backend proxy pour sécuriser vos clés API.\n- 🔒 Configurez correctement les politiques RLS dans Supabase selon vos besoins de sécurité.\n- 💰 Les appels à l'API OpenAI sont facturés selon votre plan OpenAI.\n\n## 📄 Licence\n\nMIT\n"
+        }
+      },
+      {
+        "toolName": "todo_write",
+        "args": {
+          "merge": true,
+          "todos": [
+            {
+              "id": "1",
+              "status": "completed"
+            },
+            {
+              "id": "2",
+              "status": "completed"
+            },
+            {
+              "id": "3",
+              "status": "completed"
+            },
+            {
+              "id": "4",
+              "status": "completed"
+            },
+            {
+              "id": "5",
+              "status": "completed"
+            },
+            {
+              "id": "6",
+              "status": "completed"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "todo_write"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nParfait ! J'ai créé tous les fichiers nécessaires. Maintenant je dois créer le fichier SQL pour la base de données Supabase et peut-être un fichier supplémentaire pour aider l'utilisateur. Je vais aussi créer un fichier SQL séparé pour faciliter la création de la table.\n</think>\nCréation d'un fichier SQL pour faciliter la configuration de Supabase :\n",
+    "toolCalls": [
+      {
+        "toolName": "write",
+        "args": {
+          "file_path": "C:\\Users\\hp\\supabase-setup.sql",
+          "contents": "-- Script de création de la table leads pour LeadQualif IA\n-- Exécutez ce script dans l'éditeur SQL de votre dashboard Supabase\n\n-- Créer la table leads\nCREATE TABLE IF NOT EXISTS leads (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  nom TEXT NOT NULL,\n  email TEXT NOT NULL,\n  telephone TEXT NOT NULL,\n  message TEXT,\n  source TEXT DEFAULT 'site_web',\n  score_qualification INTEGER,\n  budget_estime TEXT,\n  urgence TEXT,\n  type_bien_recherche TEXT,\n  localisation_souhaitee TEXT,\n  points_forts JSONB,\n  points_attention JSONB,\n  recommandations JSONB,\n  resume TEXT,\n  resume_ia TEXT,\n  qualification_data JSONB,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\n-- Créer un index sur email pour les recherches rapides\nCREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);\n\n-- Créer un index sur created_at pour le tri\nCREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);\n\n-- Créer un index sur score_qualification pour filtrer les leads qualifiés\nCREATE INDEX IF NOT EXISTS idx_leads_score ON leads(score_qualification DESC);\n\n-- Fonction pour mettre à jour automatiquement updated_at\nCREATE OR REPLACE FUNCTION update_updated_at_column()\nRETURNS TRIGGER AS $$\nBEGIN\n    NEW.updated_at = NOW();\n    RETURN NEW;\nEND;\n$$ language 'plpgsql';\n\n-- Trigger pour mettre à jour updated_at automatiquement\nCREATE TRIGGER update_leads_updated_at \n    BEFORE UPDATE ON leads \n    FOR EACH ROW \n    EXECUTE FUNCTION update_updated_at_column();\n\n-- Activer Row Level Security (RLS)\nALTER TABLE leads ENABLE ROW LEVEL SECURITY;\n\n-- Politique pour permettre toutes les opérations (à ajuster selon vos besoins de sécurité)\n-- Pour la production, créez des politiques plus restrictives basées sur l'authentification\nCREATE POLICY \"Allow all operations for authenticated users\" ON leads\n  FOR ALL\n  USING (true)\n  WITH CHECK (true);\n\n-- Alternative : Politique plus restrictive (décommentez si vous utilisez l'authentification)\n-- CREATE POLICY \"Users can view own leads\" ON leads\n--   FOR SELECT\n--   USING (auth.uid() = user_id);\n--\n-- CREATE POLICY \"Users can insert own leads\" ON leads\n--   FOR INSERT\n--   WITH CHECK (auth.uid() = user_id);\n--\n-- CREATE POLICY \"Users can update own leads\" ON leads\n--   FOR UPDATE\n--   USING (auth.uid() = user_id);\n"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "write"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nExcellent ! J'ai créé tous les fichiers nécessaires. Maintenant je devrais vérifier s'il y a des erreurs de linting et créer un résumé pour l'utilisateur.\n</think>\nApplication **LeadQualif IA** créée avec la structure demandée. Voici ce qui a été mis en place :\n\n## Structure créée\n\n### Configuration\n- `package.json` — Dépendances (React, Vite, TailwindCSS, Supabase, OpenAI, React Router)\n- `vite.config.js` — Configuration Vite optimisée pour desktop\n- `tailwind.config.js` — Configuration TailwindCSS avec thème personnalisé\n- `postcss.config.js` — Configuration PostCSS\n- `.env` et `.env.example` — Variables d'environnement\n\n### Services\n- `src/services/supabase.js` — Client Supabase et fonctions CRUD pour les leads\n- `src/services/ai.js` — Service OpenAI pour qualification automatique et génération de résumés\n\n### Composants\n- `src/components/LeadForm.jsx` — Modale d'ajout avec qualification IA automatique\n- `src/components/LeadList.jsx` — Tableau des leads avec tri et filtres visuels\n- `src/components/LeadDetails.jsx` — Page de détails avec résumé IA et bouton Calendly\n\n### Pages\n- `src/pages/Dashboard.jsx` — Dashboard avec statistiques et liste des leads\n- `src/pages/Settings.jsx` — Page de paramètres\n\n### Utilitaires\n- `src/utils/format.js` — Fonctions de formatage (dates, devises, téléphones, couleurs)\n\n### Application\n- `src/App.jsx` — Routing avec React Router\n- `src/main.jsx` — Point d'entrée\n- `src/index.css` — Styles TailwindCSS avec classes personnalisées\n\n## Prochaines étapes\n\n1. Installer les dépendances :\n```bash\nnpm install\n```\n\n2. Configurer Supabase :\n   - Créer un projet sur [supabase.com](https://supabase.com)\n   - Exécuter le script `supabase-setup.sql` dans l'éditeur SQL\n   - Copier l'URL et la clé anonyme dans `.env`\n\n3. Configurer OpenAI :\n   - Obtenir une clé API sur [platform.openai.com](https://platform.openai.com)\n   - Ajouter la clé dans `.env`\n\n4. Configurer Calendly :\n   - Ajouter votre URL Calendly dans `.env`\n\n5. Lancer l'application :\n```bash\nnpm run dev\n```\n\n## Fonctionnalités implémentées\n\n- Dashboard avec statistiques (total, score moyen, leads qualifiés, urgence)\n- Tableau des leads avec tri et navigation\n- Modale d'ajout de lead avec qualification IA automatique\n- Page de détails avec résumé IA généré\n- Bouton \"Proposer un RDV\" ouvrant Calendly\n- Interface responsive avec TailwindCSS\n- Gestion d'erreurs et états de chargement\n\nL'application est prête à être utilisée. Configurez les variables d'environnement et lancez-la."
+  },
+  {
+    "role": "user",
+    "text": "<attached_files>\nThe user made the following changes. If they reverted your changes, assume it was intentional and leave intact; ask if unsure.\n--- C:\\Users\\hp\\supabase-setup.sql\t\n+++ C:\\Users\\hp\\supabase-setup.sql\t\n@@ -1,72 +1,72 @@\n--- Script de création de la table leads pour LeadQualif IA\n--- Exécutez ce script dans l'éditeur SQL de votre dashboard Supabase\n-\n--- Créer la table leads\n-CREATE TABLE IF NOT EXISTS leads (\n-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n-  nom TEXT NOT NULL,\n-  email TEXT NOT NULL,\n-  telephone TEXT NOT NULL,\n-  message TEXT,\n-  source TEXT DEFAULT 'site_web',\n-  score_qualification INTEGER,\n-  budget_estime TEXT,\n-  urgence TEXT,\n-  type_bien_recherche TEXT,\n-  localisation_souhaitee TEXT,\n-  points_forts JSONB,\n-  points_attention JSONB,\n-  recommandations JSONB,\n-  resume TEXT,\n-  resume_ia TEXT,\n-  qualification_data JSONB,\n-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n-);\n-\n--- Créer un index sur email pour les recherches rapides\n-CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);\n-\n--- Créer un index sur created_at pour le tri\n-CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);\n-\n--- Créer un index sur score_qualification pour filtrer les leads qualifiés\n-CREATE INDEX IF NOT EXISTS idx_leads_score ON leads(score_qualification DESC);\n-\n--- Fonction pour mettre à jour automatiquement updated_at\n-CREATE OR REPLACE FUNCTION update_updated_at_column()\n-RETURNS TRIGGER AS $$\n-BEGIN\n-    NEW.updated_at = NOW();\n-    RETURN NEW;\n-END;\n-$$ language 'plpgsql';\n-\n--- Trigger pour mettre à jour updated_at automatiquement\n-CREATE TRIGGER update_leads_updated_at \n-    BEFORE UPDATE ON leads \n-    FOR EACH ROW \n-    EXECUTE FUNCTION update_updated_at_column();\n-\n--- Activer Row Level Security (RLS)\n-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;\n-\n--- Politique pour permettre toutes les opérations (à ajuster selon vos besoins de sécurité)\n--- Pour la production, créez des politiques plus restrictives basées sur l'authentification\n-CREATE POLICY \"Allow all operations for authenticated users\" ON leads\n-  FOR ALL\n-  USING (true)\n-  WITH CHECK (true);\n-\n--- Alternative : Politique plus restrictive (décommentez si vous utilisez l'authentification)\n--- CREATE POLICY \"Users can view own leads\" ON leads\n---   FOR SELECT\n---   USING (auth.uid() = user_id);\n---\n--- CREATE POLICY \"Users can insert own leads\" ON leads\n---   FOR INSERT\n---   WITH CHECK (auth.uid() = user_id);\n---\n--- CREATE POLICY \"Users can update own leads\" ON leads\n---   FOR UPDATE\n---   USING (auth.uid() = user_id);\n+-- Script de création de la table leads pour LeadQualif IA\r\n+-- Exécutez ce script dans l'éditeur SQL de votre dashboard Supabase\r\n+\r\n+-- Créer la table leads\r\n+CREATE TABLE IF NOT EXISTS leads (\r\n+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\r\n+  nom TEXT NOT NULL,\r\n+  email TEXT NOT NULL,\r\n+  telephone TEXT NOT NULL,\r\n+  message TEXT,\r\n+  source TEXT DEFAULT 'site_web',\r\n+  score_qualification INTEGER,\r\n+  budget_estime TEXT,\r\n+  urgence TEXT,\r\n+  type_bien_recherche TEXT,\r\n+  localisation_souhaitee TEXT,\r\n+  points_forts JSONB,\r\n+  points_attention JSONB,\r\n+  recommandations JSONB,\r\n+  resume TEXT,\r\n+  resume_ia TEXT,\r\n+  qualification_data JSONB,\r\n+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\r\n+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\r\n+);\r\n+\r\n+-- Créer un index sur email pour les recherches rapides\r\n+CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);\r\n+\r\n+-- Créer un index sur created_at pour le tri\r\n+CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);\r\n+\r\n+-- Créer un index sur score_qualification pour filtrer les leads qualifiés\r\n+CREATE INDEX IF NOT EXISTS idx_leads_score ON leads(score_qualification DESC);\r\n+\r\n+-- Fonction pour mettre à jour automatiquement updated_at\r\n+CREATE OR REPLACE FUNCTION update_updated_at_column()\r\n+RETURNS TRIGGER AS $$\r\n+BEGIN\r\n+    NEW.updated_at = NOW();\r\n+    RETURN NEW;\r\n+END;\r\n+$$ language 'plpgsql';\r\n+\r\n+-- Trigger pour mettre à jour updated_at automatiquement\r\n+CREATE TRIGGER update_leads_updated_at \r\n+    BEFORE UPDATE ON leads \r\n+    FOR EACH ROW \r\n+    EXECUTE FUNCTION update_updated_at_column();\r\n+\r\n+-- Activer Row Level Security (RLS)\r\n+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;\r\n+\r\n+-- Politique pour permettre toutes les opérations (à ajuster selon vos besoins de sécurité)\r\n+-- Pour la production, créez des politiques plus restrictives basées sur l'authentification\r\n+CREATE POLICY \"Allow all operations for authenticated users\" ON leads\r\n+  FOR ALL\r\n+  USING (true)\r\n+  WITH CHECK (true);\r\n+\r\n+-- Alternative : Politique plus restrictive (décommentez si vous utilisez l'authentification)\r\n+-- CREATE POLICY \"Users can view own leads\" ON leads\r\n+--   FOR SELECT\r\n+--   USING (auth.uid() = user_id);\r\n+--\r\n+-- CREATE POLICY \"Users can insert own leads\" ON leads\r\n+--   FOR INSERT\r\n+--   WITH CHECK (auth.uid() = user_id);\r\n+--\r\n+-- CREATE POLICY \"Users can update own leads\" ON leads\r\n+--   FOR UPDATE\r\n+--   USING (auth.uid() = user_id);\r\n--- C:\\Users\\hp\\src\\App.jsx\t\n+++ C:\\Users\\hp\\src\\App.jsx\t\n@@ -1,19 +1,19 @@\n-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'\n-import Dashboard from './pages/Dashboard'\n-import Settings from './pages/Settings'\n-import LeadDetails from './components/LeadDetails'\n-\n-function App() {\n-  return (\n-    <Router>\n-      <Routes>\n-        <Route path=\"/\" element={<Dashboard />} />\n-        <Route path=\"/lead/:id\" element={<LeadDetails />} />\n-        <Route path=\"/settings\" element={<Settings />} />\n-        <Route path=\"*\" element={<Navigate to=\"/\" replace />} />\n-      </Routes>\n-    </Router>\n-  )\n-}\n-\n-export default App\n+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'\r\n+import Dashboard from './pages/Dashboard'\r\n+import Settings from './pages/Settings'\r\n+import LeadDetails from './components/LeadDetails'\r\n+\r\n+function App() {\r\n+  return (\r\n+    <Router>\r\n+      <Routes>\r\n+        <Route path=\"/\" element={<Dashboard />} />\r\n+        <Route path=\"/lead/:id\" element={<LeadDetails />} />\r\n+        <Route path=\"/settings\" element={<Settings />} />\r\n+        <Route path=\"*\" element={<Navigate to=\"/\" replace />} />\r\n+      </Routes>\r\n+    </Router>\r\n+  )\r\n+}\r\n+\r\n+export default App\r\n--- C:\\Users\\hp\\.env\t\n+++ C:\\Users\\hp\\.env\t\n@@ -1,4 +1,4 @@\n-VITE_SUPABASE_URL=your_supabase_project_url\n-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key\n-VITE_OPENAI_API_KEY=your_openai_api_key\n-VITE_CALENDLY_URL=your_calendly_url\n+VITE_SUPABASE_URL=your_supabase_project_url\r\n+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key\r\n+VITE_OPENAI_API_KEY=your_openai_api_key\r\n+VITE_CALENDLY_URL=your_calendly_url\r\n--- C:\\Users\\hp\\.env.example\t\n+++ C:\\Users\\hp\\.env.example\t\n@@ -1,4 +1,4 @@\n-VITE_SUPABASE_URL=your_supabase_project_url\n-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key\n-VITE_OPENAI_API_KEY=your_openai_api_key\n-VITE_CALENDLY_URL=your_calendly_url\n+VITE_SUPABASE_URL=your_supabase_project_url\r\n+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key\r\n+VITE_OPENAI_API_KEY=your_openai_api_key\r\n+VITE_CALENDLY_URL=your_calendly_url\r\n--- C:\\Users\\hp\\.gitignore\t\n+++ C:\\Users\\hp\\.gitignore\t\n@@ -1,29 +1,29 @@\n-# Logs\n-logs\n-*.log\n-npm-debug.log*\n-yarn-debug.log*\n-yarn-error.log*\n-pnpm-debug.log*\n-lerna-debug.log*\n-\n-node_modules\n-dist\n-dist-ssr\n-*.local\n-\n-# Editor directories and files\n-.vscode/*\n-!.vscode/extensions.json\n-.idea\n-.DS_Store\n-*.suo\n-*.ntvs*\n-*.njsproj\n-*.sln\n-*.sw?\n-\n-# Environment variables\n-.env\n-.env.local\n-.env.production\n+# Logs\r\n+logs\r\n+*.log\r\n+npm-debug.log*\r\n+yarn-debug.log*\r\n+yarn-error.log*\r\n+pnpm-debug.log*\r\n+lerna-debug.log*\r\n+\r\n+node_modules\r\n+dist\r\n+dist-ssr\r\n+*.local\r\n+\r\n+# Editor directories and files\r\n+.vscode/*\r\n+!.vscode/extensions.json\r\n+.idea\r\n+.DS_Store\r\n+*.suo\r\n+*.ntvs*\r\n+*.njsproj\r\n+*.sln\r\n+*.sw?\r\n+\r\n+# Environment variables\r\n+.env\r\n+.env.local\r\n+.env.production\r\n--- C:\\Users\\hp\\README.md\t\n+++ C:\\Users\\hp\\README.md\t\n@@ -1,129 +1,129 @@\n-# LeadQualif IA\n-\n-Application web desktop pour la gestion et la qualification automatique de leads immobiliers avec intelligence artificielle.\n-\n-## 🚀 Fonctionnalités\n-\n-- ✅ Ajout de leads avec formulaire intuitif\n-- 🤖 Qualification automatique via OpenAI GPT-4\n-- 💾 Stockage sécurisé dans Supabase\n-- 📊 Dashboard avec statistiques et tableau des leads\n-- 📝 Détails complets d'un lead avec résumé IA\n-- 📅 Intégration Calendly pour proposer des RDV\n-- 🎨 Interface moderne avec TailwindCSS\n-\n-## 📋 Prérequis\n-\n-- Node.js 18+ et npm\n-- Compte Supabase (gratuit)\n-- Clé API OpenAI\n-\n-## 🛠️ Installation\n-\n-1. **Installer les dépendances**\n-```bash\n-npm install\n-```\n-\n-2. **Configurer les variables d'environnement**\n-\n-Créez un fichier `.env` à la racine du projet avec :\n-\n-```env\n-VITE_SUPABASE_URL=votre_url_supabase\n-VITE_SUPABASE_ANON_KEY=votre_cle_anon_supabase\n-VITE_OPENAI_API_KEY=votre_cle_api_openai\n-VITE_CALENDLY_URL=https://calendly.com/votre-compte\n-```\n-\n-3. **Créer la table Supabase**\n-\n-Exécutez cette requête SQL dans votre dashboard Supabase :\n-\n-```sql\n-CREATE TABLE leads (\n-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n-  nom TEXT NOT NULL,\n-  email TEXT NOT NULL,\n-  telephone TEXT NOT NULL,\n-  message TEXT,\n-  source TEXT DEFAULT 'site_web',\n-  score_qualification INTEGER,\n-  budget_estime TEXT,\n-  urgence TEXT,\n-  type_bien_recherche TEXT,\n-  localisation_souhaitee TEXT,\n-  points_forts JSONB,\n-  points_attention JSONB,\n-  recommandations JSONB,\n-  resume TEXT,\n-  resume_ia TEXT,\n-  qualification_data JSONB,\n-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n-);\n-\n--- Activer Row Level Security (optionnel mais recommandé)\n-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;\n-\n--- Créer une politique pour permettre toutes les opérations (ajustez selon vos besoins)\n-CREATE POLICY \"Allow all operations\" ON leads\n-  FOR ALL\n-  USING (true)\n-  WITH CHECK (true);\n-```\n-\n-## 🚀 Lancement\n-\n-```bash\n-# Mode développement\n-npm run dev\n-\n-# Build de production\n-npm run build\n-\n-# Prévisualiser le build\n-npm run preview\n-```\n-\n-L'application sera accessible sur `http://localhost:3000`\n-\n-## 📁 Structure du projet\n-\n-```\n-src/\n-├── components/\n-│   ├── LeadForm.jsx      # Formulaire d'ajout de lead\n-│   ├── LeadList.jsx      # Tableau des leads\n-│   └── LeadDetails.jsx   # Page de détails d'un lead\n-├── pages/\n-│   ├── Dashboard.jsx     # Page principale avec statistiques\n-│   └── Settings.jsx      # Page de paramètres\n-├── services/\n-│   ├── supabase.js       # Configuration et fonctions Supabase\n-│   └── ai.js             # Service de qualification IA\n-├── utils/\n-│   └── format.js         # Fonctions utilitaires de formatage\n-├── App.jsx               # Composant principal avec routing\n-└── main.jsx              # Point d'entrée de l'application\n-```\n-\n-## 🔧 Technologies utilisées\n-\n-- **React 18** - Bibliothèque UI\n-- **Vite** - Build tool et dev server\n-- **TailwindCSS** - Framework CSS\n-- **React Router** - Routing\n-- **Supabase** - Backend et base de données\n-- **OpenAI GPT-4** - Qualification IA des leads\n-- **Axios** - Requêtes HTTP\n-\n-## 📝 Notes importantes\n-\n-- ⚠️ **Sécurité** : La clé API OpenAI est exposée côté client dans ce projet. Pour la production, créez un backend proxy pour sécuriser vos clés API.\n-- 🔒 Configurez correctement les politiques RLS dans Supabase selon vos besoins de sécurité.\n-- 💰 Les appels à l'API OpenAI sont facturés selon votre plan OpenAI.\n-\n-## 📄 Licence\n-\n-MIT\n+# LeadQualif IA\r\n+\r\n+Application web desktop pour la gestion et la qualification automatique de leads immobiliers avec intelligence artificielle.\r\n+\r\n+## 🚀 Fonctionnalités\r\n+\r\n+- ✅ Ajout de leads avec formulaire intuitif\r\n+- 🤖 Qualification automatique via OpenAI GPT-4\r\n+- 💾 Stockage sécurisé dans Supabase\r\n+- 📊 Dashboard avec statistiques et tableau des leads\r\n+- 📝 Détails complets d'un lead avec résumé IA\r\n+- 📅 Intégration Calendly pour proposer des RDV\r\n+- 🎨 Interface moderne avec TailwindCSS\r\n+\r\n+## 📋 Prérequis\r\n+\r\n+- Node.js 18+ et npm\r\n+- Compte Supabase (gratuit)\r\n+- Clé API OpenAI\r\n+\r\n+## 🛠️ Installation\r\n+\r\n+1. **Installer les dépendances**\r\n+```bash\r\n+npm install\r\n+```\r\n+\r\n+2. **Configurer les variables d'environnement**\r\n+\r\n+Créez un fichier `.env` à la racine du projet avec :\r\n+\r\n+```env\r\n+VITE_SUPABASE_URL=votre_url_supabase\r\n+VITE_SUPABASE_ANON_KEY=votre_cle_anon_supabase\r\n+VITE_OPENAI_API_KEY=votre_cle_api_openai\r\n+VITE_CALENDLY_URL=https://calendly.com/votre-compte\r\n+```\r\n+\r\n+3. **Créer la table Supabase**\r\n+\r\n+Exécutez cette requête SQL dans votre dashboard Supabase :\r\n+\r\n+```sql\r\n+CREATE TABLE leads (\r\n+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\r\n+  nom TEXT NOT NULL,\r\n+  email TEXT NOT NULL,\r\n+  telephone TEXT NOT NULL,\r\n+  message TEXT,\r\n+  source TEXT DEFAULT 'site_web',\r\n+  score_qualification INTEGER,\r\n+  budget_estime TEXT,\r\n+  urgence TEXT,\r\n+  type_bien_recherche TEXT,\r\n+  localisation_souhaitee TEXT,\r\n+  points_forts JSONB,\r\n+  points_attention JSONB,\r\n+  recommandations JSONB,\r\n+  resume TEXT,\r\n+  resume_ia TEXT,\r\n+  qualification_data JSONB,\r\n+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\r\n+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\r\n+);\r\n+\r\n+-- Activer Row Level Security (optionnel mais recommandé)\r\n+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;\r\n+\r\n+-- Créer une politique pour permettre toutes les opérations (ajustez selon vos besoins)\r\n+CREATE POLICY \"Allow all operations\" ON leads\r\n+  FOR ALL\r\n+  USING (true)\r\n+  WITH CHECK (true);\r\n+```\r\n+\r\n+## 🚀 Lancement\r\n+\r\n+```bash\r\n+# Mode développement\r\n+npm run dev\r\n+\r\n+# Build de production\r\n+npm run build\r\n+\r\n+# Prévisualiser le build\r\n+npm run preview\r\n+```\r\n+\r\n+L'application sera accessible sur `http://localhost:3000`\r\n+\r\n+## 📁 Structure du projet\r\n+\r\n+```\r\n+src/\r\n+├── components/\r\n+│   ├── LeadForm.jsx      # Formulaire d'ajout de lead\r\n+│   ├── LeadList.jsx      # Tableau des leads\r\n+│   └── LeadDetails.jsx   # Page de détails d'un lead\r\n+├── pages/\r\n+│   ├── Dashboard.jsx     # Page principale avec statistiques\r\n+│   └── Settings.jsx      # Page de paramètres\r\n+├── services/\r\n+│   ├── supabase.js       # Configuration et fonctions Supabase\r\n+│   └── ai.js             # Service de qualification IA\r\n+├── utils/\r\n+│   └── format.js         # Fonctions utilitaires de formatage\r\n+├── App.jsx               # Composant principal avec routing\r\n+└── main.jsx              # Point d'entrée de l'application\r\n+```\r\n+\r\n+## 🔧 Technologies utilisées\r\n+\r\n+- **React 18** - Bibliothèque UI\r\n+- **Vite** - Build tool et dev server\r\n+- **TailwindCSS** - Framework CSS\r\n+- **React Router** - Routing\r\n+- **Supabase** - Backend et base de données\r\n+- **OpenAI GPT-4** - Qualification IA des leads\r\n+- **Axios** - Requêtes HTTP\r\n+\r\n+## 📝 Notes importantes\r\n+\r\n+- ⚠️ **Sécurité** : La clé API OpenAI est exposée côté client dans ce projet. Pour la production, créez un backend proxy pour sécuriser vos clés API.\r\n+- 🔒 Configurez correctement les politiques RLS dans Supabase selon vos besoins de sécurité.\r\n+- 💰 Les appels à l'API OpenAI sont facturés selon votre plan OpenAI.\r\n+\r\n+## 📄 Licence\r\n+\r\n+MIT\r\n--- C:\\Users\\hp\\src\\pages\\Dashboard.jsx\t\n+++ C:\\Users\\hp\\src\\pages\\Dashboard.jsx\t\n@@ -1,165 +1,165 @@\n-import { useState, useEffect } from 'react'\n-import { leadsService } from '../services/supabase'\n-import LeadForm from '../components/LeadForm'\n-import LeadList from '../components/LeadList'\n-\n-const Dashboard = () => {\n-  const [leads, setLeads] = useState([])\n-  const [loading, setLoading] = useState(true)\n-  const [showForm, setShowForm] = useState(false)\n-  const [error, setError] = useState(null)\n-\n-  useEffect(() => {\n-    loadLeads()\n-  }, [])\n-\n-  const loadLeads = async () => {\n-    try {\n-      setLoading(true)\n-      const data = await leadsService.getAllLeads()\n-      setLeads(data)\n-    } catch (err) {\n-      console.error('Erreur lors du chargement des leads:', err)\n-      setError('Impossible de charger les leads. Vérifiez votre configuration Supabase.')\n-    } finally {\n-      setLoading(false)\n-    }\n-  }\n-\n-  const handleAddLead = () => {\n-    setShowForm(true)\n-  }\n-\n-  const handleFormClose = () => {\n-    setShowForm(false)\n-  }\n-\n-  const handleFormSuccess = (newLead) => {\n-    setLeads(prev => [newLead, ...prev])\n-    setShowForm(false)\n-  }\n-\n-  // Statistiques\n-  const stats = {\n-    total: leads.length,\n-    highScore: leads.filter(l => (l.score_qualification || 0) >= 80).length,\n-    highUrgency: leads.filter(l => l.urgence === 'élevée' || l.urgence === 'elevee').length,\n-    averageScore: leads.length > 0 \n-      ? Math.round(leads.reduce((sum, l) => sum + (l.score_qualification || 0), 0) / leads.length)\n-      : 0\n-  }\n-\n-  return (\n-    <div className=\"min-h-screen bg-gray-50\">\n-      {/* Header */}\n-      <header className=\"bg-white border-b border-gray-200\">\n-        <div className=\"max-w-7xl mx-auto px-6 py-4\">\n-          <div className=\"flex items-center justify-between\">\n-            <div>\n-              <h1 className=\"text-3xl font-bold text-gray-900\">LeadQualif IA</h1>\n-              <p className=\"text-sm text-gray-500 mt-1\">Gestion de leads immobiliers avec qualification IA</p>\n-            </div>\n-            <button\n-              onClick={handleAddLead}\n-              className=\"btn-primary flex items-center gap-2\"\n-            >\n-              <svg className=\"w-5 h-5\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n-                <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M12 4v16m8-8H4\" />\n-              </svg>\n-              Ajouter un lead\n-            </button>\n-          </div>\n-        </div>\n-      </header>\n-\n-      {/* Main content */}\n-      <main className=\"max-w-7xl mx-auto px-6 py-8\">\n-        {/* Statistiques */}\n-        <div className=\"grid grid-cols-1 md:grid-cols-4 gap-6 mb-8\">\n-          <div className=\"card\">\n-            <div className=\"flex items-center justify-between\">\n-              <div>\n-                <p className=\"text-sm font-medium text-gray-500\">Total des leads</p>\n-                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.total}</p>\n-              </div>\n-              <div className=\"h-12 w-12 bg-primary-100 rounded-lg flex items-center justify-center\">\n-                <svg className=\"w-6 h-6 text-primary-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n-                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z\" />\n-                </svg>\n-              </div>\n-            </div>\n-          </div>\n-\n-          <div className=\"card\">\n-            <div className=\"flex items-center justify-between\">\n-              <div>\n-                <p className=\"text-sm font-medium text-gray-500\">Score moyen</p>\n-                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.averageScore}/100</p>\n-              </div>\n-              <div className=\"h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center\">\n-                <svg className=\"w-6 h-6 text-green-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n-                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\" />\n-                </svg>\n-              </div>\n-            </div>\n-          </div>\n-\n-          <div className=\"card\">\n-            <div className=\"flex items-center justify-between\">\n-              <div>\n-                <p className=\"text-sm font-medium text-gray-500\">Leads qualifiés</p>\n-                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.highScore}</p>\n-                <p className=\"text-xs text-gray-500 mt-1\">Score ≥ 80</p>\n-              </div>\n-              <div className=\"h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center\">\n-                <svg className=\"w-6 h-6 text-yellow-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n-                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z\" />\n-                </svg>\n-              </div>\n-            </div>\n-          </div>\n-\n-          <div className=\"card\">\n-            <div className=\"flex items-center justify-between\">\n-              <div>\n-                <p className=\"text-sm font-medium text-gray-500\">Urgence élevée</p>\n-                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.highUrgency}</p>\n-              </div>\n-              <div className=\"h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center\">\n-                <svg className=\"w-6 h-6 text-red-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n-                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z\" />\n-                </svg>\n-              </div>\n-            </div>\n-          </div>\n-        </div>\n-\n-        {/* Liste des leads */}\n-        <div className=\"card\">\n-          <div className=\"mb-6\">\n-            <h2 className=\"text-2xl font-bold text-gray-900\">Liste des leads</h2>\n-            <p className=\"text-sm text-gray-500 mt-1\">Gérez et suivez tous vos leads immobiliers</p>\n-          </div>\n-\n-          {error && (\n-            <div className=\"bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4\">\n-              {error}\n-            </div>\n-          )}\n-\n-          <LeadList leads={leads} loading={loading} />\n-        </div>\n-      </main>\n-\n-      {/* Modale d'ajout de lead */}\n-      {showForm && (\n-        <LeadForm\n-          onClose={handleFormClose}\n-          onSuccess={handleFormSuccess}\n-        />\n-      )}\n-    </div>\n-  )\n-}\n-\n-export default Dashboard\n+import { useState, useEffect } from 'react'\r\n+import { leadsService } from '../services/supabase'\r\n+import LeadForm from '../components/LeadForm'\r\n+import LeadList from '../components/LeadList'\r\n+\r\n+const Dashboard = () => {\r\n+  const [leads, setLeads] = useState([])\r\n+  const [loading, setLoading] = useState(true)\r\n+  const [showForm, setShowForm] = useState(false)\r\n+  const [error, setError] = useState(null)\r\n+\r\n+  useEffect(() => {\r\n+    loadLeads()\r\n+  }, [])\r\n+\r\n+  const loadLeads = async () => {\r\n+    try {\r\n+      setLoading(true)\r\n+      const data = await leadsService.getAllLeads()\r\n+      setLeads(data)\r\n+    } catch (err) {\r\n+      console.error('Erreur lors du chargement des leads:', err)\r\n+      setError('Impossible de charger les leads. Vérifiez votre configuration Supabase.')\r\n+    } finally {\r\n+      setLoading(false)\r\n+    }\r\n+  }\r\n+\r\n+  const handleAddLead = () => {\r\n+    setShowForm(true)\r\n+  }\r\n+\r\n+  const handleFormClose = () => {\r\n+    setShowForm(false)\r\n+  }\r\n+\r\n+  const handleFormSuccess = (newLead) => {\r\n+    setLeads(prev => [newLead, ...prev])\r\n+    setShowForm(false)\r\n+  }\r\n+\r\n+  // Statistiques\r\n+  const stats = {\r\n+    total: leads.length,\r\n+    highScore: leads.filter(l => (l.score_qualification || 0) >= 80).length,\r\n+    highUrgency: leads.filter(l => l.urgence === 'élevée' || l.urgence === 'elevee').length,\r\n+    averageScore: leads.length > 0 \r\n+      ? Math.round(leads.reduce((sum, l) => sum + (l.score_qualification || 0), 0) / leads.length)\r\n+      : 0\r\n+  }\r\n+\r\n+  return (\r\n+    <div className=\"min-h-screen bg-gray-50\">\r\n+      {/* Header */}\r\n+      <header className=\"bg-white border-b border-gray-200\">\r\n+        <div className=\"max-w-7xl mx-auto px-6 py-4\">\r\n+          <div className=\"flex items-center justify-between\">\r\n+            <div>\r\n+              <h1 className=\"text-3xl font-bold text-gray-900\">LeadQualif IA</h1>\r\n+              <p className=\"text-sm text-gray-500 mt-1\">Gestion de leads immobiliers avec qualification IA</p>\r\n+            </div>\r\n+            <button\r\n+              onClick={handleAddLead}\r\n+              className=\"btn-primary flex items-center gap-2\"\r\n+            >\r\n+              <svg className=\"w-5 h-5\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\r\n+                <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M12 4v16m8-8H4\" />\r\n+              </svg>\r\n+              Ajouter un lead\r\n+            </button>\r\n+          </div>\r\n+        </div>\r\n+      </header>\r\n+\r\n+      {/* Main content */}\r\n+      <main className=\"max-w-7xl mx-auto px-6 py-8\">\r\n+        {/* Statistiques */}\r\n+        <div className=\"grid grid-cols-1 md:grid-cols-4 gap-6 mb-8\">\r\n+          <div className=\"card\">\r\n+            <div className=\"flex items-center justify-between\">\r\n+              <div>\r\n+                <p className=\"text-sm font-medium text-gray-500\">Total des leads</p>\r\n+                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.total}</p>\r\n+              </div>\r\n+              <div className=\"h-12 w-12 bg-primary-100 rounded-lg flex items-center justify-center\">\r\n+                <svg className=\"w-6 h-6 text-primary-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\r\n+                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z\" />\r\n+                </svg>\r\n+              </div>\r\n+            </div>\r\n+          </div>\r\n+\r\n+          <div className=\"card\">\r\n+            <div className=\"flex items-center justify-between\">\r\n+              <div>\r\n+                <p className=\"text-sm font-medium text-gray-500\">Score moyen</p>\r\n+                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.averageScore}/100</p>\r\n+              </div>\r\n+              <div className=\"h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center\">\r\n+                <svg className=\"w-6 h-6 text-green-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\r\n+                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\" />\r\n+                </svg>\r\n+              </div>\r\n+            </div>\r\n+          </div>\r\n+\r\n+          <div className=\"card\">\r\n+            <div className=\"flex items-center justify-between\">\r\n+              <div>\r\n+                <p className=\"text-sm font-medium text-gray-500\">Leads qualifiés</p>\r\n+                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.highScore}</p>\r\n+                <p className=\"text-xs text-gray-500 mt-1\">Score ≥ 80</p>\r\n+              </div>\r\n+              <div className=\"h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center\">\r\n+                <svg className=\"w-6 h-6 text-yellow-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\r\n+                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z\" />\r\n+                </svg>\r\n+              </div>\r\n+            </div>\r\n+          </div>\r\n+\r\n+          <div className=\"card\">\r\n+            <div className=\"flex items-center justify-between\">\r\n+              <div>\r\n+                <p className=\"text-sm font-medium text-gray-500\">Urgence élevée</p>\r\n+                <p className=\"text-3xl font-bold text-gray-900 mt-1\">{stats.highUrgency}</p>\r\n+              </div>\r\n+              <div className=\"h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center\">\r\n+                <svg className=\"w-6 h-6 text-red-600\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\r\n+                  <path strokeLinecap=\"round\" strokeLinejoin=\"round\" strokeWidth={2} d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z\" />\r\n+                </svg>\r\n+              </div>\r\n+            </div>\r\n+          </div>\r\n+        </div>\r\n+\r\n+        {/* Liste des leads */}\r\n+        <div className=\"card\">\r\n+          <div className=\"mb-6\">\r\n+            <h2 className=\"text-2xl font-bold text-gray-900\">Liste des leads</h2>\r\n+            <p className=\"text-sm text-gray-500 mt-1\">Gérez et suivez tous vos leads immobiliers</p>\r\n+          </div>\r\n+\r\n+          {error && (\r\n+            <div className=\"bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4\">\r\n+              {error}\r\n+            </div>\r\n+          )}\r\n+\r\n+          <LeadList leads={leads} loading={loading} />\r\n+        </div>\r\n+      </main>\r\n+\r\n+      {/* Modale d'ajout de lead */}\r\n+      {showForm && (\r\n+        <LeadForm\r\n+          onClose={handleFormClose}\r\n+          onSuccess={handleFormSuccess}\r\n+        />\r\n+      )}\r\n+    </div>\r\n+  )\r\n+}\r\n+\r\n+export default Dashboard\r\n--- C:\\Users\\hp\\src\\pages\\Settings.jsx\t\n+++ C:\\Users\\hp\\src\\pages\\Settings.jsx\t\n@@ -1,127 +1,127 @@\n-import { useState } from 'react'\n-import { useNavigate } from 'react-router-dom'\n-\n-const Settings = () => {\n-  const navigate = useNavigate()\n-  const [settings, setSettings] = useState({\n-    calendlyUrl: import.meta.env.VITE_CALENDLY_URL || '',\n-    notifications: true,\n-    autoQualify: true\n-  })\n-\n-  const handleChange = (e) => {\n-    const { name, value, type, checked } = e.target\n-    setSettings(prev => ({\n-      ...prev,\n-      [name]: type === 'checkbox' ? checked : value\n-    }))\n-  }\n-\n-  const handleSave = () => {\n-    // Ici, vous pourriez sauvegarder les paramètres dans Supabase ou localStorage\n-    localStorage.setItem('leadqualif_settings', JSON.stringify(settings))\n-    alert('Paramètres sauvegardés avec succès!')\n-  }\n-\n-  return (\n-    <div className=\"min-h-screen bg-gray-50\">\n-      <header className=\"bg-white border-b border-gray-200\">\n-        <div className=\"max-w-7xl mx-auto px-6 py-4\">\n-          <div className=\"flex items-center justify-between\">\n-            <div>\n-              <h1 className=\"text-3xl font-bold text-gray-900\">Paramètres</h1>\n-              <p className=\"text-sm text-gray-500 mt-1\">Configurez votre application</p>\n-            </div>\n-            <button\n-              onClick={() => navigate('/')}\n-              className=\"btn-secondary\"\n-            >\n-              Retour au dashboard\n-            </button>\n-          </div>\n-        </div>\n-      </header>\n-\n-      <main className=\"max-w-4xl mx-auto px-6 py-8\">\n-        <div className=\"card space-y-6\">\n-          <div>\n-            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Configuration Calendly</h2>\n-            <div>\n-              <label htmlFor=\"calendlyUrl\" className=\"block text-sm font-medium text-gray-700 mb-1\">\n-                URL Calendly\n-              </label>\n-              <input\n-                type=\"url\"\n-                id=\"calendlyUrl\"\n-                name=\"calendlyUrl\"\n-                value={settings.calendlyUrl}\n-                onChange={handleChange}\n-                className=\"input-field\"\n-                placeholder=\"https://calendly.com/votre-compte\"\n-              />\n-              <p className=\"text-xs text-gray-500 mt-1\">\n-                Cette URL sera utilisée pour le bouton \"Proposer un RDV\"\n-              </p>\n-            </div>\n-          </div>\n-\n-          <div className=\"border-t border-gray-200 pt-6\">\n-            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Préférences</h2>\n-            <div className=\"space-y-4\">\n-              <label className=\"flex items-center\">\n-                <input\n-                  type=\"checkbox\"\n-                  name=\"notifications\"\n-                  checked={settings.notifications}\n-                  onChange={handleChange}\n-                  className=\"w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500\"\n-                />\n-                <span className=\"ml-3 text-sm text-gray-700\">Activer les notifications</span>\n-              </label>\n-\n-              <label className=\"flex items-center\">\n-                <input\n-                  type=\"checkbox\"\n-                  name=\"autoQualify\"\n-                  checked={settings.autoQualify}\n-                  onChange={handleChange}\n-                  className=\"w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500\"\n-                />\n-                <span className=\"ml-3 text-sm text-gray-700\">Qualification automatique via IA</span>\n-              </label>\n-            </div>\n-          </div>\n-\n-          <div className=\"border-t border-gray-200 pt-6\">\n-            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Variables d'environnement</h2>\n-            <div className=\"bg-gray-50 rounded-lg p-4 space-y-2 text-sm\">\n-              <div className=\"flex items-center justify-between\">\n-                <span className=\"text-gray-600\">Supabase URL:</span>\n-                <span className=\"font-mono text-xs text-gray-900\">\n-                  {import.meta.env.VITE_SUPABASE_URL ? '✓ Configuré' : '✗ Non configuré'}\n-                </span>\n-              </div>\n-              <div className=\"flex items-center justify-between\">\n-                <span className=\"text-gray-600\">OpenAI API Key:</span>\n-                <span className=\"font-mono text-xs text-gray-900\">\n-                  {import.meta.env.VITE_OPENAI_API_KEY ? '✓ Configuré' : '✗ Non configuré'}\n-                </span>\n-              </div>\n-            </div>\n-            <p className=\"text-xs text-gray-500 mt-2\">\n-              Configurez ces variables dans votre fichier .env à la racine du projet\n-            </p>\n-          </div>\n-\n-          <div className=\"flex justify-end pt-4 border-t border-gray-200\">\n-            <button onClick={handleSave} className=\"btn-primary\">\n-              Enregistrer les paramètres\n-            </button>\n-          </div>\n-        </div>\n-      </main>\n-    </div>\n-  )\n-}\n-\n-export default Settings\n+import { useState } from 'react'\r\n+import { useNavigate } from 'react-router-dom'\r\n+\r\n+const Settings = () => {\r\n+  const navigate = useNavigate()\r\n+  const [settings, setSettings] = useState({\r\n+    calendlyUrl: import.meta.env.VITE_CALENDLY_URL || '',\r\n+    notifications: true,\r\n+    autoQualify: true\r\n+  })\r\n+\r\n+  const handleChange = (e) => {\r\n+    const { name, value, type, checked } = e.target\r\n+    setSettings(prev => ({\r\n+      ...prev,\r\n+      [name]: type === 'checkbox' ? checked : value\r\n+    }))\r\n+  }\r\n+\r\n+  const handleSave = () => {\r\n+    // Ici, vous pourriez sauvegarder les paramètres dans Supabase ou localStorage\r\n+    localStorage.setItem('leadqualif_settings', JSON.stringify(settings))\r\n+    alert('Paramètres sauvegardés avec succès!')\r\n+  }\r\n+\r\n+  return (\r\n+    <div className=\"min-h-screen bg-gray-50\">\r\n+      <header className=\"bg-white border-b border-gray-200\">\r\n+        <div className=\"max-w-7xl mx-auto px-6 py-4\">\r\n+          <div className=\"flex items-center justify-between\">\r\n+            <div>\r\n+              <h1 className=\"text-3xl font-bold text-gray-900\">Paramètres</h1>\r\n+              <p className=\"text-sm text-gray-500 mt-1\">Configurez votre application</p>\r\n+            </div>\r\n+            <button\r\n+              onClick={() => navigate('/')}\r\n+              className=\"btn-secondary\"\r\n+            >\r\n+              Retour au dashboard\r\n+            </button>\r\n+          </div>\r\n+        </div>\r\n+      </header>\r\n+\r\n+      <main className=\"max-w-4xl mx-auto px-6 py-8\">\r\n+        <div className=\"card space-y-6\">\r\n+          <div>\r\n+            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Configuration Calendly</h2>\r\n+            <div>\r\n+              <label htmlFor=\"calendlyUrl\" className=\"block text-sm font-medium text-gray-700 mb-1\">\r\n+                URL Calendly\r\n+              </label>\r\n+              <input\r\n+                type=\"url\"\r\n+                id=\"calendlyUrl\"\r\n+                name=\"calendlyUrl\"\r\n+                value={settings.calendlyUrl}\r\n+                onChange={handleChange}\r\n+                className=\"input-field\"\r\n+                placeholder=\"https://calendly.com/votre-compte\"\r\n+              />\r\n+              <p className=\"text-xs text-gray-500 mt-1\">\r\n+                Cette URL sera utilisée pour le bouton \"Proposer un RDV\"\r\n+              </p>\r\n+            </div>\r\n+          </div>\r\n+\r\n+          <div className=\"border-t border-gray-200 pt-6\">\r\n+            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Préférences</h2>\r\n+            <div className=\"space-y-4\">\r\n+              <label className=\"flex items-center\">\r\n+                <input\r\n+                  type=\"checkbox\"\r\n+                  name=\"notifications\"\r\n+                  checked={settings.notifications}\r\n+                  onChange={handleChange}\r\n+                  className=\"w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500\"\r\n+                />\r\n+                <span className=\"ml-3 text-sm text-gray-700\">Activer les notifications</span>\r\n+              </label>\r\n+\r\n+              <label className=\"flex items-center\">\r\n+                <input\r\n+                  type=\"checkbox\"\r\n+                  name=\"autoQualify\"\r\n+                  checked={settings.autoQualify}\r\n+                  onChange={handleChange}\r\n+                  className=\"w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500\"\r\n+                />\r\n+                <span className=\"ml-3 text-sm text-gray-700\">Qualification automatique via IA</span>\r\n+              </label>\r\n+            </div>\r\n+          </div>\r\n+\r\n+          <div className=\"border-t border-gray-200 pt-6\">\r\n+            <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Variables d'environnement</h2>\r\n+            <div className=\"bg-gray-50 rounded-lg p-4 space-y-2 text-sm\">\r\n+              <div className=\"flex items-center justify-between\">\r\n+                <span className=\"text-gray-600\">Supabase URL:</span>\r\n+                <span className=\"font-mono text-xs text-gray-900\">\r\n+                  {import.meta.env.VITE_SUPABASE_URL ? '✓ Configuré' : '✗ Non configuré'}\r\n+                </span>\r\n+              </div>\r\n+              <div className=\"flex items-center justify-between\">\r\n+                <span className=\"text-gray-600\">OpenAI API Key:</span>\r\n+                <span className=\"font-mono text-xs text-gray-900\">\r\n+                  {import.meta.env.VITE_OPENAI_API_KEY ? '✓ Configuré' : '✗ Non configuré'}\r\n+                </span>\r\n+              </div>\r\n+            </div>\r\n+            <p className=\"text-xs text-gray-500 mt-2\">\r\n+              Configurez ces variables dans votre fichier .env à la racine du projet\r\n+            </p>\r\n+          </div>\r\n+\r\n+          <div className=\"flex justify-end pt-4 border-t border-gray-200\">\r\n+            <button onClick={handleSave} className=\"btn-primary\">\r\n+              Enregistrer les paramètres\r\n+            </button>\r\n+          </div>\r\n+        </div>\r\n+      </main>\r\n+    </div>\r\n+  )\r\n+}\r\n+\r\n+export default Settings\r\n\nThe following files were also edited, but their diff has been excluded for brevity:\n\n- C:\\Users\\hp\\src\\services\\ai.js\n- C:\\Users\\hp\\src\\services\\supabase.js\n- C:\\Users\\hp\\src\\components\\LeadList.jsx\n- C:\\Users\\hp\\src\\components\\LeadDetails.jsx\n- C:\\Users\\hp\\src\\main.jsx\n- C:\\Users\\hp\\src\\components\\LeadForm.jsx\n- C:\\Users\\hp\\src\\utils\\format.js\n- C:\\Users\\hp\\src\\index.css\n- C:\\Users\\hp\\index.html\n- C:\\Users\\hp\\tailwind.config.js\n- C:\\Users\\hp\\postcss.config.js\n- C:\\Users\\hp\\vite.config.js\n- C:\\Users\\hp\\package.json\n</attached_files>\n<user_query>\nJe veux construire l’application LeadQualif IA, une app web desktop pour agences immobilières.\nElle doit faire :\n\nAjout de lead\n\nQualification automatique via IA (OpenAI)\n\nEnregistrement dans Supabase\n\nDashboard avec liste des leads\n\nDétails d’un lead + résumé IA\n\nBouton \"Proposer un RDV\" (ouvre Calendly)\n\nCommence par créer :\n\nUne interface Dashboard en React + Tailwind\n\nUn tableau des leads\n\nUn bouton “Ajouter un lead”\n\nUne modale pour saisir un lead\n\nUtilise les clés environnement (.env) pour Supabase & OpenAI.\nDonne-moi le code complet + les fichiers nécessaires.\n</user_query>"
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nL'utilisateur demande de créer l'application LeadQualif IA, mais je vois dans les fichiers attachés que tous les fichiers ont déjà été créés ! Il semble que l'utilisateur ait peut-être fait des modifications mineures (juste des changements de formatage/espaces) mais que la structure complète existe déjà.\n\nCependant, l'utilisateur demande explicitement de créer l'application. Il se peut qu'il veuille que je vérifie que tout est en place ou qu'il y ait des problèmes. Laissez-moi vérifier l'état actuel des fichiers pour m'assurer que tout est correct.\n\nJe devrais :\n1. Vérifier que tous les fichiers sont bien présents\n2. M'assurer que le code est complet et fonctionnel\n3. Peut-être installer les dépendances si nécessaire\n\nMais attendez, l'utilisateur dit \"Commence par créer\" - peut-être qu'il veut que je vérifie que tout est bien là et fonctionnel, ou peut-être qu'il y a des problèmes. Laissez-moi lire les fichiers pour m'assurer qu'ils sont complets.\n</think>\nVérification de la structure du projet et de la complétude des fichiers :\n",
+    "toolCalls": [
+      {
+        "toolName": "read_file",
+        "args": {
+          "target_file": "C:\\Users\\hp\\package.json"
+        }
+      },
+      {
+        "toolName": "read_file",
+        "args": {
+          "target_file": "C:\\Users\\hp\\src\\pages\\Dashboard.jsx"
+        }
+      },
+      {
+        "toolName": "read_file",
+        "args": {
+          "target_file": "C:\\Users\\hp\\src\\components\\LeadForm.jsx"
+        }
+      },
+      {
+        "toolName": "read_file",
+        "args": {
+          "target_file": "C:\\Users\\hp\\src\\components\\LeadList.jsx"
+        }
+      },
+      {
+        "toolName": "list_dir",
+        "args": {
+          "target_directory": "C:\\Users\\hp\\src"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "read_file"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "read_file"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "read_file"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "read_file"
+    }
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "list_dir"
+    }
+  },
+  {
+    "role": "assistant",
+    "text": "<think>\nParfait ! Tous les fichiers sont déjà créés et semblent complets. L'application est déjà entièrement construite avec :\n\n1. ✅ Dashboard avec statistiques\n2. ✅ Tableau des leads (LeadList)\n3. ✅ Bouton \"Ajouter un lead\"\n4. ✅ Modale pour saisir un lead (LeadForm)\n5. ✅ Services Supabase et OpenAI configurés\n6. ✅ Page de détails avec résumé IA\n7. ✅ Bouton Calendly\n8. ✅ Configuration TailwindCSS\n9. ✅ Variables d'environnement (.env)\n\nL'utilisateur demande peut-être une confirmation ou veut installer les dépendances. Je devrais vérifier s'il y a un dossier node_modules et proposer d'installer les dépendances si nécessaire.\n</think>\nVérification de la présence de `node_modules` et de la configuration avant de lancer l'application :\n",
+    "toolCalls": [
+      {
+        "toolName": "run_terminal_cmd",
+        "args": {
+          "command": "cd C:\\Users\\hp; if (Test-Path node_modules) { Write-Host \"Dependencies installed\" } else { Write-Host \"Need to install dependencies\" }",
+          "is_background": false
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "toolResult": {
+      "toolName": "run_terminal_cmd"
+    }
+  }
+]

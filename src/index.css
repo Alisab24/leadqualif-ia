@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================
+   BASE
+   ===================== */
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+/* =====================
+   COMPONENTS
+   ===================== */
+@layer components {
+  /* Boutons */
+  .btn-primary {
+    @apply w-full sm:w-auto
+           bg-blue-600 hover:bg-blue-700
+           text-white font-medium
+           py-3 px-5
+           rounded-lg
+           transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply w-full sm:w-auto
+           bg-gray-200 hover:bg-gray-300
+           text-gray-800 font-medium
+           py-3 px-5
+           rounded-lg
+           transition-colors duration-200;
+  }
+
+  /* Champs de formulaire */
+  .input-field {
+    @apply w-full
+           px-4 py-3
+           border border-gray-300
+           rounded-lg
+           text-base
+           focus:ring-2 focus:ring-blue-500
+           focus:border-transparent
+           outline-none
+           transition-all;
+  }
+
+  /* Card / blocs */
+  .card {
+    @apply bg-white
+           rounded-xl
+           border border-gray-200
+           p-5 sm:p-6
+           shadow-sm;
+  }
+
+  /* Container responsive */
+  .container {
+    @apply max-w-xl
+           sm:max-w-2xl
+           lg:max-w-3xl
+           mx-auto
+           px-4 sm:px-6 lg:px-8;
+  }
+}
