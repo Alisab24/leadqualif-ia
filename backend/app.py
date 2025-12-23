@@ -137,7 +137,15 @@ def create_default_user():
     except Exception as e:
         print(f"Info DB: {e}")
 
+import os # <--- TRÈS IMPORTANT : Doit être présent en haut du fichier
+
+# ... (votre code précédent) ...
+
 if __name__ == '__main__':
     app = create_app()
-    # "0.0.0.0" est OBLIGATOIRE pour que l'IP 172... fonctionne
-    app.run(host='0.0.0.0', port=5005, debug=True)
+    # Render définit automatiquement une variable "PORT"
+    # Si elle n'existe pas (en local), on utilise 5000
+    port = int(os.environ.get("PORT", 5000))
+    
+    # host='0.0.0.0' est OBLIGATOIRE sur Render
+    app.run(host='0.0.0.0', port=port)
