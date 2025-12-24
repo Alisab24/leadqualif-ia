@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, Search, RefreshCw, FileText } from 'lucide-react'
+import { 
+  LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
+  Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, FileText as FileIcon 
+} from 'lucide-react'
 
 const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedLead, setSelectedLead] = useState(null) // LEAD SÉLECTIONNÉ POUR LA MODALE
+
+  // États Annonces
   const [annonceForm, setAnnonceForm] = useState({ adresse: '', pieces_surface: '', description: '', dpe: '', prix: '' })
   const [annonceGeneree, setAnnonceGeneree] = useState(null)
   const [tempsEconomise, setTempsEconomise] = useState(5)
@@ -19,8 +25,9 @@ export default function Dashboard() {
         if (data.status === 'success' && data.data.leads_chauds) {
           setLeads(data.data.leads_chauds.map(l => ({
             ...l, 
-            score: l.score_ia || 0, // Harmonisation du nom
-            nom: l.nom || 'Anonyme'
+            score: l.score_ia || 0,
+            nom: l.nom || 'Anonyme',
+            type_bien: l.type_bien || 'Non renseigné'
           })))
         }
       } catch (e) { console.error(e) } finally { setLoading(false) }
@@ -40,9 +47,61 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 relative">
       
-      {/* BARRE DE NAVIGATION (Largeur PC) */}
+      {/* --- MODALE DÉTAIL LEAD (POP-UP) --- */}
+      {selectedLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            
+            {/* Header Modale */}
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Users size={20} className="text-blue-600"/> Fiche Lead
+              </h3>
+              <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-200 rounded-full transition">
+                <X size={20} className="text-slate-500"/>
+              </button>
+            </div>
+
+            {/* Corps Modale */}
+            <div className="p-8 grid grid-cols-2 gap-8">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Contact</p>
+                <p className="text-xl font-bold text-slate-900 mb-1">{selectedLead.nom}</p>
+                <p className="text-slate-600 flex items-center gap-2 mb-1">📧 {selectedLead.email}</p>
+                <p className="text-slate-600 flex items-center gap-2">📞 {selectedLead.telephone || 'Non renseigné'}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Projet</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedLead.score >= 8 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                    Score IA : {selectedLead.score}/10
+                  </span>
+                </div>
+                <p className="text-sm text-slate-700"><strong>Budget:</strong> {selectedLead.budget ? selectedLead.budget.toLocaleString() + ' €' : 'N/A'}</p>
+                <p className="text-sm text-slate-700"><strong>Recherche:</strong> {selectedLead.type_bien}</p>
+              </div>
+            </div>
+
+            {/* Footer Modale (Actions Futures) */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex gap-3 justify-end">
+              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 hover:border-blue-200 transition text-sm font-medium">
+                <Phone size={16}/> Appeler
+              </button>
+              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-green-600 hover:border-green-200 transition text-sm font-medium">
+                <MessageCircle size={16}/> WhatsApp
+              </button>
+              <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-sm font-medium shadow-lg shadow-blue-900/10">
+                <Calendar size={16}/> RDV
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- NAVIGATION --- */}
       <nav className="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -58,10 +117,10 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* CONTENU PRINCIPAL CENTRÉ */}
+      {/* --- CONTENU --- */}
       <main className="max-w-7xl mx-auto p-8 space-y-8">
         
-        {/* CARTES STATS (Grille 3 colonnes sur PC) */}
+        {/* STATS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
             <div>
@@ -87,7 +146,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* TABLEAU DES LEADS (2/3 écran) */}
+          {/* TABLEAU */}
           <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
               <h2 className="text-lg font-bold flex items-center gap-2"><Users className="text-blue-600"/> Liste des Leads</h2>
@@ -106,7 +165,7 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {leadsTries.map(lead => {
-                    const isHot = lead.score >= 8; // Lead Chaud
+                    const isHot = lead.score >= 8;
                     return (
                       <tr key={lead.id} className={`transition-colors ${isHot ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
                         <td className="p-4">
@@ -117,7 +176,6 @@ export default function Dashboard() {
                           {lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}
                         </td>
                         <td className="p-4">
-                          {/* BADGE DE SCORE */}
                           <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
                             isHot ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-500' : 
                             'bg-slate-100 text-slate-600'
@@ -126,8 +184,12 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className="p-4 text-right">
-                           <button onClick={() => alert(JSON.stringify(lead, null, 2))} className="text-slate-400 hover:text-blue-600 font-medium text-xs border border-slate-200 px-3 py-1 rounded hover:bg-white transition">
-                             Voir
+                          {/* BOUTON DÉTAIL : Ouvre la Modale */}
+                           <button 
+                             onClick={() => setSelectedLead(lead)} 
+                             className="text-slate-500 hover:text-blue-600 font-medium text-xs border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-white hover:border-blue-300 transition flex items-center gap-2 ml-auto bg-white"
+                           >
+                             <Search size={14}/> Détails
                            </button>
                         </td>
                       </tr>
@@ -139,7 +201,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* GÉNÉRATEUR ANNONCES (1/3 écran) */}
+          {/* GÉNÉRATEUR ANNONCE */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-fit sticky top-24">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Zap className="text-yellow-500" fill="currentColor"/> Rédacteur IA</h2>
             <form onSubmit={handleAnnonce} className="space-y-3">
