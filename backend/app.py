@@ -61,47 +61,37 @@ def create_app(config_class=Config):
         return jsonify({'message': 'Identifiants incorrects'}), 401
 
     # --- Réception Formulaire Client ---
-    @app.route('/api/submit-lead', methods=['POST'])
-    def submit_lead():
-        try:
-            data = request.json
-            print(f"📥 Lead reçu sur le port 5005 : {data.get('email')}")
+    @app.route('/api/submit-lead', methods=['POST', 'OPTIONS'])
+def submit_lead():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+        
+    try:
+        data = request.json
+        # On force la création des tables au cas où
+        db.create_all()
 
-            # Calcul du Score IA
-            prix = int(data.get('prix', 0))
-            adresse = data.get('adresse', '') or data.get('adresse_bien_interesse', '')
-            score = 5
-            reco = "À traiter."
+        # On crée le lead en utilisant les noms exacts du models.py
+        nouveau_lead = Lead(
+            nom=data.get('nom'),           # Doit être 'nom' dans models.py
+            email=data.get('email'),
+            telephone=data.get('telephone'),
+            type_bien=data.get('adresse'), # On range l'adresse dans 'type_bien'
+            budget=int(data.get('prix') or 0),
+            score_ia=9 if int(data.get('prix') or 0) > 400000 else 5,
+            statut="Nouveau"
+        )
+        
+        db.session.add(nouveau_lead)
+        db.session.commit()
+        
+        print(f"✅ Lead enregistré : {data.get('nom')}")
+        return jsonify({"status": "success", "message": "Enregistré"}), 200
 
-            if prix > 400000:
-                score = 9
-                reco = "🔥 LEAD CHAUD : Gros budget."
-            elif "Paris" in adresse:
-                score = 8
-                reco = "Localisation Premium."
-
-            # Enregistrement DB (Note : on utilise score_ia)
-            nouveau_lead = Lead(
-                nom=data.get('nom'),
-                email=data.get('email'),
-                telephone=data.get('telephone'),
-                type_bien=adresse, 
-                budget=prix,
-                score_ia=score, 
-                statut="Nouveau"
-            )
-            db.session.add(nouveau_lead)
-            db.session.commit()
-            
-            return jsonify({
-                "message": "Dossier reçu",
-                "score": score, 
-                "recommandation_ia": reco,
-                "lead_chaud": score >= 8
-            }), 200
-        except Exception as e:
-            print(f"ERREUR: {e}")
-            return jsonify({"message": f"Erreur serveur: {str(e)}"}), 500
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ ERREUR : {str(e)}") # Cette ligne DOIT apparaître dans vos logs maintenant
+        return jsonify({"status": "error", "message": str(e)}), 500
 
     # --- Dashboard Agent ---
     @app.route('/api/leads-chauds', methods=['GET'])
