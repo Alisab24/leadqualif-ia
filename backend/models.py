@@ -10,10 +10,10 @@ class User(db.Model, UserMixin):
 
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nom = db.Column(db.String(100))        # On utilise 'nom'
+    nom = db.Column(db.String(100))        # ✅ DOIT ÊTRE 'nom'
     email = db.Column(db.String(100))
     telephone = db.Column(db.String(20))
-    type_bien = db.Column(db.String(200))  # Correspond à l'adresse
-    budget = db.Column(db.Integer)         # Correspond au prix
-    score_ia = db.Column(db.Integer)       # On utilise 'score_ia'
+    type_bien = db.Column(db.String(200))  # Contiendra l'adresse
+    budget = db.Column(db.Integer)         # Contiendra le prix
+    score_ia = db.Column(db.Integer)
     statut = db.Column(db.String(50), default="Nouveau")
