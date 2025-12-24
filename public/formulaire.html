@@ -59,52 +59,43 @@
   </div>
 
   <script>
-    // --- CONNEXION AU SAAS (RENDER) ---
-    const API_URL = 'https://leadqualif-backend.onrender.com/api/submit-lead';
+    // REMPLACER LE SCRIPT PAR CELUI-CI
+const API_URL = 'https://leadqualif-backend.onrender.com/api/submit-lead';
 
-    const form = document.getElementById('leadForm');
-    const statusMessage = document.getElementById('statusMessage');
-    const submitBtn = document.getElementById('submitBtn');
+document.getElementById('leadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.textContent = "Envoi en cours...";
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Analyse par l\'IA...';
-      
-      const payload = {
+    const payload = {
         nom: document.getElementById('nom').value,
         email: document.getElementById('email').value,
         telephone: document.getElementById('telephone').value,
         adresse: document.getElementById('adresse').value,
-        prix: document.getElementById('prix').value || 0
-      };
+        prix: document.getElementById('prix').value
+    };
 
-      try {
+    try {
         const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
-
         if (response.ok) {
-          statusMessage.className = 'status-message success';
-          statusMessage.textContent = "✅ Analyse réussie ! Redirection...";
-          sessionStorage.setItem('ia_reponse', JSON.stringify(data));
-          setTimeout(() => { window.location.href = 'merci.html'; }, 1500);
+            alert("✅ Lead envoyé avec succès !");
+            window.location.href = 'merci.html';
         } else {
-          throw new Error(data.message || 'Erreur serveur');
+            const errorData = await response.json();
+            alert("❌ Erreur Serveur : " + errorData.message);
         }
-      } catch (err) {
-        statusMessage.className = 'status-message error';
-        statusMessage.textContent = "Le serveur IA est en cours de réveil (cela peut prendre 30s sur Render gratuit). Réessayez dans un instant.";
+    } catch (err) {
         console.error(err);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Obtenir mon analyse IA';
-      }
-    });
+        alert("❌ Connexion impossible. Vérifiez que https://leadqualif-backend.onrender.com répond bien.");
+    } finally {
+        btn.textContent = "Obtenir mon analyse IA";
+    }
+});
   </script>
 </body>
 </html>

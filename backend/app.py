@@ -149,3 +149,70 @@ if __name__ == '__main__':
     
     # host='0.0.0.0' est OBLIGATOIRE sur Render
     app.run(host='0.0.0.0', port=port)
+
+
+    import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from models import db, Lead # Assurez-vous que models.py est correct
+
+def create_app():
+    app = Flask(__name__)
+    # Configuration de la DB (SQLite pour la simplicité du SaaS au début)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///leadqualif.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    db.init_app(app)
+
+    # 🔥 SOLUTION CORS RADICALE : Autorise TOUT sans exception
+    CORS(app, resources={r"/*": {"origins": "*"}})
+
+    with app.app_context():
+        db.create_all()
+
+    @app.route('/')
+    def health():
+        return jsonify({"status": "online", "message": "Cerveau IA prêt"}), 200
+
+    @app.route('/api/submit-lead', methods=['POST', 'OPTIONS'])
+    def submit_lead():
+        if request.method == 'OPTIONS': # Pour la sécurité des navigateurs
+            return jsonify({'status': 'ok'}), 200
+        try:
+            data = request.json
+            # On récupère les données peu importe le nom de la clé
+            nouveau_lead = Lead(
+                nom=data.get('nom') or data.get('name'),
+                email=data.get('email'),
+                telephone=data.get('telephone') or data.get('phone'),
+                type_bien=data.get('adresse') or data.get('location'),
+                budget=int(data.get('prix') or data.get('budget') or 0),
+                score_ia=9 if int(data.get('prix') or 0) > 400000 else 5,
+                statut="Nouveau"
+            )
+            db.session.add(nouveau_lead)
+            db.session.commit()
+            return jsonify({"status": "success"}), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    @app.route('/api/leads-chauds', methods=['GET'])
+    def get_leads():
+        try:
+            leads = Lead.query.all()
+            return jsonify({
+                "status": "success",
+                "data": {"leads_chauds": [
+                    {"id": l.id, "nom": l.nom, "score_ia": l.score_ia} for l in leads
+                ]}
+            }), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    return app
+
+if __name__ == '__main__':
+    app = create_app()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
