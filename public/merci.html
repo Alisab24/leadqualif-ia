@@ -1,334 +1,172 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Merci - LeadQualif IA</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --primary: #007bff;
-      --primary-dark: #0056b3;
-      --bg: #f8f9fa;
-      --text-main: #111827;
-      --text-muted: #6b7280;
-      --border: #e5e7eb;
-      --radius-lg: 18px;
-      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08);
-    }
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 
-    * {
-      box-sizing: border-box;
-    }
+// URL DE VOTRE CERVEAU IA SUR RENDER
+const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      color: var(--text-main);
-    }
+export default function Dashboard() {
+  const [leads, setLeads] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [errorStatus, setErrorStatus] = useState(null)
+  
+  // États pour l'outil de production (Annonces)
+  const [annonceForm, setAnnonceForm] = useState({
+    adresse: '', pieces_surface: '', description: '', dpe: '', prix: ''
+  })
+  const [annonceLoading, setAnnonceLoading] = useState(false)
+  const [annonceGeneree, setAnnonceGeneree] = useState(null)
+  const [tempsEconomise, setTempsEconomise] = useState(5)
 
-    .card {
-      max-width: 720px;
-      width: 100%;
-      background: #ffffff;
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-soft);
-      padding: 28px 26px 24px;
-    }
-
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .logo-mark {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--primary), #5aa8ff);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 16px;
-      box-shadow: 0 10px 24px rgba(0, 123, 255, 0.35);
-    }
-
-    .logo-text-main {
-      font-weight: 700;
-      font-size: 20px;
-      letter-spacing: 0.04em;
-    }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 24px;
-    }
-
-    p.lead {
-      margin: 0 0 18px;
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      font-size: 11px;
-      font-weight: 500;
-      margin-bottom: 16px;
-    }
-
-    .tag-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: #3b82f6;
-    }
-
-    .commentaire-wrapper {
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: #f9fafb;
-      padding: 18px 16px;
-      margin-bottom: 16px;
-    }
-
-    .commentaire-label {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #9ca3af;
-      margin-bottom: 6px;
-    }
-
-    .commentaire {
-      font-size: 14px;
-      line-height: 1.6;
-      color: #111827;
-      white-space: pre-wrap;
-    }
-
-    .empty-state {
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-
-    .rdv-wrapper {
-      border-radius: 14px;
-      border: 1px dashed var(--border);
-      background: #f3f4ff;
-      padding: 14px 14px 12px;
-      margin-bottom: 10px;
-      font-size: 13px;
-      color: #111827;
-    }
-
-    .rdv-wrapper strong {
-      font-weight: 600;
-      color: #1d4ed8;
-    }
-
-    .rdv-actions {
-      margin-top: 10px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn-secondary {
-      border-radius: 999px;
-      padding: 8px 16px;
-      border: 1px solid #d1d5db;
-      background: #ffffff;
-      color: #374151;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.1s ease, border-color 0.1s ease;
-    }
-
-    .btn-secondary:hover {
-      background: #f3f4f6;
-      border-color: #9ca3af;
-    }
-
-    .footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .btn-primary {
-      border: none;
-      border-radius: 999px;
-      padding: 9px 18px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 10px 20px rgba(0, 123, 255, 0.35);
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 14px 24px rgba(0, 123, 255, 0.3);
-    }
-
-    .btn-primary:active {
-      transform: translateY(0);
-      box-shadow: 0 8px 16px rgba(0, 123, 255, 0.25);
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 16px;
-      }
-
-      .card {
-        padding: 22px 18px 18px;
-      }
-
-      h1 {
-        font-size: 20px;
+  // 1. CHARGEMENT DES DONNÉES DEPUIS RENDER
+  useEffect(() => {
+    const fetchLeadsChauds = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch(`${API_BACKEND_URL}/leads-chauds`)
+        if (!response.ok) throw new Error(`Erreur: ${response.status}`)
+        
+        const result = await response.json()
+        
+        // Sécurité : on vérifie que les données existent avant de les lire
+        if (result.status === 'success' && result.data && result.data.leads_chauds) {
+          const leadsFormates = result.data.leads_chauds.map(lead => ({
+            id: lead.id,
+            nom: lead.nom || 'Client Sans Nom', // Protection contre les noms vides
+            email: lead.email || 'Non renseigné',
+            score: lead.score_ia || 0, // On mappe 'score_ia' vers 'score' pour l'affichage
+            budget: lead.budget || 0
+          }))
+          setLeads(leadsFormates)
+          setErrorStatus(null)
+        }
+      } catch (err) {
+        console.error('[DASHBOARD] Erreur:', err.message)
+        // Message d'attente gentil si Render dort
+        setErrorStatus("Le cerveau IA se réveille... (patientez 30s)")
+      } finally {
+        setLoading(false)
       }
     }
-  </style>
-</head>
-<body>
-  <main class="card" aria-labelledby="merci-title">
-    <header>
-      <div class="logo" aria-label="LeadQualif IA">
-        <div class="logo-mark">LQ</div>
-        <span class="logo-text-main">LeadQualif IA</span>
-      </div>
-      <h1 id="merci-title">Merci, votre demande a bien été transmise.</h1>
-      <p class="lead" id="lead-intro">
-        Nous avons analysé automatiquement votre projet et transmis une recommandation à votre conseiller.
-        Vous trouverez ci-dessous le commentaire de qualification généré par notre moteur IA.
-      </p>
-    </header>
+    fetchLeadsChauds()
+  }, [])
 
-    <div class="tag">
-      <span class="tag-dot"></span>
-      Résumé automatique de votre demande
-    </div>
+  // 2. LOGIQUE MÉTIER
+  // Calcul des stats basé sur le score (0-10)
+  const leadsChaudsCount = leads.filter(l => l.score >= 8).length
+  
+  // Tri des leads : les plus chauds en premier
+  const leadsAffiches = [...leads].sort((a, b) => b.score - a.score)
 
-    <section class="commentaire-wrapper" aria-live="polite" aria-atomic="true">
-      <div class="commentaire-label">Commentaire de qualification IA</div>
-      <div id="commentaire" class="commentaire"></div>
-    </section>
+  // Simulation IA pour l'annonce
+  const handleAnnonceSubmit = (e) => {
+    e.preventDefault()
+    setAnnonceLoading(true)
+    setTimeout(() => {
+      const texte = `✨ EXCLUSIVITÉ - ${annonceForm.adresse}\n\nDécouvrez ce bien d'exception proposé à ${annonceForm.prix}€.\nAvec ses ${annonceForm.pieces_surface}, il offre un cadre de vie idéal.\n\nPerformance énergétique : Classe ${annonceForm.dpe}.\n\n${annonceForm.description}\n\nContactez-nous pour une visite privée.`
+      setAnnonceGeneree(texte)
+      setTempsEconomise(prev => prev + 1)
+      setAnnonceLoading(false)
+    }, 1000)
+  }
 
-    <section id="rdv-section" class="rdv-wrapper" style="display:none;">
-      <div id="rdv-texte"></div>
-      <div class="rdv-actions">
-        <button type="button" class="btn-primary" onclick="confirmerRdv()">
-          CONFIRMER le créneau
-        </button>
-        <button type="button" class="btn-secondary" onclick="annulerRdv()">
-          ANNULER
-        </button>
-      </div>
-    </section>
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+      
+      {/* --- HEADER --- */}
+      <nav className="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-10 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">L</div>
+          <h1 className="text-xl font-bold text-slate-800">LeadQualif <span className="text-blue-600">IA</span></h1>
+          <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium ml-2">● Live</span>
+        </div>
+        <div className="flex gap-6 text-sm font-medium">
+          <Link to="/" className="text-blue-600 border-b-2 border-blue-600 py-4 -my-4">Dashboard</Link>
+          <a href="/formulaire.html" target="_blank" className="text-slate-500 hover:text-blue-600 transition py-4 -my-4">Voir le Formulaire</a>
+        </div>
+      </nav>
 
-    <div class="footer">
-      <div>
-        Une copie de ce résumé peut vous être envoyée par email par votre conseiller.
-      </div>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button type="button" class="btn-primary" onclick="allerAuDashboard()">
-          📊 Accéder au Tableau de bord
-        </button>
-        <button type="button" class="btn-secondary" onclick="retourFormulaire()">
-          ← Revenir au formulaire
-        </button>
-      </div>
-    </div>
-  </main>
+      {/* --- CONTENU PRINCIPAL --- */}
+      <main className="p-8 max-w-7xl mx-auto space-y-8">
+        
+        {/* SECTION STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Carte KPI 1 */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium mb-1">Leads Qualifiés (Score &gt; 8)</p>
+              <h3 className="text-4xl font-bold text-slate-800">{loading ? '-' : leadsChaudsCount}</h3>
+            </div>
+            {errorStatus && <p className="text-xs text-orange-500 mt-2 font-medium">⚠️ {errorStatus}</p>}
+          </div>
 
-  <script>
-    function chargerCommentaire() {
-      const commentaireEl = document.getElementById('commentaire')
-      const introEl = document.getElementById('lead-intro')
-      const rdvSection = document.getElementById('rdv-section')
-      const rdvTexte = document.getElementById('rdv-texte')
+          {/* Carte KPI 2 */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium mb-1">Temps Économisé</p>
+              <h3 className="text-4xl font-bold text-emerald-600">{tempsEconomise}h</h3>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Grâce à l'automatisation</p>
+          </div>
+        </div>
 
-      const commentaire = sessionStorage.getItem('leadqualif_commentaire_ia')
-      const nom = sessionStorage.getItem('leadqualif_lead_nom')
-      const isChaud = sessionStorage.getItem('leadqualif_is_chaud') === '1'
-      const rdvSuggerer = sessionStorage.getItem('leadqualif_rdv_suggerer')
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* TABLEAU DES LEADS (Prend 2/3 de la largeur) */}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800">Derniers Leads Reçus</h2>
+              <button onClick={() => window.location.reload()} className="text-sm text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg transition">Actualiser</button>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="p-4 font-semibold">Client</th>
+                    <th className="p-4 font-semibold">Budget</th>
+                    <th className="p-4 font-semibold">Score IA</th>
+                    <th className="p-4 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {leadsAffiches.map(lead => (
+                    <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4">
+                        <p className="font-bold text-slate-800">{lead.nom}</p>
+                        <p className="text-slate-400 text-xs">{lead.email}</p>
+                      </td>
+                      <td className="p-4 font-medium text-slate-600">
+                        {lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                          lead.score >= 8 ? 'bg-purple-100 text-purple-700' : 
+                          lead.score >= 5 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {lead.score >= 8 && '🔥'} {lead.score}/10
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                         <button 
+                           onClick={() => alert(`Client : ${lead.nom}\nEmail : ${lead.email}\nScore : ${lead.score}/10`)}
+                           className="text-slate-400 hover:text-blue-600 font-medium transition"
+                         >
+                           Détails
+                         </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {leads.length === 0 && !loading && (
+                    <tr><td colSpan="4" className="p-8 text-center text-slate-400 italic">En attente de nouveaux leads...</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      if (nom) {
-        introEl.textContent = `Merci ${nom}, votre demande a bien été transmise. Voici le résumé généré par notre moteur IA :`
-      }
-
-      if (commentaire && commentaire.trim()) {
-        commentaireEl.textContent = commentaire
-      } else {
-        commentaireEl.classList.add('empty-state')
-        commentaireEl.textContent = "Nous n'avons pas retrouvé le commentaire de qualification. Si vous avez soumis le formulaire il y a quelques instants, vérifiez que votre navigateur autorise le stockage local (sessionStorage)."
-      }
-
-      // Si lead CHAUD avec RDV suggéré, afficher la section dédiée
-      if (isChaud && rdvSuggerer) {
-        rdvSection.style.display = 'block'
-        rdvTexte.textContent =
-          `Nous avons bloqué un créneau pour vous : ${rdvSuggerer}. ` +
-          'Cliquez sur CONFIRMER ou ANNULER ci-dessous.'
-      } else {
-        rdvSection.style.display = 'none'
-      }
-    }
-
-    function retourFormulaire() {
-      window.location.href = 'formulaire.html'
-    }
-
-    function allerAuDashboard() {
-      // Rediriger vers le Dashboard React
-      window.location.href = 'http://localhost:5173/dashboard'
-    }
-
-    function confirmerRdv() {
-      alert('Merci, votre créneau est confirmé. Votre conseiller vous contactera pour valider les derniers détails.')
-    }
-
-    function annulerRdv() {
-      alert('Le créneau proposé est annulé. Votre conseiller vous proposera un autre horaire.')
-    }
-
-    window.addEventListener('DOMContentLoaded', chargerCommentaire)
-  </script>
-</body>
-</html>
-
-
+          {/* GÉNÉRATEUR D'ANNONCE (Prend 1/3 de la largeur) */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-fit">
+            <h2 className="text-lg font-bold text-slate-800 mb-4">✨ Rédacteur IA</h2>
+            
+            <form onSubmit={handleAnnonceSubmit} className="space-y-4">
+              <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
