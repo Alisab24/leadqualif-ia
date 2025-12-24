@@ -96,7 +96,7 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold text-blue-600 mb-4">Qualification des Leads (Render)</h2>
             
             <div className="mb-6">
-              <p className="text-sm text-gray-500">Leads Prioritaires (Score  8)</p>
+              <p className="text-sm text-gray-500">Leads Prioritaires (Score > 8)</p>
               <p className="text-6xl font-bold text-blue-600">{loading ? '...' : leadsChaudsCount}</p>
               {errorStatus && <p className="text-xs text-orange-500 mt-2">⚠️ {errorStatus}</p>}
             </div>
