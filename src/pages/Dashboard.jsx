@@ -243,11 +243,45 @@ export default function Dashboard() {
                             {isHot && <Zap size={12} fill="currentColor"/>} {lead.score}/10
                           </span>
                         </td>
-                        <td className="p-4 text-right">
-                           <button onClick={() => setSelectedLead(lead)} className="text-slate-500 hover:text-blue-600 font-bold text-xs border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-white transition flex items-center gap-2 ml-auto bg-white shadow-sm">
-                             <Search size={14}/> Voir Fiche
-                           </button>
-                        </td>
+                   {/* ... début de la ligne tr ... */}
+
+<td className="p-4 text-right flex items-center justify-end gap-2">
+  
+  {/* 1. Bouton WhatsApp Direct (Petit et Vert) */}
+  {lead.telephone && (
+    <a 
+      href={`https://wa.me/${lead.telephone.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${lead.nom}, suite à votre demande sur LeadQualif...`)}`}
+      target="_blank"
+      rel="noreferrer"
+      className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-500 hover:text-white transition"
+      title="Ouvrir WhatsApp"
+    >
+      <MessageCircle size={18} />
+    </a>
+  )}
+
+  {/* 2. Bouton Appel (Petit et Bleu) */}
+  {lead.telephone && (
+    <a 
+      href={`tel:${lead.telephone}`}
+      className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-500 hover:text-white transition"
+      title="Appeler"
+    >
+      <Phone size={18} />
+    </a>
+  )}
+
+  {/* 3. Bouton Détail (Fiche complète) */}
+  <button 
+    onClick={() => setSelectedLead(lead)} 
+    className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"
+  >
+    <Search size={14}/> Voir
+  </button>
+
+</td>
+
+{/* ... fin de la ligne tr ... */}
                       </tr>
                     )
                   })}
