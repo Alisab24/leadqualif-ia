@@ -98,6 +98,8 @@ def create_app(config_class=Config):
                 'id': l.id, 
                 'nom': l.nom, 
                 'email': l.email, 
+                'telephone': l.telephone,      # <--- AJOUT CRUCIAL (Il manquait ça)
+                'type_bien': l.type_bien,      # <--- AJOUT CRUCIAL (Pour l'adresse)
                 'score_ia': l.score_ia, 
                 'statut': l.statut, 
                 'budget': l.budget
