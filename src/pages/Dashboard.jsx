@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { leadsService } from '../lib/supabase'
 // Import des icônes
 import { 
   LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
   Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar 
 } from 'lucide-react'
-
-const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
@@ -22,18 +21,24 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchLeads = async () => {
       try {
-        const res = await fetch(`${API_BACKEND_URL}/leads-chauds`)
-        const data = await res.json()
-        if (data.status === 'success' && data.data.leads_chauds) {
-          setLeads(data.data.leads_chauds.map(l => ({
+        const result = await leadsService.getAllLeads()
+        if (result.success) {
+          setLeads(result.data.map(l => ({
             ...l, 
-            score: l.score_ia || 0,
+            score: l.score_qualification || 0,
             nom: l.nom || 'Prospect Inconnu',
-            type_bien: l.type_bien || 'Non précisé',
-            telephone: l.telephone || ''
+            type_bien: l.type_bien_recherche || 'Non précisé',
+            telephone: l.telephone || '',
+            budget: l.budget_estime ? parseInt(l.budget_estime) : 0
           })))
+        } else {
+          console.error('Erreur de chargement des leads:', result.error)
         }
-      } catch (e) { console.error(e) } finally { setLoading(false) }
+      } catch (e) { 
+        console.error('Erreur:', e) 
+      } finally { 
+        setLoading(false) 
+      }
     }
     fetchLeads()
   }, [])
@@ -53,7 +58,7 @@ export default function Dashboard() {
   const getWhatsAppLink = (lead) => {
     const phone = cleanPhoneNumber(lead.telephone);
     if (!phone) return '#';
-    const message = `Bonjour ${lead.nom}, suite à votre demande concernant un bien autour de ${lead.budget} FCFA...`;
+    const message = `Bonjour ${lead.nom}, suite à votre demande concernant un bien à ${lead.localisation_souhaitee || lead.adresse}...`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }
 
@@ -172,7 +177,7 @@ export default function Dashboard() {
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> PRO
             </span>
           </div>
-          <a href="/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition">
+          <a href="/public/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition">
             <FileText size={18} /> Ouvrir Formulaire
           </a>
         </div>
@@ -315,6 +320,24 @@ export default function Dashboard() {
 
         </div>
       </main>
+
+      {/* Footer NexaPro */}
+      <footer className="bg-slate-50 border-t border-slate-200 py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-8 text-center">
+          <div className="text-slate-600 text-sm font-medium mb-2">
+            © NexaPro – Tous droits réservés
+          </div>
+          <div className="mb-2">
+            <a href="https://wa.me/33612345678" target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-700 text-sm font-medium inline-flex items-center gap-1">
+              💬 Contact WhatsApp
+            </a>
+          </div>
+          <div className="text-slate-500 text-xs leading-relaxed max-w-2xl mx-auto">
+            Produit détenu et opéré par NexaPro<br />
+            Les données collectées sont utilisées uniquement dans le cadre du traitement des demandes immobilières.
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
