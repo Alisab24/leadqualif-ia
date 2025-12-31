@@ -16,10 +16,18 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            line-height: 1.6;
+            padding: 0 20px;
         }
         
         .container {
@@ -148,16 +156,15 @@
         
         /* Footer Styles */
         .footer {
-            background: #f8f9fa;
+            background: #ffffff;
             border-top: 1px solid #e2e6f0;
             padding: 20px 0;
-            margin-top: 40px;
+            margin-top: auto;
             text-align: center;
             color: #6c7a89;
             font-size: 14px;
-            position: relative;
-            bottom: 0;
             width: 100%;
+            flex-shrink: 0;
         }
         
         .footer-content {
@@ -190,35 +197,37 @@
 </head>
 <body>
 
-    <div class="container">
-        
-        <div class="success-icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
+    <div class="main-content">
+        <div class="container">
+            
+            <div class="success-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
 
-        <h1>Merci pour votre demande</h1>
-        
-        <p class="message">
-            Votre demande a été analysée par notre intelligence artificielle.
-        </p>
-
-        <div class="reassurance">
-            Un conseiller immobilier étudie votre demande et vous recontactera sous 24h.
-        </div>
-
-        <div class="buttons">
-            <a href="https://calendly.com/votre-entreprise/rendez-vous" class="btn-primary" target="_blank">
-                Prendre rendez-vous maintenant
-            </a>
-            <a href="https://wa.me/33612345678?text=Bonjour%2C+j'ai+soumis+une+demande+sur+votre+site+LeadQualif+IA+et+j'aimerais+en+parler+avec+un+conseiller." class="btn-secondary" target="_blank">
-                Contacter un conseiller sur WhatsApp
-            </a>
-
-            <p class="trust-text">
-                Vos données sont traitées de manière confidentielle
+            <h1>Merci pour votre demande</h1>
+            
+            <p class="message">
+                Votre demande a été analysée par notre intelligence artificielle.
             </p>
+
+            <div class="reassurance">
+                Un conseiller immobilier étudie votre demande et vous recontactera sous 24h.
+            </div>
+
+            <div class="buttons">
+                <a href="https://calendly.com/votre-entreprise/rendez-vous" class="btn-primary" target="_blank">
+                    📅 Prendre rendez-vous maintenant
+                </a>
+                <a href="https://wa.me/33612345678?text=Bonjour%2C+j'ai+soumis+une+demande+sur+votre+site+LeadQualif+IA+et+j'aimerais+en+parler+avec+un+conseiller." class="btn-secondary" target="_blank">
+                    💬 Contacter un conseiller sur WhatsApp
+                </a>
+
+                <p class="trust-text">
+                    Vos données sont traitées de manière confidentielle
+                </p>
+            </div>
         </div>
     </div>
 

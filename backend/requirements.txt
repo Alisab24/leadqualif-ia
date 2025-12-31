@@ -4,3 +4,4 @@ flask-sqlalchemy
 flask-login
 werkzeug
 gunicorn
+openai

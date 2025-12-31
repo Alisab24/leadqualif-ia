@@ -7,6 +7,8 @@ import {
   Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar 
 } from 'lucide-react'
 
+const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND_URL || 'https://leadqualif-backend.onrender.com/api'
+
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
@@ -65,13 +67,40 @@ export default function Dashboard() {
   const leadsChaudsCount = leads.filter(l => l.score >= 8).length
   const leadsTries = [...leads].sort((a, b) => b.score - a.score)
 
-  // Simulation Annonce
-  const handleAnnonce = (e) => {
+  // Générateur d'Annonces avec OpenAI
+  const handleAnnonce = async (e) => {
     e.preventDefault()
-    setTimeout(() => {
-      setAnnonceGeneree(`✨ À VENDRE - ${annonceForm.adresse}\nCe bien de ${annonceForm.pieces_surface} à ${annonceForm.prix} est une opportunité (DPE ${annonceForm.dpe}).\n${annonceForm.description}`)
-      setTempsEconomise(t => t + 1)
-    }, 1000)
+    
+    // Afficher l'état de chargement
+    setAnnonceGeneree("🤖 Génération en cours...")
+    
+    try {
+      const response = await fetch(`${API_BACKEND_URL}/generate-annonce`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: annonceForm.pieces_surface ? 'appartement' : 'maison',
+          adresse: annonceForm.adresse,
+          prix: annonceForm.prix,
+          surface: annonceForm.pieces_surface,
+          pieces: annonceForm.pieces_surface
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setAnnonceGeneree(data.annonce)
+        setTempsEconomise(t => t + 1)
+      } else {
+        setAnnonceGeneree(`❌ Erreur: ${data.error || 'Impossible de générer l\'annonce'}`)
+      }
+    } catch (error) {
+      console.error('Erreur lors de la génération de l\'annonce:', error)
+      setAnnonceGeneree(`❌ Erreur de connexion: ${error.message}`)
+    }
   }
 
   return (
@@ -177,7 +206,7 @@ export default function Dashboard() {
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> PRO
             </span>
           </div>
-          <a href="/public/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition">
+          <a href="/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition">
             <FileText size={18} /> Ouvrir Formulaire
           </a>
         </div>

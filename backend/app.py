@@ -10,6 +10,7 @@ from flask_login import LoginManager, login_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from models import db, Lead, User
+import openai
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -29,6 +30,9 @@ def create_app(config_class=Config):
     # 3. SOLUTION CORS RADICALE : Autorise TOUT sans exception
     # Indispensable pour la communication entre Vercel et Render
     CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+    
+    # 3.1 Configuration OpenAI
+    openai.api_key = os.environ.get("OPENAI_API_KEY")
     
     # 4. Création des Tables et User au démarrage
     with app.app_context():
@@ -87,6 +91,70 @@ def create_app(config_class=Config):
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
+
+    # --- Générateur d'Annonces avec OpenAI ---
+    @app.route('/api/generate-annonce', methods=['POST', 'OPTIONS'])
+    def generate_annonce():
+        if request.method == 'OPTIONS':
+            return jsonify({'status': 'ok'}), 200
+            
+        try:
+            data = request.json
+            if not data:
+                return jsonify({'error': 'Aucune donnée reçue'}), 400
+            
+            # Récupération des données
+            type_bien = data.get('type', 'appartement')
+            adresse = data.get('adresse', '')
+            prix = data.get('prix', '')
+            surface = data.get('surface', '')
+            pieces = data.get('pieces', '')
+            
+            # Vérification de la clé API
+            if not openai.api_key:
+                return jsonify({'error': 'Clé API OpenAI non configurée'}), 500
+            
+            # Création du prompt pour OpenAI
+            prompt = f"""
+Génère une annonce immobilière professionnelle et vendeuse basée sur les informations suivantes :
+
+- Type de bien : {type_bien}
+- Adresse : {adresse}
+- Prix : {prix}€
+- Surface : {surface} m²
+- Nombre de pièces : {pieces}
+
+Instructions :
+- Style professionnel et attractif
+- Utilise des emojis appropriés (🏠, ✨, 📍, 💰, etc.)
+- Structure claire avec paragraphes
+- Met en avant les points forts
+- Appel à l'action clair
+- Environ 200-300 mots maximum
+"""
+
+            # Appel à l'API OpenAI
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Tu es un expert en rédaction d'annonces immobilières professionnelles et percutantes."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            annonce_generee = response.choices[0].message.content.strip()
+            
+            return jsonify({
+                'success': True,
+                'annonce': annonce_generee
+            }), 200
+            
+        except openai.error.OpenAIError as e:
+            return jsonify({'error': f'Erreur OpenAI: {str(e)}'}), 500
+        except Exception as e:
+            return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
 
     # --- Dashboard Agent (Privé) ---
     @app.route('/api/leads-chauds', methods=['GET'])

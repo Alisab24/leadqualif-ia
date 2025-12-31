@@ -10,7 +10,24 @@
   <style>
     /* --- VOTRE DESIGN PROFESSIONNEL RESTAURÉ --- */
     :root { --primary: #007bff; --primary-dark: #0056b3; --bg: #f8f9fa; --text-main: #1f2933; --text-muted: #6c7a89; --border: #dde2eb; --radius-lg: 12px; --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08); }
-    body { margin: 0; min-height: 100vh; font-family: 'Inter', sans-serif; background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%); color: var(--text-main); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    body { 
+  margin: 0; 
+  min-height: 100vh; 
+  font-family: 'Inter', sans-serif; 
+  background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%); 
+  color: var(--text-main); 
+  display: flex; 
+  flex-direction: column; 
+  padding: 24px 0; 
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+}
     .page-wrapper { max-width: 1100px; width: 100%; background: #ffffff; border-radius: 24px; box-shadow: var(--shadow-soft); padding: 32px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; }
     .logo-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #5aa8ff); display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; box-shadow: 0 10px 25px rgba(0, 123, 255, 0.35); }
     .form-card { background: #ffffff; border-radius: 18px; border: 1px solid #e2e6f0; padding: 25px; }
@@ -23,13 +40,15 @@
     
     /* Footer Styles */
     .footer {
-      background: #f8f9fa;
+      background: #ffffff;
       border-top: 1px solid #e2e6f0;
       padding: 20px 0;
-      margin-top: 40px;
+      margin-top: auto;
       text-align: center;
       color: #6c7a89;
       font-size: 14px;
+      width: 100%;
+      flex-shrink: 0;
     }
     
     .footer-content {
@@ -61,38 +80,40 @@
   </style>
 </head>
 <body>
-  <div class="page-wrapper">
-    <div>
-      <div class="logo"><div class="logo-mark">LQ</div></div>
-      <h1>Découvrez la valeur de votre bien</h1>
-      <p>Analyse intelligente par IA pour votre projet immobilier.</p>
-      
-      <div class="form-card">
-        <form id="leadForm">
-          <label>Nom complet</label>
-          <input type="text" id="nom" placeholder="Ex: Marie Dupont" required />
-          
-          <label>Email</label>
-          <input type="email" id="email" placeholder="marie@email.com" required />
-          
-          <label>Téléphone</label>
-          <input type="tel" id="telephone" placeholder="06 12 34 56 78" required />
-          
-          <label>Adresse du bien</label>
-          <input type="text" id="adresse" placeholder="Adresse complète" required />
-          
-          <label>Prix estimé (€)</label>
-          <input type="number" id="prix" placeholder="Ex: 350000" />
-          
-          <button type="submit" class="submit-btn" id="submitBtn">Obtenir mon analyse IA</button>
-        </form>
-        <div id="statusMessage"></div>
+  <div class="main-content">
+    <div class="page-wrapper">
+      <div>
+        <div class="logo"><div class="logo-mark">LQ</div></div>
+        <h1>Découvrez la valeur de votre bien</h1>
+        <p>Analyse intelligente par IA pour votre projet immobilier.</p>
+        
+        <div class="form-card">
+          <form id="leadForm">
+            <label>Nom complet</label>
+            <input type="text" id="nom" placeholder="Ex: Marie Dupont" required />
+            
+            <label>Email</label>
+            <input type="email" id="email" placeholder="marie@email.com" required />
+            
+            <label>Téléphone</label>
+            <input type="tel" id="telephone" placeholder="06 12 34 56 78" required />
+            
+            <label>Adresse du bien</label>
+            <input type="text" id="adresse" placeholder="Adresse complète" required />
+            
+            <label>Prix estimé (€)</label>
+            <input type="number" id="prix" placeholder="Ex: 350000" />
+            
+            <button type="submit" class="submit-btn" id="submitBtn">Obtenir mon analyse IA</button>
+          </form>
+          <div id="statusMessage"></div>
+        </div>
       </div>
-    </div>
-    
-    <div style="background: #0f172a; color: white; border-radius: 18px; padding: 30px;">
-      <h2 style="color: #4ade80;">✓ Qualification Immédiate</h2>
-      <p>Notre IA analyse votre secteur et votre budget pour vous donner un score de priorité.</p>
+      
+      <div style="background: #0f172a; color: white; border-radius: 18px; padding: 30px;">
+        <h2 style="color: #4ade80;">✓ Qualification Immédiate</h2>
+        <p>Notre IA analyse votre secteur et votre budget pour vous donner un score de priorité.</p>
+      </div>
     </div>
   </div>
 
