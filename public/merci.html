@@ -3,37 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dossier Reçu - LeadQualif IA</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>Merci pour votre demande - LeadQualif IA</title>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            background: white;
+            max-width: 500px;
+            width: 100%;
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+        }
+        
+        .success-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: white;
+            stroke-width: 3;
+        }
+        
+        h1 {
+            color: #1f2937;
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            color: #6b7280;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .reassurance {
+            color: #059669;
+            font-weight: 600;
+            margin-bottom: 35px;
+            padding: 15px;
+            background: #f0fdf4;
+            border-radius: 10px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            padding: 18px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #25d366;
+            color: white;
+            padding: 18px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            background: #128c7e;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+        }
+        
+        .trust-text {
+            color: #9ca3af;
+            font-size: 14px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .btn-primary, .btn-secondary {
+                padding: 16px 20px;
+                font-size: 15px;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-50 h-screen flex flex-col items-center justify-center p-4">
+<body>
 
-    <div class="max-w-lg w-full bg-white p-10 rounded-3xl shadow-xl text-center border border-gray-200">
+    <div class="container">
         
-        <div class="mb-6 mx-auto w-24 h-24 bg-green-100 rounded-full flex items-center justify-center">
-            <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+        <div class="success-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
             </svg>
         </div>
 
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Bien Reçu !</h1>
+        <h1>Merci pour votre demande</h1>
         
-        <p class="text-gray-600 mb-8 text-lg">
-            L'IA analyse votre dossier. Un expert vous contactera sous <span class="font-bold text-gray-900">24h</span> si votre projet est retenu.
+        <p class="message">
+            Votre demande a été analysée par notre intelligence artificielle.
         </p>
 
-        <div class="space-y-4">
-            <a href="formulaire.html" class="block w-full py-4 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition shadow-lg">
-                Envoyer un autre dossier
+        <div class="reassurance">
+            Un conseiller immobilier étudie votre demande et vous recontactera sous 24h.
+        </div>
+
+        <div class="buttons">
+            <a href="https://calendly.com/votre-entreprise/rendez-vous" class="btn-primary" target="_blank">
+                Prendre rendez-vous maintenant
             </a>
-            <a href="/" class="block w-full py-3 text-gray-500 font-medium hover:text-black hover:underline">
-                Retour au Tableau de Bord
+            <a href="https://wa.me/33612345678?text=Bonjour%2C+j'ai+soumis+une+demande+sur+votre+site+LeadQualif+IA+et+j'aimerais+en+parler+avec+un+conseiller." class="btn-secondary" target="_blank">
+                Contacter un conseiller sur WhatsApp
             </a>
         </div>
+
+        <p class="trust-text">
+            Vos données sont traitées de manière confidentielle
+        </p>
     </div>
 
 </body>
