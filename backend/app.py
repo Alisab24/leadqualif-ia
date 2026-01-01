@@ -16,6 +16,12 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     
+    # 0.5. CORRECTION URL DATABASE POUR RENDER (sécurité supplémentaire)
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    
     # 1. Initialiser la base de données
     db.init_app(app)
     
