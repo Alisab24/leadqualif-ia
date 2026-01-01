@@ -10,7 +10,10 @@ from flask_login import LoginManager, login_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from models import db, Lead, User
-import openai
+from openai import OpenAI, OpenAIError
+
+# Initialisation du client OpenAI
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -35,9 +38,6 @@ def create_app(config_class=Config):
     
     # 3. SOLUTION CORS RADICALE : Autorise TOUTES les origines
     CORS(app, resources={r"/*": {"origins": "*"}})
-    
-    # 3.1 Configuration OpenAI
-    openai.api_key = os.environ.get("OPENAI_API_KEY")
     
     # 4. Création des Tables et User au démarrage
     with app.app_context():
@@ -116,7 +116,7 @@ def create_app(config_class=Config):
             pieces = data.get('pieces', '')
             
             # Vérification de la clé API
-            if not openai.api_key:
+            if not client.api_key:
                 return jsonify({'error': 'Clé API OpenAI non configurée'}), 500
             
             # Création du prompt pour OpenAI
