@@ -8,75 +8,50 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    /* --- VOTRE DESIGN PROFESSIONNEL RESTAURÉ --- */
+    /* --- VOTRE DESIGN PROFESSIONNEL --- */
     :root { --primary: #007bff; --primary-dark: #0056b3; --bg: #f8f9fa; --text-main: #1f2933; --text-muted: #6c7a89; --border: #dde2eb; --radius-lg: 12px; --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08); }
     body { 
-  margin: 0; 
-  min-height: 100vh; 
-  font-family: 'Inter', sans-serif; 
-  background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%); 
-  color: var(--text-main); 
-  display: flex; 
-  flex-direction: column; 
-  padding: 24px 0; 
-}
+      margin: 0; 
+      min-height: 100vh; 
+      font-family: 'Inter', sans-serif; 
+      background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%); 
+      color: var(--text-main); 
+      display: flex; 
+      flex-direction: column; 
+      padding: 24px 0; 
+    }
 
-.main-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 24px;
-}
+    .main-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 24px;
+    }
     .page-wrapper { max-width: 1100px; width: 100%; background: #ffffff; border-radius: 24px; box-shadow: var(--shadow-soft); padding: 32px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; }
     .logo-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #5aa8ff); display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; box-shadow: 0 10px 25px rgba(0, 123, 255, 0.35); }
     .form-card { background: #ffffff; border-radius: 18px; border: 1px solid #e2e6f0; padding: 25px; }
-    input { width: 100%; height: 42px; border-radius: 10px; border: 1px solid var(--border); padding: 0 12px; margin-bottom: 15px; background: #f9fafb; }
-    .submit-btn { width: 100%; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-weight: 600; padding: 14px; cursor: pointer; box-shadow: 0 12px 24px rgba(0, 123, 255, 0.35); }
+    
+    /* Style pour Inputs ET Select */
+    input, select { width: 100%; height: 42px; border-radius: 10px; border: 1px solid var(--border); padding: 0 12px; margin-bottom: 15px; background: #f9fafb; font-family: 'Inter', sans-serif; font-size: 14px; box-sizing: border-box; }
+    label { font-size: 12px; font-weight: 700; color: #6c7a89; text-transform: uppercase; margin-bottom: 4px; display: block; }
+    
+    .submit-btn { width: 100%; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-weight: 600; padding: 14px; cursor: pointer; box-shadow: 0 12px 24px rgba(0, 123, 255, 0.35); transition: transform 0.2s; }
+    .submit-btn:hover { transform: translateY(-2px); }
+    .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    
     .status-message { margin-top: 15px; font-size: 14px; text-align: center; padding: 10px; border-radius: 8px; }
     .error { background: #fee2e2; color: #b91c1c; }
     .success { background: #dcfce7; color: #15803d; }
     @media (max-width: 900px) { .page-wrapper { grid-template-columns: 1fr; } }
     
     /* Footer Styles */
-    .footer {
-      background: #ffffff;
-      border-top: 1px solid #e2e6f0;
-      padding: 20px 0;
-      margin-top: auto;
-      text-align: center;
-      color: #6c7a89;
-      font-size: 14px;
-      width: 100%;
-      flex-shrink: 0;
-    }
-    
-    .footer-content {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-    
-    .footer-links {
-      margin: 10px 0;
-    }
-    
-    .footer-links a {
-      color: #007bff;
-      text-decoration: none;
-      margin: 0 10px;
-    }
-    
-    .footer-links a:hover {
-      text-decoration: underline;
-    }
-    
-    .footer-privacy {
-      margin-top: 15px;
-      font-size: 12px;
-      color: #9ca3af;
-      line-height: 1.4;
-    }
+    .footer { background: #ffffff; border-top: 1px solid #e2e6f0; padding: 20px 0; margin-top: auto; text-align: center; color: #6c7a89; font-size: 14px; width: 100%; flex-shrink: 0; }
+    .footer-content { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .footer-links { margin: 10px 0; }
+    .footer-links a { color: #007bff; text-decoration: none; margin: 0 10px; }
+    .footer-links a:hover { text-decoration: underline; }
+    .footer-privacy { margin-top: 15px; font-size: 12px; color: #9ca3af; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -84,8 +59,8 @@
     <div class="page-wrapper">
       <div>
         <div class="logo"><div class="logo-mark">LQ</div></div>
-        <h1>Découvrez la valeur de votre bien</h1>
-        <p>Analyse intelligente par IA pour votre projet immobilier.</p>
+        <h1 style="margin-top: 20px; color: #1f2933;">Découvrez la valeur de votre bien</h1>
+        <p style="color: #6c7a89; margin-bottom: 30px;">Analyse intelligente par IA pour votre projet immobilier.</p>
         
         <div class="form-card">
           <form id="leadForm">
@@ -98,11 +73,20 @@
             <label>Téléphone</label>
             <input type="tel" id="telephone" placeholder="06 12 34 56 78" required />
             
+            <label>Type de bien</label>
+            <select id="type_bien">
+                <option value="Appartement">Appartement</option>
+                <option value="Maison">Maison</option>
+                <option value="Villa">Villa</option>
+                <option value="Terrain">Terrain</option>
+                <option value="Boutique">Local Commercial</option>
+            </select>
+
             <label>Adresse du bien</label>
             <input type="text" id="adresse" placeholder="Adresse complète" required />
             
-            <label>Prix estimé (€)</label>
-            <input type="number" id="prix" placeholder="Ex: 350000" />
+            <label>Prix estimé / Budget (FCFA)</label>
+            <input type="number" id="prix" placeholder="Ex: 35000000" />
             
             <button type="submit" class="submit-btn" id="submitBtn">Obtenir mon analyse IA</button>
           </form>
@@ -110,146 +94,91 @@
         </div>
       </div>
       
-      <div style="background: #0f172a; color: white; border-radius: 18px; padding: 30px;">
+      <div style="background: #0f172a; color: white; border-radius: 18px; padding: 30px; display: flex; flex-direction: column; justify-content: center;">
         <h2 style="color: #4ade80;">✓ Qualification Immédiate</h2>
-        <p>Notre IA analyse votre secteur et votre budget pour vous donner un score de priorité.</p>
+        <p style="color: #94a3b8; line-height: 1.6;">Notre IA analyse votre secteur et votre budget pour vous donner un score de priorité. Vos données sont sécurisées et traitées instantanément.</p>
+        
+        <div style="margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+            <p style="margin: 0; font-size: 13px;">📊 <strong>Le saviez-vous ?</strong><br>Les dossiers complets sont traités 3x plus vite par nos agents.</p>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Footer NexaPro -->
   <footer class="footer">
     <div class="footer-content">
-      <div> NexaPro – Tous droits réservés</div>
+      <div> LeadQualif IA – Tous droits réservés</div>
       <div class="footer-links">
-        <a href="https://wa.me/33612345678" target="_blank"> Contact WhatsApp</a>
+        <a href="#">Contact Support</a>
       </div>
       <div class="footer-privacy">
-        Produit détenu et opéré par NexaPro<br>
         Les données collectées sont utilisées uniquement dans le cadre du traitement des demandes immobilières.
       </div>
     </div>
   </footer>
 
   <script>
-    // Configuration Supabase - À remplacer avec vos vraies valeurs
-    const SUPABASE_URL = 'https://votre-projet.supabase.co';
-    const SUPABASE_ANON_KEY = 'votre-cle-anon';
-
-    // Client Supabase simple
-    class SupabaseClient {
-      constructor(url, key) {
-        this.url = url;
-        this.key = key;
-      }
-
-      async from(table) {
-        return {
-          insert: async (data) => {
-            const response = await fetch(`${this.url}/rest/v1/${table}`, {
-              method: 'POST',
-              headers: {
-                'apikey': this.key,
-                'Authorization': `Bearer ${this.key}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-              },
-              body: JSON.stringify(data)
-            });
-            
-            if (!response.ok) {
-              const error = await response.text();
-              throw new Error(error);
-            }
-            
-            return { data: null, error: null };
-          }
-        };
-      }
-    }
-
-    const supabase = new SupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // ⚠️ METTEZ ICI VOTRE URL RENDER (Sans le slash à la fin)
+    // Exemple: https://leadqualif-backend-xyz.onrender.com/api
+    const API_BASE_URL = "https://leadqualif-backend.onrender.com/api"; 
 
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
         const statusDiv = document.getElementById('statusMessage');
         
-        btn.textContent = "Envoi en cours...";
+        // Animation Bouton
+        btn.textContent = "🚀 Analyse IA en cours...";
         btn.disabled = true;
         statusDiv.className = 'status-message';
         statusDiv.textContent = '';
 
-        const nom = document.getElementById('nom').value;
-        const email = document.getElementById('email').value;
-        const telephone = document.getElementById('telephone').value;
-        const adresse = document.getElementById('adresse').value;
-        const prix = document.getElementById('prix').value;
-
-        // Validation
-        if (!nom || !email || !telephone || !adresse) {
-            statusDiv.className = 'status-message error';
-            statusDiv.textContent = '❌ Veuillez remplir tous les champs obligatoires';
-            btn.textContent = "Obtenir mon analyse IA";
-            btn.disabled = false;
-            return;
-        }
-
-        // Calcul du score de qualification
-        let score = 5;
-        if (prix && parseInt(prix) > 100000) score += 2;
-        if (email.includes('@') && email.includes('.')) score += 1;
-        if (telephone.replace(/\D/g, '').length >= 10) score += 1;
-        if (adresse.length > 20) score += 1;
-        score = Math.min(score, 10);
-
-        // Détermination de l'urgence
-        let urgence = 'moyenne';
-        if (prix && parseInt(prix) > 500000) urgence = 'élevée';
-        else if (prix && parseInt(prix) < 100000) urgence = 'faible';
+        // Récupération des données
+        const formData = {
+            nom: document.getElementById('nom').value,
+            email: document.getElementById('email').value,
+            telephone: document.getElementById('telephone').value,
+            // On mappe "Prix" vers "Budget" pour le backend Python
+            budget: document.getElementById('prix').value,
+            type_bien: document.getElementById('type_bien').value,
+            // On envoie l'adresse aussi (le backend pourra l'utiliser pour le prompt IA)
+            adresse: document.getElementById('adresse').value
+        };
 
         try {
-            const leadData = {
-                nom,
-                email,
-                telephone,
-                message: `Demande pour un bien à ${adresse}${prix ? ` avec un budget de ${prix}€` : ''}`,
-                source: 'site_web',
-                score_qualification: score,
-                budget_estime: prix || '',
-                urgence,
-                type_bien_recherche: 'non précisé',
-                localisation_souhaitee: adresse,
-                qualification_data: {
-                    score_calcule: score,
-                    criteres: {
-                        budget_suffisant: prix && parseInt(prix) > 100000,
-                        email_valide: email.includes('@') && email.includes('.'),
-                        telephone_complet: telephone.replace(/\D/g, '').length >= 10,
-                        adresse_complete: adresse.length > 20
-                    }
-                }
-            };
+            // Envoi au Backend Python (Render)
+            const response = await fetch(`${API_BASE_URL}/leads`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
 
-            const { error } = await supabase.from('leads').insert([leadData]);
+            const result = await response.json();
 
-            if (error) {
-                throw error;
+            if (response.ok) {
+                // Succès
+                statusDiv.className = 'status-message success';
+                statusDiv.innerHTML = '<strong>✅ Dossier transmis !</strong><br>Notre IA analyse votre profil...';
+                btn.textContent = "Envoyé !";
+                
+                // Reset après 3 secondes
+                setTimeout(() => {
+                    document.getElementById('leadForm').reset();
+                    btn.textContent = "Envoyer un autre dossier";
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                // Erreur
+                statusDiv.className = 'status-message error';
+                statusDiv.innerHTML = `<strong>❌ Erreur</strong><br>${result.message || 'Veuillez réessayer.'}`;
+                btn.textContent = "Obtenir mon analyse IA";
+                btn.disabled = false;
             }
 
-            statusDiv.className = 'status-message success';
-            statusDiv.textContent = '✅ Votre demande a été sauvegardée avec succès !';
-            
-            // Redirection après 2 secondes
-            setTimeout(() => {
-                window.location.href = 'merci.html';
-            }, 2000);
-
-        } catch (err) {
-            console.error('Erreur:', err);
+        } catch (error) {
+            console.error('Erreur:', error);
             statusDiv.className = 'status-message error';
-            statusDiv.textContent = '❌ Erreur lors de la sauvegarde. Veuillez réessayer.';
-        } finally {
+            statusDiv.innerHTML = '<strong>❌ Erreur de connexion</strong><br>Vérifiez votre connexion internet.';
             btn.textContent = "Obtenir mon analyse IA";
             btn.disabled = false;
         }

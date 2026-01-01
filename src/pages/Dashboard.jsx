@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 
 // ⚠️ IMPORTANT : Colle ton URL Render ici (sans le slash à la fin)
-// Exemple : 'https://leadqualif-backend-xyz.onrender.com/api'
+// Exemple : 'https://leadqualif-backend.onrender.com/api'
 const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
 
 export default function Dashboard() {
