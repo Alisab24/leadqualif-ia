@@ -1,203 +1,130 @@
-"""
-Application Flask principale pour LeadQualif IA
-Version UNIFIÉE - Déploiement SaaS (Render + Vercel)
-"""
-
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from flask_login import LoginManager, login_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from config import Config
-from models import db, Lead, User
-from openai import OpenAI, OpenAIError
+from openai import OpenAI  # Nouvelle importation v1+
 
 # Initialisation du client OpenAI
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-def create_app(config_class=Config):
-    app = Flask(__name__)
-    app.config.from_object(config_class)
-    
-    # 0.5. CORRECTION URL DATABASE POUR RENDER (sécurité supplémentaire)
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url and database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    
-    # 1. Initialiser la base de données
-    db.init_app(app)
-    
-    # 2. Initialiser Flask-Login (Pour l'accès Agent)
-    login_manager = LoginManager()
-    login_manager.init_app(app)
-    
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
-    
-    # 3. SOLUTION CORS RADICALE : Autorise TOUTES les origines
-    CORS(app, resources={r"/*": {"origins": "*"}})
-    
-    # 4. Création des Tables et User au démarrage
-    with app.app_context():
-        db.create_all()
-        # Création de l'utilisateur agent par défaut
-        if not User.query.filter_by(username='agent01').first():
-            u = User(username='agent01', password_hash=generate_password_hash('secretpass'))
-            db.session.add(u)
-            db.session.commit()
-            print("✅ User 'agent01' créé.")
+app = Flask(__name__)
 
-    # ==========================================
-    # ROUTES API
-    # ==========================================
+# 1. CONFIGURATION CORS (Accepte tout le monde pour éviter les blocages)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-    @app.route('/')
-    def index():
-        return jsonify({"status": "online", "message": "Cerveau LeadQualif IA prêt"}), 200
+# 2. CONFIGURATION BASE DE DONNÉES (Compatible Render PostgreSQL)
+database_url = os.environ.get('DATABASE_URL')
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-    # --- Login Agent ---
-    @app.route('/login', methods=['POST'])
-    def login():
-        data = request.get_json()
-        if not data: return jsonify({'message': 'Aucune donnée'}), 400
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///site.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+# 3. INITIALISATION CLIENT OPENAI (Nouvelle méthode)
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+# --- MODÈLES (Table User et Lead) ---
+class Lead(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nom = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    telephone = db.Column(db.String(20))
+    budget = db.Column(db.Integer)
+    type_bien = db.Column(db.String(50))
+    score_ia = db.Column(db.Integer, default=0)
+    statut = db.Column(db.String(20), default='Nouveau')
+
+# Création des tables si elles n'existent pas
+with app.app_context():
+    db.create_all()
+
+# --- ROUTES ---
+
+@app.route('/', methods=['GET'])
+def home():
+    return "Backend LeadQualif IA est en ligne (PostgreSQL + OpenAI)!"
+
+# Route 1 : Réception du formulaire
+@app.route('/api/leads', methods=['POST'])
+def add_lead():
+    try:
+        data = request.json
+        # Calcul simple du score (simulation IA rapide)
+        score = 5
+        if data.get('budget') and int(data['budget']) > 20000000: score += 2
+        if data.get('telephone'): score += 2
+        if data.get('type_bien'): score += 1
+
+        new_lead = Lead(
+            nom=data.get('nom'),
+            email=data.get('email'),
+            telephone=data.get('telephone'),
+            budget=data.get('budget'),
+            type_bien=data.get('type_bien'),
+            score_ia=score
+        )
+        db.session.add(new_lead)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Lead enregistré'}), 201
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# Route 2 : Envoi des leads au Dashboard
+@app.route('/api/leads-chauds', methods=['GET'])
+def get_leads():
+    try:
+        leads = Lead.query.order_by(Lead.score_ia.desc()).all()
+        leads_data = [{
+            'id': l.id,
+            'nom': l.nom,
+            'email': l.email,
+            'telephone': l.telephone,
+            'type_bien': l.type_bien,
+            'score_ia': l.score_ia,
+            'statut': l.statut,
+            'budget': l.budget
+        } for l in leads]
+        return jsonify({'status': 'success', 'data': {'leads_chauds': leads_data}}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# Route 3 : GÉNÉRATION ANNONCE IA (C'est ici que ça bloquait)
+@app.route('/api/generate-annonce', methods=['POST'])
+def generate_annonce():
+    try:
+        data = request.json
+        # Construction du prompt pour ChatGPT
+        prompt = f"""
+        Rédige une annonce immobilière très vendeuse et professionnelle (avec des emojis) pour ce bien au Bénin :
+        - Type : {data.get('type', 'Bien immobilier')}
+        - Adresse/Quartier : {data.get('adresse', 'Cotonou')}
+        - Prix : {data.get('prix', 'Nous consulter')}
+        - Surface : {data.get('surface', 'Non précisée')}
+        - Pièces : {data.get('pieces', 'Non précisé')}
         
-        user = User.query.filter_by(username=data.get('username')).first()
-        if user and check_password_hash(user.password_hash, data.get('password')):
-            login_user(user, remember=True)
-            return jsonify({'status': 'success', 'user': {'username': user.username}}), 200
-        return jsonify({'message': 'Identifiants incorrects'}), 401
+        Structure l'annonce avec : Accroche, Description, Points Forts, Appel à l'action.
+        """
 
-    # --- Réception Formulaire Client (Public) ---
-    @app.route('/api/submit-lead', methods=['POST', 'OPTIONS'])
-    def submit_lead():
-        if request.method == 'OPTIONS':
-            return jsonify({'status': 'ok'}), 200
-        try:
-            data = request.json
-            # Calcul du Score IA simple
-            prix = int(data.get('prix') or data.get('budget') or 0)
-            score = 9 if prix > 400000 else 5
-            
-            # Création du lead avec gestion des alias de clés (nom/name, adresse/location)
-            nouveau_lead = Lead(
-                nom=data.get('nom') or data.get('name'),
-                email=data.get('email'),
-                telephone=data.get('telephone') or data.get('phone'),
-                type_bien=data.get('adresse') or data.get('location'), 
-                budget=prix,
-                score_ia=score, 
-                statut="Nouveau"
-            )
-            db.session.add(nouveau_lead)
-            db.session.commit()
-            return jsonify({"status": "success", "score": score}), 200
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"status": "error", "message": str(e)}), 500
+        # Appel à OpenAI (Nouvelle Syntaxe v1.0+)
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Tu es un expert en copywriting immobilier de luxe."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    # --- Générateur d'Annonces avec OpenAI ---
-    @app.route('/api/generate-annonce', methods=['POST', 'OPTIONS'])
-    def generate_annonce():
-        if request.method == 'OPTIONS':
-            return jsonify({'status': 'ok'}), 200
-            
-        try:
-            data = request.json
-            if not data:
-                return jsonify({'error': 'Aucune donnée reçue'}), 400
-            
-            # Récupération des données
-            type_bien = data.get('type', 'appartement')
-            adresse = data.get('adresse', '')
-            prix = data.get('prix', '')
-            surface = data.get('surface', '')
-            pieces = data.get('pieces', '')
-            
-            # Vérification de la clé API
-            if not client.api_key:
-                return jsonify({'error': 'Clé API OpenAI non configurée'}), 500
-            
-            # Création du prompt pour OpenAI
-            prompt = f"""
-Génère une annonce immobilière professionnelle et vendeuse basée sur les informations suivantes :
+        # Récupération de la réponse (Nouvelle Syntaxe)
+        texte_genere = response.choices[0].message.content
+        
+        return jsonify({'text': texte_genere})
 
-- Type de bien : {type_bien}
-- Adresse : {adresse}
-- Prix : {prix}€
-- Surface : {surface} m²
-- Nombre de pièces : {pieces}
-
-Instructions :
-- Style professionnel et attractif
-- Utilise des emojis appropriés (🏠, ✨, 📍, 💰, etc.)
-- Structure claire avec paragraphes
-- Met en avant les points forts
-- Appel à l'action clair
-- Environ 200-300 mots maximum
-"""
-
-            # Appel à l'API OpenAI
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Tu es un expert en rédaction d'annonces immobilières professionnelles et percutantes."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=500,
-                temperature=0.7
-            )
-            
-            annonce_generee = response.choices[0].message.content.strip()
-            
-            return jsonify({
-                'success': True,
-                'annonce': annonce_generee
-            }), 200
-            
-        except openai.error.OpenAIError as e:
-            return jsonify({'error': f'Erreur OpenAI: {str(e)}'}), 500
-        except Exception as e:
-            return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
-
-    # --- Dashboard Agent (Privé) ---
-    @app.route('/api/leads-chauds', methods=['GET'])
-    def get_leads():
-        try:
-            # Récupère les leads triés par score IA
-            leads = Lead.query.order_by(Lead.score_ia.desc()).all()
-            leads_data = [{
-                'id': l.id, 
-                'nom': l.nom, 
-                'email': l.email, 
-                'telephone': l.telephone,      # <--- AJOUT CRUCIAL (Il manquait ça)
-                'type_bien': l.type_bien,      # <--- AJOUT CRUCIAL (Pour l'adresse)
-                'score_ia': l.score_ia, 
-                'statut': l.statut, 
-                'budget': l.budget
-            } for l in leads]
-
-            return jsonify({
-                'status': 'success',
-                'data': {
-                    'leads_chauds': leads_data,
-                    'total_leads': len(leads)
-                }
-            }), 200
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 500
-
-    return app
-
-# ==========================================
-# LANCEMENT (CRITIQUE POUR RENDER)
-# ==========================================
-
-# On initialise 'app' au niveau global pour que Gunicorn le trouve
-app = create_app()
+    except Exception as e:
+        print(f"Erreur OpenAI: {e}") # Affiche l'erreur dans les logs Render
+        return jsonify({'error': str(e), 'text': "Erreur IA : Vérifiez la clé API ou le crédit."}), 500
 
 if __name__ == '__main__':
-    # Render définit automatiquement le PORT
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)

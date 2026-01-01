@@ -7,7 +7,7 @@ import {
   Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar 
 } from 'lucide-react'
 
-const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND_URL || 'https://leadqualif-backend.onrender.com/api'
+const API_BACKEND_URL = '[COLLEZ VOTRE URL RENDER ICI]/api'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
@@ -75,6 +75,15 @@ export default function Dashboard() {
     setAnnonceGeneree("🤖 Génération en cours...")
     
     try {
+      console.log('🔗 URL du backend:', API_BACKEND_URL)
+      console.log('📤 Données envoyées:', {
+        type: annonceForm.pieces_surface ? 'appartement' : 'maison',
+        adresse: annonceForm.adresse,
+        prix: annonceForm.prix,
+        surface: annonceForm.pieces_surface,
+        pieces: annonceForm.pieces_surface
+      })
+      
       const response = await fetch(`${API_BACKEND_URL}/generate-annonce`, {
         method: 'POST',
         headers: {
@@ -89,7 +98,11 @@ export default function Dashboard() {
         })
       })
 
+      console.log('📥 Status de la réponse:', response.status)
+      console.log('📥 Headers de la réponse:', response.headers)
+
       const data = await response.json()
+      console.log('📥 Données reçues:', data)
 
       if (data.success) {
         setAnnonceGeneree(data.annonce)
@@ -98,7 +111,8 @@ export default function Dashboard() {
         setAnnonceGeneree(`❌ Erreur: ${data.error || 'Impossible de générer l\'annonce'}`)
       }
     } catch (error) {
-      console.error('Erreur lors de la génération de l\'annonce:', error)
+      console.error('❌ Erreur complète lors de la génération de l\'annonce:', error)
+      console.error('❌ Stack trace:', error.stack)
       setAnnonceGeneree(`❌ Erreur de connexion: ${error.message}`)
     }
   }
