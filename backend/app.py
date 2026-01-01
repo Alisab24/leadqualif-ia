@@ -2,17 +2,14 @@ import os
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from openai import OpenAI  # Nouvelle importation v1+
-
-# Initialisation du client OpenAI
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+from openai import OpenAI  # Importation correcte v1+
 
 app = Flask(__name__)
 
-# 1. CONFIGURATION CORS (Accepte tout le monde pour éviter les blocages)
+# 1. CONFIGURATION CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# 2. CONFIGURATION BASE DE DONNÉES (Compatible Render PostgreSQL)
+# 2. CONFIGURATION BASE DE DONNÉES
 database_url = os.environ.get('DATABASE_URL')
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -22,10 +19,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# 3. INITIALISATION CLIENT OPENAI (Nouvelle méthode)
+# 3. INITIALISATION CLIENT OPENAI
+# On crée l'objet "client" qui servira à tout faire
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-# --- MODÈLES (Table User et Lead) ---
+# --- MODÈLES ---
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(100), nullable=False)
@@ -36,7 +34,7 @@ class Lead(db.Model):
     score_ia = db.Column(db.Integer, default=0)
     statut = db.Column(db.String(20), default='Nouveau')
 
-# Création des tables si elles n'existent pas
+# Création des tables
 with app.app_context():
     db.create_all()
 
@@ -44,14 +42,12 @@ with app.app_context():
 
 @app.route('/', methods=['GET'])
 def home():
-    return "Backend LeadQualif IA est en ligne (PostgreSQL + OpenAI)!"
+    return "Backend LeadQualif IA est en ligne (PostgreSQL + OpenAI v1)!"
 
-# Route 1 : Réception du formulaire
 @app.route('/api/leads', methods=['POST'])
 def add_lead():
     try:
         data = request.json
-        # Calcul simple du score (simulation IA rapide)
         score = 5
         if data.get('budget') and int(data['budget']) > 20000000: score += 2
         if data.get('telephone'): score += 2
@@ -71,7 +67,6 @@ def add_lead():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# Route 2 : Envoi des leads au Dashboard
 @app.route('/api/leads-chauds', methods=['GET'])
 def get_leads():
     try:
@@ -90,12 +85,12 @@ def get_leads():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# Route 3 : GÉNÉRATION ANNONCE IA (C'est ici que ça bloquait)
+# Route de Génération (CORRIGÉE)
 @app.route('/api/generate-annonce', methods=['POST'])
 def generate_annonce():
     try:
         data = request.json
-        # Construction du prompt pour ChatGPT
+        # Prompt
         prompt = f"""
         Rédige une annonce immobilière très vendeuse et professionnelle (avec des emojis) pour ce bien au Bénin :
         - Type : {data.get('type', 'Bien immobilier')}
@@ -103,27 +98,27 @@ def generate_annonce():
         - Prix : {data.get('prix', 'Nous consulter')}
         - Surface : {data.get('surface', 'Non précisée')}
         - Pièces : {data.get('pieces', 'Non précisé')}
-        
         Structure l'annonce avec : Accroche, Description, Points Forts, Appel à l'action.
         """
 
-        # Appel à OpenAI (Nouvelle Syntaxe v1.0+)
+        # Appel CORRIGÉ (utilise client.chat... et non openai.Chat...)
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Tu es un expert en copywriting immobilier de luxe."},
+                {"role": "system", "content": "Tu es un expert en copywriting immobilier."},
                 {"role": "user", "content": prompt}
             ]
         )
 
-        # Récupération de la réponse (Nouvelle Syntaxe)
+        # Récupération réponse CORRIGÉE
         texte_genere = response.choices[0].message.content
         
         return jsonify({'text': texte_genere})
 
     except Exception as e:
-        print(f"Erreur OpenAI: {e}") # Affiche l'erreur dans les logs Render
-        return jsonify({'error': str(e), 'text': "Erreur IA : Vérifiez la clé API ou le crédit."}), 500
+        # Erreur CORRIGÉE (utilise Exception générique)
+        print(f"Erreur CRITIQUE OpenAI: {e}") 
+        return jsonify({'error': str(e), 'text': "Erreur lors de la génération."}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
