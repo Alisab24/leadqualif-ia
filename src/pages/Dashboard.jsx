@@ -11,7 +11,7 @@ import {
 
 // ⚠️ IMPORTANT : Colle ton URL Render ici (sans le slash à la fin)
 // Exemple : 'https://leadqualif-backend-xyz.onrender.com/api'
-const API_BACKEND_URL = '[COLLEZ VOTRE URL RENDER ICI]/api'
+const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
