@@ -33,9 +33,8 @@ def create_app(config_class=Config):
     def load_user(user_id):
         return User.query.get(int(user_id))
     
-    # 3. SOLUTION CORS RADICALE : Autorise TOUT sans exception
-    # Indispensable pour la communication entre Vercel et Render
-    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+    # 3. SOLUTION CORS RADICALE : Autorise TOUTES les origines
+    CORS(app, resources={r"/*": {"origins": "*"}})
     
     # 3.1 Configuration OpenAI
     openai.api_key = os.environ.get("OPENAI_API_KEY")
