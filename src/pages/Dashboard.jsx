@@ -349,24 +349,6 @@ export default function Dashboard() {
 
         </div>
       </main>
-
-      {/* Footer NexaPro */}
-      <footer className="bg-slate-50 border-t border-slate-200 py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-8 text-center">
-          <div className="text-slate-600 text-sm font-medium mb-2">
-            © NexaPro – Tous droits réservés
-          </div>
-          <div className="mb-2">
-            <a href="https://wa.me/33612345678" target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-700 text-sm font-medium inline-flex items-center gap-1">
-              💬 Contact WhatsApp
-            </a>
-          </div>
-          <div className="text-slate-500 text-xs leading-relaxed max-w-2xl mx-auto">
-            Produit détenu et opéré par NexaPro<br />
-            Les données collectées sont utilisées uniquement dans le cadre du traitement des demandes immobilières.
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

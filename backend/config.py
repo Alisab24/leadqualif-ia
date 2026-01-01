@@ -12,11 +12,19 @@ class Config:
     # Clé secrète pour Flask (à changer en production)
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    # Configuration de la base de données SQLite (locale pour l'instant)
-    # Le fichier sera créé dans le dossier backend/
+    # Configuration de la base de données
+    # Priorité à DATABASE_URL (Render) avec fallback SQLite (local)
     BASE_DIR = Path(__file__).parent
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        f'sqlite:///{BASE_DIR}/leadqualif_ia.db'
+    database_url = os.environ.get('DATABASE_URL')
+    
+    if database_url:
+        # Fix Render : remplacer postgres:// par postgresql:// pour SQLAlchemy
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        SQLALCHEMY_DATABASE_URI = database_url
+    else:
+        # Fallback SQLite pour les tests locaux
+        SQLALCHEMY_DATABASE_URI = f'sqlite:///{BASE_DIR}/leadqualif_ia.db'
     
     # Désactiver le suivi des modifications SQLAlchemy (améliore les performances)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
