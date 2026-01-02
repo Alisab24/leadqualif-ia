@@ -44,7 +44,8 @@ export default function Dashboard() {
             score: l.score_ia || 0,
             nom: l.nom || 'Prospect Inconnu',
             type_bien: l.type_bien || 'Non précisé',
-            telephone: l.telephone || ''
+            telephone: l.telephone || '',
+            statut_crm: l.statut_crm || 'À traiter'
           }))
           setLeads(leadsData)
           
@@ -92,10 +93,36 @@ export default function Dashboard() {
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }
 
+  // Fonction pour mettre à jour le statut CRM
+  const updateStatutCRM = async (leadId, nouveauStatut) => {
+    try {
+      const res = await fetch(`${API_BACKEND_URL}/leads/${leadId}/statut`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut: nouveauStatut })
+      })
+      
+      const data = await res.json()
+      if (data.status === 'success') {
+        // Mettre à jour le state local
+        setLeads(leads.map(lead => 
+          lead.id === leadId ? { ...lead, statut_crm: nouveauStatut } : lead
+        ))
+        console.log('Statut CRM mis à jour:', nouveauStatut)
+        // Petite notification visuelle
+        const notification = document.createElement('div')
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in'
+        notification.textContent = 'Statut sauvegardé !'
+        document.body.appendChild(notification)
+        setTimeout(() => notification.remove(), 2000)
+      }
+    } catch (error) {
+      console.error('Erreur mise à jour statut:', error)
+    }
+  }
+
   const leadsChaudsCount = leads.filter(l => l.score >= 8).length
   const leadsTries = [...leads].sort((a, b) => b.score - a.score)
-
-  // 3. GÉNÉRATEUR D'ANNONCES (Connecté à ton Python/OpenAI)
   const handleAnnonce = async (e) => {
     e.preventDefault()
     setIsGenerating(true)
@@ -218,7 +245,7 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold tracking-wider">
-                  <tr><th className="p-4">Prospect</th><th className="p-4">Budget</th><th className="p-4">Potentiel</th><th className="p-4 text-right">Action</th></tr>
+                  <tr><th className="p-4">Prospect</th><th className="p-4">Budget</th><th className="p-4">Potentiel</th><th className="p-4">Suivi Dossier</th><th className="p-4 text-right">Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {leadsTries.map(lead => {
@@ -228,6 +255,27 @@ export default function Dashboard() {
                         <td className="p-4"><div className="font-bold text-slate-800">{lead.nom}</div><div className="text-slate-400 text-xs">{lead.email}</div></td>
                         <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}</td>
                         <td className="p-4"><span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${isHot ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isHot && <Zap size={12}/>} {lead.score}/10</span></td>
+                        <td className="p-4">
+                          <select 
+                            value={lead.statut_crm || 'À traiter'}
+                            onChange={(e) => updateStatutCRM(lead.id, e.target.value)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold border-2 transition-colors ${
+                              (lead.statut_crm || 'À traiter') === 'À traiter' ? 'bg-gray-100 text-gray-700 border-gray-300' :
+                              (lead.statut_crm || 'À traiter') === 'Contacté' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                              (lead.statut_crm || 'À traiter') === 'RDV Planifié' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                              (lead.statut_crm || 'À traiter') === 'Offre en cours' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                              (lead.statut_crm || 'À traiter') === 'Signé / Vendu' ? 'bg-green-100 text-green-700 border-green-300' :
+                              'bg-red-100 text-red-700 border-red-300'
+                            }`}
+                          >
+                            <option value="À traiter">À traiter</option>
+                            <option value="Contacté">Contacté</option>
+                            <option value="RDV Planifié">RDV Planifié</option>
+                            <option value="Offre en cours">Offre en cours</option>
+                            <option value="Signé / Vendu">Signé / Vendu</option>
+                            <option value="Perdu / Abandon">Perdu / Abandon</option>
+                          </select>
+                        </td>
                         <td className="p-4 text-right flex items-center justify-end gap-2">
                           <a href={`mailto:${lead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${lead.nom},`} className="flex items-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-bold shadow-sm"><Mail size={14}/> Email</a>
                           <button onClick={() => setSelectedLead(lead)} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"><Search size={14}/> Voir</button>
@@ -235,7 +283,7 @@ export default function Dashboard() {
                       </tr>
                     )
                   })}
-                  {leads.length === 0 && !loading && <tr><td colSpan="4" className="p-8 text-center text-slate-400">Aucun lead pour l'instant...</td></tr>}
+                  {leads.length === 0 && !loading && <tr><td colSpan="5" className="p-8 text-center text-slate-400">Aucun lead pour l'instant...</td></tr>}
                 </tbody>
               </table>
             </div>

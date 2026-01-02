@@ -33,6 +33,7 @@ class Lead(db.Model):
     type_bien = db.Column(db.String(50))
     score_ia = db.Column(db.Integer, default=0)
     statut = db.Column(db.String(20), default='Nouveau')
+    statut_crm = db.Column(db.String(50), default='À traiter')
 
 # Création des tables
 with app.app_context():
@@ -121,9 +122,30 @@ def get_leads():
             'type_bien': l.type_bien,
             'score_ia': l.score_ia,
             'statut': l.statut,
+            'statut_crm': l.statut_crm,
             'budget': l.budget
         } for l in leads]
         return jsonify({'status': 'success', 'data': {'leads_chauds': leads_data}}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/leads/<int:id>/statut', methods=['PUT'])
+def update_lead_statut(id):
+    try:
+        data = request.json
+        nouveau_statut = data.get('statut')
+        
+        if not nouveau_statut:
+            return jsonify({'status': 'error', 'message': 'Statut manquant'}), 400
+        
+        lead = Lead.query.get(id)
+        if not lead:
+            return jsonify({'status': 'error', 'message': 'Lead non trouvé'}), 404
+        
+        lead.statut_crm = nouveau_statut
+        db.session.commit()
+        
+        return jsonify({'status': 'success', 'message': 'Statut mis à jour', 'statut_crm': nouveau_statut}), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
