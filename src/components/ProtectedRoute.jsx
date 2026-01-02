@@ -1,26 +1,32 @@
+import { useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+const ProtectedRoute = ({ children }) => {
+  // Vérifier l'authentification via localStorage
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
+  
+  // Optionnel : Vérifier si la session n'a pas expiré (24h)
+  const loginTime = localStorage.getItem('loginTime')
+  const isSessionValid = loginTime ? 
+    (Date.now() - new Date(loginTime).getTime()) < 24 * 60 * 60 * 1000 : 
+    false
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Vérification de l'authentification...</p>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    // Si non authentifié ou session expirée, nettoyer et rediriger
+    if (!isAuthenticated || !isSessionValid) {
+      localStorage.removeItem('isAuthenticated')
+      localStorage.removeItem('loginTime')
+    }
+  }, [isAuthenticated, isSessionValid])
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !isSessionValid) {
     return <Navigate to="/login" replace />
   }
 
   return children
 }
+
+export default ProtectedRoute
 
 
 
