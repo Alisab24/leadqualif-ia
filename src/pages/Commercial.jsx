@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { 
   Building2, FileCheck, Save, Printer, Users, Settings, FileText, 
   Phone, Mail, MapPin, Hash, Globe, ChevronRight
@@ -156,9 +157,9 @@ export default function Commercial() {
             <div className="bg-blue-600 p-2 rounded-lg text-white"><Building2 size={20} /></div>
             <h1 className="text-xl font-bold">Espace <span className="text-blue-600">Professionnel</span></h1>
           </div>
-          <a href="/" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition">
+          <Link to="/" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition">
             <ChevronRight size={18} /> Retour Dashboard
-          </a>
+          </Link>
         </div>
       </nav>
 
