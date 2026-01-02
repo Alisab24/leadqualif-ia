@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Building, Eye, EyeOff, Mail, Lock, User } from 'lucide-react'
-import { auth } from '../supabaseClient'
+import { supabase } from '../supabaseClient'
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -44,32 +44,73 @@ export default function SignUp() {
       return
     }
 
-    // Inscription via Supabase
     try {
       console.log('Tentative d\'inscription...', { email: formData.email, agencyName: formData.agencyName })
       
-      const result = await auth.signUp(
-        formData.email,
-        formData.password,
-        formData.agencyName
-      )
+      // 1. Créer l'utilisateur dans auth.users
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      })
 
-      console.log('Résultat inscription:', result)
-
-      if (result.success) {
-        setSuccess('Compte créé avec succès ! Vérifiez votre email pour confirmer.')
-        setTimeout(() => {
-          navigate('/login')
-        }, 3000)
-      } else {
-        console.error('Erreur inscription:', result.error)
-        setError(result.error || 'Erreur lors de la création du compte')
-        alert(`Erreur: ${result.error || 'Erreur lors de la création du compte'}`)
+      if (authError) {
+        console.error('Erreur inscription Supabase:', authError)
+        setError(authError.message || 'Erreur lors de la création du compte')
+        setIsLoading(false)
+        return
       }
+
+      console.log('Utilisateur créé:', authData.user?.email)
+
+      // 2. Créer l'agence
+      const { data: agencyData, error: agencyError } = await supabase
+        .from('agencies')
+        .insert([{ 
+          nom_agence: formData.agencyName, 
+          plan: 'starter' 
+        }])
+        .select()
+        .single()
+
+      if (agencyError) {
+        console.error('Erreur création agence:', agencyError)
+        setError('Erreur lors de la création de l\'agence')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('Agence créée:', agencyData.id)
+
+      // 3. Créer le profil utilisateur
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          user_id: authData.user.id,
+          agency_id: agencyData.id,
+          email: formData.email,
+          role: 'admin',
+          nom_complet: formData.fullName
+        }])
+        .select()
+        .single()
+
+      if (profileError) {
+        console.error('Erreur création profil:', profileError)
+        setError('Erreur lors de la création du profil')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('Profil créé:', profileData.id)
+
+      setSuccess('Compte créé avec succès ! Vérifiez votre email pour confirmer.')
+      setTimeout(() => {
+        navigate('/login')
+      }, 3000)
+
     } catch (error) {
-      console.error('Erreur catch inscription:', error)
-      setError(`Erreur réseau: ${error.message}`)
-      alert(`Erreur réseau: ${error.message}`)
+      console.error('Erreur inattendue:', error)
+      setError('Erreur réseau. Veuillez réessayer.')
     }
 
     setIsLoading(false)

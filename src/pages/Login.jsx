@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Lock, Eye, EyeOff, Mail } from 'lucide-react'
-import { auth } from '../supabaseClient'
+import { supabase } from '../supabaseClient'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -11,29 +11,31 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
 
-  // Vérifier si déjà connecté
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { user } = await auth.getCurrentUser()
-      if (user) {
-        navigate('/app')
-      }
-    }
-    checkAuth()
-  }, [navigate])
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
 
-    // Connexion via Supabase
-    const result = await auth.signIn(email, password)
+    try {
+      console.log('Tentative de connexion:', { email })
+      
+      // Connexion via Supabase uniquement
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (result.success) {
-      navigate('/app')
-    } else {
-      setError(result.error || 'Erreur de connexion')
+      if (signInError) {
+        console.error('Erreur connexion Supabase:', signInError)
+        setError(signInError.message || 'Erreur de connexion')
+      } else {
+        console.log('Connexion réussie:', data.user?.email)
+        // Redirection vers le dashboard
+        navigate('/app')
+      }
+    } catch (error) {
+      console.error('Erreur inattendue:', error)
+      setError('Erreur réseau. Veuillez réessayer.')
     }
 
     setIsLoading(false)

@@ -4,50 +4,41 @@ import {
   Building2, FileCheck, Save, Printer, Users, Settings, FileText, 
   Phone, Mail, MapPin, Hash, Globe, ChevronRight
 } from 'lucide-react'
+import { leads } from '../supabaseClient'
 
-const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
+// Plus besoin de l'URL du backend - tout passe par Supabase
 
 export default function Commercial() {
-  const [activeTab, setActiveTab] = useState('config')
-  const [leads, setLeads] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selectedLead, setSelectedLead] = useState('')
+  const [leadsList, setLeadsList] = useState([])
+  const [selectedLead, setSelectedLead] = useState(null)
   const [selectedDocType, setSelectedDocType] = useState('devis')
-  
-  // Configuration agence depuis localStorage
-  const [agencyConfig, setAgencyConfig] = useState({
-    nom: localStorage.getItem('agencyName') || '',
-    adresse: localStorage.getItem('agencyAddress') || '',
-    telephone: localStorage.getItem('agencyPhone') || '',
-    siret: localStorage.getItem('agencySiret') || '',
-    logo: localStorage.getItem('agencyLogo') || ''
-  })
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
-  // Charger les leads depuis l'API
   useEffect(() => {
-    const fetchLeads = async () => {
+    const loadLeads = async () => {
       try {
-        const res = await fetch(`${API_BACKEND_URL}/leads-chauds`)
-        const data = await res.json()
+        const result = await leads.getAll()
         
-        if (data.status === 'success' && data.data.leads_chauds) {
-          setLeads(data.data.leads_chauds.map(l => ({
-            ...l,
-            nom: l.nom || 'Prospect Inconnu',
-            email: l.email || '',
-            telephone: l.telephone || '',
-            budget: l.budget || 0,
-            type_bien: l.type_bien || 'Non précisé'
-          })))
+        if (result.success) {
+          setLeadsList(result.data)
+          console.log('Leads chargés pour Commercial:', result.data.length)
+        } else {
+          console.error('Erreur chargement leads:', result.error)
+          setLeadsList([])
         }
-      } catch (e) {
-        console.error("Erreur de chargement des leads:", e)
+      } catch (error) {
+        console.error('Erreur chargement leads:', error)
+        setLeadsList([])
       } finally {
         setLoading(false)
       }
     }
-    fetchLeads()
+    
+    loadLeads()
   }, [])
+
+  // Les leads sont maintenant chargés via Supabase dans le useEffect précédent
 
   // Sauvegarder configuration agence
   const saveAgencyConfig = () => {
@@ -66,7 +57,7 @@ export default function Commercial() {
       return
     }
 
-    const lead = leads.find(l => l.id === parseInt(selectedLead))
+    const lead = leadsList.find(l => l.id === parseInt(selectedLead))
     if (!lead) return
 
     const documentNumber = `DOC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`

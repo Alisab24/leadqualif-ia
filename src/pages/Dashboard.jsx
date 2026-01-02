@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Brain, Users, FileText, Building2, Calendar, Phone, MessageCircle, X, LayoutDashboard, TrendingUp, Clock, Target } from 'lucide-react'
 import { generateAnnouncement } from '../services/leadProcessor'
-import { auth, leads, interactions } from '../supabaseClient' 
+import { auth, leads, interactions, supabase } from '../supabaseClient' 
 
 // Import des icônes
 import { 
@@ -10,9 +10,7 @@ import {
   Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck
 } from 'lucide-react'
 
-// ⚠️ IMPORTANT : Colle ton URL Render ici (sans le slash à la fin)
-// Exemple : 'https://leadqualif-backend.onrender.com/api'
-const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
+// Plus besoin de l'URL du backend - tout passe par Supabase
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
@@ -20,6 +18,7 @@ export default function Dashboard() {
   const [userProfile, setUserProfile] = useState(null)
   const [agencyId, setAgencyId] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [tempsEconomise, setTempsEconomise] = useState(() => {
     const saved = localStorage.getItem('timeSaved')
     return saved ? parseInt(saved) : 0
@@ -32,12 +31,29 @@ export default function Dashboard() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // Récupérer le profil utilisateur et agency_id
-        const { user, profile } = await auth.getCurrentUser()
+        console.log('Début chargement données utilisateur...')
         
-        if (!user || !profile) {
-          console.error('Utilisateur non connecté')
+        // Récupérer la session Supabase
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError || !session) {
+          console.error('Pas de session active:', sessionError)
           navigate('/login')
+          return
+        }
+        
+        console.log('Session trouvée:', session.user.email)
+        
+        // Récupérer le profil utilisateur et agency_id
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*, agencies(*)')
+          .eq('user_id', session.user.id)
+          .single()
+        
+        if (profileError || !profile) {
+          console.error('Erreur profil:', profileError)
+          setError('Profil utilisateur non trouvé')
           return
         }
         
@@ -61,10 +77,12 @@ export default function Dashboard() {
           })
         } else {
           console.error("❌ Erreur chargement leads:", result.error)
+          setError('Erreur lors du chargement des leads')
           setLeads([])
         }
       } catch (error) {
         console.error("❌ Erreur de chargement:", error)
+        setError('Erreur de chargement des données')
         setLeads([])
       } finally {
         setLoading(false)
@@ -133,64 +151,40 @@ export default function Dashboard() {
     }
   }
 
-  // Fonction pour mettre à jour le statut CRM
+  // Fonction pour mettre à jour le statut CRM (Via Supabase)
   const updateStatutCRM = async (leadId, nouveauStatut) => {
     try {
-      const res = await fetch(`${API_BACKEND_URL}/leads/${leadId}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: nouveauStatut })
-      })
+      const result = await leads.update(leadId, { statut_crm: nouveauStatut })
       
-      const data = await res.json()
-      if (data.status === 'success') {
-        // Mettre à jour le state local
+      if (result.success) {
         setLeads(leads.map(lead => 
           lead.id === leadId ? { ...lead, statut_crm: nouveauStatut } : lead
         ))
         console.log('Statut CRM mis à jour:', nouveauStatut)
-        // Petite notification visuelle
-        const notification = document.createElement('div')
-        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in'
-        notification.textContent = 'Statut sauvegardé !'
-        document.body.appendChild(notification)
-        setTimeout(() => notification.remove(), 2000)
+      } else {
+        console.error('Erreur mise à jour statut:', result.error)
       }
     } catch (error) {
       console.error('Erreur mise à jour statut:', error)
     }
   }
 
-  // Fonction pour générer une annonce
+  // Fonction pour générer une annonce (Via service local)
   const handleAnnonce = async (e) => {
     e.preventDefault()
     setIsGenerating(true)
     setAnnonceGeneree("🤖 L'IA rédige votre annonce...")
 
     try {
-      const res = await fetch(`${API_BACKEND_URL}/generate-annonce`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(annonceForm)
-      })
-
-      const data = await res.json()
-
-      if (data.text) {
-        setAnnonceGeneree(data.text)
-        setTempsEconomise(ancienTemps => {
-          const nouveauTemps = ancienTemps + 1 // +1 heure pour génération d'annonce
-          localStorage.setItem('timeSaved', nouveauTemps.toString())
-          return nouveauTemps
-        })
-      } else {
-        setAnnonceGeneree("❌ Erreur IA : " + (data.error || "Réponse vide"))
-      }
+      // Utiliser le service local pour la génération
+      const annonce = await generateAnnouncement(annonceForm)
+      setAnnonceGeneree(annonce)
     } catch (error) {
-      setAnnonceGeneree("❌ Erreur connexion : Vérifiez l'URL du backend.")
-    } finally {
-      setIsGenerating(false)
+      console.error('Erreur génération annonce:', error)
+      setAnnonceGeneree("❌ Erreur lors de la génération")
     }
+
+    setIsGenerating(false)
   }
 
   // --- CALCULS DES STATISTIQUES (FIX) ---
@@ -358,6 +352,21 @@ export default function Dashboard() {
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-slate-600">Chargement de vos données...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center max-w-md">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg mb-4">
+                <p className="font-semibold">Erreur de chargement</p>
+                <p className="text-sm mt-1">{error}</p>
+              </div>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Réessayer
+              </button>
             </div>
           </div>
         ) : (
