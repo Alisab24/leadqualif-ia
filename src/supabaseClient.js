@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Configuration Supabase
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://your-project.supabase.co'
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'your-anon-key'
+console.log('Vérification variables Supabase...')
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (supabaseUrl) {
+  console.log('URL Supabase détectée')
+} else {
+  console.log('URL Supabase manquante')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 

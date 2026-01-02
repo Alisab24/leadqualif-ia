@@ -45,19 +45,31 @@ export default function SignUp() {
     }
 
     // Inscription via Supabase
-    const result = await auth.signUp(
-      formData.email,
-      formData.password,
-      formData.agencyName
-    )
+    try {
+      console.log('Tentative d\'inscription...', { email: formData.email, agencyName: formData.agencyName })
+      
+      const result = await auth.signUp(
+        formData.email,
+        formData.password,
+        formData.agencyName
+      )
 
-    if (result.success) {
-      setSuccess('Compte créé avec succès ! Vérifiez votre email pour confirmer.')
-      setTimeout(() => {
-        navigate('/login')
-      }, 3000)
-    } else {
-      setError(result.error || 'Erreur lors de la création du compte')
+      console.log('Résultat inscription:', result)
+
+      if (result.success) {
+        setSuccess('Compte créé avec succès ! Vérifiez votre email pour confirmer.')
+        setTimeout(() => {
+          navigate('/login')
+        }, 3000)
+      } else {
+        console.error('Erreur inscription:', result.error)
+        setError(result.error || 'Erreur lors de la création du compte')
+        alert(`Erreur: ${result.error || 'Erreur lors de la création du compte'}`)
+      }
+    } catch (error) {
+      console.error('Erreur catch inscription:', error)
+      setError(`Erreur réseau: ${error.message}`)
+      alert(`Erreur réseau: ${error.message}`)
     }
 
     setIsLoading(false)
