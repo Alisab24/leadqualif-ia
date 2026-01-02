@@ -187,8 +187,16 @@ export default function Dashboard() {
     }
   }
 
-  // Tri des leads : Les plus chauds (score haut) en premier
+  // --- CALCULS DES STATISTIQUES (FIX) ---
+  // 1. Trier les leads (Score le plus haut en premier)
   const leadsTries = [...leads].sort((a, b) => (b.score_ia || 0) - (a.score_ia || 0));
+  // 2. Compter les leads chauds (Score >= 7)
+  const leadsChaudsCount = leads.filter(l => (l.score_ia || 0) >= 7).length;
+  // 3. Compter les nouveaux (ceux qui n'ont pas encore de statut CRM défini ou 'À traiter')
+  const leadsNouveaux = leads.filter(l => !l.statut_crm || l.statut_crm === 'À traiter').length;
+  // 4. Statistiques supplémentaires
+  const leadsTotal = leads.length;
+  const conversionRate = leadsTotal > 0 ? Math.round((leadsChaudsCount / leadsTotal) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 relative">
