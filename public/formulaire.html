@@ -83,10 +83,10 @@
             </select>
 
             <label>Adresse du bien</label>
-            <input type="text" id="adresse" placeholder="Adresse complète" required />
+            <input type="text" id="adresse" placeholder="Ex: 75011 Paris, France" required />
             
-            <label>Prix estimé / Budget (FCFA)</label>
-            <input type="number" id="prix" placeholder="Ex: 35000000" />
+            <label>Prix estimé / Budget (€)</label>
+            <input type="number" id="prix" placeholder="Ex: 350000" />
             
             <button type="submit" class="submit-btn" id="submitBtn">Obtenir mon analyse IA</button>
           </form>
@@ -119,7 +119,7 @@
 
   <script>
     // ⚠️ METTEZ ICI VOTRE URL RENDER (Sans le slash à la fin)
-    // Exemple: https://leadqualif-backend-xyz.onrender.com/api
+    // Exemple: https://leadqualif-backend.onrender.com/api
     const API_BASE_URL = "https://leadqualif-backend.onrender.com/api"; 
 
     document.getElementById('leadForm').addEventListener('submit', async (e) => {

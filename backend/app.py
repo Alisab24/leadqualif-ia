@@ -49,7 +49,7 @@ def add_lead():
     try:
         data = request.json
         score = 5
-        if data.get('budget') and int(data['budget']) > 20000000: score += 2
+        if data.get('budget') and int(data['budget']) > 300000: score += 2
         if data.get('telephone'): score += 2
         if data.get('type_bien'): score += 1
 
@@ -92,13 +92,16 @@ def generate_annonce():
         data = request.json
         # Prompt
         prompt = f"""
-        Rédige une annonce immobilière très vendeuse et professionnelle (avec des emojis) pour ce bien au Bénin :
+        Rédige une annonce immobilière très vendeuse et professionnelle (avec des emojis) pour ce bien en France :
         - Type : {data.get('type', 'Bien immobilier')}
-        - Adresse/Quartier : {data.get('adresse', 'Cotonou')}
-        - Prix : {data.get('prix', 'Nous consulter')}
-        - Surface : {data.get('surface', 'Non précisée')}
+        - Adresse/Quartier : {data.get('adresse', 'Paris')}
+        - Prix : {data.get('prix', 'Nous consulter')} €
+        - Surface : {data.get('surface', 'Non précisée')} m²
         - Pièces : {data.get('pieces', 'Non précisé')}
+        
+        Adopte un ton d'agent immobilier de prestige à la française : élégant, professionnel et persuasif.
         Structure l'annonce avec : Accroche, Description, Points Forts, Appel à l'action.
+        Mentionne les atouts du quartier si possible.
         """
 
         # Appel CORRIGÉ (utilise client.chat... et non openai.Chat...)

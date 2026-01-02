@@ -59,7 +59,21 @@ export default function Dashboard() {
   // 2. FONCTIONS UTILES
   const cleanPhoneNumber = (phone) => {
     if (!phone) return '';
-    return phone.replace(/\D/g, ''); 
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // Gestion des numéros français
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+      // 06 12 34 56 78 -> 33612345678
+      return '33' + cleaned.substring(1);
+    } else if (cleaned.startsWith('33') && cleaned.length === 11) {
+      // Déjà au format international
+      return cleaned;
+    } else if (cleaned.length === 9) {
+      // 612345678 -> 33612345678
+      return '33' + cleaned;
+    }
+    
+    return cleaned;
   }
 
   const getWhatsAppLink = (lead) => {
@@ -127,7 +141,7 @@ export default function Dashboard() {
                 <p className="text-xs font-bold text-slate-400 uppercase mb-2">Le Projet</p>
                 <div className="mb-4"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${selectedLead.score >= 8 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>Score IA : {selectedLead.score}/10</span></div>
                 <ul className="space-y-3">
-                  <li className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm">Budget</span><span className="font-bold text-slate-900">{selectedLead.budget ? selectedLead.budget.toLocaleString() + ' FCFA' : '-'}</span></li>
+                  <li className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm">Budget</span><span className="font-bold text-slate-900">{selectedLead.budget ? selectedLead.budget.toLocaleString() + ' €' : '-'}</span></li>
                   <li className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm">Type</span><span className="font-bold text-slate-900 text-right text-sm">{selectedLead.type_bien}</span></li>
                 </ul>
               </div>
@@ -138,6 +152,7 @@ export default function Dashboard() {
                 <>
                   <a href={`tel:${selectedLead.telephone}`} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-blue-600 font-bold text-sm"><Phone size={16}/> Appeler</a>
                   <a href={getWhatsAppLink(selectedLead)} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-bold text-sm"><MessageCircle size={16}/> WhatsApp</a>
+                  <a href="https://calendly.com/" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-sm font-bold shadow-lg shadow-slate-200"><Calendar size={16}/> Prendre RDV</a>
                 </>
               )}
             </div>
@@ -194,7 +209,7 @@ export default function Dashboard() {
                     return (
                       <tr key={lead.id} className={`transition-colors ${isHot ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
                         <td className="p-4"><div className="font-bold text-slate-800">{lead.nom}</div><div className="text-slate-400 text-xs">{lead.email}</div></td>
-                        <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' FCFA' : '-'}</td>
+                        <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}</td>
                         <td className="p-4"><span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${isHot ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isHot && <Zap size={12}/>} {lead.score}/10</span></td>
                         <td className="p-4 text-right flex items-center justify-end gap-2">
                           <button onClick={() => setSelectedLead(lead)} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"><Search size={14}/> Voir</button>
@@ -232,7 +247,7 @@ export default function Dashboard() {
                 <input 
                   type="text"
                   className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                  placeholder="Ex: Cotonou, Calavi..."
+                  placeholder="Ex: 75011 Paris"
                   value={annonceForm.adresse}
                   onChange={e => setAnnonceForm({...annonceForm, adresse: e.target.value})}
                   required
@@ -241,11 +256,11 @@ export default function Dashboard() {
               
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prix (FCFA)</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prix (€)</label>
                   <input 
                     type="number"
                     className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                    placeholder="Ex: 25000000"
+                    placeholder="Ex: 350000"
                     value={annonceForm.prix}
                     onChange={e => setAnnonceForm({...annonceForm, prix: e.target.value})}
                   />
