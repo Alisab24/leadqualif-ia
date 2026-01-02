@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -23,6 +24,13 @@ db = SQLAlchemy(app)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # --- 2. MODÈLE DE DONNÉES ---
+class Interaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False)
+    type_action = db.Column(db.String(50), nullable=False)  # 'Appel', 'Email', 'WhatsApp', 'Note', 'RDV', etc.
+    details = db.Column(db.String(500))
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(100), nullable=False)
@@ -34,6 +42,9 @@ class Lead(db.Model):
     score_ia = db.Column(db.Integer, default=0)
     statut = db.Column(db.String(20), default='Nouveau') # Statut IA (Chaud/Froid)
     statut_crm = db.Column(db.String(50), default='À traiter') # NOUVEAU : Suivi commercial
+    
+    # Relation avec les interactions
+    interactions = db.relationship('Interaction', backref='lead', lazy=True, order_by='Interaction.date.desc()')
 
 # Création des tables au démarrage (si elles n'existent pas)
 with app.app_context():
@@ -117,7 +128,13 @@ def get_leads():
             'score_ia': l.score_ia,
             'statut': l.statut,
             'statut_crm': l.statut_crm or 'À traiter', # Sécurité si vide
-            'budget': l.budget
+            'budget': l.budget,
+            'interactions': [{
+                'id': i.id,
+                'type_action': i.type_action,
+                'details': i.details,
+                'date': i.date.isoformat() if i.date else None
+            } for i in l.interactions]
         } for l in leads]
         return jsonify({'status': 'success', 'data': {'leads_chauds': leads_data}}), 200
     except Exception as e:
@@ -138,7 +155,45 @@ def update_statut(id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- ROUTE 4 : GÉNÉRATION ANNONCE IA ---
+# --- ROUTE 4 : AJOUT INTERACTION (HISTORIQUE CRM) ---
+@app.route('/api/leads/<int:id>/interactions', methods=['POST'])
+def add_interaction(id):
+    try:
+        lead = Lead.query.get(id)
+        if not lead:
+            return jsonify({'error': 'Lead non trouvé'}), 404
+        
+        data = request.json
+        type_action = data.get('type_action')
+        details = data.get('details', '')
+        
+        if not type_action:
+            return jsonify({'error': 'Type d\'action manquant'}), 400
+        
+        new_interaction = Interaction(
+            lead_id=id,
+            type_action=type_action,
+            details=details,
+            date=datetime.utcnow()
+        )
+        
+        db.session.add(new_interaction)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'interaction': {
+                'id': new_interaction.id,
+                'type_action': new_interaction.type_action,
+                'details': new_interaction.details,
+                'date': new_interaction.date.isoformat()
+            }
+        }), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --- ROUTE 5 : GÉNÉRATION ANNONCE IA ---
 @app.route('/api/generate-annonce', methods=['POST'])
 def generate_annonce():
     try:

@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [annonceGeneree, setAnnonceGeneree] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [tempsEconomise, setTempsEconomise] = useState(() => parseInt(localStorage.getItem('timeSaved')) || 0)
+  const [newNote, setNewNote] = useState('')
 
   // 1. CHARGEMENT DES DONNÉES (Via ton Backend Python)
   useEffect(() => {
@@ -45,7 +46,8 @@ export default function Dashboard() {
             nom: l.nom || 'Prospect Inconnu',
             type_bien: l.type_bien || 'Non précisé',
             telephone: l.telephone || '',
-            statut_crm: l.statut_crm || 'À traiter'
+            statut_crm: l.statut_crm || 'À traiter',
+            interactions: l.interactions || []
           }))
           setLeads(leadsData)
           
@@ -93,6 +95,38 @@ export default function Dashboard() {
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }
 
+  // Fonction pour ajouter une interaction
+  const addInteraction = async (leadId, typeAction, details = '') => {
+    try {
+      const res = await fetch(`${API_BACKEND_URL}/leads/${leadId}/interactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type_action: typeAction, details })
+      })
+      
+      const data = await res.json()
+      if (data.success) {
+        // Mettre à jour le state local
+        setLeads(leads.map(lead => 
+          lead.id === leadId 
+            ? { ...lead, interactions: [data.interaction, ...(lead.interactions || [])] }
+            : lead
+        ))
+        console.log('Interaction ajoutée:', typeAction)
+      }
+    } catch (error) {
+      console.error('Erreur ajout interaction:', error)
+    }
+  }
+
+  // Fonction pour ajouter une note manuelle
+  const handleAddNote = (leadId) => {
+    if (newNote.trim()) {
+      addInteraction(leadId, 'Note', newNote.trim())
+      setNewNote('')
+    }
+  }
+
   // Fonction pour mettre à jour le statut CRM
   const updateStatutCRM = async (leadId, nouveauStatut) => {
     try {
@@ -121,8 +155,7 @@ export default function Dashboard() {
     }
   }
 
-  const leadsChaudsCount = leads.filter(l => l.score >= 8).length
-  const leadsTries = [...leads].sort((a, b) => b.score - a.score)
+  // Fonction pour générer une annonce
   const handleAnnonce = async (e) => {
     e.preventDefault()
     setIsGenerating(true)
@@ -168,7 +201,8 @@ export default function Dashboard() {
               <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-200 rounded-full transition text-slate-500"><X size={20} /></button>
             </div>
             
-            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Colonne gauche : Infos prospect */}
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase mb-2">Identité</p>
                 <p className="text-2xl font-bold text-slate-900 mb-1">{selectedLead.nom}</p>
@@ -176,23 +210,91 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3 text-slate-700 bg-slate-50 p-3 rounded-lg"><MessageCircle size={18} className="text-blue-500"/><span className="text-sm font-medium">{selectedLead.email}</span></div>
                   <div className="flex items-center gap-3 text-slate-700 bg-slate-50 p-3 rounded-lg"><Phone size={18} className="text-green-500"/><span className="text-sm font-medium">{selectedLead.telephone || 'Non renseigné'}</span></div>
                 </div>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase mb-2">Le Projet</p>
+                
+                <p className="text-xs font-bold text-slate-400 uppercase mb-2 mt-6">Le Projet</p>
                 <div className="mb-4"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${selectedLead.score >= 8 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>Score IA : {selectedLead.score}/10</span></div>
                 <ul className="space-y-3">
                   <li className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm">Budget</span><span className="font-bold text-slate-900">{selectedLead.budget ? selectedLead.budget.toLocaleString() + ' €' : '-'}</span></li>
                   <li className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm">Type</span><span className="font-bold text-slate-900 text-right text-sm">{selectedLead.type_bien}</span></li>
                 </ul>
               </div>
+              
+              {/* Colonne droite : Historique */}
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase mb-4">Historique d'Activités</p>
+                
+                {/* Liste des interactions */}
+                <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                  {(selectedLead.interactions || []).length === 0 ? (
+                    <p className="text-slate-400 text-sm text-center py-4">Aucune activité enregistrée</p>
+                  ) : (
+                    selectedLead.interactions.map(interaction => (
+                      <div key={interaction.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <div className="flex justify-between items-start">
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${
+                            interaction.type_action === 'Appel' ? 'bg-green-100 text-green-700' :
+                            interaction.type_action === 'Email' ? 'bg-blue-100 text-blue-700' :
+                            interaction.type_action === 'WhatsApp' ? 'bg-purple-100 text-purple-700' :
+                            interaction.type_action === 'Note' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {interaction.type_action}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(interaction.date).toLocaleDateString('fr-FR')} {new Date(interaction.date).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                        </div>
+                        {interaction.details && <p className="text-sm text-slate-600 mt-1">{interaction.details}</p>}
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {/* Ajouter une note */}
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="text-xs font-bold text-slate-400 uppercase mb-2">Ajouter une note</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Note manuelle..."
+                      className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddNote(selectedLead.id)}
+                    />
+                    <button
+                      onClick={() => handleAddNote(selectedLead.id)}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-bold"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex flex-wrap gap-3 justify-end">
               {selectedLead.telephone && (
                 <>
-                  <a href={`tel:${selectedLead.telephone}`} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-blue-600 font-bold text-sm"><Phone size={16}/> Appeler</a>
+                  <button 
+                    onClick={() => {
+                      addInteraction(selectedLead.id, 'Appel', 'Appel sortant')
+                      window.location.href = `tel:${selectedLead.telephone}`
+                    }} 
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-blue-600 font-bold text-sm"
+                  >
+                    <Phone size={16}/> Appeler
+                  </button>
                   <a href={`mailto:${selectedLead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${selectedLead.nom},`} className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-bold text-sm"><Mail size={16}/> Email</a>
-                  <a href={getWhatsAppLink(selectedLead)} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-bold text-sm"><MessageCircle size={16}/> WhatsApp</a>
+                  <button 
+                    onClick={() => {
+                      addInteraction(selectedLead.id, 'WhatsApp', 'Message WhatsApp envoyé')
+                      window.open(getWhatsAppLink(selectedLead), '_blank')
+                    }} 
+                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-bold text-sm"
+                  >
+                    <MessageCircle size={16}/> WhatsApp
+                  </button>
                   <a href="https://calendly.com/" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-sm font-bold shadow-lg shadow-slate-200"><Calendar size={16}/> Prendre RDV</a>
                 </>
               )}
