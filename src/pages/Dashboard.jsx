@@ -28,7 +28,7 @@ export default function Dashboard() {
   })
   const [annonceGeneree, setAnnonceGeneree] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [tempsEconomise, setTempsEconomise] = useState(5)
+  const [tempsEconomise, setTempsEconomise] = useState(() => parseInt(localStorage.getItem('timeSaved')) || 0)
 
   // 1. CHARGEMENT DES DONNÉES (Via ton Backend Python)
   useEffect(() => {
@@ -39,13 +39,22 @@ export default function Dashboard() {
         const data = await res.json()
         
         if (data.status === 'success' && data.data.leads_chauds) {
-          setLeads(data.data.leads_chauds.map(l => ({
+          const leadsData = data.data.leads_chauds.map(l => ({
             ...l, 
             score: l.score_ia || 0,
             nom: l.nom || 'Prospect Inconnu',
             type_bien: l.type_bien || 'Non précisé',
             telephone: l.telephone || ''
-          })))
+          }))
+          setLeads(leadsData)
+          
+          // Mise à jour automatique du temps économisé
+          const nouveauTemps = (leadsData.length * 0.5) // 0.5h par lead
+          setTempsEconomise(ancienTemps => {
+            const tempsFinal = Math.max(ancienTemps, nouveauTemps)
+            localStorage.setItem('timeSaved', tempsFinal.toString())
+            return tempsFinal
+          })
         }
       } catch (e) { 
         console.error("Erreur de connexion backend:", e) 
@@ -103,7 +112,11 @@ export default function Dashboard() {
 
       if (data.text) {
         setAnnonceGeneree(data.text)
-        setTempsEconomise(t => t + 1)
+        setTempsEconomise(ancienTemps => {
+          const nouveauTemps = ancienTemps + 1 // +1 heure pour génération d'annonce
+          localStorage.setItem('timeSaved', nouveauTemps.toString())
+          return nouveauTemps
+        })
       } else {
         setAnnonceGeneree("❌ Erreur IA : " + (data.error || "Réponse vide"))
       }
