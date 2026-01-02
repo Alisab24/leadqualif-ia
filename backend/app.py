@@ -48,22 +48,64 @@ def home():
 def add_lead():
     try:
         data = request.json
-        score = 5
-        if data.get('budget') and int(data['budget']) > 300000: score += 2
-        if data.get('telephone'): score += 2
-        if data.get('type_bien'): score += 1
+        
+        # Base : Start à 0
+        score = 0
+        
+        # Qualité Contact
+        # Si téléphone présent et valide (plus de 9 chiffres) : +4 points
+        telephone = data.get('telephone', '')
+        if telephone and len(telephone.replace(' ', '').replace('-', '')) > 9:
+            score += 4
+        
+        # Si email présent : +1 point
+        if data.get('email'):
+            score += 1
+        
+        # Budget (En Euros)
+        budget_str = data.get('budget', '0')
+        try:
+            budget = int(str(budget_str).replace(' ', '').replace('€', '').replace(',', ''))
+        except (ValueError, TypeError):
+            budget = 0
+        
+        if budget > 500000:
+            score += 5  # Client Premium
+        elif 200000 <= budget <= 500000:
+            score += 3  # Standard
+        elif budget < 150000 and budget > 0:
+            score += 1  # Faible pour la France
+        
+        # Pénalité de Réalisme (Coherence Check)
+        # Si la ville (dans adresse ou localisation) contient 'Paris' ET que le budget est inférieur à 250,000 € : Enlève 3 points
+        adresse = data.get('adresse', '').lower()
+        localisation = data.get('localisation', '').lower()
+        if ('paris' in adresse or 'paris' in localisation) and budget < 250000:
+            score -= 3
+        
+        # Limites : Le score final doit être borné entre 0 et 10
+        score = max(0, min(10, score))
+        
+        # Statut en fonction du score
+        if score >= 7:
+            statut = 'Chaud'
+        elif score >= 4:
+            statut = 'Tiède'
+        else:
+            statut = 'Froid'
 
         new_lead = Lead(
             nom=data.get('nom'),
             email=data.get('email'),
             telephone=data.get('telephone'),
-            budget=data.get('budget'),
+            budget=budget,
             type_bien=data.get('type_bien'),
-            score_ia=score
+            score_ia=score,
+            statut=statut
         )
         db.session.add(new_lead)
         db.session.commit()
-        return jsonify({'status': 'success', 'message': 'Lead enregistré'}), 201
+        return jsonify({'status': 'success', 'message': 'Lead enregistré', 'score': score, 'statut': statut}), 201
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
