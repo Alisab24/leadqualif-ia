@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 // Import des icônes
 import { 
   LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
-  Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home 
+  Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck
 } from 'lucide-react'
 
 // ⚠️ IMPORTANT : Colle ton URL Render ici (sans le slash à la fin)
@@ -164,6 +164,7 @@ export default function Dashboard() {
               {selectedLead.telephone && (
                 <>
                   <a href={`tel:${selectedLead.telephone}`} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-blue-600 font-bold text-sm"><Phone size={16}/> Appeler</a>
+                  <a href={`mailto:${selectedLead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${selectedLead.nom},`} className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-bold text-sm"><Mail size={16}/> Email</a>
                   <a href={getWhatsAppLink(selectedLead)} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-bold text-sm"><MessageCircle size={16}/> WhatsApp</a>
                   <a href="https://calendly.com/" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-sm font-bold shadow-lg shadow-slate-200"><Calendar size={16}/> Prendre RDV</a>
                 </>
@@ -181,7 +182,10 @@ export default function Dashboard() {
             <h1 className="text-xl font-bold">LeadQualif <span className="text-blue-600">IA</span></h1>
             <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold ml-2">PRO</span>
           </div>
-          <a href="/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Formulaire Client</a>
+          <div className="flex items-center gap-3">
+            <a href="/commercial" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><Building2 size={18} /> Espace Pro</a>
+            <a href="/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Formulaire Client</a>
+          </div>
         </div>
       </nav>
 
@@ -225,6 +229,7 @@ export default function Dashboard() {
                         <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}</td>
                         <td className="p-4"><span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${isHot ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isHot && <Zap size={12}/>} {lead.score}/10</span></td>
                         <td className="p-4 text-right flex items-center justify-end gap-2">
+                          <a href={`mailto:${lead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${lead.nom},`} className="flex items-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-bold shadow-sm"><Mail size={14}/> Email</a>
                           <button onClick={() => setSelectedLead(lead)} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"><Search size={14}/> Voir</button>
                         </td>
                       </tr>
