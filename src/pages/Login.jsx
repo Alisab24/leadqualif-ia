@@ -13,7 +13,7 @@ export default function Login() {
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
     if (isAuthenticated) {
-      navigate('/')
+      navigate('/app')
     }
   }, [navigate])
 
@@ -28,7 +28,7 @@ export default function Login() {
         // Sauvegarder l'authentification
         localStorage.setItem('isAuthenticated', 'true')
         localStorage.setItem('loginTime', new Date().toISOString())
-        navigate('/')
+        navigate('/app')
       } else {
         setError('Mot de passe incorrect')
         setPassword('')
