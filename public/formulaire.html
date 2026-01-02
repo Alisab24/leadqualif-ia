@@ -156,17 +156,12 @@
             const result = await response.json();
 
             if (response.ok) {
-                // Succès
-                statusDiv.className = 'status-message success';
-                statusDiv.innerHTML = '<strong>✅ Dossier transmis !</strong><br>Notre IA analyse votre profil...';
-                btn.textContent = "Envoyé !";
-                
-                // Reset après 3 secondes
+                // Succès - Redirection
+                btn.innerHTML = "✅ Reçu ! Redirection...";
+                btn.classList.replace('bg-blue-600', 'bg-green-500');
                 setTimeout(() => {
-                    document.getElementById('leadForm').reset();
-                    btn.textContent = "Envoyer un autre dossier";
-                    btn.disabled = false;
-                }, 3000);
+                    window.location.href = "/merci.html";
+                }, 1000);
             } else {
                 // Erreur
                 statusDiv.className = 'status-message error';
