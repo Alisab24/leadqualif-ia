@@ -69,81 +69,382 @@ export default function Commercial() {
     const lead = leads.find(l => l.id === parseInt(selectedLead))
     if (!lead) return
 
-    const documentContent = `
-      <html>
-        <head>
-          <title>${selectedDocType === 'devis' ? 'Devis Honoraires' : selectedDocType === 'mandat' ? 'Mandat de Vente' : 'Facture'} - ${agencyConfig.nom || 'LeadQualif IA'}</title>
-          <style>
-            @page { margin: 2cm; }
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .header { border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px; }
-            .agency-info { margin-bottom: 30px; }
-            .client-info { margin-bottom: 30px; }
-            .document-title { text-align: center; font-size: 24px; font-weight: bold; margin: 30px 0; }
-            .content { margin: 30px 0; }
-            .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; }
-            .logo { max-width: 200px; margin-bottom: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            ${agencyConfig.logo ? `<img src="${agencyConfig.logo}" class="logo" alt="Logo">` : ''}
-            <h1>${agencyConfig.nom || 'LeadQualif IA'}</h1>
-            <div class="agency-info">
-              <p><strong>Adresse :</strong> ${agencyConfig.adresse || 'Non renseignée'}</p>
-              <p><strong>Téléphone :</strong> ${agencyConfig.telephone || 'Non renseigné'}</p>
-              <p><strong>SIRET/NIF :</strong> ${agencyConfig.siret || 'Non renseigné'}</p>
+    const documentNumber = `DOC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`
+    const currentDate = new Date().toLocaleDateString('fr-FR')
+    const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR')
+
+    const printWindow = window.open('', '', 'height=600,width=800')
+
+    if (selectedDocType === 'devis' || selectedDocType === 'facture') {
+      // MISE EN PAGE COMPTABLE (DEVIS/FACTURE)
+      const isDevis = selectedDocType === 'devis'
+      const montantHT = lead.budget ? Math.round(lead.budget * 0.05) : 0
+      const tva = montantHT * 0.2
+      const montantTTC = montantHT + tva
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${isDevis ? 'DEVIS' : 'FACTURE'} - ${documentNumber}</title>
+            <style>
+              @page { margin: 1cm; size: A4; }
+              body { 
+                font-family: 'Helvetica Neue', Arial, sans-serif; 
+                line-height: 1.6; 
+                color: #333; 
+                margin: 0;
+                padding: 20px;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+              }
+              .header { 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: flex-start; 
+                margin-bottom: 40px; 
+                border-bottom: 3px solid #2563eb; 
+                padding-bottom: 20px; 
+              }
+              .agency-info h1 { margin: 0; font-size: 24px; color: #1e40af; }
+              .agency-info p { margin: 4px 0; font-size: 14px; color: #666; }
+              .document-type { 
+                text-align: right; 
+                margin: 0; 
+              }
+              .document-type h2 { 
+                margin: 0; 
+                font-size: 36px; 
+                font-weight: bold; 
+                color: #1e40af; 
+                text-transform: uppercase; 
+              }
+              .document-type p { margin: 8px 0; font-size: 14px; color: #666; }
+              .info-bar { 
+                background: #f8fafc; 
+                border: 1px solid #e2e8f0; 
+                padding: 15px; 
+                margin-bottom: 30px; 
+                display: flex; 
+                justify-content: space-between; 
+              }
+              .info-bar span { font-size: 14px; }
+              .parties { 
+                display: flex; 
+                justify-content: space-between; 
+                margin-bottom: 30px; 
+                gap: 20px; 
+              }
+              .party-box { 
+                flex: 1; 
+                border: 1px solid #e2e8f0; 
+                padding: 20px; 
+                background: #f9fafb; 
+              }
+              .party-box h3 { 
+                margin: 0 0 15px 0; 
+                font-size: 16px; 
+                color: #1e40af; 
+                border-bottom: 2px solid #1e40af; 
+                padding-bottom: 8px; 
+              }
+              .party-box p { margin: 6px 0; font-size: 14px; }
+              table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 20px; 
+                border: 1px solid #e2e8f0; 
+              }
+              th { 
+                background: #f1f5f9; 
+                padding: 12px; 
+                text-align: left; 
+                font-weight: 600; 
+                border-bottom: 1px solid #e2e8f0; 
+                font-size: 14px; 
+              }
+              td { 
+                padding: 12px; 
+                border-bottom: 1px solid #e2e8f0; 
+                font-size: 14px; 
+              }
+              .total-row { font-weight: bold; background: #f8fafc; }
+              .footer { 
+                margin-top: 40px; 
+                padding-top: 20px; 
+                border-top: 1px solid #e2e8f0; 
+                font-size: 12px; 
+                color: #666; 
+              }
+              .bank-info { 
+                background: #f8fafc; 
+                border: 1px solid #e2e8f0; 
+                padding: 15px; 
+                margin-bottom: 20px; 
+                font-size: 14px; 
+              }
+              @media print {
+                @page { margin: 1cm; size: A4; }
+                body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                #ubersuggest-container, .grammarly-extension, #loom-companion-mv3 { display: none !important; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="agency-info">
+                ${agencyConfig.logo ? `<img src="${agencyConfig.logo}" style="max-width: 200px; margin-bottom: 10px;" alt="Logo"><br>` : ''}
+                <h1>${agencyConfig.nom || 'LeadQualif IA'}</h1>
+                <p>${agencyConfig.adresse || 'Adresse non renseignée'}</p>
+                <p>Tél: ${agencyConfig.telephone || 'Téléphone non renseigné'}</p>
+                <p>SIRET: ${agencyConfig.siret || 'En cours'}</p>
+              </div>
+              <div class="document-type">
+                <h2>${isDevis ? 'DEVIS' : 'FACTURE'}</h2>
+                <p><strong>N° ${documentNumber}</strong></p>
+                <p>Date: ${currentDate}</p>
+                ${isDevis ? `<p>Validité: ${validityDate}</p>` : `<p>Échéance: 30 jours</p>`}
+              </div>
             </div>
-          </div>
 
-          <div class="client-info">
-            <h2>Informations Client</h2>
-            <p><strong>Nom :</strong> ${lead.nom}</p>
-            <p><strong>Email :</strong> ${lead.email}</p>
-            <p><strong>Téléphone :</strong> ${lead.telephone}</p>
-            <p><strong>Budget :</strong> ${lead.budget ? lead.budget.toLocaleString() + ' €' : 'Non précisé'}</p>
-            <p><strong>Type de bien :</strong> ${lead.type_bien}</p>
-          </div>
+            <div class="info-bar">
+              <span><strong>Client:</strong> ${lead.nom}</span>
+              <span><strong>Email:</strong> ${lead.email}</span>
+              <span><strong>Tél:</strong> ${lead.telephone || 'Non renseigné'}</span>
+            </div>
 
-          <div class="document-title">
-            ${selectedDocType === 'devis' ? 'DEVIS HONORAIRES' : selectedDocType === 'mandat' ? 'MANDAT DE VENTE' : 'FACTURE'}
-          </div>
+            <div class="parties">
+              <div class="party-box">
+                <h3>Émetteur</h3>
+                <p><strong>${agencyConfig.nom || 'LeadQualif IA'}</strong></p>
+                <p>${agencyConfig.adresse || 'Adresse non renseignée'}</p>
+                <p>Tél: ${agencyConfig.telephone || 'Téléphone non renseigné'}</p>
+                <p>Email: contact@leadqualif-ia.fr</p>
+                <p>SIRET: ${agencyConfig.siret || 'En cours'}</p>
+              </div>
+              <div class="party-box">
+                <h3>Adressé à</h3>
+                <p><strong>${lead.nom}</strong></p>
+                <p>${lead.email}</p>
+                <p>Tél: ${lead.telephone || 'Non renseigné'}</p>
+                <p>Projet: ${lead.type_bien || 'Non précisé'}</p>
+                <p>Budget: ${lead.budget ? lead.budget.toLocaleString() + ' €' : 'Non précisé'}</p>
+              </div>
+            </div>
 
-          <div class="content">
-            ${selectedDocType === 'devis' ? `
-              <h3>Honoraires de négociation</h3>
-              <p>Conformément à la loi Hoguet, nos honoraires sont à la charge du vendeur.</p>
-              <p><strong>Taux :</strong> 5% du montant de la vente</p>
-              <p><strong>Montant estimé :</strong> ${lead.budget ? Math.round(lead.budget * 0.05).toLocaleString() + ' €' : 'À calculer'}</p>
-              <p><strong>Honoraires TTC :</strong> ${lead.budget ? Math.round(lead.budget * 0.06).toLocaleString() + ' €' : 'À calculer'}</p>
-            ` : selectedDocType === 'mandat' ? `
-              <h3>Mandat de Vente Exclusif</h3>
-              <p>Le soussigné ${lead.nom} donne mandat exclusif à ${agencyConfig.nom || 'LeadQualif IA'} pour la vente de son bien.</p>
-              <p><strong>Bien :</strong> ${lead.type_bien}</p>
-              <p><strong>Budget souhaité :</strong> ${lead.budget ? lead.budget.toLocaleString() + ' €' : 'À définir'}</p>
-              <p><strong>Durée du mandat :</strong> 3 mois renouvelable</p>
-              <p>Fait à ${agencyConfig.adresse?.split(',')[0] || 'Lieu'}, le ${new Date().toLocaleDateString('fr-FR')}</p>
-            ` : `
-              <h3>Facture d'Honoraires</h3>
-              <p><strong>Client :</strong> ${lead.nom}</p>
-              <p><strong>Prestation :</strong> Honoraires de négociation immobilière</p>
-              <p><strong>Montant HT :</strong> ${lead.budget ? Math.round(lead.budget * 0.05).toLocaleString() + ' €' : 'À calculer'}</p>
-              <p><strong>TVA (20%) :</strong> ${lead.budget ? Math.round(lead.budget * 0.01).toLocaleString() + ' €' : 'À calculer'}</p>
-              <p><strong>Total TTC :</strong> ${lead.budget ? Math.round(lead.budget * 0.06).toLocaleString() + ' €' : 'À calculer'}</p>
-              <p><strong>Échéance :</strong> 30 jours</p>
-            `}
-          </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th style="width: 80px; text-align: center;">Qté</th>
+                  <th style="width: 120px; text-align: right;">Prix Unitaire</th>
+                  <th style="width: 120px; text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Honoraires de négociation immobilière (${lead.type_bien || 'bien immobilier'})</td>
+                  <td style="text-align: center;">1</td>
+                  <td style="text-align: right;">${montantHT.toLocaleString()} €</td>
+                  <td style="text-align: right;">${montantHT.toLocaleString()} €</td>
+                </tr>
+                <tr>
+                  <td>TVA (20%)</td>
+                  <td style="text-align: center;">1</td>
+                  <td style="text-align: right;">20%</td>
+                  <td style="text-align: right;">${tva.toLocaleString()} €</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3" style="text-align: right;"><strong>Total TTC</strong></td>
+                  <td style="text-align: right;"><strong>${montantTTC.toLocaleString()} €</strong></td>
+                </tr>
+              </tbody>
+            </table>
 
-          <div class="footer">
-            <p>${agencyConfig.nom || 'LeadQualif IA'} - ${agencyConfig.adresse || ''} - ${agencyConfig.telephone || ''}</p>
-            <p>Email : contact@leadqualif-ia.fr - SIRET : ${agencyConfig.siret || 'En cours'}</p>
-          </div>
-        </body>
-      </html>
-    `
+            <div class="bank-info">
+              <strong>Coordonnées bancaires:</strong><br>
+              IBAN: FR76 3000 6000 0112 3456 7890 123<br>
+              BIC: SOGEFRPP<br>
+              ${isDevis ? '<p><em>Devis valable jusqu\'au ' + validityDate + '. Acceptation du devis vaut contrat.</em></p>' : '<p><em>Paiement à 30 jours date de facture.</em></p>'}
+            </div>
 
-    const printWindow = window.open('', '_blank')
-    printWindow.document.write(documentContent)
+            <div class="footer">
+              <p><strong>${agencyConfig.nom || 'LeadQualif IA'}</strong> - ${agencyConfig.adresse || ''} - ${agencyConfig.telephone || ''}</p>
+              <p>Email: contact@leadqualif-ia.fr - SIRET: ${agencyConfig.siret || 'En cours'} - N° ${documentNumber}</p>
+              <p>Conformément à la loi Hoguet, les honoraires sont à la charge du vendeur.</p>
+            </div>
+          </body>
+        </html>
+      `)
+    } else {
+      // MISE EN PAGE JURIDIQUE (MANDAT DE VENTE)
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>MANDAT DE VENTE - ${documentNumber}</title>
+            <style>
+              @page { margin: 1cm; size: A4; }
+              body { 
+                font-family: 'Times New Roman', serif; 
+                line-height: 1.8; 
+                color: #333; 
+                margin: 0;
+                padding: 40px;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 40px; 
+              }
+              .title { 
+                font-size: 28px; 
+                font-weight: bold; 
+                text-transform: uppercase; 
+                margin: 0; 
+                color: #1e40af; 
+                letter-spacing: 2px;
+              }
+              .subtitle { 
+                font-size: 16px; 
+                margin: 10px 0; 
+                color: #666; 
+                font-style: italic;
+              }
+              .parties { 
+                margin-bottom: 30px; 
+              }
+              .party { 
+                margin-bottom: 20px; 
+              }
+              .party strong { 
+                text-transform: uppercase; 
+                color: #1e40af; 
+              }
+              .legal-text { 
+                text-align: justify; 
+                margin-bottom: 30px; 
+                font-size: 14px;
+                line-height: 1.8;
+              }
+              .signatures { 
+                display: flex; 
+                justify-content: space-between; 
+                margin-top: 60px; 
+              }
+              .signature-box { 
+                width: 45%; 
+                border-top: 1px solid #333; 
+                padding-top: 10px; 
+                text-align: center;
+              }
+              .footer { 
+                margin-top: 40px; 
+                padding-top: 20px; 
+                border-top: 1px solid #ccc; 
+                font-size: 12px; 
+                color: #666; 
+                text-align: center;
+              }
+              @media print {
+                @page { margin: 1cm; size: A4; }
+                body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                #ubersuggest-container, .grammarly-extension, #loom-companion-mv3 { display: none !important; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1 class="title">Mandat de Vente Exclusif</h1>
+              <p class="subtitle">N° ${documentNumber} - ${currentDate}</p>
+            </div>
+
+            <div class="parties">
+              <div class="party">
+                <p><strong>Le Mandant:</strong> ${lead.nom}</p>
+                <p>Email: ${lead.email}</p>
+                <p>Téléphone: ${lead.telephone || 'Non renseigné'}</p>
+                <p>Adresse: ${lead.adresse || 'À compléter'}</p>
+              </div>
+              <div class="party">
+                <p><strong>Le Mandataire:</strong> ${agencyConfig.nom || 'LeadQualif IA'}</p>
+                <p>${agencyConfig.adresse || 'Adresse non renseignée'}</p>
+                <p>Tél: ${agencyConfig.telephone || 'Téléphone non renseigné'}</p>
+                <p>SIRET: ${agencyConfig.siret || 'En cours'}</p>
+              </div>
+            </div>
+
+            <div class="legal-text">
+              <h3>OBJET DU MANDAT</h3>
+              <p>
+                Le soussigné ${lead.nom}, ci-après dénommé "le Mandant", donne par les présentes mandat exclusif à 
+                ${agencyConfig.nom || 'LeadQualif IA'}, ci-après dénommé "le Mandataire", agence immobilière immatriculée 
+                sous le numéro ${agencyConfig.siret || 'en cours'}, pour rechercher un acquéreur et négocier la vente du bien suivant :
+              </p>
+              <p><strong>Description du bien:</strong> ${lead.type_bien || 'Bien immobilier'} situé ${lead.adresse || 'adresse à préciser'}</p>
+              <p><strong>Prix de vente souhaité:</strong> ${lead.budget ? lead.budget.toLocaleString() + ' €' : 'À définir'}</p>
+              
+              <h3>DURÉE DU MANDAT</h3>
+              <p>
+                Le présent mandat est consenti pour une durée de trois (3) mois à compter de ce jour. Il sera renouvelé 
+                par tacite reconduction par périodes de trois (3) mois, sauf dénonciation par l'une des parties par 
+                lettre recommandée avec accusé de réception quinze (15) jours avant l'expiration.
+              </p>
+              
+              <h3>OBLIGATIONS DU MANDATAIRE</h3>
+              <p>
+                Le Mandataire s'engage à: 1) Assurer la promotion du bien par tous moyens appropriés; 
+                2) Organiser les visites et présenter les offres d'achat; 3) Négocier les conditions de vente 
+                dans l'intérêt du Mandant; 4) Assurer le suivi administratif jusqu'à la signature de l'acte authentique.
+              </p>
+              
+              <h3>HONORAIRES</h3>
+              <p>
+                Conformément à la loi Hoguet du 2 janvier 1970, les honoraires de négociation sont fixés à 
+                5% du prix de vente, TVA comprise, et seront à la charge exclusive de l'acquéreur. 
+                Ces honoraires seront dus lors de la signature de l'acte authentique de vente.
+              </p>
+              
+              <h3>EXCLUSIVITÉ</h3>
+              <p>
+                Le Mandant s'engage à ne pas confier à une autre agence ou à vendre directement le bien 
+                pendant la durée du présent mandat. En cas de manquement à cette obligation, le Mandant 
+                devra verser au Mandataire des dommages et intérêts égaux aux honoraires prévus.
+              </p>
+              
+              <h3>RÉSILIATION</h3>
+              <p>
+                Le présent mandat pourra être résilié par accord mutuel des parties ou en cas de force majeure. 
+                La résiliation unilatérale par le Mandant avant l'expiration du mandat entraînera le paiement 
+                des honoraires prévus si la vente est réalisée dans un délai de six mois suivant la résiliation.
+              </p>
+              
+              <p><strong>Fait à ${agencyConfig.adresse?.split(',')[0] || 'Lieu'}, le ${currentDate}</strong></p>
+              <p>En deux exemplaires originaux, un pour chaque partie.</p>
+            </div>
+
+            <div class="signatures">
+              <div class="signature-box">
+                <p><strong>Le Mandant</strong></p>
+                <p>${lead.nom}</p>
+                <p>Signature et cachet</p>
+              </div>
+              <div class="signature-box">
+                <p><strong>Le Mandataire</strong></p>
+                <p>${agencyConfig.nom || 'LeadQualif IA'}</p>
+                <p>Signature et cachet</p>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>${agencyConfig.nom || 'LeadQualif IA'} - ${agencyConfig.adresse || ''} - ${agencyConfig.telephone || ''}</p>
+              <p>Email: contact@leadqualif-ia.fr - SIRET: ${agencyConfig.siret || 'En cours'} - N° ${documentNumber}</p>
+              <p>Document soumis au secret professionnel - Loi Hoguet du 2 janvier 1970</p>
+            </div>
+          </body>
+        </html>
+      `)
+    }
+
     printWindow.document.close()
     printWindow.print()
   }
