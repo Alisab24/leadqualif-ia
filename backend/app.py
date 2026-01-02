@@ -201,3 +201,15 @@ def reset_database():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+    # --- ROUTE DE SECOURS POUR RÉPARER LA BASE DE DONNÉES ---
+@app.route('/api/debug/reset-db', methods=['GET'])
+def reset_database():
+    try:
+        with app.app_context():
+            # 1. On efface tout (Drop)
+            db.drop_all()
+            # 2. On recrée tout avec les NOUVELLES colonnes (Create)
+            db.create_all()
+        return jsonify({'message': 'Base de données réparée ! Colonne statut_crm ajoutée.'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
