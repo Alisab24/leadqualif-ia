@@ -187,6 +187,9 @@ export default function Dashboard() {
     }
   }
 
+  // Tri des leads : Les plus chauds (score haut) en premier
+  const leadsTries = [...leads].sort((a, b) => (b.score_ia || 0) - (a.score_ia || 0));
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 relative">
       
