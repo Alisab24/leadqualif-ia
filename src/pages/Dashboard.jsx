@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-// On retire leadsService car on utilise ton Backend Python sur Render
-// import { leadsService } from '../lib/supabase' 
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Brain, Users, FileText, Building2, Calendar, Phone, MessageCircle, X, LayoutDashboard, TrendingUp, Clock, Target } from 'lucide-react'
+import { generateAnnouncement } from '../services/leadProcessor'
+import { auth, leads, interactions } from '../supabaseClient' 
 
 // Import des icônes
 import { 
@@ -15,57 +16,62 @@ const API_BACKEND_URL = 'https://leadqualif-backend.onrender.com/api'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
+  const [selectedLead, setSelectedLead] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
+  const [agencyId, setAgencyId] = useState('')
   const [loading, setLoading] = useState(true)
-  const [selectedLead, setSelectedLead] = useState(null) // Pour la Modale
-
-  // États pour le Générateur d'Annonces
-  const [annonceForm, setAnnonceForm] = useState({ 
-    type: 'Appartement', 
-    adresse: '', 
-    surface: '', 
-    pieces: '', 
-    prix: '' 
+  const [tempsEconomise, setTempsEconomise] = useState(() => {
+    const saved = localStorage.getItem('timeSaved')
+    return saved ? parseInt(saved) : 0
   })
-  const [annonceGeneree, setAnnonceGeneree] = useState(null)
+  const [annonceGeneree, setAnnonceGeneree] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [tempsEconomise, setTempsEconomise] = useState(() => parseInt(localStorage.getItem('timeSaved')) || 0)
   const [newNote, setNewNote] = useState('')
 
-  // 1. CHARGEMENT DES DONNÉES (Via ton Backend Python)
+  // 1. CHARGEMENT UTILISATEUR ET LEADS (Via Supabase)
   useEffect(() => {
-    const fetchLeads = async () => {
+    const loadUserData = async () => {
       try {
-        console.log("Chargement des leads depuis:", `${API_BACKEND_URL}/leads-chauds`)
-        const res = await fetch(`${API_BACKEND_URL}/leads-chauds`)
-        const data = await res.json()
+        // Récupérer le profil utilisateur et agency_id
+        const { user, profile } = await auth.getCurrentUser()
         
-        if (data.status === 'success' && data.data.leads_chauds) {
-          const leadsData = data.data.leads_chauds.map(l => ({
-            ...l, 
-            score: l.score_ia || 0,
-            nom: l.nom || 'Prospect Inconnu',
-            type_bien: l.type_bien || 'Non précisé',
-            telephone: l.telephone || '',
-            statut_crm: l.statut_crm || 'À traiter',
-            interactions: l.interactions || []
-          }))
-          setLeads(leadsData)
+        if (!user || !profile) {
+          console.error('Utilisateur non connecté')
+          navigate('/login')
+          return
+        }
+        
+        setUserProfile(profile)
+        setAgencyId(profile.agency_id)
+        console.log('Profil chargé:', profile)
+        
+        // Récupérer les leads via Supabase
+        const result = await leads.getAll()
+        
+        if (result.success) {
+          setLeads(result.data)
+          console.log("✅ Leads chargés:", result.data.length)
           
-          // Mise à jour automatique du temps économisé
-          const nouveauTemps = (leadsData.length * 0.5) // 0.5h par lead
+          // Calcul du temps économisé
+          const nouveauTemps = result.data.length * 5 // 5 min par lead
           setTempsEconomise(ancienTemps => {
             const tempsFinal = Math.max(ancienTemps, nouveauTemps)
             localStorage.setItem('timeSaved', tempsFinal.toString())
             return tempsFinal
           })
+        } else {
+          console.error("❌ Erreur chargement leads:", result.error)
+          setLeads([])
         }
-      } catch (e) { 
-        console.error("Erreur de connexion backend:", e) 
-      } finally { 
-        setLoading(false) 
+      } catch (error) {
+        console.error("❌ Erreur de chargement:", error)
+        setLeads([])
+      } finally {
+        setLoading(false)
       }
     }
-    fetchLeads()
+    
+    loadUserData()
   }, [])
 
   // 2. FONCTIONS UTILES
@@ -95,24 +101,24 @@ export default function Dashboard() {
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }
 
-  // Fonction pour ajouter une interaction
+  // Fonction pour ajouter une interaction (Via Supabase)
   const addInteraction = async (leadId, typeAction, details = '') => {
     try {
-      const res = await fetch(`${API_BACKEND_URL}/leads/${leadId}/interactions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type_action: typeAction, details })
+      const result = await interactions.create({
+        lead_id: leadId,
+        type_action: typeAction,
+        details: details
       })
       
-      const data = await res.json()
-      if (data.success) {
-        // Mettre à jour le state local
+      if (result.success) {
         setLeads(leads.map(lead => 
           lead.id === leadId 
-            ? { ...lead, interactions: [data.interaction, ...(lead.interactions || [])] }
+            ? { ...lead, interactions: [result.data, ...(lead.interactions || [])] }
             : lead
         ))
         console.log('Interaction ajoutée:', typeAction)
+      } else {
+        console.error('Erreur ajout interaction:', result.error)
       }
     } catch (error) {
       console.error('Erreur ajout interaction:', error)
@@ -326,7 +332,15 @@ export default function Dashboard() {
             <Link to="/app/commercial" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><Building2 size={18} /> Espace Pro</Link>
             <a href="/estimation" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Page d'Estimation</a>
             <button 
-              onClick={() => navigator.clipboard.writeText(window.location.origin + '/estimation')} 
+              onClick={() => {
+                if (agencyId) {
+                  const estimationLink = `${window.location.origin}/estimation?aid=${agencyId}`
+                  navigator.clipboard.writeText(estimationLink)
+                  alert('Lien copié !\n\n' + estimationLink)
+                } else {
+                  alert('Agency ID non disponible')
+                }
+              }} 
               className="flex items-center gap-2 text-slate-500 hover:text-green-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"
               title="Copier le lien de la page d'estimation"
             >
@@ -339,8 +353,17 @@ export default function Dashboard() {
       {/* --- MAIN CONTENT --- */}
       <main className="max-w-7xl mx-auto p-8 space-y-8">
         
-        {/* STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-slate-600">Chargement de vos données...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* STATS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
             <div><p className="text-slate-500 font-medium">Prospects Qualifiés</p><h3 className="text-4xl font-bold text-slate-800">{loading ? '-' : leadsChaudsCount}</h3></div>
             <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><TrendingUp size={28} /></div>
@@ -506,6 +529,8 @@ export default function Dashboard() {
           </div>
 
         </div>
+          </>
+        )}
       </main>
     </div>
   )

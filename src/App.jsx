@@ -5,6 +5,7 @@ import Commercial from './pages/Commercial';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Landing from './pages/Landing';
+import Estimation from './pages/Estimation';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -32,7 +33,7 @@ function App() {
         } />
         
         {/* Routes publiques pour les formulaires */}
-        <Route path="/estimation" element={<Navigate to="/estimation.html" replace />} />
+        <Route path="/estimation" element={<Estimation />} />
         <Route path="/merci" element={<Navigate to="/merci.html" replace />} />
         
         {/* Route par défaut : rediriger vers la landing */}
