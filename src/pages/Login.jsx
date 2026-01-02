@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Lock, Eye, EyeOff } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Lock, Eye, EyeOff, Mail } from 'lucide-react'
+import { auth } from '../supabaseClient'
 
 export default function Login() {
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -11,10 +13,13 @@ export default function Login() {
 
   // Vérifier si déjà connecté
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-    if (isAuthenticated) {
-      navigate('/app')
+    const checkAuth = async () => {
+      const { user } = await auth.getCurrentUser()
+      if (user) {
+        navigate('/app')
+      }
     }
+    checkAuth()
   }, [navigate])
 
   const handleSubmit = async (e) => {
@@ -22,19 +27,16 @@ export default function Login() {
     setError('')
     setIsLoading(true)
 
-    // Simulation d'une vérification (remplacer par vrai appel API si nécessaire)
-    setTimeout(() => {
-      if (password === 'admin123') {
-        // Sauvegarder l'authentification
-        localStorage.setItem('isAuthenticated', 'true')
-        localStorage.setItem('loginTime', new Date().toISOString())
-        navigate('/app')
-      } else {
-        setError('Mot de passe incorrect')
-        setPassword('')
-      }
-      setIsLoading(false)
-    }, 500)
+    // Connexion via Supabase
+    const result = await auth.signIn(email, password)
+
+    if (result.success) {
+      navigate('/app')
+    } else {
+      setError(result.error || 'Erreur de connexion')
+    }
+
+    setIsLoading(false)
   }
 
   return (
@@ -52,17 +54,37 @@ export default function Login() {
         {/* Formulaire */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
+            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
+              Email
+            </label>
+            <div className="relative">
+              <Mail size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="contact@agence.fr"
+                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                required
+                autoComplete="email"
+              />
+            </div>
+          </div>
+
+          <div>
             <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
               Mot de passe
             </label>
             <div className="relative">
+              <Lock size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Entrez votre mot de passe"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors pr-12"
+                className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 required
                 autoComplete="current-password"
               />
@@ -101,7 +123,10 @@ export default function Login() {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-slate-100">
           <p className="text-center text-slate-500 text-sm">
-            Espace réservé aux professionnels agréés
+            Pas encore de compte ?{' '}
+            <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+              Créer une agence
+            </Link>
           </p>
         </div>
       </div>

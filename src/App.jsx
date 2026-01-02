@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Dashboard from './pages/Dashboard';
 import Commercial from './pages/Commercial';
 import Login from './pages/Login';
+import SignUp from './pages/SignUp';
 import Landing from './pages/Landing';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -13,8 +14,9 @@ function App() {
         {/* Route publique : Landing Page */}
         <Route path="/" element={<Landing />} />
         
-        {/* Route publique : Login */}
+        {/* Routes publiques : Authentification */}
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
         
         {/* Routes protégées sous /app */}
         <Route path="/app" element={

@@ -1,21 +1,26 @@
 import os
+import uuid
 from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from openai import OpenAI
+from sqlalchemy.dialects.postgresql import UUID
 
 app = Flask(__name__)
 
 # --- 1. CONFIGURATION ---
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Configuration Base de données (Compatible Render Postgres)
-database_url = os.environ.get('DATABASE_URL')
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+# Configuration Base de données Supabase PostgreSQL
+supabase_url = os.environ.get('SUPABASE_DB_URL')
+if not supabase_url:
+    # Fallback pour développement local
+    supabase_url = os.environ.get('DATABASE_URL')
+    if supabase_url and supabase_url.startswith("postgres://"):
+        supabase_url = supabase_url.replace("postgres://", "postgresql://", 1)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///site.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = supabase_url or 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -23,27 +28,57 @@ db = SQLAlchemy(app)
 # Client OpenAI
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-# --- 2. MODÈLE DE DONNÉES ---
+# --- 2. MODÈLE DE DONNÉES (COMPATIBLE SUPABASE) ---
+class Agency(db.Model):
+    __tablename__ = 'agencies'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nom_agence = db.Column(db.String(255), nullable=False)
+    plan = db.Column(db.String(50), default='starter')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Profile(db.Model):
+    __tablename__ = 'profiles'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
+    agency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('agencies.id'), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(50), default='agent')
+    nom_complet = db.Column(db.String(255))
+    telephone = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relation avec l'agence
+    agency = db.relationship('Agency', backref='profiles')
+
 class Interaction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    lead_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False)
-    type_action = db.Column(db.String(50), nullable=False)  # 'Appel', 'Email', 'WhatsApp', 'Note', 'RDV', etc.
+    __tablename__ = 'interactions'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = db.Column(UUID(as_uuid=True), db.ForeignKey('leads.id'), nullable=False)
+    type_action = db.Column(db.String(50), nullable=False)
     details = db.Column(db.String(500))
     date = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(UUID(as_uuid=True), db.ForeignKey('profiles.id'))
 
 class Lead(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    __tablename__ = 'leads'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('agencies.id'), nullable=False)
     nom = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
     telephone = db.Column(db.String(20))
     budget = db.Column(db.Integer)
     type_bien = db.Column(db.String(50))
-    adresse = db.Column(db.String(200)) # Ajouté pour la localisation
+    adresse = db.Column(db.String(500))
     score_ia = db.Column(db.Integer, default=0)
-    statut = db.Column(db.String(20), default='Nouveau') # Statut IA (Chaud/Froid)
-    statut_crm = db.Column(db.String(50), default='À traiter') # NOUVEAU : Suivi commercial
+    statut_crm = db.Column(db.String(50), default='À traiter')
+    source = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relation avec les interactions
+    # Relations
+    agency = db.relationship('Agency', backref='leads')
     interactions = db.relationship('Interaction', backref='lead', lazy=True, order_by='Interaction.date.desc()')
 
 # Création des tables au démarrage (si elles n'existent pas)
@@ -61,6 +96,11 @@ def home():
 def add_lead():
     try:
         data = request.json
+        
+        # Récupérer l'agency_id depuis les données (pour le formulaire public)
+        agency_id = data.get('agency_id')
+        if not agency_id:
+            return jsonify({'error': 'agency_id est requis'}), 400
         
         # Scoring Strict (Marché FR/EU)
         score = 0
@@ -94,6 +134,7 @@ def add_lead():
         statut_ia = 'Chaud 🔥' if score >= 7 else ('Tiède 😐' if score >= 4 else 'Froid ❄️')
 
         new_lead = Lead(
+            agency_id=agency_id,
             nom=data.get('nom'),
             email=email,
             telephone=telephone,

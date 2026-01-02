@@ -146,6 +146,17 @@
         };
 
         try {
+            // Récupérer l'agency_id depuis l'URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const agencyId = urlParams.get('aid');
+            
+            if (!agencyId) {
+                throw new Error('ID d\'agence manquant. Veuillez utiliser le lien complet fourni par votre agence.');
+            }
+            
+            // Ajouter l'agency_id aux données du formulaire
+            formData.agency_id = agencyId;
+            
             // Envoi au Backend Python (Render)
             const response = await fetch(`${API_BASE_URL}/leads`, {
                 method: 'POST',
