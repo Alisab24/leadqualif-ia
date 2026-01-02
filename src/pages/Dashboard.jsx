@@ -324,7 +324,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <Link to="/commercial" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><Building2 size={18} /> Espace Pro</Link>
-            <a href="/formulaire.html" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Formulaire Client</a>
+            <a href="/estimation" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Formulaire Client</a>
           </div>
         </div>
       </nav>
