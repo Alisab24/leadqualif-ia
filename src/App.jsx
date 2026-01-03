@@ -60,30 +60,16 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         
-        {/* Routes protégées sous /app avec Layout */}
+        {/* Routes protégées regroupées */}
         <Route path="/app" element={
           <ProtectedRoute session={session}>
-            <Layout>
-              <Dashboard />
-            </Layout>
+            <Layout />
           </ProtectedRoute>
-        } />
-        
-        <Route path="/app/commercial" element={
-          <ProtectedRoute session={session}>
-            <Layout>
-              <Commercial />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/app/settings" element={
-          <ProtectedRoute session={session}>
-            <Layout>
-              <Settings />
-            </Layout>
-          </ProtectedRoute>
-        } />
+        }>
+          <Route index element={<Dashboard />} />          {/* /app */}
+          <Route path="commercial" element={<Commercial />} /> {/* /app/commercial */}
+          <Route path="settings" element={<Settings />} />     {/* /app/settings */}
+        </Route>
         
         {/* Routes publiques pour les formulaires */}
         <Route path="/estimation" element={<Estimation />} />
