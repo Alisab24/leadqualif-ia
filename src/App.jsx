@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './supabaseClient'
 
-// Pages
+// Imports des pages
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Commercial from './pages/Commercial'
@@ -14,11 +14,13 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Vérifie la session active au démarrage
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
 
+    // Écoute les changements (connexion/déconnexion)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setLoading(false)
@@ -26,31 +28,25 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Écran de chargement pour éviter le flash blanc
-  if (loading) return "Chargement LeadQualif..."
-
-  // Protection des routes
-  const ProtectedRoute = ({ children }) => {
-    if (!session) return <Navigate to="/login" />
-    return children
-  }
+  // Écran de chargement simple pour éviter l'écran blanc pendant la vérification
+  if (loading) return "Chargement de l'application..."
 
   return (
     <Routes>
-      {/* Route Publique */}
+      {/* Route Login : Si connecté -> redirection vers /app, sinon affiche Login */}
       <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" />} />
 
-      {/* Redirection racine */}
+      {/* Racine : Redirection intelligente */}
       <Route path="/" element={<Navigate to={session ? "/app" : "/login"} />} />
       
-      {/* ROUTES PROTÉGÉES AVEC LAYOUT */}
-      <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route index element={<Dashboard />} />          {/* /app */}
-        <Route path="commercial" element={<Commercial />} /> {/* /app/commercial */}
-        <Route path="settings" element={<Settings />} />     {/* /app/settings */}
+      {/* ROUTES PROTÉGÉES (L'Application) */}
+      <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" />}>
+        <Route index element={<Dashboard />} />          {/* Affiche Dashboard sur /app */}
+        <Route path="commercial" element={<Commercial />} /> {/* Affiche Commercial sur /app/commercial */}
+        <Route path="settings" element={<Settings />} />     {/* Affiche Settings sur /app/settings */}
       </Route>
       
-      {/* Catch-all pour les erreurs 404 */}
+      {/* En cas de route inconnue -> Retour case départ */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )
