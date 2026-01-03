@@ -1,220 +1,244 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { 
-  LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
-  Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck,
-  Brain, Target
-} from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function Dashboard() {
+  // --- ÉTATS (MÉMOIRE) ---
+  const [session, setSession] = useState(null)
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
-  const [agencyId, setAgencyId] = useState('')
+  const [agencyId, setAgencyId] = useState(null)
+
+  // États pour la Modale (Fiche prospect)
+  const [selectedLead, setSelectedLead] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('details') // 'details' ou 'marketing'
+  const [activities, setActivities] = useState([])
+  const [generatedAd, setGeneratedAd] = useState('')
+
   const navigate = useNavigate()
 
-  // Fonction pour récupérer les données du dashboard
-  const fetchDashboardData = async (userId) => {
-    try {
-      console.log('Récupération des données pour user:', userId)
-      
-      // 1. Récupérer l'agency_id depuis la table profiles
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('user_id', userId)
-        .single()
-      
-      if (profileError || !profile) {
-        console.error('Erreur profil:', profileError)
-        return
-      }
-      
-      console.log('Agency ID trouvé:', profile.agency_id)
-      setAgencyId(profile.agency_id)
-      
-      // 2. Récupérer les leads de cette agence
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('agency_id', profile.agency_id)
-        .order('created_at', { ascending: false })
-      
-      if (leadsError) {
-        console.error('Erreur leads:', leadsError)
-        setLeads([])
-      } else {
-        setLeads(leadsData || [])
-        console.log(`✅ ${leadsData?.length || 0} leads chargés`)
-      }
-      
-    } catch (error) {
-      console.error('Erreur fetchDashboardData:', error)
-    }
-  }
-
-  // useEffect principal
+  // --- CHARGEMENT ---
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        // Récupérer la session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError || !session) {
-          console.log('Pas de session, redirection vers login')
-          navigate('/login')
-          return
-        }
-        
-        console.log('Session trouvée, chargement des données...')
-        await fetchDashboardData(session.user.id)
-        
-      } catch (error) {
-        console.error('Erreur loadDashboard:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadDashboard()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) getData(session.user.id)
+      else setLoading(false)
+    })
   }, [])
 
-  // Fonction pour générer le lien d'estimation
-  const getEstimationLink = () => {
-    if (!agencyId) return '#'
-    return `${window.location.origin}/estimation?aid=${agencyId}`
+  async function getData(userId) {
+    try {
+      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', userId).single()
+      if (profile?.agency_id) {
+        setAgencyId(profile.agency_id)
+        fetchLeads(profile.agency_id)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // ÉTAT DE CHARGEMENT
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-slate-600">Chargement...</p>
-      </div>
-    </div>
+  async function fetchLeads(id) {
+    const { data } = await supabase.from('leads').select('*').eq('agency_id', id).order('created_at', { ascending: false })
+    setLeads(data || [])
   }
 
-  // --- CALCULS DES STATISTIQUES ---
-  const leadsSorted = [...leads].sort((a, b) => (b.score_ia || 0) - (a.score_ia || 0));
-  const leadsChaudsCount = leads.filter(l => (l.score_ia || 0) >= 7).length;
-  const leadsNouveaux = leads.filter(l => !l.statut_crm || l.statut_crm === 'À traiter').length;
-  const leadsTotal = leads.length;
-  const conversionRate = leadsTotal > 0 ? Math.round((leadsChaudsCount / leadsTotal) * 100) : 0;
+  // --- LOGIQUE MÉTIER ---
+
+  // 1. Calcul du Score
+  const calculateScore = (lead) => {
+    let score = 3;
+    if (lead.budget > 200000) score += 2;
+    if (lead.telephone) score += 3;
+    if (lead.email) score += 2;
+    return Math.min(score, 10);
+  }
+
+  // 2. Gestion Modale & Activités
+  const openModal = (lead) => {
+    setSelectedLead(lead)
+    setActiveTab('details')
+    setGeneratedAd('') // Reset IA
+    setIsModalOpen(true)
+    fetchActivities(lead.id)
+  }
+
+  async function fetchActivities(leadId) {
+    const { data } = await supabase.from('activities').select('*').eq('lead_id', leadId).order('created_at', { ascending: false })
+    setActivities(data || [])
+  }
+
+  async function logAction(type, desc) {
+    if (!selectedLead) return;
+    await supabase.from('activities').insert([{ lead_id: selectedLead.id, type, description: desc }])
+    fetchActivities(selectedLead.id) // Rafraîchir l'historique
+  }
+
+  // 3. IA Générative (Simulée JS)
+  const generateAIAd = () => {
+    if (!selectedLead) return;
+    const text = `🔥 OPPORTUNITÉ À SAISIR !
+
+Nous recherchons activement pour un client sérieux un bien type ${selectedLead.type_bien || 'Immobilier'}.
+Budget validé : ${selectedLead.budget?.toLocaleString()}€.
+
+Secteur recherché : ${selectedLead.secteur || 'Alentours'}.
+
+Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
+    setGeneratedAd(text)
+  }
+
+  // --- RENDU ---
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p className="text-slate-600">Chargement...</p></div></div>
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 relative">
-      
-      {/* --- HEADER --- */}
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg text-white"><LayoutDashboard size={20} /></div>
-            <h1 className="text-xl font-bold">LeadQualif <span className="text-blue-600">IA</span></h1>
-            <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold ml-2">PRO</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/app/commercial" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><Building2 size={18} /> Espace Pro</Link>
-            <a href={getEstimationLink()} target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Page d'Estimation</a>
-            <button 
-              onClick={() => {
-                const link = getEstimationLink()
-                if (link !== '#') {
-                  navigator.clipboard.writeText(link)
-                  alert('Lien copié !\n\n' + link)
-                } else {
-                  alert('Agency ID non disponible')
-                }
-              }} 
-              className="flex items-center gap-2 text-slate-500 hover:text-green-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"
-              title="Copier le lien de la page d'estimation"
-            >
-              🔗 Lien Estimation
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Main Content */}
+      <div className="flex-1 p-8">
+        <header className="flex justify-between mb-8">
+          <h2 className="text-2xl font-bold">Vos Prospects</h2>
+          <button onClick={() => supabase.auth.signOut()} className="text-red-500">Déconnexion</button>
+        </header>
+        {/* Tableau */}
+        <div className="bg-white rounded shadow overflow-hidden">
+          <table className="min-w-full">
+            <thead className="bg-gray-100 border-b">
+              <tr>
+                <th className="p-4 text-left">Nom</th>
+                <th className="p-4 text-left">Budget</th>
+                <th className="p-4 text-left">Score IA</th>
+                <th className="p-4 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map(lead => (
+                <tr key={lead.id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
+                    <div className="font-bold">{lead.nom}</div>
+                    <div className="text-sm text-gray-500">{lead.email}</div>
+                  </td>
+                  <td className="p-4 font-mono">{lead.budget?.toLocaleString()} €</td>
+                  <td className="p-4">
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold">
+                      {calculateScore(lead)}/10
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <button 
+                      onClick={() => openModal(lead)}
+                      className="bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700 flex items-center gap-2"
+                    >
+                      👁️ Voir
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* MODALE (Fiche Prospect) */}
+      {isModalOpen && selectedLead && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex overflow-hidden shadow-2xl">
+            
+            {/* Colonne Gauche : Infos */}
+            <div className="w-2/3 p-8 overflow-y-auto border-r">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-3xl font-bold text-slate-800">{selectedLead.nom}</h2>
+                  <p className="text-gray-500">Ajouté le {new Date(selectedLead.created_at).toLocaleDateString()}</p>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black text-xl">✕</button>
+              </div>
+              {/* Onglets */}
+              <div className="flex gap-4 border-b mb-6">
+                <button 
+                  onClick={() => setActiveTab('details')}
+                  className={`pb-2 ${activeTab === 'details' ? 'border-b-2 border-blue-600 font-bold' : 'text-gray-500'}`}
+                >
+                  Détails Client
+                </button>
+                <button 
+                  onClick={() => setActiveTab('marketing')}
+                  className={`pb-2 ${activeTab === 'marketing' ? 'border-b-2 border-purple-600 font-bold text-purple-600' : 'text-gray-500'}`}
+                >
+                  ✨ Assistant IA
+                </button>
+              </div>
+              {activeTab === 'details' ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded">
+                      <p className="text-xs text-gray-500 uppercase">Budget</p>
+                      <p className="text-xl font-bold">{selectedLead.budget?.toLocaleString()} €</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded">
+                      <p className="text-xs text-gray-500 uppercase">Téléphone</p>
+                      <p className="text-xl font-bold text-blue-600">{selectedLead.telephone || '-'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <a 
+                      href={`tel:${selectedLead.telephone}`} 
+                      onClick={() => logAction('appel', 'Appel téléphonique')}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded text-center font-bold"
+                    >
+                      📞 Appeler
+                    </a>
+                    <a 
+                      href={`mailto:${selectedLead.email}`}
+                      onClick={() => logAction('email', 'Email envoyé')}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded text-center font-bold"
+                    >
+                      ✉️ Email
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-purple-50 p-6 rounded border border-purple-100">
+                    <h3 className="font-bold text-purple-800 mb-2">Générateur d'Annonce Facebook/Insta</h3>
+                    <p className="text-sm text-gray-600 mb-4">L'IA rédige une annonce de recherche basée sur ce prospect.</p>
+                    <button 
+                      onClick={generateAIAd}
+                      className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 w-full"
+                    >
+                      ✨ Générer l'annonce maintenant
+                    </button>
+                  </div>
+                  {generatedAd && (
+                    <textarea 
+                      className="w-full h-40 p-4 border rounded bg-gray-50 text-sm font-mono"
+                      value={generatedAd}
+                      readOnly
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Colonne Droite : Historique */}
+            <div className="w-1/3 bg-gray-50 p-6 overflow-y-auto border-l">
+              <h3 className="font-bold text-gray-500 uppercase text-xs mb-4">Historique d'activités</h3>
+              <div className="space-y-4">
+                {activities.length === 0 && <p className="text-sm text-gray-400 italic">Aucune activité.</p>}
+                {activities.map(act => (
+                  <div key={act.id} className="text-sm">
+                    <div className="font-bold text-gray-800">{act.type === 'appel' ? '📞 Appel' : '📝 Note'}</div>
+                    <div className="text-gray-600">{act.description}</div>
+                    <div className="text-xs text-gray-400">{new Date(act.created_at).toLocaleTimeString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </nav>
-
-      {/* --- MAIN CONTENT --- */}
-      <main className="max-w-7xl mx-auto p-8 space-y-8">
-        
-        {/* STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-            <div><p className="text-slate-500 font-medium">Prospects Qualifiés</p><h3 className="text-4xl font-bold text-slate-800">{loading ? '-' : leadsChaudsCount}</h3></div>
-            <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><TrendingUp size={28} /></div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-            <div><p className="text-slate-500 font-medium">Temps Gagné (IA)</p><h3 className="text-4xl font-bold text-emerald-600">{leads.length * 5}h</h3></div>
-            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl"><Clock size={28} /></div>
-          </div>
-          <div className="bg-slate-900 p-6 rounded-2xl shadow-sm text-white flex flex-col justify-center items-center text-center">
-            <p className="text-slate-400 text-sm mb-1">État du système</p><p className="font-bold text-green-400 flex items-center gap-2"><CheckCircle size={16}/> 100% Connecté</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* LISTE LEADS */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
-              <h2 className="text-lg font-bold flex items-center gap-2"><Users className="text-blue-600"/> Pipeline des Ventes</h2>
-              <button onClick={() => window.location.reload()} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><RefreshCw size={18}/></button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold tracking-wider">
-                  <tr><th className="p-4">Prospect</th><th className="p-4">Budget</th><th className="p-4">Potentiel</th><th className="p-4">Suivi Dossier</th><th className="p-4 text-right">Action</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {leadsSorted.map(lead => {
-                    const isHot = lead.score >= 8;
-                    return (
-                      <tr key={lead.id} className={`transition-colors ${isHot ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
-                        <td className="p-4"><div className="font-bold text-slate-800">{lead.nom}</div><div className="text-slate-400 text-xs">{lead.email}</div></td>
-                        <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}</td>
-                        <td className="p-4"><span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${isHot ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isHot && <Zap size={12}/>} {lead.score}/10</span></td>
-                        <td className="p-4">
-                          <select 
-                            value={lead.statut_crm || 'À traiter'}
-                            onChange={(e) => {
-                              const newStatut = e.target.value;
-                              supabase.from('leads').update({ statut_crm: newStatut }).eq('id', lead.id).then(() => {
-                                setLeads(leads.map(l => l.id === lead.id ? { ...l, statut_crm: newStatut } : l))
-                              });
-                            }}
-                            className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="À traiter">À traiter</option>
-                            <option value="Contact pris">Contact pris</option>
-                            <option value="RDV Planifié">RDV Planifié</option>
-                            <option value="Offre en cours">Offre en cours</option>
-                            <option value="Signé / Vendu">Signé / Vendu</option>
-                            <option value="Perdu / Abandon">Perdu / Abandon</option>
-                          </select>
-                        </td>
-                        <td className="p-4 text-right flex items-center justify-end gap-2">
-                          <a href={`mailto:${lead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${lead.nom},`} className="flex items-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-bold shadow-sm"><Mail size={14}/> Email</a>
-                          <button onClick={() => setSelectedLead(lead)} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"><Search size={14}/> Voir</button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {leads.length === 0 && !loading && <tr><td colSpan="5" className="p-8 text-center text-slate-400">Aucun lead pour l'instant...</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* GÉNÉRATEUR ANNONCE */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-fit sticky top-24">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Zap className="text-yellow-500" fill="currentColor"/> Rédacteur IA</h2>
-            <div className="text-center py-8">
-              <p className="text-slate-500">Sélectionnez un prospect pour générer une annonce</p>
-            </div>
-          </div>
-        </div>
-      </main>
+      )}
     </div>
   )
 }
