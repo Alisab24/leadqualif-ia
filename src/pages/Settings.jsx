@@ -12,15 +12,15 @@ export default function Settings() {
 
   // --- FORM DATA ---
   const [formData, setFormData] = useState({
-    agency_name: '',
-    signatory_name: '',
-    siret: '',
-    address: '',
-    postal_code: '',
-    city: '',
-    website: '',
-    phone: '',
-    email: ''
+    nom_agence: '',
+    signataire: '',
+    identifiant_fiscal: '',
+    adresse_agence: '',
+    telephone_agence: '',
+    email_agence: '',
+    site_web: '',
+    devise: '€',
+    pays: 'France'
   })
 
   // --- CHARGEMENT ---
@@ -50,15 +50,15 @@ export default function Settings() {
 
       setProfile(profileData)
       setFormData({
-        agency_name: profileData.agency_name || '',
-        signatory_name: profileData.signatory_name || '',
-        siret: profileData.siret || '',
-        address: profileData.address || '',
-        postal_code: profileData.postal_code || '',
-        city: profileData.city || '',
-        website: profileData.website || '',
-        phone: profileData.phone || '',
-        email: profileData.email || ''
+        nom_agence: profileData.nom_agence || '',
+        signataire: profileData.signataire || '',
+        identifiant_fiscal: profileData.identifiant_fiscal || '',
+        adresse_agence: profileData.adresse_agence || '',
+        telephone_agence: profileData.telephone_agence || '',
+        email_agence: profileData.email_agence || '',
+        site_web: profileData.site_web || '',
+        devise: profileData.devise || '€',
+        pays: profileData.pays || 'France'
       })
 
     } catch (error) {
@@ -86,15 +86,15 @@ export default function Settings() {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          agency_name: formData.agency_name,
-          signatory_name: formData.signatory_name,
-          siret: formData.siret,
-          address: formData.address,
-          postal_code: formData.postal_code,
-          city: formData.city,
-          website: formData.website,
-          phone: formData.phone,
-          email: formData.email
+          nom_agence: formData.nom_agence,
+          signataire: formData.signataire,
+          identifiant_fiscal: formData.identifiant_fiscal,
+          adresse_agence: formData.adresse_agence,
+          telephone_agence: formData.telephone_agence,
+          email_agence: formData.email_agence,
+          site_web: formData.site_web,
+          devise: formData.devise,
+          pays: formData.pays
         })
         .eq('user_id', session.user.id)
 
@@ -185,8 +185,8 @@ export default function Settings() {
                 </label>
                 <input
                   type="text"
-                  name="agency_name"
-                  value={formData.agency_name}
+                  name="nom_agence"
+                  value={formData.nom_agence}
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -200,8 +200,8 @@ export default function Settings() {
                 </label>
                 <input
                   type="text"
-                  name="signatory_name"
-                  value={formData.signatory_name}
+                  name="signataire"
+                  value={formData.signataire}
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -211,13 +211,14 @@ export default function Settings() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  SIRET / N° Enregistrement
+                  Identifiant Fiscal (SIRET, IFU...) *
                 </label>
                 <input
                   type="text"
-                  name="siret"
-                  value={formData.siret}
+                  name="identifiant_fiscal"
+                  value={formData.identifiant_fiscal}
                   onChange={handleChange}
+                  required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Ex: 12345678901234"
                 />
@@ -229,8 +230,8 @@ export default function Settings() {
                 </label>
                 <input
                   type="tel"
-                  name="phone"
-                  value={formData.phone}
+                  name="telephone_agence"
+                  value={formData.telephone_agence}
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -244,8 +245,8 @@ export default function Settings() {
                 </label>
                 <input
                   type="email"
-                  name="email"
-                  value={formData.email}
+                  name="email_agence"
+                  value={formData.email_agence}
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -259,12 +260,55 @@ export default function Settings() {
                 </label>
                 <input
                   type="url"
-                  name="website"
-                  value={formData.website}
+                  name="site_web"
+                  value={formData.site_web}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="https://www.agence.fr"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Devise *
+                </label>
+                <select
+                  name="devise"
+                  value={formData.devise}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="€">€ (Euro)</option>
+                  <option value="FCFA">FCFA (Franc CFA)</option>
+                  <option value="$">$ (Dollar US)</option>
+                  <option value="£">£ (Livre Sterling)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pays *
+                </label>
+                <select
+                  name="pays"
+                  value={formData.pays}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="France">France</option>
+                  <option value="Belgique">Belgique</option>
+                  <option value="Suisse">Suisse</option>
+                  <option value="Canada">Canada</option>
+                  <option value="Côte d'Ivoire">Côte d'Ivoire</option>
+                  <option value="Sénégal">Sénégal</option>
+                  <option value="Maroc">Maroc</option>
+                  <option value="Tunisie">Tunisie</option>
+                  <option value="Algérie">Algérie</option>
+                  <option value="Cameroun">Cameroun</option>
+                  <option value="Autre">Autre</option>
+                </select>
               </div>
             </div>
           </div>
@@ -272,64 +316,20 @@ export default function Settings() {
           {/* Adresse */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Adresse</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              <div className="md:col-span-3">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Adresse *
+                  Adresse complète *
                 </label>
                 <input
                   type="text"
-                  name="address"
-                  value={formData.address}
+                  name="adresse_agence"
+                  value={formData.adresse_agence}
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="123 Rue de l'Immobilier"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Code Postal *
-                </label>
-                <input
-                  type="text"
-                  name="postal_code"
-                  value={formData.postal_code}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="75001"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ville *
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Paris"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  IBAN (pour factures)
-                </label>
-                <input
-                  type="text"
-                  name="iban"
-                  value={formData.iban || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="FR7630006000011234567890189"
                 />
               </div>
             </div>

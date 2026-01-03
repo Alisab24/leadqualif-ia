@@ -117,7 +117,7 @@ export default function Commercial() {
 ENTRE LES SOUSSIGNÉS :
 
 Le soussigné, ${recipientInfo.name}, ci-après dénommé "LE VENDEUR"
-Et l'agence ${agencyProfile?.agency_name || 'LeadQualif IA'}, ci-après dénommée "L'AGENCE"
+Et l'agence ${agencyProfile?.nom_agence || 'LeadQualif IA'}, ci-après dénommée "L'AGENCE"
 
 OBJET : Mandat exclusif de vente
 
@@ -127,18 +127,20 @@ ${recipientInfo.address || '[Adresse complète du bien]'}${recipientInfo.city ? 
 CARACTÉRISTIQUES :
 - Type : ${recipientInfo.type_bien}
 - Secteur : ${recipientInfo.secteur}
-- Prix de vente : ${parseInt(specificInfo).toLocaleString()} €
+- Prix de vente : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile?.devise || '€'}
 
 DURÉE : 3 mois à compter de la date de signature
-HONORAIRES : ${Math.round(parseInt(specificInfo) * 0.05).toLocaleString()} € (5% du prix de vente)
+HONORAIRES : ${Math.round(parseInt(specificInfo) * 0.05).toLocaleString()} ${agencyProfile?.devise || '€'} (5% du prix de vente)
 
-FAIT À ${agencyProfile?.city || 'Ville'}, le ${new Date().toLocaleDateString('fr-FR')}
+FAIT À ${agencyProfile?.pays || 'France'}, le ${new Date().toLocaleDateString('fr-FR')}
 
 Signature du Vendeur : ____________________
 
 Signature de l'Agence : ____________________
 
-Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
+Pour l'agence : ${agencyProfile?.signataire || 'Le Gérant'}
+
+Identifiant fiscal : ${agencyProfile?.identifiant_fiscal || 'En cours'}`
         break
 
       case 'visite':
@@ -179,11 +181,11 @@ Email : ${agencyProfile?.email || 'Non renseigné'}`
         specificInfo = prompt('Montant total des honoraires (€) :') || '0'
         template = `DEVIS D'HONORAIRES
 
-AGENCE : ${agencyProfile?.agency_name || 'LeadQualif IA'}
-${agencyProfile?.address || 'Adresse non renseignée'}
-${agencyProfile?.postal_code || 'CP'} ${agencyProfile?.city || 'Ville'}
-Tél : ${agencyProfile?.phone || 'Non renseigné'}
-Email : ${agencyProfile?.email || 'Non renseigné'}
+AGENCE : ${agencyProfile?.nom_agence || 'LeadQualif IA'}
+${agencyProfile?.adresse_agence || 'Adresse non renseignée'}
+Tél : ${agencyProfile?.telephone_agence || 'Non renseigné'}
+Email : ${agencyProfile?.email_agence || 'Non renseigné'}
+Identifiant fiscal : ${agencyProfile?.identifiant_fiscal || 'En cours'}
 
 CLIENT : ${recipientInfo.name}
 ${recipientInfo.email || ''}
@@ -262,13 +264,13 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
     
     // En-tête GRAND - Nom de l'agence
     doc.setFontSize(20)
-    doc.text(`${agencyProfile?.agency_name || 'LeadQualif IA'}`, 105, 25, { align: 'center' })
+    doc.text(`${agencyProfile?.nom_agence || 'LeadQualif IA'}`, 105, 25, { align: 'center' })
     
     // Adresse et téléphone sous le nom
     doc.setFontSize(10)
-    const agencyAddress = `${agencyProfile?.address || 'Adresse non renseignée'}, ${agencyProfile?.postal_code || 'CP'} ${agencyProfile?.city || 'Ville'}`
+    const agencyAddress = `${agencyProfile?.adresse_agence || 'Adresse non renseignée'}`
     doc.text(agencyAddress, 105, 35, { align: 'center' })
-    doc.text(`Tél : ${agencyProfile?.phone || 'Non renseigné'}`, 105, 42, { align: 'center' })
+    doc.text(`Tél : ${agencyProfile?.telephone_agence || 'Non renseigné'}`, 105, 42, { align: 'center' })
     
     // Ligne de séparation
     doc.line(20, 50, 190, 50)
@@ -304,13 +306,13 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
       yPosition += 6
     })
     
-    // Pied de page avec SIRET et site web
+    // Pied de page avec identifiant fiscal et site web
     doc.setFontSize(8)
-    const footerText = `SIRET : ${agencyProfile?.siret || 'En cours'} - ${agencyProfile?.website || 'www.agence.fr'}`
+    const footerText = `Identifiant fiscal : ${agencyProfile?.identifiant_fiscal || 'En cours'} - ${agencyProfile?.site_web || 'www.agence.fr'}`
     doc.text(footerText, 105, 280, { align: 'center' })
     
     // Signature en bas à droite
-    doc.text(`Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`, 190, 270, { align: 'right' })
+    doc.text(`Pour l'agence : ${agencyProfile?.signataire || 'Le Gérant'}`, 190, 270, { align: 'right' })
     
     // Téléchargement
     const fileName = `${type.toLowerCase().replace(/\s+/g, '-')}-${recipientInfo.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`

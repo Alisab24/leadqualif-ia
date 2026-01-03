@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [agencyId, setAgencyId] = useState(null)
+  const [agencyProfile, setAgencyProfile] = useState(null)
 
   // États pour la Modale (Fiche prospect)
   const [selectedLead, setSelectedLead] = useState(null)
@@ -30,9 +31,10 @@ export default function Dashboard() {
 
   async function getData(userId) {
     try {
-      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', userId).single()
+      const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', userId).single()
       if (profile?.agency_id) {
         setAgencyId(profile.agency_id)
+        setAgencyProfile(profile)
         fetchLeads(profile.agency_id)
       }
     } catch (e) {
@@ -128,7 +130,7 @@ export default function Dashboard() {
     const text = `🔥 OPPORTUNITÉ À SAISIR !
 
 Nous recherchons activement pour un client sérieux un bien type ${selectedLead.type_bien || 'Immobilier'}.
-Budget validé : ${selectedLead.budget?.toLocaleString()}€.
+Budget validé : ${selectedLead.budget?.toLocaleString()} ${agencyProfile?.devise || '€'}.
 
 Secteur recherché : ${selectedLead.secteur || 'Alentours'}.
 
@@ -249,7 +251,7 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                     <div className="font-bold">{lead.nom}</div>
                     <div className="text-sm text-gray-500">{lead.email}</div>
                   </td>
-                  <td className="p-4 font-mono">{lead.budget?.toLocaleString()} €</td>
+                  <td className="p-4 font-mono">{lead.budget?.toLocaleString()} {agencyProfile?.devise || '€'}</td>
                   <td className="p-4">
                     <select 
                       value={lead.statut || 'À traiter'}
@@ -330,7 +332,7 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                         <span className="text-green-600">💰</span>
                         <p className="text-xs text-gray-500 uppercase">Budget</p>
                       </div>
-                      <p className="text-xl font-bold">{selectedLead.budget?.toLocaleString()} €</p>
+                      <p className="text-xl font-bold">{selectedLead.budget?.toLocaleString()} {agencyProfile?.devise || '€'}</p>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
