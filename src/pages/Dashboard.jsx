@@ -1,31 +1,121 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../supabaseClient'
 import { 
   LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
   Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck,
   Brain, Target
 } from 'lucide-react'
-import { leads, interactions, supabase } from '../supabaseClient'
 
 // Plus besoin de l'URL du backend - tout passe par Supabase
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
-  const [selectedLead, setSelectedLead] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [agencyId, setAgencyId] = useState('')
   const [loading, setLoading] = useState(true)
+  const [agencyId, setAgencyId] = useState('')
   const [error, setError] = useState('')
-  const [tempsEconomise, setTempsEconomise] = useState(() => {
-    const saved = localStorage.getItem('timeSaved')
-    return saved ? parseInt(saved) : 0
-  })
-  const [annonceGeneree, setAnnonceGeneree] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [newNote, setNewNote] = useState('')
+  const navigate = useNavigate()
 
-  // SÉCURITÉ : Ne rien charger si pas de session
-  if (!userProfile && loading) {
+  // Fonction pour récupérer les données du dashboard
+  const fetchDashboardData = async (userId) => {
+    try {
+      console.log('Récupération des données pour user:', userId)
+      
+      // 1. Récupérer l'agency_id depuis la table profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('user_id', userId)
+        .single()
+      
+      if (profileError || !profile) {
+        console.error('Erreur profil:', profileError)
+        setError('Profil non trouvé. Veuillez compléter votre profil.')
+        return
+      }
+      
+      console.log('Agency ID trouvé:', profile.agency_id)
+      setAgencyId(profile.agency_id)
+      
+      // 2. Récupérer les leads de cette agence
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('agency_id', profile.agency_id)
+        .order('created_at', { ascending: false })
+      
+      if (leadsError) {
+        console.error('Erreur leads:', leadsError)
+        setError('Erreur lors du chargement des leads')
+        setLeads([])
+      } else {
+        setLeads(leadsData || [])
+        console.log(`✅ ${leadsData?.length || 0} leads chargés`)
+      }
+      
+    } catch (error) {
+      console.error('Erreur fetchDashboardData:', error)
+      setError('Erreur de chargement des données')
+    }
+  }
+
+  // useEffect principal
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        // Récupérer la session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError || !session) {
+          console.log('Pas de session, redirection vers login')
+          navigate('/login')
+          return
+        }
+        
+        console.log('Session trouvée, chargement des données...')
+        await fetchDashboardData(session.user.id)
+        
+      } catch (error) {
+        console.error('Erreur loadDashboard:', error)
+        setError('Erreur de chargement')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadDashboard()
+  }, [])
+
+  // GESTION D'ERREUR : Affichage si erreur
+  if (error) {
+    return <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+        <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+          <X className="w-8 h-8 text-red-600" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Erreur</h2>
+        <p className="text-gray-600 mb-6">{error}</p>
+        {error.includes('Profil non trouvé') ? (
+          <button 
+            onClick={() => navigate('/signup')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Compléter mon profil
+          </button>
+        ) : (
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Réessayer
+          </button>
+        )}
+      </div>
+    </div>
+  }
+
+  // ÉTAT DE CHARGEMENT
+  if (loading) {
     return <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -34,107 +124,11 @@ export default function Dashboard() {
     </div>
   }
 
-  // GESTION D'ERREUR : Profil non trouvé
-  if (error && error.includes('Profil non trouvé')) {
-    return <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-        <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Users className="w-8 h-8 text-yellow-600" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Profil incomplet</h2>
-        <p className="text-gray-600 mb-6">{error}</p>
-        <button 
-          onClick={() => window.location.href = '/signup'}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Compléter mon profil
-        </button>
-      </div>
-    </div>
+  // Fonction pour générer le lien d'estimation
+  const getEstimationLink = () => {
+    if (!agencyId) return '#'
+    return `${window.location.origin}/estimation?aid=${agencyId}`
   }
-
-  // GESTION D'ERREUR : Autre erreur
-  if (error && !loading) {
-    return <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-        <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-          <X className="w-8 h-8 text-red-600" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Erreur de chargement</h2>
-        <p className="text-gray-600 mb-6">{error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Réessayer
-        </button>
-      </div>
-    </div>
-  }
-
-  // 1. CHARGEMENT UTILISATEUR ET LEADS (Via Supabase) - LOGIQUE SIMPLIFIÉE
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        console.log('Chargement des données...')
-        
-        // Récupérer l'utilisateur connecté
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        
-        if (userError || !user) {
-          console.error('Pas d\'utilisateur connecté:', userError)
-          navigate('/login')
-          return
-        }
-        
-        // Récupérer le profil avec agency_id
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('agency_id, agencies(*)')
-          .eq('user_id', user.id)
-          .single()
-        
-        if (profileError || !profile) {
-          console.error('Profil non trouvé:', profileError)
-          setError('Profil non trouvé. Veuillez compléter votre profil.')
-          setLoading(false)
-          return
-        }
-        
-        setUserProfile(profile)
-        setAgencyId(profile.agency_id)
-        
-        // Charger les leads de cette agence
-        const { data: leadsData, error: leadsError } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('agency_id', profile.agency_id)
-          .order('created_at', { ascending: false })
-        
-        if (leadsError) {
-          console.error('Erreur chargement leads:', leadsError)
-          setError('Erreur lors du chargement des leads')
-          setLeads([])
-        } else {
-          setLeads(leadsData || [])
-          console.log(`✅ ${leadsData?.length || 0} leads chargés`)
-          
-          // Calcul temps économisé
-          const temps = (leadsData?.length || 0) * 5
-          setTempsEconomise(temps)
-          localStorage.setItem('timeSaved', temps.toString())
-        }
-        
-      } catch (error) {
-        console.error('Erreur:', error)
-        setError('Erreur de chargement')
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadData()
-  }, [])
 
   // 2. FONCTIONS UTILES
   const cleanPhoneNumber = (phone) => {
@@ -163,72 +157,31 @@ export default function Dashboard() {
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }
 
-  // Fonction pour ajouter une interaction (Via Supabase)
-  const addInteraction = async (leadId, typeAction, details = '') => {
-    try {
-      const result = await interactions.create({
-        lead_id: leadId,
-        type_action: typeAction,
-        details: details
-      })
-      
-      if (result.success) {
-        setLeads(leads.map(lead => 
-          lead.id === leadId 
-            ? { ...lead, interactions: [result.data, ...(lead.interactions || [])] }
-            : lead
-        ))
-        console.log('Interaction ajoutée:', typeAction)
-      } else {
-        console.error('Erreur ajout interaction:', result.error)
-      }
-    } catch (error) {
-      console.error('Erreur ajout interaction:', error)
-    }
-  }
-
-  // Fonction pour ajouter une note manuelle
-  const handleAddNote = (leadId) => {
-    if (newNote.trim()) {
-      addInteraction(leadId, 'Note', newNote.trim())
-      setNewNote('')
-    }
-  }
-
-  // Fonction pour mettre à jour le statut CRM (Via Supabase)
+  
+  // Fonction pour mettre à jour le statut CRM
   const updateStatutCRM = async (leadId, nouveauStatut) => {
     try {
-      const result = await leads.update(leadId, { statut_crm: nouveauStatut })
+      const { error } = await supabase
+        .from('leads')
+        .update({ statut_crm: nouveauStatut })
+        .eq('id', leadId)
       
-      if (result.success) {
+      if (error) {
+        console.error('Erreur mise à jour statut:', error)
+      } else {
         setLeads(leads.map(lead => 
           lead.id === leadId ? { ...lead, statut_crm: nouveauStatut } : lead
         ))
-        console.log('Statut CRM mis à jour:', nouveauStatut)
-      } else {
-        console.error('Erreur mise à jour statut:', result.error)
       }
     } catch (error) {
       console.error('Erreur mise à jour statut:', error)
     }
   }
 
-  // Fonction pour générer une annonce (Désactivé pour le build)
-  const handleAnnonce = async (e) => {
-    e.preventDefault()
-    setIsGenerating(true)
-    setAnnonceGeneree("🤖 Fonction temporairement désactivée...")
-    setIsGenerating(false)
-  }
-
-  // --- CALCULS DES STATISTIQUES (FIX) ---
-  // 1. Trier les leads (Score le plus haut en premier)
-  const leadsTries = [...leads].sort((a, b) => (b.score_ia || 0) - (a.score_ia || 0));
-  // 2. Compter les leads chauds (Score >= 7)
+  // --- CALCULS DES STATISTIQUES ---
+  const leadsSorted = [...leads].sort((a, b) => (b.score_ia || 0) - (a.score_ia || 0));
   const leadsChaudsCount = leads.filter(l => (l.score_ia || 0) >= 7).length;
-  // 3. Compter les nouveaux (ceux qui n'ont pas encore de statut CRM défini ou 'À traiter')
   const leadsNouveaux = leads.filter(l => !l.statut_crm || l.statut_crm === 'À traiter').length;
-  // 4. Statistiques supplémentaires
   const leadsTotal = leads.length;
   const conversionRate = leadsTotal > 0 ? Math.round((leadsChaudsCount / leadsTotal) * 100) : 0;
 
@@ -295,27 +248,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 
-                {/* Ajouter une note */}
-                <div className="border-t border-slate-100 pt-4">
-                  <p className="text-xs font-bold text-slate-400 uppercase mb-2">Ajouter une note</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Note manuelle..."
-                      className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddNote(selectedLead.id)}
-                    />
-                    <button
-                      onClick={() => handleAddNote(selectedLead.id)}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-bold"
-                    >
-                      Ajouter
-                    </button>
-                  </div>
-                </div>
-              </div>
+                              </div>
             </div>
 
             <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex flex-wrap gap-3 justify-end">
@@ -323,7 +256,6 @@ export default function Dashboard() {
                 <>
                   <button 
                     onClick={() => {
-                      addInteraction(selectedLead.id, 'Appel', 'Appel sortant')
                       window.location.href = `tel:${selectedLead.telephone}`
                     }} 
                     className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-blue-600 font-bold text-sm"
@@ -333,7 +265,6 @@ export default function Dashboard() {
                   <a href={`mailto:${selectedLead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${selectedLead.nom},`} className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-bold text-sm"><Mail size={16}/> Email</a>
                   <button 
                     onClick={() => {
-                      addInteraction(selectedLead.id, 'WhatsApp', 'Message WhatsApp envoyé')
                       window.open(getWhatsAppLink(selectedLead), '_blank')
                     }} 
                     className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-bold text-sm"
@@ -358,13 +289,13 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <Link to="/app/commercial" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><Building2 size={18} /> Espace Pro</Link>
-            <a href="/estimation" target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Page d'Estimation</a>
+            <a href={getEstimationLink()} target="_blank" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-medium px-4 py-2 hover:bg-slate-50 rounded-lg transition"><FileText size={18} /> Page d'Estimation</a>
             <button 
               onClick={() => {
-                if (agencyId) {
-                  const estimationLink = `${window.location.origin}/estimation?aid=${agencyId}`
-                  navigator.clipboard.writeText(estimationLink)
-                  alert('Lien copié !\n\n' + estimationLink)
+                const link = getEstimationLink()
+                if (link !== '#') {
+                  navigator.clipboard.writeText(link)
+                  alert('Lien copié !\n\n' + link)
                 } else {
                   alert('Agency ID non disponible')
                 }
@@ -420,158 +351,62 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* LISTE LEADS */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
-              <h2 className="text-lg font-bold flex items-center gap-2"><Users className="text-blue-600"/> Pipeline des Ventes</h2>
-              <button onClick={() => window.location.reload()} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><RefreshCw size={18}/></button>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* LISTE LEADS */}
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                <h2 className="text-lg font-bold flex items-center gap-2"><Users className="text-blue-600"/> Pipeline des Ventes</h2>
+                <button onClick={() => window.location.reload()} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><RefreshCw size={18}/></button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold tracking-wider">
+                    <tr><th className="p-4">Prospect</th><th className="p-4">Budget</th><th className="p-4">Potentiel</th><th className="p-4">Suivi Dossier</th><th className="p-4 text-right">Action</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {leadsSorted.map(lead => {
+                      const isHot = lead.score >= 8;
+                      return (
+                        <tr key={lead.id} className={`transition-colors ${isHot ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
+                          <td className="p-4"><div className="font-bold text-slate-800">{lead.nom}</div><div className="text-slate-400 text-xs">{lead.email}</div></td>
+                          <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}</td>
+                          <td className="p-4"><span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${isHot ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isHot && <Zap size={12}/>} {lead.score}/10</span></td>
+                          <td className="p-4">
+                            <select 
+                              value={lead.statut_crm || 'À traiter'}
+                              onChange={(e) => updateStatutCRM(lead.id, e.target.value)}
+                              className={`text-xs border border-slate-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                            >
+                              <option value="À traiter">À traiter</option>
+                              <option value="Contact pris">Contact pris</option>
+                              <option value="RDV Planifié">RDV Planifié</option>
+                              <option value="Offre en cours">Offre en cours</option>
+                              <option value="Signé / Vendu">Signé / Vendu</option>
+                              <option value="Perdu / Abandon">Perdu / Abandon</option>
+                            </select>
+                          </td>
+                          <td className="p-4 text-right flex items-center justify-end gap-2">
+                            <a href={`mailto:${lead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${lead.nom},`} className="flex items-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-bold shadow-sm"><Mail size={14}/> Email</a>
+                            <button onClick={() => setSelectedLead(lead)} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"><Search size={14}/> Voir</button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {leads.length === 0 && !loading && <tr><td colSpan="5" className="p-8 text-center text-slate-400">Aucun lead pour l'instant...</td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold tracking-wider">
-                  <tr><th className="p-4">Prospect</th><th className="p-4">Budget</th><th className="p-4">Potentiel</th><th className="p-4">Suivi Dossier</th><th className="p-4 text-right">Action</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {leadsTries.map(lead => {
-                    const isHot = lead.score >= 8;
-                    return (
-                      <tr key={lead.id} className={`transition-colors ${isHot ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
-                        <td className="p-4"><div className="font-bold text-slate-800">{lead.nom}</div><div className="text-slate-400 text-xs">{lead.email}</div></td>
-                        <td className="p-4 font-medium text-slate-600">{lead.budget > 0 ? lead.budget.toLocaleString() + ' €' : '-'}</td>
-                        <td className="p-4"><span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${isHot ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isHot && <Zap size={12}/>} {lead.score}/10</span></td>
-                        <td className="p-4">
-                          <select 
-                            value={lead.statut_crm || 'À traiter'}
-                            onChange={(e) => updateStatutCRM(lead.id, e.target.value)}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold border-2 transition-colors ${
-                              (lead.statut_crm || 'À traiter') === 'À traiter' ? 'bg-gray-100 text-gray-700 border-gray-300' :
-                              (lead.statut_crm || 'À traiter') === 'Contacté' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                              (lead.statut_crm || 'À traiter') === 'RDV Planifié' ? 'bg-purple-100 text-purple-700 border-purple-300' :
-                              (lead.statut_crm || 'À traiter') === 'Offre en cours' ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                              (lead.statut_crm || 'À traiter') === 'Signé / Vendu' ? 'bg-green-100 text-green-700 border-green-300' :
-                              'bg-red-100 text-red-700 border-red-300'
-                            }`}
-                          >
-                            <option value="À traiter">À traiter</option>
-                            <option value="Contacté">Contacté</option>
-                            <option value="RDV Planifié">RDV Planifié</option>
-                            <option value="Offre en cours">Offre en cours</option>
-                            <option value="Signé / Vendu">Signé / Vendu</option>
-                            <option value="Perdu / Abandon">Perdu / Abandon</option>
-                          </select>
-                        </td>
-                        <td className="p-4 text-right flex items-center justify-end gap-2">
-                          <a href={`mailto:${lead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${lead.nom},`} className="flex items-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-bold shadow-sm"><Mail size={14}/> Email</a>
-                          <button onClick={() => setSelectedLead(lead)} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-xs font-bold shadow-sm"><Search size={14}/> Voir</button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {leads.length === 0 && !loading && <tr><td colSpan="5" className="p-8 text-center text-slate-400">Aucun lead pour l'instant...</td></tr>}
-                </tbody>
-              </table>
+
+            {/* GÉNÉRATEUR ANNONCE */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-fit sticky top-24">
+              <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Zap className="text-yellow-500" fill="currentColor"/> Rédacteur IA</h2>
+              <div className="text-center py-8">
+                <p className="text-slate-500">Fonctionnalité temporairement désactivée</p>
+              </div>
             </div>
           </div>
-
-          {/* GÉNÉRATEUR ANNONCE (CORRIGÉ POUR BACKEND) */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-fit sticky top-24">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Zap className="text-yellow-500" fill="currentColor"/> Rédacteur IA</h2>
-            
-            <form onSubmit={handleAnnonce} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Type de bien</label>
-                <select 
-                  className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  value={annonceForm.type} 
-                  onChange={e => setAnnonceForm({...annonceForm, type: e.target.value})}
-                >
-                  <option value="Appartement">Appartement</option>
-                  <option value="Maison">Maison</option>
-                  <option value="Villa">Villa</option>
-                  <option value="Studio">Studio</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Adresse/Quartier</label>
-                <input 
-                  type="text"
-                  className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                  placeholder="Ex: 75011 Paris"
-                  value={annonceForm.adresse}
-                  onChange={e => setAnnonceForm({...annonceForm, adresse: e.target.value})}
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prix (€)</label>
-                  <input 
-                    type="number"
-                    className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                    placeholder="Ex: 350000"
-                    value={annonceForm.prix}
-                    onChange={e => setAnnonceForm({...annonceForm, prix: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Surface (m²)</label>
-                  <input 
-                    type="number"
-                    className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                    placeholder="Ex: 120"
-                    value={annonceForm.surface}
-                    onChange={e => setAnnonceForm({...annonceForm, surface: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Nombre de pièces</label>
-                <input 
-                  type="number"
-                  className="w-full p-3 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                  placeholder="Ex: 3"
-                  value={annonceForm.pieces}
-                  onChange={e => setAnnonceForm({...annonceForm, pieces: e.target.value})}
-                />
-              </div>
-              
-              <button 
-                type="submit" 
-                className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-black transition shadow-lg shadow-slate-200 flex justify-center items-center gap-2 disabled:opacity-50"
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Génération...
-                  </>
-                ) : (
-                  <>
-                    <FileText size={16}/> Générer l'annonce
-                  </>
-                )}
-              </button>
-            </form>
-            
-            {annonceGeneree && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-xl text-sm text-slate-700 whitespace-pre-line border border-blue-100 animate-fade-in">
-                {annonceGeneree}
-                <button 
-                  onClick={() => navigator.clipboard.writeText(annonceGeneree)} 
-                  className="mt-2 text-blue-600 font-bold text-xs hover:underline"
-                >
-                  📋 Copier le texte
-                </button>
-              </div>
-            )}
-          </div>
-
-        </div>
           </>
         )}
       </main>
