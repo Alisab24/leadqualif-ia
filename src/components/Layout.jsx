@@ -1,145 +1,49 @@
-import { useState, useEffect } from 'react'
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
 export default function Layout() {
-  const [user, setUser] = useState(null)
-  const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const [showTooltip, setShowTooltip] = useState('')
-  const navigate = useNavigate()
   const location = useLocation()
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-    }
-    getUser()
-  }, [])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    navigate('/login')
-  }
-
-  const menuItems = [
-    { icon: '📊', label: 'Dashboard', path: '/app' },
-    { icon: '📂', label: 'Documents', path: '/app/commercial' },
-    { icon: '⚙️', label: 'Paramètres', path: '/app/settings' },
-  ]
-
-  const isActive = (path) => {
-    if (path === '/app') {
-      return location.pathname === '/app' || location.pathname === '/app/pipeline'
-    }
-    return location.pathname === path
-  }
-
-  const handleDashboardClick = () => {
-    if (location.pathname === '/app' || location.pathname === '/app/pipeline') {
-      // Si déjà sur le dashboard, ne rien faire
-      return
-    }
-    navigate('/app')
-  }
+  const isActive = (path) => location.pathname === path
 
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-16 bg-slate-900 flex flex-col justify-between">
+      <div className="fixed left-0 top-0 h-16 w-16 bg-slate-900 flex flex-col items-center justify-between p-2 z-50">
         {/* Logo */}
-        <div className="p-4">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">N</span>
-          </div>
+        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-sm">N</span>
         </div>
-
-        {/* Navigation */}
-        <nav className="flex-1">
-          {menuItems.map((item) => (
-            <div key={item.path} className="relative">
-              {item.path === '/app' ? (
-                <button
-                  onClick={handleDashboardClick}
-                  className={`w-full h-16 flex items-center justify-center text-xl hover:bg-slate-800 transition-colors relative group ${
-                    isActive(item.path) ? 'bg-slate-800 text-blue-400' : 'text-gray-400'
-                  }`}
-                  onMouseEnter={() => setShowTooltip(item.label)}
-                  onMouseLeave={() => setShowTooltip('')}
-                >
-                  {item.icon}
-                  
-                  {/* Tooltip */}
-                  {showTooltip === item.label && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded whitespace-nowrap z-50">
-                      {item.label}
-                      <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                    </div>
-                  )}
-                </button>
-              ) : (
-                <Link
-                  to={item.path}
-                  className={`w-full h-16 flex items-center justify-center text-xl hover:bg-slate-800 transition-colors relative group ${
-                    isActive(item.path) ? 'bg-slate-800 text-blue-400' : 'text-gray-400'
-                  }`}
-                  onMouseEnter={() => setShowTooltip(item.label)}
-                  onMouseLeave={() => setShowTooltip('')}
-                >
-                  {item.icon}
-                  
-                  {/* Tooltip */}
-                  {showTooltip === item.label && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded whitespace-nowrap z-50">
-                      {item.label}
-                      <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                    </div>
-                  )}
-                </Link>
-              )}
-            </div>
-          ))}
+        
+        {/* Menu Icônes */}
+        <nav className="flex-1 space-y-6 w-full flex flex-col items-center">
+          <Link to="/app" className={`p-3 rounded-xl transition-all ${isActive('/app') ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Dashboard">
+            📊
+          </Link>
+          
+          <Link to="/app/commercial" className={`p-3 rounded-xl transition-all ${isActive('/app/commercial') ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Documents">
+            📂
+          </Link>
+          <Link to="/app/settings" className={`p-3 rounded-xl transition-all ${isActive('/app/settings') ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Paramètres">
+            ⚙️
+          </Link>
         </nav>
-
-        {/* Profile */}
-        <div className="relative">
-          <button
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="w-full h-16 flex items-center justify-center text-gray-400 hover:bg-slate-800 transition-colors"
-          >
-            {user?.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full" />
-            ) : (
-              <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {user?.email?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              </div>
-            )}
-          </button>
-
-          {/* Profile Menu */}
-          {showProfileMenu && (
-            <div className="absolute bottom-full left-0 mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-              <div className="px-4 py-2 border-b border-gray-200">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.email}
-                </p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Déconnexion
-              </button>
-            </div>
-          )}
-        </div>
+        
+        {/* Avatar / Logout */}
+        <button 
+          onClick={() => supabase.auth.signOut()} 
+          className="mt-auto p-3 text-red-400 hover:bg-red-900/30 rounded-xl" 
+          title="Déconnexion"
+        >
+          🚪
+        </button>
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <Outlet />
+      
+      {/* Zone de Contenu Principale (À droite de la sidebar) */}
+      <div className="flex-1 ml-20 overflow-y-auto">
+        <div className="p-8 max-w-7xl mx-auto">
+          {/* C'est ICI que les pages s'affichent */}
+          <Outlet />
+        </div>
       </div>
     </div>
   )
