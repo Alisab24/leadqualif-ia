@@ -160,6 +160,21 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
         setLeads(leads.map(lead => 
           lead.id === leadId ? { ...lead, statut: nouveauStatut } : lead
         ))
+        
+        // Logger le changement de statut dans l'historique
+        await supabase
+          .from('activities')
+          .insert([{
+            lead_id: leadId,
+            type: 'statut',
+            description: `Statut passé à ${nouveauStatut}`,
+            created_at: new Date().toISOString()
+          }])
+        
+        // Si le lead est actuellement sélectionné, rafraîchir l'historique
+        if (selectedLead && selectedLead.id === leadId) {
+          fetchActivities(leadId)
+        }
       }
     } catch (error) {
       console.error('Erreur updateStatut:', error)
@@ -194,6 +209,12 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
         <header className="flex justify-between mb-8">
           <h2 className="text-2xl font-bold">Vos Prospects</h2>
           <div className="flex gap-3">
+            <Link 
+              to="/app/commercial"
+              className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+            >
+              📂 Espace Documents
+            </Link>
             <button 
               onClick={() => window.open(getEstimationLink(), '_blank')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
@@ -406,6 +427,7 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                        act.type === 'whatsapp' ? '💬 WhatsApp' :
                        act.type === 'rdv' ? '📅 RDV' :
                        act.type === 'pdf' ? '📄 PDF' :
+                       act.type === 'statut' ? '🔄 Changement Statut' :
                        '📝 Note'}
                     </div>
                     <div className="text-gray-600">{act.description}</div>
