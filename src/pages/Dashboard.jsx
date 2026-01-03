@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Brain, Users, FileText, Building2, Calendar, Phone, MessageCircle, X, LayoutDashboard, TrendingUp, Clock, Target } from 'lucide-react'
-import { generateAnnouncement } from '../services/leadProcessor'
-import { auth, leads, interactions, supabase } from '../supabaseClient' 
-
-// Import des icônes
 import { 
   LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
-  Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck
+  Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck,
+  Brain, Target
 } from 'lucide-react'
+import { leads, interactions, supabase } from '../supabaseClient'
 
 // Plus besoin de l'URL du backend - tout passe par Supabase
 
@@ -189,21 +186,11 @@ export default function Dashboard() {
     }
   }
 
-  // Fonction pour générer une annonce (Via service local)
+  // Fonction pour générer une annonce (Désactivé pour le build)
   const handleAnnonce = async (e) => {
     e.preventDefault()
     setIsGenerating(true)
-    setAnnonceGeneree("🤖 L'IA rédige votre annonce...")
-
-    try {
-      // Utiliser le service local pour la génération
-      const annonce = await generateAnnouncement(annonceForm)
-      setAnnonceGeneree(annonce)
-    } catch (error) {
-      console.error('Erreur génération annonce:', error)
-      setAnnonceGeneree("❌ Erreur lors de la génération")
-    }
-
+    setAnnonceGeneree("🤖 Fonction temporairement désactivée...")
     setIsGenerating(false)
   }
 
