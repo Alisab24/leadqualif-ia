@@ -27,7 +27,17 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [newNote, setNewNote] = useState('')
 
-  // 1. CHARGEMENT UTILISATEUR ET LEADS (Via Supabase)
+  // SÉCURITÉ : Ne rien charger si pas de session
+  if (!userProfile && loading) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-slate-600">Chargement...</p>
+      </div>
+    </div>
+  }
+
+  // 1. CHARGEMENT UTILISATEUR ET LEADS (Via Supabase) - SÉCURISÉ
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -42,18 +52,28 @@ export default function Dashboard() {
           return
         }
         
-        console.log('Session trouvée:', session.user.email)
+        const user = session.user
+        console.log('Session trouvée:', user.email)
+        
+        // Vérification de sécurité : si pas d'utilisateur, on arrête
+        if (!user) {
+          console.error('Utilisateur null, arrêt du chargement')
+          setError('Utilisateur non connecté')
+          setLoading(false)
+          return
+        }
         
         // Récupérer le profil utilisateur et agency_id
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*, agencies(*)')
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
           .single()
         
         if (profileError || !profile) {
           console.error('Erreur profil:', profileError)
           setError('Profil utilisateur non trouvé')
+          setLoading(false)
           return
         }
         
@@ -61,7 +81,7 @@ export default function Dashboard() {
         setAgencyId(profile.agency_id)
         console.log('Profil chargé:', profile)
         
-        // Récupérer les leads via Supabase
+        // Maintenant qu'on a l'agency_id, on peut charger les leads
         const result = await leads.getAll()
         
         if (result.success) {
