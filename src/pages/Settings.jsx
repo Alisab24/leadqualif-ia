@@ -20,6 +20,8 @@ export default function Settings() {
     email_agence: '',
     site_web: '',
     logo_url: '',
+    couleur_primaire: '#1e40af',
+    couleur_secondaire: '#64748b',
     devise: 'FCFA',
     pays: 'Bénin'
   })
@@ -59,6 +61,8 @@ export default function Settings() {
         email_agence: profileData.email_agence || '',
         site_web: profileData.site_web || '',
         logo_url: profileData.logo_url || '',
+        couleur_primaire: profileData.couleur_primaire || '#1e40af',
+        couleur_secondaire: profileData.couleur_secondaire || '#64748b',
         devise: profileData.devise || 'FCFA',
         pays: profileData.pays || 'Bénin'
       })
@@ -96,6 +100,8 @@ export default function Settings() {
         email_agence: formData.email_agence || '',
         site_web: formData.site_web || '',
         logo_url: formData.logo_url || '',
+        couleur_primaire: formData.couleur_primaire || '#1e40af',
+        couleur_secondaire: formData.couleur_secondaire || '#64748b',
         devise: formData.devise || 'FCFA',
         pays: formData.pays || 'Bénin'
       }
@@ -291,6 +297,38 @@ export default function Settings() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="https://example.com/logo.png"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Couleur Principale
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    name="couleur_primaire"
+                    value={formData.couleur_primaire}
+                    onChange={handleChange}
+                    className="h-10 w-20 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600 font-mono">{formData.couleur_primaire}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Couleur Secondaire
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    name="couleur_secondaire"
+                    value={formData.couleur_secondaire}
+                    onChange={handleChange}
+                    className="h-10 w-20 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600 font-mono">{formData.couleur_secondaire}</span>
+                </div>
               </div>
 
               <div>

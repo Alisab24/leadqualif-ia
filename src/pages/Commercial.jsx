@@ -72,7 +72,34 @@ export default function Commercial() {
     }
   }
 
-  // --- GÉNÉRATION PDF PROFESSIONNELLE ---
+  // --- FONCTION UTILITAIRE POUR LE LOGO (CRITIQUE) ---
+  const getBase64ImageFromUrl = async (imageUrl) => {
+    try {
+      console.log('Tentative de chargement du logo:', imageUrl)
+      
+      // Créer un proxy pour éviter les problèmes CORS
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`
+      
+      const response = await fetch(proxyUrl)
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`)
+      }
+      
+      const blob = await response.blob()
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    } catch (error) {
+      console.error('Erreur chargement logo:', error)
+      return null
+    }
+  }
+
+  // --- GÉNÉRATION PDF PREMIUM BRANDÉ ---
   const generateDocument = async (type, title) => {
     // Vérifier que le profil de l'agence est configuré
     if (!agencyProfile || !agencyProfile.nom_agence) {
@@ -228,79 +255,153 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
         break
     }
 
-    // Génération du PDF avec design professionnel
+    // Génération du PDF avec design Premium Brandé
     const doc = new jsPDF()
     
-    // --- EN-TÊTE ---
-    // Fond gris clair pour l'en-tête
-    doc.setFillColor(245, 245, 245)
-    doc.rect(0, 0, 210, 60, 'F')
+    // Couleurs de marque
+    const couleurPrimaire = agencyProfile.couleur_primaire || '#1e40af'
+    const couleurSecondaire = agencyProfile.couleur_secondaire || '#64748b'
     
-    // Logo ou nom de l'agence à gauche
+    // Convertir les couleurs hex en RGB pour jsPDF
+    const hexToRgb = (hex) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 30, g: 64, b: 175 }
+    }
+    
+    const primaireRgb = hexToRgb(couleurPrimaire)
+    const secondaireRgb = hexToRgb(couleurSecondaire)
+    
+    // --- LE HEADER (EN-TÊTE) ---
+    // Barre pleine en haut avec couleur primaire
+    doc.setFillColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+    doc.rect(0, 0, 210, 40, 'F')
+    
+    // Logo ou nom de l'agence dans la barre
+    let logoData = null
     if (agencyProfile.logo_url) {
+      logoData = await getBase64ImageFromUrl(agencyProfile.logo_url)
+    }
+    
+    if (logoData) {
       try {
-        // Charger et afficher le logo
-        doc.addImage(agencyProfile.logo_url, 'PNG', 15, 15, 40, 20)
+        doc.addImage(logoData, 'PNG', 15, 10, 30, 20)
       } catch (error) {
-        console.log('Erreur chargement logo, utilisation du nom')
+        console.log('Erreur ajout logo, utilisation du nom')
+        doc.setTextColor(255, 255, 255)
         doc.setFontSize(16)
         doc.setFont(undefined, 'bold')
         doc.text(agencyProfile.nom_agence || 'AGENCE', 15, 25)
       }
     } else {
+      doc.setTextColor(255, 255, 255)
       doc.setFontSize(16)
       doc.setFont(undefined, 'bold')
       doc.text(agencyProfile.nom_agence || 'AGENCE', 15, 25)
     }
     
-    // Coordonnées agence à droite
+    // Nom de l'agence en blanc à droite dans la barre
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14)
+    doc.setFont(undefined, 'normal')
+    doc.text('IMMOBILIER PRO', 195, 25, { align: 'right' })
+    
+    // Coordonnées sous la barre avec couleur secondaire
+    doc.setTextColor(secondaireRgb.r, secondaireRgb.g, secondaireRgb.b)
     doc.setFontSize(10)
     doc.setFont(undefined, 'normal')
-    doc.text(agencyProfile.adresse_agence || 'Adresse', 150, 20)
-    doc.text(agencyProfile.telephone_agence || 'Téléphone', 150, 30)
-    doc.text(agencyProfile.email_agence || 'Email', 150, 40)
-    
-    // --- TRAIT DE SÉPARATION ---
-    doc.setDrawColor(100, 100, 100)
-    doc.line(15, 65, 195, 65)
+    doc.text(agencyProfile.adresse_agence || 'Adresse', 20, 50)
+    doc.text(agencyProfile.telephone_agence || 'Téléphone', 20, 57)
+    doc.text(agencyProfile.email_agence || 'Email', 20, 64)
+    doc.text(agencyProfile.identifiant_fiscal ? `IFU: ${agencyProfile.identifiant_fiscal}` : '', 120, 50)
     
     // --- TITRE DU DOCUMENT ---
-    doc.setFontSize(18)
+    doc.setTextColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+    doc.setFontSize(20)
     doc.setFont(undefined, 'bold')
     doc.text(title.toUpperCase(), 105, 85, { align: 'center' })
     
-    // --- INFOS CLIENT (ENCADRÉ) ---
-    doc.setDrawColor(150, 150, 150)
-    doc.rect(15, 95, 180, 30)
-    doc.setFontSize(11)
+    // --- INFOS CLIENT (ENCADRÉ AVEC COULEUR SECONDAIRE) ---
+    doc.setDrawColor(secondaireRgb.r, secondaireRgb.g, secondaireRgb.b)
+    doc.setLineWidth(0.5)
+    doc.rect(15, 95, 180, 35)
+    
+    doc.setTextColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+    doc.setFontSize(12)
     doc.setFont(undefined, 'bold')
-    doc.text('CLIENT :', 20, 110)
+    doc.text('INFORMATIONS CLIENT', 20, 110)
+    
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(11)
     doc.setFont(undefined, 'normal')
-    doc.text(recipientInfo.name, 20, 120)
-    if (recipientInfo.address) doc.text(recipientInfo.address, 20, 130)
-    if (recipientInfo.city) doc.text(recipientInfo.city, 20, 140)
+    doc.text(`Nom : ${recipientInfo.name}`, 20, 120)
+    if (recipientInfo.address) doc.text(`Adresse : ${recipientInfo.address}`, 20, 127)
+    if (recipientInfo.city) doc.text(`Ville : ${recipientInfo.city}`, 20, 134)
+    if (recipientInfo.phone) doc.text(`Téléphone : ${recipientInfo.phone}`, 120, 120)
+    if (recipientInfo.email) doc.text(`Email : ${recipientInfo.email}`, 120, 127)
     
     // --- CORPS DU DOCUMENT ---
-    doc.setFontSize(11)
-    doc.setFont(undefined, 'normal')
-    const lines = template.split('\n')
     let yPosition = 145
+    const sections = template.split('\n\n')
     
-    lines.forEach(line => {
+    sections.forEach(section => {
       if (yPosition > 250) {
         doc.addPage()
         yPosition = 20
       }
-      doc.text(line, 20, yPosition)
-      yPosition += 6
+      
+      // Titre de section en couleur primaire
+      if (section.includes(':') && !section.startsWith(' ')) {
+        doc.setTextColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+        doc.setFontSize(12)
+        doc.setFont(undefined, 'bold')
+        const lines = section.split('\n')
+        if (lines[0]) {
+          doc.text(lines[0], 20, yPosition)
+          yPosition += 8
+        }
+        
+        // Reste du texte en noir
+        doc.setTextColor(0, 0, 0)
+        doc.setFontSize(11)
+        doc.setFont(undefined, 'normal')
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i]) {
+            doc.text(lines[i], 20, yPosition)
+            yPosition += 6
+          }
+        }
+      } else {
+        // Texte normal
+        doc.setTextColor(0, 0, 0)
+        doc.setFontSize(11)
+        doc.setFont(undefined, 'normal')
+        const lines = section.split('\n')
+        lines.forEach(line => {
+          if (line && yPosition < 270) {
+            doc.text(line, 20, yPosition)
+            yPosition += 6
+          }
+        })
+      }
+      yPosition += 4 // Espace entre sections
     })
     
-    // --- PIED DE PAGE ---
-    const footerY = 280
+    // --- FOOTER (PIED DE PAGE) ---
+    // Ligne fine en bas avec couleur primaire
+    doc.setDrawColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+    doc.setLineWidth(1)
+    doc.line(15, 275, 195, 275)
+    
+    // Mentions légales en petit
+    doc.setTextColor(secondaireRgb.r, secondaireRgb.g, secondaireRgb.b)
     doc.setFontSize(8)
-    doc.setTextColor(100, 100, 100)
-    const footerText = `${agencyProfile.nom_agence || 'AGENCE'} - Identifiant Fiscal : ${agencyProfile.identifiant_fiscal || 'N/A'} - ${agencyProfile.site_web || 'www.agence.fr'}`
-    doc.text(footerText, 105, footerY, { align: 'center' })
+    doc.setFont(undefined, 'normal')
+    const footerText = `${agencyProfile.nom_agence || 'AGENCE'} - IFU: ${agencyProfile.identifiant_fiscal || 'N/A'} - ${agencyProfile.site_web || 'www.agence.fr'}`
+    doc.text(footerText, 105, 285, { align: 'center' })
     
     // Téléchargement
     const fileName = `${type.toLowerCase().replace(/\s+/g, '-')}-${recipientInfo.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`
@@ -354,7 +455,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Générateur de Documents</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Générateur de Documents Premium</h1>
           <Link 
             to="/app" 
             className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2"
@@ -362,7 +463,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
             ← Retour au Dashboard
           </Link>
         </div>
-        <p className="text-gray-600">Créez vos documents professionnels connectés à votre base de données</p>
+        <p className="text-gray-600">Créez vos documents professionnels avec votre identité visuelle</p>
       </div>
 
       {/* Zone de Configuration */}
@@ -488,6 +589,23 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
               <div className="text-sm text-gray-600">
                 {agencyProfile?.devise && `💰 Devise: ${agencyProfile.devise}`}
               </div>
+              {agencyProfile?.couleur_primaire && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-sm text-gray-600">Couleurs:</span>
+                  <div className="flex gap-1">
+                    <div 
+                      className="w-4 h-4 rounded border border-gray-300" 
+                      style={{ backgroundColor: agencyProfile.couleur_primaire }}
+                      title="Primaire"
+                    />
+                    <div 
+                      className="w-4 h-4 rounded border border-gray-300" 
+                      style={{ backgroundColor: agencyProfile.couleur_secondaire }}
+                      title="Secondaire"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -524,7 +642,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
             <h3 className="text-lg font-bold text-gray-900 mb-2">Mandat de Vente</h3>
             <p className="text-sm text-gray-600 mb-4">Générez un mandat exclusif personnalisé</p>
             <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-              <span>📄</span> PDF
+              <span>📄</span> PDF Premium
             </div>
           </div>
         </div>
@@ -539,7 +657,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
             <h3 className="text-lg font-bold text-gray-900 mb-2">Bon de Visite</h3>
             <p className="text-sm text-gray-600 mb-4">Créez un bon de visite officiel</p>
             <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-              <span>📄</span> PDF
+              <span>📄</span> PDF Premium
             </div>
           </div>
         </div>
@@ -554,7 +672,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
             <h3 className="text-lg font-bold text-gray-900 mb-2">Devis</h3>
             <p className="text-sm text-gray-600 mb-4">Établissez un devis d'honoraires</p>
             <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
-              <span>📄</span> PDF
+              <span>📄</span> PDF Premium
             </div>
           </div>
         </div>
@@ -569,7 +687,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
             <h3 className="text-lg font-bold text-gray-900 mb-2">Facture</h3>
             <p className="text-sm text-gray-600 mb-4">Générez une facture professionnelle</p>
             <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
-              <span>📄</span> PDF
+              <span>📄</span> PDF Premium
             </div>
           </div>
         </div>
@@ -578,7 +696,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
 
       {/* Guide d'utilisation */}
       <div className="mt-12 bg-blue-50 rounded-xl p-6 border border-blue-100">
-        <h3 className="text-lg font-bold text-blue-900 mb-3">💡 Guide d'utilisation</h3>
+        <h3 className="text-lg font-bold text-blue-900 mb-3">💡 Guide d'utilisation Premium</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-blue-800">
           <div className="flex items-start gap-3">
             <span className="text-blue-600 font-bold">1.</span>
@@ -601,7 +719,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
           <div className="flex items-start gap-3">
             <span className="text-blue-600 font-bold">4.</span>
             <div>
-              <strong>Saisissez</strong> l'info demandée
+              <strong>Téléchargez</strong> votre PDF brandé
             </div>
           </div>
         </div>
@@ -615,7 +733,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-blue-600">4</div>
-          <div className="text-sm text-gray-600">Documents</div>
+          <div className="text-sm text-gray-600">Documents Premium</div>
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-green-600">∞</div>
@@ -623,7 +741,7 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-purple-600">100%</div>
-          <div className="text-sm text-gray-600">Personnalisé</div>
+          <div className="text-sm text-gray-600">Brandé</div>
         </div>
       </div>
     </div>
