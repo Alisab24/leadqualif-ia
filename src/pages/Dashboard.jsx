@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [selectedLead, setSelectedLead] = useState(null)
   const [activities, setActivities] = useState([])
   const [tempsEconomise, setTempsEconomise] = useState(0)
+  const [annonceGeneree, setAnnonceGeneree] = useState('')
   const navigate = useNavigate()
 
   // Effet pour charger les activités quand un lead est sélectionné
@@ -217,6 +218,8 @@ export default function Dashboard() {
   // Fonction pour logger une action
   const logAction = async (type, description, leadId) => {
     try {
+      console.log('Logging action:', type, description, leadId)
+      
       const { error } = await supabase
         .from('activities')
         .insert({
@@ -229,12 +232,31 @@ export default function Dashboard() {
       if (error) {
         console.error('Erreur log action:', error)
       } else {
-        // Rafraîchir les activités
+        console.log('Action logged successfully, refreshing activities...')
+        // Rafraîchir immédiatement les activités
         fetchActivities(leadId)
       }
     } catch (error) {
       console.error('Erreur logAction:', error)
     }
+  }
+
+  // Fonction pour générer une annonce
+  const generateAnnonce = (lead) => {
+    const type = lead.type_bien || 'bien immobilier'
+    const budget = lead.budget ? lead.budget.toLocaleString() : 'non spécifié'
+    const tel = lead.telephone || 'non renseigné'
+    
+    const annonce = `🏠 Opportunité à saisir !
+
+${type.charAt(0).toUpperCase() + type.slice(1)} disponible pour un budget de ${budget}€.
+
+📞 Contactez ${lead.nom} au ${tel}
+
+🔥 Score IA : ${lead.score || 0}/10 - Prospect chaud !`
+
+    setAnnonceGeneree(annonce)
+    logAction('annonce', 'Annonce marketing générée', lead.id)
   }
 
   // Fonction pour générer un PDF
@@ -522,9 +544,41 @@ export default function Dashboard() {
             {/* GÉNÉRATEUR ANNONCE */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-fit sticky top-24">
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Zap className="text-yellow-500" fill="currentColor"/> Rédacteur IA</h2>
-              <div className="text-center py-8">
-                <p className="text-slate-500">Fonctionnalité temporairement désactivée</p>
-              </div>
+              {selectedLead ? (
+                <div className="space-y-4">
+                  <button 
+                    onClick={() => generateAnnonce(selectedLead)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition shadow-lg flex justify-center items-center gap-2"
+                  >
+                    <Zap size={16} />
+                    ✨ Générer une annonce
+                  </button>
+                  {annonceGeneree && (
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase">Annonce générée</label>
+                        <button 
+                          onClick={() => navigator.clipboard.writeText(annonceGeneree)} 
+                          className="text-blue-600 font-bold text-xs hover:underline"
+                        >
+                          📋 Copier
+                        </button>
+                      </div>
+                      <textarea 
+                        value={annonceGeneree}
+                        onChange={(e) => setAnnonceGeneree(e.target.value)}
+                        className="w-full p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                        rows={6}
+                        placeholder="L'annonce générée apparaîtra ici..."
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-slate-500">Sélectionnez un prospect pour générer une annonce</p>
+                </div>
+              )}
             </div>
           </div>
           </>

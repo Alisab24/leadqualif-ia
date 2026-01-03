@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { 
   Building2, FileCheck, Save, Printer, Users, Settings, FileText, 
   Phone, Mail, MapPin, Hash, Globe, ChevronRight
