@@ -24,12 +24,24 @@ export default function Layout() {
 
   const menuItems = [
     { icon: '📊', label: 'Dashboard', path: '/app' },
-    { icon: '🚀', label: 'Pipeline', path: '/app/pipeline' },
     { icon: '📂', label: 'Documents', path: '/app/commercial' },
     { icon: '⚙️', label: 'Paramètres', path: '/app/settings' },
   ]
 
-  const isActive = (path) => location.pathname === path
+  const isActive = (path) => {
+    if (path === '/app') {
+      return location.pathname === '/app' || location.pathname === '/app/pipeline'
+    }
+    return location.pathname === path
+  }
+
+  const handleDashboardClick = () => {
+    if (location.pathname === '/app' || location.pathname === '/app/pipeline') {
+      // Si déjà sur le dashboard, ne rien faire
+      return
+    }
+    navigate('/app')
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -46,24 +58,45 @@ export default function Layout() {
         <nav className="flex-1">
           {menuItems.map((item) => (
             <div key={item.path} className="relative">
-              <Link
-                to={item.path}
-                className={`w-full h-16 flex items-center justify-center text-xl hover:bg-slate-800 transition-colors relative group ${
-                  isActive(item.path) ? 'bg-slate-800 text-blue-400' : 'text-gray-400'
-                }`}
-                onMouseEnter={() => setShowTooltip(item.label)}
-                onMouseLeave={() => setShowTooltip('')}
-              >
-                {item.icon}
-                
-                {/* Tooltip */}
-                {showTooltip === item.label && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded whitespace-nowrap z-50">
-                    {item.label}
-                    <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                  </div>
-                )}
-              </Link>
+              {item.path === '/app' ? (
+                <button
+                  onClick={handleDashboardClick}
+                  className={`w-full h-16 flex items-center justify-center text-xl hover:bg-slate-800 transition-colors relative group ${
+                    isActive(item.path) ? 'bg-slate-800 text-blue-400' : 'text-gray-400'
+                  }`}
+                  onMouseEnter={() => setShowTooltip(item.label)}
+                  onMouseLeave={() => setShowTooltip('')}
+                >
+                  {item.icon}
+                  
+                  {/* Tooltip */}
+                  {showTooltip === item.label && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded whitespace-nowrap z-50">
+                      {item.label}
+                      <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                    </div>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  to={item.path}
+                  className={`w-full h-16 flex items-center justify-center text-xl hover:bg-slate-800 transition-colors relative group ${
+                    isActive(item.path) ? 'bg-slate-800 text-blue-400' : 'text-gray-400'
+                  }`}
+                  onMouseEnter={() => setShowTooltip(item.label)}
+                  onMouseLeave={() => setShowTooltip('')}
+                >
+                  {item.icon}
+                  
+                  {/* Tooltip */}
+                  {showTooltip === item.label && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded whitespace-nowrap z-50">
+                      {item.label}
+                      <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                    </div>
+                  )}
+                </Link>
+              )}
             </div>
           ))}
         </nav>

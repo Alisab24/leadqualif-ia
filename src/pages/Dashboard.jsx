@@ -21,9 +21,9 @@ function Header({ title, showPipelineToggle, viewMode, setViewMode }) {
                 Vue Liste
               </button>
               <button
-                onClick={() => setViewMode('pipeline')}
+                onClick={() => setViewMode('kanban')}
                 className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                  viewMode === 'pipeline' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+                  viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
                 }`}
               >
                 Vue Pipeline
@@ -49,7 +49,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [agencyId, setAgencyId] = useState(null)
   const [agencyProfile, setAgencyProfile] = useState(null)
-  const [viewMode, setViewMode] = useState('list') // 'list' ou 'pipeline'
+  const [viewMode, setViewMode] = useState('list') // 'list' ou 'kanban'
 
   // États pour la Modale (Fiche prospect)
   const [selectedLead, setSelectedLead] = useState(null)
@@ -368,10 +368,21 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
     )
   }
 
+  // Fonction pour logger les actions
+  const logAction = async (type, desc) => {
+    if (!selectedLead) return;
+    await supabase.from('activities').insert([{ lead_id: selectedLead.id, type, description: desc }])
+    // Rafraîchir l'historique si nécessaire
+    if (selectedLead) {
+      const { data } = await supabase.from('activities').select('*').eq('lead_id', selectedLead.id).order('created_at', { ascending: false })
+      setActivities(data || [])
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
-        title={viewMode === 'pipeline' ? 'Pipeline des Ventes' : 'Dashboard'}
+        title={viewMode === 'kanban' ? 'Pipeline des Ventes' : 'Dashboard'}
         showPipelineToggle={true}
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -381,7 +392,7 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Chargement...</div>
         </div>
-      ) : viewMode === 'pipeline' ? (
+      ) : viewMode === 'kanban' ? (
         <PipelineView />
       ) : (
         <div className="p-8">
