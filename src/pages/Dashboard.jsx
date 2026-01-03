@@ -89,7 +89,7 @@ export default function Dashboard() {
     doc.text(`Budget: ${lead.budget ? lead.budget.toLocaleString() + ' €' : '-'}`, 20, 90)
     doc.text(`Type de bien: ${lead.type_bien || '-'}`, 20, 100)
     doc.text(`Score IA: ${calculateScore(lead)}/10`, 20, 110)
-    doc.text(`Statut: ${lead.statut_crm || 'À traiter'}`, 20, 120)
+    doc.text(`Statut: ${lead.statut || 'À traiter'}`, 20, 120)
     
     // Pied de page
     doc.setFontSize(10)
@@ -145,6 +145,45 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
     return diffHours < 24
   }
 
+  // 7. Mise à jour du statut
+  const updateStatut = async (leadId, nouveauStatut) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ statut: nouveauStatut })
+        .eq('id', leadId)
+      
+      if (error) {
+        console.error('Erreur mise à jour statut:', error)
+      } else {
+        // Mettre à jour l'état local
+        setLeads(leads.map(lead => 
+          lead.id === leadId ? { ...lead, statut: nouveauStatut } : lead
+        ))
+      }
+    } catch (error) {
+      console.error('Erreur updateStatut:', error)
+    }
+  }
+
+  // 8. Fonction pour générer le lien d'estimation
+  const getEstimationLink = () => {
+    if (!agencyId) return '#'
+    return `${window.location.origin}/estimation?aid=${agencyId}`
+  }
+
+  // 9. Fonction pour obtenir la couleur du statut
+  const getStatutColor = (statut) => {
+    switch(statut) {
+      case 'À traiter': return 'bg-red-100 text-red-700'
+      case 'Message laissé': return 'bg-yellow-100 text-yellow-700'
+      case 'RDV Pris': return 'bg-blue-100 text-blue-700'
+      case 'Offre en cours': return 'bg-purple-100 text-purple-700'
+      case 'Vendu': return 'bg-green-100 text-green-700'
+      default: return 'bg-gray-100 text-gray-700'
+    }
+  }
+
   // --- RENDU ---
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p className="text-slate-600">Chargement...</p></div></div>
 
@@ -154,7 +193,15 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
       <div className="flex-1 p-8">
         <header className="flex justify-between mb-8">
           <h2 className="text-2xl font-bold">Vos Prospects</h2>
-          <button onClick={() => supabase.auth.signOut()} className="text-red-500">Déconnexion</button>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => window.open(getEstimationLink(), '_blank')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+            >
+              ➕ Nouvelle Estimation
+            </button>
+            <button onClick={() => supabase.auth.signOut()} className="text-red-500">Déconnexion</button>
+          </div>
         </header>
         {/* Tableau */}
         <div className="bg-white rounded shadow overflow-hidden">
@@ -163,6 +210,7 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
               <tr>
                 <th className="p-4 text-left">Nom</th>
                 <th className="p-4 text-left">Budget</th>
+                <th className="p-4 text-left">Statut</th>
                 <th className="p-4 text-left">Score IA</th>
                 <th className="p-4 text-left">Actions</th>
               </tr>
@@ -175,6 +223,19 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                     <div className="text-sm text-gray-500">{lead.email}</div>
                   </td>
                   <td className="p-4 font-mono">{lead.budget?.toLocaleString()} €</td>
+                  <td className="p-4">
+                    <select 
+                      value={lead.statut || 'À traiter'}
+                      onChange={(e) => updateStatut(lead.id, e.target.value)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold border-0 cursor-pointer ${getStatutColor(lead.statut || 'À traiter')}`}
+                    >
+                      <option value="À traiter">À traiter</option>
+                      <option value="Message laissé">Message laissé</option>
+                      <option value="RDV Pris">RDV Pris</option>
+                      <option value="Offre en cours">Offre en cours</option>
+                      <option value="Vendu">Vendu</option>
+                    </select>
+                  </td>
                   <td className="p-4">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold">
                       {calculateScore(lead)}/10
