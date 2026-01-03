@@ -14,6 +14,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [agencyId, setAgencyId] = useState('')
   const [error, setError] = useState('')
+  const [selectedLead, setSelectedLead] = useState(null)
+  const [tempsEconomise, setTempsEconomise] = useState(0)
   const navigate = useNavigate()
 
   // Fonction pour récupérer les données du dashboard
@@ -51,6 +53,10 @@ export default function Dashboard() {
       } else {
         setLeads(leadsData || [])
         console.log(`✅ ${leadsData?.length || 0} leads chargés`)
+        
+        // Calcul temps économisé : 5h par lead
+        const temps = (leadsData?.length || 0) * 5
+        setTempsEconomise(temps)
       }
       
     } catch (error) {
