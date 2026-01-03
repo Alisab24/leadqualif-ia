@@ -215,6 +215,12 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
             >
               📂 Espace Documents
             </Link>
+            <Link 
+              to="/app/settings"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+            >
+              ⚙️ Paramètres
+            </Link>
             <button 
               onClick={() => window.open(getEstimationLink(), '_blank')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"

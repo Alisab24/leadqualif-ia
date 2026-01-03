@@ -9,7 +9,15 @@ export default function Commercial() {
   const [agencyProfile, setAgencyProfile] = useState(null)
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
+  const [recipientType, setRecipientType] = useState('lead') // 'lead' ou 'other'
   const [error, setError] = useState('')
+
+  // --- FORM DATA POUR DESTINATAIRE AUTRE ---
+  const [otherRecipient, setOtherRecipient] = useState({
+    name: '',
+    address: '',
+    city: ''
+  })
 
   // --- CHARGEMENT DES DONNÉES ---
   useEffect(() => {
@@ -66,10 +74,35 @@ export default function Commercial() {
 
   // --- GÉNÉRATION PDF INTÉLLIGENTE ---
   const generateDocument = (type, title) => {
-    // Vérifier qu'un client est sélectionné
-    if (!selectedLead) {
-      alert('Veuillez d\'abord sélectionner un client dans la zone de configuration.')
-      return
+    // Vérifier le destinataire
+    let recipientInfo = null
+    
+    if (recipientType === 'lead') {
+      if (!selectedLead) {
+        alert('Veuillez d\'abord sélectionner un client dans la zone de configuration.')
+        return
+      }
+      recipientInfo = {
+        name: selectedLead.nom,
+        email: selectedLead.email,
+        phone: selectedLead.telephone || 'Non renseigné',
+        type_bien: selectedLead.type_bien || 'Non spécifié',
+        secteur: selectedLead.secteur || 'Non spécifié'
+      }
+    } else {
+      if (!otherRecipient.name) {
+        alert('Veuillez remplir les informations du destinataire.')
+        return
+      }
+      recipientInfo = {
+        name: otherRecipient.name,
+        address: otherRecipient.address,
+        city: otherRecipient.city,
+        email: '',
+        phone: '',
+        type_bien: 'Non spécifié',
+        secteur: otherRecipient.city
+      }
     }
 
     // Demander l'information spécifique selon le type de document
@@ -83,17 +116,17 @@ export default function Commercial() {
 
 ENTRE LES SOUSSIGNÉS :
 
-Le soussigné, ${selectedLead.nom}, ci-après dénommé "LE VENDEUR"
+Le soussigné, ${recipientInfo.name}, ci-après dénommé "LE VENDEUR"
 Et l'agence ${agencyProfile?.agency_name || 'LeadQualif IA'}, ci-après dénommée "L'AGENCE"
 
 OBJET : Mandat exclusif de vente
 
 LE VENDEUR donne mandat exclusif à L'AGENCE pour la vente du bien immobilier situé :
-[Adresse complète du bien]
+${recipientInfo.address || '[Adresse complète du bien]'}${recipientInfo.city ? ', ' + recipientInfo.city : ''}
 
 CARACTÉRISTIQUES :
-- Type : ${selectedLead.type_bien || 'Non spécifié'}
-- Secteur : ${selectedLead.secteur || 'Non spécifié'}
+- Type : ${recipientInfo.type_bien}
+- Secteur : ${recipientInfo.secteur}
 - Prix de vente : ${parseInt(specificInfo).toLocaleString()} €
 
 DURÉE : 3 mois à compter de la date de signature
@@ -103,7 +136,9 @@ FAIT À ${agencyProfile?.city || 'Ville'}, le ${new Date().toLocaleDateString('f
 
 Signature du Vendeur : ____________________
 
-Signature de l'Agence : ____________________`
+Signature de l'Agence : ____________________
+
+Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
         break
 
       case 'visite':
@@ -114,14 +149,14 @@ DATE : ${new Date().toLocaleDateString('fr-FR')}
 HEURE : ${new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
 
 VISITEUR :
-Nom : ${selectedLead.nom}
-Email : ${selectedLead.email}
-Téléphone : ${selectedLead.telephone || 'Non renseigné'}
+Nom : ${recipientInfo.name}
+${recipientInfo.email ? 'Email : ' + recipientInfo.email : ''}
+${recipientInfo.phone ? 'Téléphone : ' + recipientInfo.phone : ''}
 
 BIEN VISITÉ :
 Référence : ${specificInfo}
-Type : ${selectedLead.type_bien || 'Non spécifié'}
-Secteur : ${selectedLead.secteur || 'Non spécifié'}
+Type : ${recipientInfo.type_bien}
+Secteur : ${recipientInfo.secteur}
 
 OBSERVATIONS :
 [............................................................................]
@@ -150,9 +185,9 @@ ${agencyProfile?.postal_code || 'CP'} ${agencyProfile?.city || 'Ville'}
 Tél : ${agencyProfile?.phone || 'Non renseigné'}
 Email : ${agencyProfile?.email || 'Non renseigné'}
 
-CLIENT : ${selectedLead.nom}
-${selectedLead.email}
-${selectedLead.telephone || 'Non renseigné'}
+CLIENT : ${recipientInfo.name}
+${recipientInfo.email || ''}
+${recipientInfo.phone || ''}
 
 DEVIS N° : DEV-${Date.now()}
 
@@ -175,7 +210,9 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
 
 Signature client : ____________________
 
-Signature agence : ____________________`
+Signature agence : ____________________
+
+Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
         break
 
       case 'facture':
@@ -189,9 +226,9 @@ SIRET : ${agencyProfile?.siret || 'En cours'}
 Tél : ${agencyProfile?.phone || 'Non renseigné'}
 Email : ${agencyProfile?.email || 'Non renseigné'}
 
-CLIENT : ${selectedLead.nom}
-${selectedLead.email || ''}
-${selectedLead.telephone || ''}
+CLIENT : ${recipientInfo.name}
+${recipientInfo.email || ''}
+${recipientInfo.phone || ''}
 
 FACTURE N° : FAC-${Date.now()}
 
@@ -200,7 +237,7 @@ DATE D'ÉCHÉANCE : ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString
 
 DÉTAIL DE LA PRESTATION :
 - Honoraires de négociation immobilière
-- Référence bien : ${selectedLead.type_bien || 'Non spécifié'} - ${selectedLead.secteur || 'Non spécifié'}
+- Référence bien : ${recipientInfo.type_bien} - ${recipientInfo.secteur}
 
 MONTANT HT : ${parseInt(specificInfo).toLocaleString()} €
 TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} €
@@ -214,60 +251,78 @@ PENALITÉS DE RETARD :
 
 Mention : "TVA payée par acompte sur les honoraires"
 
-En cas de litige, le tribunal de commerce de ${agencyProfile?.city || 'Ville'} sera seul compétent.`
+En cas de litige, le tribunal de commerce de ${agencyProfile?.city || 'Ville'} sera seul compétent.
+
+Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
         break
     }
 
     // Génération du PDF
     const doc = new jsPDF()
     
-    // Configuration des polices
-    doc.setFontSize(10)
+    // En-tête GRAND - Nom de l'agence
+    doc.setFontSize(20)
+    doc.text(`${agencyProfile?.agency_name || 'LeadQualif IA'}`, 105, 25, { align: 'center' })
     
-    // En-tête gauche - Infos Agence
-    doc.setFontSize(12)
-    doc.text(`${agencyProfile?.agency_name || 'LeadQualif IA'}`, 20, 30)
+    // Adresse et téléphone sous le nom
     doc.setFontSize(10)
-    doc.text(`${agencyProfile?.address || 'Adresse non renseignée'}`, 20, 40)
-    doc.text(`${agencyProfile?.postal_code || 'CP'} ${agencyProfile?.city || 'Ville'}`, 20, 50)
-    doc.text(`Tél : ${agencyProfile?.phone || 'Non renseigné'}`, 20, 60)
-    doc.text(`Email : ${agencyProfile?.email || 'Non renseigné'}`, 20, 70)
-    
-    // En-tête droit - Infos Client
-    doc.setFontSize(12)
-    doc.text('CLIENT :', 140, 30)
-    doc.setFontSize(10)
-    doc.text(selectedLead.nom, 140, 40)
-    doc.text(selectedLead.email, 140, 50)
-    doc.text(selectedLead.telephone || 'Non renseigné', 140, 60)
-    
-    // Titre du document
-    doc.setFontSize(18)
-    doc.text(title, 105, 90, { align: 'center' })
+    const agencyAddress = `${agencyProfile?.address || 'Adresse non renseignée'}, ${agencyProfile?.postal_code || 'CP'} ${agencyProfile?.city || 'Ville'}`
+    doc.text(agencyAddress, 105, 35, { align: 'center' })
+    doc.text(`Tél : ${agencyProfile?.phone || 'Non renseigné'}`, 105, 42, { align: 'center' })
     
     // Ligne de séparation
-    doc.line(20, 100, 190, 100)
+    doc.line(20, 50, 190, 50)
+    
+    // Infos Client (droite)
+    doc.setFontSize(12)
+    doc.text('CLIENT :', 140, 65)
+    doc.setFontSize(10)
+    doc.text(recipientInfo.name, 140, 75)
+    if (recipientInfo.email) doc.text(recipientInfo.email, 140, 85)
+    if (recipientInfo.phone) doc.text(recipientInfo.phone, 140, 95)
+    if (recipientInfo.address) doc.text(recipientInfo.address, 140, 105)
+    if (recipientInfo.city) doc.text(recipientInfo.city, 140, 115)
+    
+    // Titre du document
+    doc.setFontSize(16)
+    doc.text(title, 105, 65, { align: 'center' })
+    
+    // Ligne de séparation
+    doc.line(20, 125, 190, 125)
     
     // Corps du document
     doc.setFontSize(11)
     const lines = template.split('\n')
-    let yPosition = 110
+    let yPosition = 135
     
     lines.forEach(line => {
-      if (yPosition > 270) {
+      if (yPosition > 250) {
         doc.addPage()
         yPosition = 20
       }
       doc.text(line, 20, yPosition)
-      yPosition += 7
+      yPosition += 6
     })
     
-    // Pied de page
-    doc.setFontSize(9)
-    doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')} par LeadQualif IA`, 105, 280, { align: 'center' })
+    // Pied de page avec SIRET et site web
+    doc.setFontSize(8)
+    const footerText = `SIRET : ${agencyProfile?.siret || 'En cours'} - ${agencyProfile?.website || 'www.agence.fr'}`
+    doc.text(footerText, 105, 280, { align: 'center' })
+    
+    // Signature en bas à droite
+    doc.text(`Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`, 190, 270, { align: 'right' })
     
     // Téléchargement
-    doc.save(`${type.toLowerCase().replace(/\s+/g, '-')}-${selectedLead.nom.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+    const fileName = `${type.toLowerCase().replace(/\s+/g, '-')}-${recipientInfo.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`
+    doc.save(fileName)
+  }
+
+  // --- CHANGEMENT DESTINATAIRE AUTRE ---
+  const handleOtherRecipientChange = (field, value) => {
+    setOtherRecipient({
+      ...otherRecipient,
+      [field]: value
+    })
   }
 
   // --- ÉTAT DE CHARGEMENT ---
@@ -326,28 +381,98 @@ En cas de litige, le tribunal de commerce de ${agencyProfile?.city || 'Ville'} s
           ⚙️ Configuration
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Sélection du client */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Choisir le client concerné
-            </label>
-            <select 
-              value={selectedLead?.id || ''}
-              onChange={(e) => {
-                const lead = leads.find(l => l.id === e.target.value)
-                setSelectedLead(lead)
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        {/* Toggle Destinataire */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Type de destinataire
+          </label>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setRecipientType('lead')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                recipientType === 'lead' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
             >
-              <option value="">-- Sélectionner un client --</option>
-              {leads.map(lead => (
-                <option key={lead.id} value={lead.id}>
-                  {lead.nom} - {lead.email}
-                </option>
-              ))}
-            </select>
+              👥 Client Internet (Lead)
+            </button>
+            <button
+              onClick={() => setRecipientType('other')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                recipientType === 'other' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              🏠 Autre (Propriétaire/Libre)
+            </button>
           </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Sélection du client ou formulaire autre */}
+          {recipientType === 'lead' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Choisir le client concerné
+              </label>
+              <select 
+                value={selectedLead?.id || ''}
+                onChange={(e) => {
+                  const lead = leads.find(l => l.id === e.target.value)
+                  setSelectedLead(lead)
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">-- Sélectionner un client --</option>
+                {leads.map(lead => (
+                  <option key={lead.id} value={lead.id}>
+                    {lead.nom} - {lead.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nom du destinataire *
+                </label>
+                <input
+                  type="text"
+                  value={otherRecipient.name}
+                  onChange={(e) => handleOtherRecipientChange('name', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: Jean Dupont"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adresse
+                </label>
+                <input
+                  type="text"
+                  value={otherRecipient.address}
+                  onChange={(e) => handleOtherRecipientChange('address', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: 123 Rue de l'Immobilier"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ville
+                </label>
+                <input
+                  type="text"
+                  value={otherRecipient.city}
+                  onChange={(e) => handleOtherRecipientChange('city', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: Paris"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Infos de l'agence */}
           <div>
@@ -366,24 +491,33 @@ En cas de litige, le tribunal de commerce de ${agencyProfile?.city || 'Ville'} s
               <div className="text-sm text-gray-600">
                 {agencyProfile?.phone && `📞 ${agencyProfile.phone}`}
               </div>
+              <div className="text-sm text-gray-600">
+                {agencyProfile?.siret && `🆔 SIRET: ${agencyProfile.siret}`}
+              </div>
+              <div className="text-sm text-gray-600">
+                {agencyProfile?.signatory_name && `✍️ Signataire: ${agencyProfile.signatory_name}`}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Client sélectionné */}
-        {selectedLead && (
+        {/* Destinataire sélectionné */}
+        {(recipientType === 'lead' && selectedLead) || (recipientType === 'other' && otherRecipient.name) ? (
           <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-blue-600">✅</span>
-              <span className="font-medium text-blue-900">Client sélectionné</span>
+              <span className="font-medium text-blue-900">Destinataire sélectionné</span>
             </div>
             <div className="text-sm text-blue-800">
-              <strong>{selectedLead.nom}</strong> - {selectedLead.email}
-              {selectedLead.telephone && ` - 📞 ${selectedLead.telephone}`}
-              {selectedLead.budget && ` - 💰 ${selectedLead.budget.toLocaleString()}€`}
+              <strong>{recipientType === 'lead' ? selectedLead.nom : otherRecipient.name}</strong>
+              {recipientType === 'lead' && ` - ${selectedLead.email}`}
+              {recipientType === 'lead' && selectedLead.telephone && ` - 📞 ${selectedLead.telephone}`}
+              {recipientType === 'lead' && selectedLead.budget && ` - 💰 ${selectedLead.budget.toLocaleString()}€`}
+              {recipientType === 'other' && otherRecipient.address && ` - 📍 ${otherRecipient.address}`}
+              {recipientType === 'other' && otherRecipient.city && ` - 🏙️ ${otherRecipient.city}`}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Grille des Documents */}
@@ -458,13 +592,13 @@ En cas de litige, le tribunal de commerce de ${agencyProfile?.city || 'Ville'} s
           <div className="flex items-start gap-3">
             <span className="text-blue-600 font-bold">1.</span>
             <div>
-              <strong>Sélectionnez</strong> un client dans la liste
+              <strong>Choisissez</strong> le type de destinataire
             </div>
           </div>
           <div className="flex items-start gap-3">
             <span className="text-blue-600 font-bold">2.</span>
             <div>
-              <strong>Vérifiez</strong> les infos de l'agence
+              <strong>Sélectionnez</strong> ou saisissez le destinataire
             </div>
           </div>
           <div className="flex items-start gap-3">
