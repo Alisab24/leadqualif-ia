@@ -8,6 +8,7 @@ import SignUp from './pages/SignUp';
 import Landing from './pages/Landing';
 import Estimation from './pages/Estimation';
 import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
 import { supabase } from './supabaseClient';
 
 function App() {
@@ -59,22 +60,28 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         
-        {/* Routes protégées sous /app */}
+        {/* Routes protégées sous /app avec Layout */}
         <Route path="/app" element={
           <ProtectedRoute session={session}>
-            <Dashboard />
+            <Layout>
+              <Dashboard />
+            </Layout>
           </ProtectedRoute>
         } />
         
         <Route path="/app/commercial" element={
           <ProtectedRoute session={session}>
-            <Commercial />
+            <Layout>
+              <Commercial />
+            </Layout>
           </ProtectedRoute>
         } />
         
         <Route path="/app/settings" element={
           <ProtectedRoute session={session}>
-            <Settings />
+            <Layout>
+              <Settings />
+            </Layout>
           </ProtectedRoute>
         } />
         

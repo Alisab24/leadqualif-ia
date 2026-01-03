@@ -3,6 +3,45 @@ import { supabase } from '../supabaseClient'
 import { useNavigate, Link } from 'react-router-dom'
 import jsPDF from 'jspdf'
 
+// Header component
+function Header({ title, showPipelineToggle, viewMode, setViewMode }) {
+  return (
+    <div className="bg-white border-b border-gray-200 px-8 py-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        <div className="flex items-center gap-4">
+          {showPipelineToggle && (
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+                }`}
+              >
+                Vue Liste
+              </button>
+              <button
+                onClick={() => setViewMode('pipeline')}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'pipeline' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+                }`}
+              >
+                Vue Pipeline
+              </button>
+            </div>
+          )}
+          <Link
+            to="/estimation"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            + Nouvelle Estimation
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   // --- ÉTATS (MÉMOIRE) ---
   const [session, setSession] = useState(null)
@@ -10,6 +49,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [agencyId, setAgencyId] = useState(null)
   const [agencyProfile, setAgencyProfile] = useState(null)
+  const [viewMode, setViewMode] = useState('list') // 'list' ou 'pipeline'
 
   // États pour la Modale (Fiche prospect)
   const [selectedLead, setSelectedLead] = useState(null)
@@ -201,39 +241,152 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
     }
   }
 
-  // --- RENDU ---
-  if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p className="text-slate-600">Chargement...</p></div></div>
+  // Pipeline Kanban view
+  const PipelineView = () => {
+    const statuses = ['À traiter', 'Message laissé', 'RDV Pris', 'Offre', 'Vendu']
+    
+    const updateLeadStatus = async (leadId, newStatus) => {
+      try {
+        const { error } = await supabase
+          .from('leads')
+          .update({ statut: newStatus })
+          .eq('id', leadId)
+        
+        if (error) throw error
+        
+        // Update local state
+        setLeads(leads.map(lead => 
+          lead.id === leadId ? { ...lead, statut: newStatus } : lead
+        ))
+        
+        // Log activity
+        await logAction('statut', `Statut changé vers: ${newStatus}`)
+      } catch (error) {
+        console.error('Erreur mise à jour statut:', error)
+      }
+    }
+    
+    const getStatusColor = (status) => {
+      const colors = {
+        'À traiter': 'bg-gray-100 text-gray-800',
+        'Message laissé': 'bg-blue-100 text-blue-800',
+        'RDV Pris': 'bg-yellow-100 text-yellow-800',
+        'Offre': 'bg-purple-100 text-purple-800',
+        'Vendu': 'bg-green-100 text-green-800'
+      }
+      return colors[status] || 'bg-gray-100 text-gray-800'
+    }
+    
+    return (
+      <div className="p-8">
+        <div className="flex gap-6 overflow-x-auto pb-4">
+          {statuses.map(status => (
+            <div key={status} className="flex-shrink-0 w-80">
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold text-gray-700">{status}</h3>
+                <span className="text-sm text-gray-500">
+                  {leads.filter(l => l.statut === status).length} prospects
+                </span>
+              </div>
+              
+              <div className="space-y-3 min-h-96">
+                {leads
+                  .filter(lead => lead.statut === status)
+                  .map(lead => (
+                    <div key={lead.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">{lead.nom}</h4>
+                          <p className="text-sm text-gray-600">{lead.email}</p>
+                          {lead.telephone && (
+                            <p className="text-sm text-gray-600">{lead.telephone}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(lead.statut)}`}>
+                          {lead.statut}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm">
+                          {lead.budget && (
+                            <span className="font-bold text-blue-600">{lead.budget}</span>
+                          )}
+                          {lead.score_ia && (
+                            <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">
+                              Score: {lead.score_ia}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              const currentIndex = statuses.indexOf(status)
+                              if (currentIndex > 0) {
+                                updateLeadStatus(lead.id, statuses[currentIndex - 1])
+                              }
+                            }}
+                            disabled={statuses.indexOf(status) === 0}
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Statut précédent"
+                          >
+                            ←
+                          </button>
+                          <button
+                            onClick={() => {
+                              const currentIndex = statuses.indexOf(status)
+                              if (currentIndex < statuses.length - 1) {
+                                updateLeadStatus(lead.id, statuses[currentIndex + 1])
+                              }
+                            }}
+                            disabled={statuses.indexOf(status) === statuses.length - 1}
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Statut suivant"
+                          >
+                            →
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          setSelectedLead(lead)
+                          setIsModalOpen(true)
+                        }}
+                        className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Voir les détails →
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main Content */}
-      <div className="flex-1 p-8">
-        <header className="flex justify-between mb-8">
-          <h2 className="text-2xl font-bold">Vos Prospects</h2>
-          <div className="flex gap-3">
-            <Link 
-              to="/app/commercial"
-              className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
-            >
-              📂 Espace Documents
-            </Link>
-            <Link 
-              to="/app/settings"
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
-            >
-              ⚙️ Paramètres
-            </Link>
-            <button 
-              onClick={() => window.open(getEstimationLink(), '_blank')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
-            >
-              ➕ Nouvelle Estimation
-            </button>
-            <button onClick={() => supabase.auth.signOut()} className="text-red-500">Déconnexion</button>
-          </div>
-        </header>
-        {/* Tableau */}
-        <div className="bg-white rounded shadow overflow-hidden">
+      <Header 
+        title={viewMode === 'pipeline' ? 'Pipeline des Ventes' : 'Dashboard'}
+        showPipelineToggle={true}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+      />
+      
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Chargement...</div>
+        </div>
+      ) : viewMode === 'pipeline' ? (
+        <PipelineView />
+      ) : (
+        <div className="p-8">
+
+      <div className="bg-white rounded shadow overflow-hidden">
           <table className="min-w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
@@ -283,9 +436,10 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* MODALE (Fiche Prospect) */}
+        </div>
+      )}
+      
+      {/* Modal */}
       {isModalOpen && selectedLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex overflow-hidden shadow-2xl">
