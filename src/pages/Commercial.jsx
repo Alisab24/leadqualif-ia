@@ -61,7 +61,7 @@ export default function Commercial() {
 
       setAgencyProfile(profile)
       setLeads(leadsData || [])
-      console.log(`✅ Profil agence chargé: ${profile.agency_name || 'Nom non défini'}`)
+      console.log(`✅ Profil agence chargé: ${profile.nom_agence || 'Nom non défini'}`)
       console.log(`✅ ${leadsData?.length || 0} clients chargés`)
 
     } catch (error) {
@@ -72,8 +72,14 @@ export default function Commercial() {
     }
   }
 
-  // --- GÉNÉRATION PDF INTÉLLIGENTE ---
-  const generateDocument = (type, title) => {
+  // --- GÉNÉRATION PDF PROFESSIONNELLE ---
+  const generateDocument = async (type, title) => {
+    // Vérifier que le profil de l'agence est configuré
+    if (!agencyProfile || !agencyProfile.nom_agence) {
+      alert('Veuillez configurer vos paramètres d\'agence avant de générer des documents.')
+      return
+    }
+
     // Vérifier le destinataire
     let recipientInfo = null
     
@@ -111,13 +117,11 @@ export default function Commercial() {
 
     switch(type) {
       case 'mandat':
-        specificInfo = prompt('Prix du bien (€) :') || '0'
-        template = `MANDAT DE VENTE EXCLUSIF
-
-ENTRE LES SOUSSIGNÉS :
+        specificInfo = prompt('Prix du bien :') || '0'
+        template = `ENTRE LES SOUSSIGNÉS :
 
 Le soussigné, ${recipientInfo.name}, ci-après dénommé "LE VENDEUR"
-Et l'agence ${agencyProfile?.nom_agence || 'LeadQualif IA'}, ci-après dénommée "L'AGENCE"
+Et l'agence ${agencyProfile.nom_agence}, ci-après dénommée "L'AGENCE"
 
 OBJET : Mandat exclusif de vente
 
@@ -127,27 +131,23 @@ ${recipientInfo.address || '[Adresse complète du bien]'}${recipientInfo.city ? 
 CARACTÉRISTIQUES :
 - Type : ${recipientInfo.type_bien}
 - Secteur : ${recipientInfo.secteur}
-- Prix de vente : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile?.devise || '€'}
+- Prix de vente : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
 
 DURÉE : 3 mois à compter de la date de signature
-HONORAIRES : ${Math.round(parseInt(specificInfo) * 0.05).toLocaleString()} ${agencyProfile?.devise || '€'} (5% du prix de vente)
+HONORAIRES : ${Math.round(parseInt(specificInfo) * 0.05).toLocaleString()} ${agencyProfile.devise || 'FCFA'} (5% du prix de vente)
 
-FAIT À ${agencyProfile?.pays || 'France'}, le ${new Date().toLocaleDateString('fr-FR')}
+FAIT À ${agencyProfile.pays || 'Bénin'}, le ${new Date().toLocaleDateString('fr-FR')}
 
 Signature du Vendeur : ____________________
 
 Signature de l'Agence : ____________________
 
-Pour l'agence : ${agencyProfile?.signataire || 'Le Gérant'}
-
-Identifiant fiscal : ${agencyProfile?.identifiant_fiscal || 'En cours'}`
+Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
         break
 
       case 'visite':
         specificInfo = prompt('Référence du bien :') || 'REF-001'
-        template = `BON DE VISITE
-
-DATE : ${new Date().toLocaleDateString('fr-FR')}
+        template = `DATE : ${new Date().toLocaleDateString('fr-FR')}
 HEURE : ${new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
 
 VISITEUR :
@@ -170,37 +170,19 @@ et en prend connaissance.
 
 Signature du visiteur : ____________________
 
-Signature de l'agent : ____________________
-
-AGENCE : ${agencyProfile?.agency_name || 'LeadQualif IA'}
-Tél : ${agencyProfile?.phone || 'Non renseigné'}
-Email : ${agencyProfile?.email || 'Non renseigné'}`
+Signature de l'agent : ____________________`
         break
 
       case 'devis':
-        specificInfo = prompt('Montant total des honoraires (€) :') || '0'
-        template = `DEVIS D'HONORAIRES
-
-AGENCE : ${agencyProfile?.nom_agence || 'LeadQualif IA'}
-${agencyProfile?.adresse_agence || 'Adresse non renseignée'}
-Tél : ${agencyProfile?.telephone_agence || 'Non renseigné'}
-Email : ${agencyProfile?.email_agence || 'Non renseigné'}
-Identifiant fiscal : ${agencyProfile?.identifiant_fiscal || 'En cours'}
-
-CLIENT : ${recipientInfo.name}
-${recipientInfo.email || ''}
-${recipientInfo.phone || ''}
-
-DEVIS N° : DEV-${Date.now()}
-
-PRESTATIONS :
+        specificInfo = prompt('Montant total des honoraires :') || '0'
+        template = `PRESTATIONS :
 - Honoraires de négociation immobilière
 - Accompagnement dans la recherche de bien
 - Visites et constitution de dossier
 
-MONTANT TOTAL HT : ${parseInt(specificInfo).toLocaleString()} €
-TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} €
-MONTANT TTC : ${Math.round(parseInt(specificInfo) * 1.2).toLocaleString()} €
+MONTANT TOTAL HT : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
+TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
+MONTANT TTC : ${Math.round(parseInt(specificInfo) * 1.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
 
 CONDITIONS DE PAIEMENT :
 - 50% à la signature du devis
@@ -214,25 +196,12 @@ Signature client : ____________________
 
 Signature agence : ____________________
 
-Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
+Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
         break
 
       case 'facture':
-        specificInfo = prompt('Montant des honoraires (€) :') || '0'
-        template = `FACTURE D'HONORAIRES
-
-AGENCE : ${agencyProfile?.agency_name || 'LeadQualif IA'}
-${agencyProfile?.address || 'Adresse non renseignée'}
-${agencyProfile?.postal_code || 'CP'} ${agencyProfile?.city || 'Ville'}
-SIRET : ${agencyProfile?.siret || 'En cours'}
-Tél : ${agencyProfile?.phone || 'Non renseigné'}
-Email : ${agencyProfile?.email || 'Non renseigné'}
-
-CLIENT : ${recipientInfo.name}
-${recipientInfo.email || ''}
-${recipientInfo.phone || ''}
-
-FACTURE N° : FAC-${Date.now()}
+        specificInfo = prompt('Montant des honoraires :') || '0'
+        template = `FACTURE N° : FAC-${Date.now()}
 
 DATE D'ÉMISSION : ${new Date().toLocaleDateString('fr-FR')}
 DATE D'ÉCHÉANCE : ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('fr-FR')}
@@ -241,61 +210,81 @@ DÉTAIL DE LA PRESTATION :
 - Honoraires de négociation immobilière
 - Référence bien : ${recipientInfo.type_bien} - ${recipientInfo.secteur}
 
-MONTANT HT : ${parseInt(specificInfo).toLocaleString()} €
-TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} €
-MONTANT TTC : ${Math.round(parseInt(specificInfo) * 1.2).toLocaleString()} €
+MONTANT HT : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
+TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
+MONTANT TTC : ${Math.round(parseInt(specificInfo) * 1.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
 
 MODE DE PAIEMENT :
-Virement bancaire sur IBAN : ${agencyProfile?.iban || 'À communiquer'}
+Virement bancaire sur IBAN : ${agencyProfile.iban || 'À communiquer'}
 
 PENALITÉS DE RETARD :
 0,5% par jour de retard après la date d'échéance
 
 Mention : "TVA payée par acompte sur les honoraires"
 
-En cas de litige, le tribunal de commerce de ${agencyProfile?.city || 'Ville'} sera seul compétent.
+En cas de litige, le tribunal de commerce de ${agencyProfile.pays || 'Cotonou'} sera seul compétent.
 
-Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
+Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
         break
     }
 
-    // Génération du PDF
+    // Génération du PDF avec design professionnel
     const doc = new jsPDF()
     
-    // En-tête GRAND - Nom de l'agence
-    doc.setFontSize(20)
-    doc.text(`${agencyProfile?.nom_agence || 'LeadQualif IA'}`, 105, 25, { align: 'center' })
+    // --- EN-TÊTE ---
+    // Fond gris clair pour l'en-tête
+    doc.setFillColor(245, 245, 245)
+    doc.rect(0, 0, 210, 60, 'F')
     
-    // Adresse et téléphone sous le nom
+    // Logo ou nom de l'agence à gauche
+    if (agencyProfile.logo_url) {
+      try {
+        // Charger et afficher le logo
+        doc.addImage(agencyProfile.logo_url, 'PNG', 15, 15, 40, 20)
+      } catch (error) {
+        console.log('Erreur chargement logo, utilisation du nom')
+        doc.setFontSize(16)
+        doc.setFont(undefined, 'bold')
+        doc.text(agencyProfile.nom_agence || 'AGENCE', 15, 25)
+      }
+    } else {
+      doc.setFontSize(16)
+      doc.setFont(undefined, 'bold')
+      doc.text(agencyProfile.nom_agence || 'AGENCE', 15, 25)
+    }
+    
+    // Coordonnées agence à droite
     doc.setFontSize(10)
-    const agencyAddress = `${agencyProfile?.adresse_agence || 'Adresse non renseignée'}`
-    doc.text(agencyAddress, 105, 35, { align: 'center' })
-    doc.text(`Tél : ${agencyProfile?.telephone_agence || 'Non renseigné'}`, 105, 42, { align: 'center' })
+    doc.setFont(undefined, 'normal')
+    doc.text(agencyProfile.adresse_agence || 'Adresse', 150, 20)
+    doc.text(agencyProfile.telephone_agence || 'Téléphone', 150, 30)
+    doc.text(agencyProfile.email_agence || 'Email', 150, 40)
     
-    // Ligne de séparation
-    doc.line(20, 50, 190, 50)
+    // --- TRAIT DE SÉPARATION ---
+    doc.setDrawColor(100, 100, 100)
+    doc.line(15, 65, 195, 65)
     
-    // Infos Client (droite)
-    doc.setFontSize(12)
-    doc.text('CLIENT :', 140, 65)
-    doc.setFontSize(10)
-    doc.text(recipientInfo.name, 140, 75)
-    if (recipientInfo.email) doc.text(recipientInfo.email, 140, 85)
-    if (recipientInfo.phone) doc.text(recipientInfo.phone, 140, 95)
-    if (recipientInfo.address) doc.text(recipientInfo.address, 140, 105)
-    if (recipientInfo.city) doc.text(recipientInfo.city, 140, 115)
+    // --- TITRE DU DOCUMENT ---
+    doc.setFontSize(18)
+    doc.setFont(undefined, 'bold')
+    doc.text(title.toUpperCase(), 105, 85, { align: 'center' })
     
-    // Titre du document
-    doc.setFontSize(16)
-    doc.text(title, 105, 65, { align: 'center' })
-    
-    // Ligne de séparation
-    doc.line(20, 125, 190, 125)
-    
-    // Corps du document
+    // --- INFOS CLIENT (ENCADRÉ) ---
+    doc.setDrawColor(150, 150, 150)
+    doc.rect(15, 95, 180, 30)
     doc.setFontSize(11)
+    doc.setFont(undefined, 'bold')
+    doc.text('CLIENT :', 20, 110)
+    doc.setFont(undefined, 'normal')
+    doc.text(recipientInfo.name, 20, 120)
+    if (recipientInfo.address) doc.text(recipientInfo.address, 20, 130)
+    if (recipientInfo.city) doc.text(recipientInfo.city, 20, 140)
+    
+    // --- CORPS DU DOCUMENT ---
+    doc.setFontSize(11)
+    doc.setFont(undefined, 'normal')
     const lines = template.split('\n')
-    let yPosition = 135
+    let yPosition = 145
     
     lines.forEach(line => {
       if (yPosition > 250) {
@@ -306,13 +295,12 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
       yPosition += 6
     })
     
-    // Pied de page avec identifiant fiscal et site web
+    // --- PIED DE PAGE ---
+    const footerY = 280
     doc.setFontSize(8)
-    const footerText = `Identifiant fiscal : ${agencyProfile?.identifiant_fiscal || 'En cours'} - ${agencyProfile?.site_web || 'www.agence.fr'}`
-    doc.text(footerText, 105, 280, { align: 'center' })
-    
-    // Signature en bas à droite
-    doc.text(`Pour l'agence : ${agencyProfile?.signataire || 'Le Gérant'}`, 190, 270, { align: 'right' })
+    doc.setTextColor(100, 100, 100)
+    const footerText = `${agencyProfile.nom_agence || 'AGENCE'} - Identifiant Fiscal : ${agencyProfile.identifiant_fiscal || 'N/A'} - ${agencyProfile.site_web || 'www.agence.fr'}`
+    doc.text(footerText, 105, footerY, { align: 'center' })
     
     // Téléchargement
     const fileName = `${type.toLowerCase().replace(/\s+/g, '-')}-${recipientInfo.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`
@@ -470,7 +458,7 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
                   value={otherRecipient.city}
                   onChange={(e) => handleOtherRecipientChange('city', e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ex: Paris"
+                  placeholder="Ex: Cotonou"
                 />
               </div>
             </div>
@@ -483,21 +471,22 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
             </label>
             <div className="bg-gray-50 p-3 rounded-lg">
               <div className="font-bold text-gray-900">
-                {agencyProfile?.agency_name || 'LeadQualif IA'}
+                {agencyProfile?.nom_agence || 'AGENCE NON CONFIGURÉE'}
               </div>
               <div className="text-sm text-gray-600">
-                {agencyProfile?.address && `${agencyProfile.address}, `}
-                {agencyProfile?.postal_code && `${agencyProfile.postal_code} `}
-                {agencyProfile?.city || ''}
+                {agencyProfile?.adresse_agence || 'Adresse non renseignée'}
               </div>
               <div className="text-sm text-gray-600">
-                {agencyProfile?.phone && `📞 ${agencyProfile.phone}`}
+                {agencyProfile?.telephone_agence && `📞 ${agencyProfile.telephone_agence}`}
               </div>
               <div className="text-sm text-gray-600">
-                {agencyProfile?.siret && `🆔 SIRET: ${agencyProfile.siret}`}
+                {agencyProfile?.identifiant_fiscal && `🆔 IFU: ${agencyProfile.identifiant_fiscal}`}
               </div>
               <div className="text-sm text-gray-600">
-                {agencyProfile?.signatory_name && `✍️ Signataire: ${agencyProfile.signatory_name}`}
+                {agencyProfile?.signataire && `✍️ Signataire: ${agencyProfile.signataire}`}
+              </div>
+              <div className="text-sm text-gray-600">
+                {agencyProfile?.devise && `💰 Devise: ${agencyProfile.devise}`}
               </div>
             </div>
           </div>
@@ -514,7 +503,7 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
               <strong>{recipientType === 'lead' ? selectedLead.nom : otherRecipient.name}</strong>
               {recipientType === 'lead' && ` - ${selectedLead.email}`}
               {recipientType === 'lead' && selectedLead.telephone && ` - 📞 ${selectedLead.telephone}`}
-              {recipientType === 'lead' && selectedLead.budget && ` - 💰 ${selectedLead.budget.toLocaleString()}€`}
+              {recipientType === 'lead' && selectedLead.budget && ` - 💰 ${selectedLead.budget.toLocaleString()}${agencyProfile?.devise || 'FCFA'}`}
               {recipientType === 'other' && otherRecipient.address && ` - 📍 ${otherRecipient.address}`}
               {recipientType === 'other' && otherRecipient.city && ` - 🏙️ ${otherRecipient.city}`}
             </div>
@@ -527,7 +516,7 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
         
         {/* Mandat de Vente */}
         <div 
-          onClick={() => generateDocument('mandat', 'MANDAT DE VENTE EXCLUSIF')}
+          onClick={() => generateDocument('mandat', 'Mandat de Vente')}
           className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 border border-gray-100"
         >
           <div className="text-center">
@@ -542,7 +531,7 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
 
         {/* Bon de Visite */}
         <div 
-          onClick={() => generateDocument('visite', 'BON DE VISITE')}
+          onClick={() => generateDocument('visite', 'Bon de Visite')}
           className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 border border-gray-100"
         >
           <div className="text-center">
@@ -557,7 +546,7 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
 
         {/* Devis */}
         <div 
-          onClick={() => generateDocument('devis', 'DEVIS D\'HONORAIRES')}
+          onClick={() => generateDocument('devis', 'Devis d\'Honoraires')}
           className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 border border-gray-100"
         >
           <div className="text-center">
@@ -572,7 +561,7 @@ Pour l'agence : ${agencyProfile?.signatory_name || 'Le Gérant'}`
 
         {/* Facture */}
         <div 
-          onClick={() => generateDocument('facture', 'FACTURE D\'HONORAIRES')}
+          onClick={() => generateDocument('facture', 'Facture d\'Honoraires')}
           className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 border border-gray-100"
         >
           <div className="text-center">

@@ -19,6 +19,7 @@ export default function Settings() {
     telephone_agence: '',
     email_agence: '',
     site_web: '',
+    logo_url: '',
     devise: 'FCFA',
     pays: 'Bénin'
   })
@@ -57,6 +58,7 @@ export default function Settings() {
         telephone_agence: profileData.telephone_agence || '',
         email_agence: profileData.email_agence || '',
         site_web: profileData.site_web || '',
+        logo_url: profileData.logo_url || '',
         devise: profileData.devise || 'FCFA',
         pays: profileData.pays || 'Bénin'
       })
@@ -93,6 +95,7 @@ export default function Settings() {
         telephone_agence: formData.telephone_agence || '',
         email_agence: formData.email_agence || '',
         site_web: formData.site_web || '',
+        logo_url: formData.logo_url || '',
         devise: formData.devise || 'FCFA',
         pays: formData.pays || 'Bénin'
       }
@@ -273,6 +276,20 @@ export default function Settings() {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="https://www.agence.fr"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  URL du Logo
+                </label>
+                <input
+                  type="url"
+                  name="logo_url"
+                  value={formData.logo_url}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://example.com/logo.png"
                 />
               </div>
 
