@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Commercial from './pages/Commercial';
+import Settings from './pages/Settings';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Landing from './pages/Landing';
@@ -68,6 +69,12 @@ function App() {
         <Route path="/app/commercial" element={
           <ProtectedRoute session={session}>
             <Commercial />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/app/settings" element={
+          <ProtectedRoute session={session}>
+            <Settings />
           </ProtectedRoute>
         } />
         
