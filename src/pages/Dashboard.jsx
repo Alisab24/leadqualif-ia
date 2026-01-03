@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useNavigate, Link } from 'react-router-dom'
+import jsPDF from 'jspdf'
 
 export default function Dashboard() {
   // --- ÉTATS (MÉMOIRE) ---
@@ -57,7 +58,51 @@ export default function Dashboard() {
     return Math.min(score, 10);
   }
 
-  // 2. Gestion Modale & Activités
+  // 2. Nettoyage numéro téléphone pour WhatsApp
+  const cleanPhoneNumber = (phone) => {
+    if (!phone) return '';
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+      return '33' + cleaned.substring(1);
+    } else if (cleaned.startsWith('33') && cleaned.length === 11) {
+      return cleaned;
+    }
+    return cleaned;
+  }
+
+  // 3. Génération PDF
+  const generatePDF = (lead) => {
+    const doc = new jsPDF()
+    
+    // En-tête
+    doc.setFontSize(20)
+    doc.text('Fiche Prospect', 20, 20)
+    
+    // Informations client
+    doc.setFontSize(12)
+    doc.text(`Nom: ${lead.nom}`, 20, 40)
+    doc.text(`Email: ${lead.email}`, 20, 50)
+    doc.text(`Téléphone: ${lead.telephone || 'Non renseigné'}`, 20, 60)
+    
+    // Projet
+    doc.text('Projet:', 20, 80)
+    doc.text(`Budget: ${lead.budget ? lead.budget.toLocaleString() + ' €' : '-'}`, 20, 90)
+    doc.text(`Type de bien: ${lead.type_bien || '-'}`, 20, 100)
+    doc.text(`Score IA: ${calculateScore(lead)}/10`, 20, 110)
+    doc.text(`Statut: ${lead.statut_crm || 'À traiter'}`, 20, 120)
+    
+    // Pied de page
+    doc.setFontSize(10)
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} par LeadQualif IA`, 20, 280)
+    
+    // Télécharger le PDF
+    doc.save(`fiche-prospect-${lead.nom.replace(/\s+/g, '-')}.pdf`)
+    
+    // Logger l'action
+    logAction('pdf', 'Fiche PDF téléchargée')
+  }
+
+  // 4. Gestion Modale & Activités
   const openModal = (lead) => {
     setSelectedLead(lead)
     setActiveTab('details')
@@ -77,7 +122,7 @@ export default function Dashboard() {
     fetchActivities(selectedLead.id) // Rafraîchir l'historique
   }
 
-  // 3. IA Générative (Simulée JS)
+  // 5. IA Générative (Simulée JS)
   const generateAIAd = () => {
     if (!selectedLead) return;
     const text = `🔥 OPPORTUNITÉ À SAISIR !
@@ -89,6 +134,15 @@ Secteur recherché : ${selectedLead.secteur || 'Alentours'}.
 
 Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
     setGeneratedAd(text)
+  }
+
+  // 6. Vérifier si le lead est récent (moins de 24h)
+  const isRecentLead = (lead) => {
+    if (!lead.created_at) return false;
+    const createdDate = new Date(lead.created_at)
+    const now = new Date()
+    const diffHours = (now - createdDate) / (1000 * 60 * 60)
+    return diffHours < 24
   }
 
   // --- RENDU ---
@@ -153,8 +207,16 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                   <h2 className="text-3xl font-bold text-slate-800">{selectedLead.nom}</h2>
                   <p className="text-gray-500">Ajouté le {new Date(selectedLead.created_at).toLocaleDateString()}</p>
                 </div>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black text-xl">✕</button>
+                <div className="flex items-center gap-3">
+                  {isRecentLead(selectedLead) && (
+                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
+                      🆕 Nouveau
+                    </span>
+                  )}
+                  <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black text-xl">✕</button>
+                </div>
               </div>
+              
               {/* Onglets */}
               <div className="flex gap-4 border-b mb-6">
                 <button 
@@ -170,51 +232,98 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                   ✨ Assistant IA
                 </button>
               </div>
+              
               {activeTab === 'details' ? (
                 <div className="space-y-6">
+                  {/* Informations principales avec icônes */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-4 rounded">
-                      <p className="text-xs text-gray-500 uppercase">Budget</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-green-600">💰</span>
+                        <p className="text-xs text-gray-500 uppercase">Budget</p>
+                      </div>
                       <p className="text-xl font-bold">{selectedLead.budget?.toLocaleString()} €</p>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <p className="text-xs text-gray-500 uppercase">Téléphone</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-blue-600">📞</span>
+                        <p className="text-xs text-gray-500 uppercase">Téléphone</p>
+                      </div>
                       <p className="text-xl font-bold text-blue-600">{selectedLead.telephone || '-'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-purple-600">🏠</span>
+                        <p className="text-xs text-gray-500 uppercase">Type de bien</p>
+                      </div>
+                      <p className="text-lg font-bold">{selectedLead.type_bien || '-'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-orange-600">📍</span>
+                        <p className="text-xs text-gray-500 uppercase">Secteur</p>
+                      </div>
+                      <p className="text-lg font-bold">{selectedLead.secteur || '-'}</p>
                     </div>
                   </div>
                   
-                  <div className="flex gap-3">
+                  {/* Grille de boutons 2x2 */}
+                  <div className="grid grid-cols-2 gap-4">
                     <a 
                       href={`tel:${selectedLead.telephone}`} 
                       onClick={() => logAction('appel', 'Appel téléphonique')}
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded text-center font-bold"
+                      className="bg-green-500 hover:bg-green-600 text-white py-4 rounded-lg text-center font-bold flex items-center justify-center gap-2 transition-colors"
                     >
                       📞 Appeler
                     </a>
                     <a 
                       href={`mailto:${selectedLead.email}`}
                       onClick={() => logAction('email', 'Email envoyé')}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded text-center font-bold"
+                      className="bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-lg text-center font-bold flex items-center justify-center gap-2 transition-colors"
                     >
                       ✉️ Email
                     </a>
+                    <a 
+                      href={`https://wa.me/${cleanPhoneNumber(selectedLead.telephone)}`}
+                      onClick={() => logAction('whatsapp', 'Message WhatsApp envoyé')}
+                      target="_blank"
+                      className="bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg text-center font-bold flex items-center justify-center gap-2 transition-colors"
+                    >
+                      💬 WhatsApp
+                    </a>
+                    <a 
+                      href="https://calendly.com/"
+                      onClick={() => logAction('rdv', 'Prise de RDV')}
+                      target="_blank"
+                      className="bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-lg text-center font-bold flex items-center justify-center gap-2 transition-colors"
+                    >
+                      📅 Prendre RDV
+                    </a>
                   </div>
+                  
+                  {/* Bouton PDF en bas */}
+                  <button 
+                    onClick={() => generatePDF(selectedLead)}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white py-4 rounded-lg text-center font-bold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    📄 Télécharger Fiche PDF
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-purple-50 p-6 rounded border border-purple-100">
+                  <div className="bg-purple-50 p-6 rounded-lg border border-purple-100">
                     <h3 className="font-bold text-purple-800 mb-2">Générateur d'Annonce Facebook/Insta</h3>
                     <p className="text-sm text-gray-600 mb-4">L'IA rédige une annonce de recherche basée sur ce prospect.</p>
                     <button 
                       onClick={generateAIAd}
-                      className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 w-full"
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 w-full transition-colors"
                     >
                       ✨ Générer l'annonce maintenant
                     </button>
                   </div>
                   {generatedAd && (
                     <textarea 
-                      className="w-full h-40 p-4 border rounded bg-gray-50 text-sm font-mono"
+                      className="w-full h-40 p-4 border rounded-lg bg-gray-50 text-sm font-mono"
                       value={generatedAd}
                       readOnly
                     />
@@ -222,6 +331,7 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                 </div>
               )}
             </div>
+            
             {/* Colonne Droite : Historique */}
             <div className="w-1/3 bg-gray-50 p-6 overflow-y-auto border-l">
               <h3 className="font-bold text-gray-500 uppercase text-xs mb-4">Historique d'activités</h3>
@@ -229,7 +339,14 @@ Vous vendez ? Contactez-nous vite pour une estimation gratuite !`
                 {activities.length === 0 && <p className="text-sm text-gray-400 italic">Aucune activité.</p>}
                 {activities.map(act => (
                   <div key={act.id} className="text-sm">
-                    <div className="font-bold text-gray-800">{act.type === 'appel' ? '📞 Appel' : '📝 Note'}</div>
+                    <div className="font-bold text-gray-800">
+                      {act.type === 'appel' ? '📞 Appel' : 
+                       act.type === 'email' ? '✉️ Email' :
+                       act.type === 'whatsapp' ? '💬 WhatsApp' :
+                       act.type === 'rdv' ? '📅 RDV' :
+                       act.type === 'pdf' ? '📄 PDF' :
+                       '📝 Note'}
+                    </div>
                     <div className="text-gray-600">{act.description}</div>
                     <div className="text-xs text-gray-400">{new Date(act.created_at).toLocaleTimeString()}</div>
                   </div>
