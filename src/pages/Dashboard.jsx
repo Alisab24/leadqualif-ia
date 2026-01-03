@@ -34,79 +34,106 @@ export default function Dashboard() {
     </div>
   }
 
-  // 1. CHARGEMENT UTILISATEUR ET LEADS (Via Supabase) - SÉCURISÉ
+  // GESTION D'ERREUR : Profil non trouvé
+  if (error && error.includes('Profil non trouvé')) {
+    return <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+        <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Users className="w-8 h-8 text-yellow-600" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Profil incomplet</h2>
+        <p className="text-gray-600 mb-6">{error}</p>
+        <button 
+          onClick={() => window.location.href = '/signup'}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Compléter mon profil
+        </button>
+      </div>
+    </div>
+  }
+
+  // GESTION D'ERREUR : Autre erreur
+  if (error && !loading) {
+    return <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+        <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+          <X className="w-8 h-8 text-red-600" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Erreur de chargement</h2>
+        <p className="text-gray-600 mb-6">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Réessayer
+        </button>
+      </div>
+    </div>
+  }
+
+  // 1. CHARGEMENT UTILISATEUR ET LEADS (Via Supabase) - LOGIQUE SIMPLIFIÉE
   useEffect(() => {
-    const loadUserData = async () => {
+    const loadData = async () => {
       try {
-        console.log('Début chargement données utilisateur...')
+        console.log('Chargement des données...')
         
-        // Récupérer la session Supabase
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        // Récupérer l'utilisateur connecté
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
         
-        if (sessionError || !session) {
-          console.error('Pas de session active:', sessionError)
+        if (userError || !user) {
+          console.error('Pas d\'utilisateur connecté:', userError)
           navigate('/login')
           return
         }
         
-        const user = session.user
-        console.log('Session trouvée:', user.email)
-        
-        // Vérification de sécurité : si pas d'utilisateur, on arrête
-        if (!user) {
-          console.error('Utilisateur null, arrêt du chargement')
-          setError('Utilisateur non connecté')
-          setLoading(false)
-          return
-        }
-        
-        // Récupérer le profil utilisateur et agency_id
+        // Récupérer le profil avec agency_id
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('*, agencies(*)')
+          .select('agency_id, agencies(*)')
           .eq('user_id', user.id)
           .single()
         
         if (profileError || !profile) {
-          console.error('Erreur profil:', profileError)
-          setError('Profil utilisateur non trouvé')
+          console.error('Profil non trouvé:', profileError)
+          setError('Profil non trouvé. Veuillez compléter votre profil.')
           setLoading(false)
           return
         }
         
         setUserProfile(profile)
         setAgencyId(profile.agency_id)
-        console.log('Profil chargé:', profile)
         
-        // Maintenant qu'on a l'agency_id, on peut charger les leads
-        const result = await leads.getAll()
+        // Charger les leads de cette agence
+        const { data: leadsData, error: leadsError } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('agency_id', profile.agency_id)
+          .order('created_at', { ascending: false })
         
-        if (result.success) {
-          setLeads(result.data)
-          console.log("✅ Leads chargés:", result.data.length)
-          
-          // Calcul du temps économisé
-          const nouveauTemps = result.data.length * 5 // 5 min par lead
-          setTempsEconomise(ancienTemps => {
-            const tempsFinal = Math.max(ancienTemps, nouveauTemps)
-            localStorage.setItem('timeSaved', tempsFinal.toString())
-            return tempsFinal
-          })
-        } else {
-          console.error("❌ Erreur chargement leads:", result.error)
+        if (leadsError) {
+          console.error('Erreur chargement leads:', leadsError)
           setError('Erreur lors du chargement des leads')
           setLeads([])
+        } else {
+          setLeads(leadsData || [])
+          console.log(`✅ ${leadsData?.length || 0} leads chargés`)
+          
+          // Calcul temps économisé
+          const temps = (leadsData?.length || 0) * 5
+          setTempsEconomise(temps)
+          localStorage.setItem('timeSaved', temps.toString())
         }
+        
       } catch (error) {
-        console.error("❌ Erreur de chargement:", error)
-        setError('Erreur de chargement des données')
-        setLeads([])
+        console.error('Erreur:', error)
+        setError('Erreur de chargement')
       } finally {
         setLoading(false)
       }
     }
     
-    loadUserData()
+    loadData()
   }, [])
 
   // 2. FONCTIONS UTILES
