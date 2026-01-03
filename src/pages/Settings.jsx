@@ -19,8 +19,8 @@ export default function Settings() {
     telephone_agence: '',
     email_agence: '',
     site_web: '',
-    devise: '€',
-    pays: 'France'
+    devise: 'FCFA',
+    pays: 'Bénin'
   })
 
   // --- CHARGEMENT ---
@@ -57,8 +57,8 @@ export default function Settings() {
         telephone_agence: profileData.telephone_agence || '',
         email_agence: profileData.email_agence || '',
         site_web: profileData.site_web || '',
-        devise: profileData.devise || '€',
-        pays: profileData.pays || 'France'
+        devise: profileData.devise || 'FCFA',
+        pays: profileData.pays || 'Bénin'
       })
 
     } catch (error) {
@@ -83,33 +83,41 @@ export default function Settings() {
         return
       }
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          nom_agence: formData.nom_agence,
-          signataire: formData.signataire,
-          identifiant_fiscal: formData.identifiant_fiscal,
-          adresse_agence: formData.adresse_agence,
-          telephone_agence: formData.telephone_agence,
-          email_agence: formData.email_agence,
-          site_web: formData.site_web,
-          devise: formData.devise,
-          pays: formData.pays
-        })
-        .eq('user_id', session.user.id)
+      // Nettoyage des données - aucune valeur undefined
+      const dataToSave = {
+        user_id: session.user.id,
+        nom_agence: formData.nom_agence || '',
+        signataire: formData.signataire || '',
+        identifiant_fiscal: formData.identifiant_fiscal || '',
+        adresse_agence: formData.adresse_agence || '',
+        telephone_agence: formData.telephone_agence || '',
+        email_agence: formData.email_agence || '',
+        site_web: formData.site_web || '',
+        devise: formData.devise || 'FCFA',
+        pays: formData.pays || 'Bénin'
+      }
 
-      if (updateError) {
-        console.error('Erreur mise à jour:', updateError)
-        setError('Erreur lors de la sauvegarde')
+      console.log('Données envoyées:', dataToSave)
+
+      const { error: upsertError } = await supabase
+        .from('profiles')
+        .upsert(dataToSave, { 
+          onConflict: 'user_id',
+          ignoreDuplicates: false 
+        })
+
+      if (upsertError) {
+        console.error('Erreur upsert:', upsertError)
+        setError(`Erreur lors de la sauvegarde: ${upsertError.message}`)
       } else {
         setSuccess('✅ Paramètres enregistrés avec succès !')
         // Mettre à jour le profil local
-        setProfile({ ...profile, ...formData })
+        setProfile({ ...profile, ...dataToSave })
       }
 
     } catch (error) {
       console.error('Erreur handleSave:', error)
-      setError('Erreur lors de la sauvegarde')
+      setError(`Erreur lors de la sauvegarde: ${error.message}`)
     } finally {
       setSaving(false)
     }
@@ -211,7 +219,7 @@ export default function Settings() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Identifiant Fiscal (SIRET, IFU...) *
+                  Identifiant Fiscal (IFU, SIRET...) *
                 </label>
                 <input
                   type="text"
@@ -220,7 +228,7 @@ export default function Settings() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ex: 12345678901234"
+                  placeholder="Ex: 01234567890123"
                 />
               </div>
 
@@ -279,10 +287,10 @@ export default function Settings() {
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
+                  <option value="FCFA">FCFA (CFA)</option>
                   <option value="€">€ (Euro)</option>
-                  <option value="FCFA">FCFA (Franc CFA)</option>
-                  <option value="$">$ (Dollar US)</option>
-                  <option value="£">£ (Livre Sterling)</option>
+                  <option value="$">$ (Dollar)</option>
+                  <option value="£">£ (Livre)</option>
                 </select>
               </div>
 
@@ -297,16 +305,27 @@ export default function Settings() {
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
+                  <option value="Bénin">Bénin</option>
+                  <option value="Côte d'Ivoire">Côte d'Ivoire</option>
+                  <option value="Sénégal">Sénégal</option>
+                  <option value="Togo">Togo</option>
+                  <option value="Burkina Faso">Burkina Faso</option>
+                  <option value="Mali">Mali</option>
+                  <option value="Niger">Niger</option>
+                  <option value="Guinée">Guinée</option>
+                  <option value="Cameroun">Cameroun</option>
+                  <option value="Congo">Congo</option>
+                  <option value="RDC">RD Congo</option>
+                  <option value="Gabon">Gabon</option>
+                  <option value="Tchad">Tchad</option>
+                  <option value="Centrafrique">Centrafrique</option>
                   <option value="France">France</option>
                   <option value="Belgique">Belgique</option>
                   <option value="Suisse">Suisse</option>
                   <option value="Canada">Canada</option>
-                  <option value="Côte d'Ivoire">Côte d'Ivoire</option>
-                  <option value="Sénégal">Sénégal</option>
                   <option value="Maroc">Maroc</option>
                   <option value="Tunisie">Tunisie</option>
                   <option value="Algérie">Algérie</option>
-                  <option value="Cameroun">Cameroun</option>
                   <option value="Autre">Autre</option>
                 </select>
               </div>
