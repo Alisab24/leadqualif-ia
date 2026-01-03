@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 export default function Commercial() {
   // --- ÉTATS ---
@@ -138,14 +139,36 @@ export default function Commercial() {
       }
     }
 
-    // Demander l'information spécifique selon le type de document
+    // Logique hybride : Texte vs Tableau
+    const isFinancialDocument = type === 'devis' || type === 'facture'
+    
     let specificInfo = ''
     let template = ''
+    let financialData = null
 
-    switch(type) {
-      case 'mandat':
-        specificInfo = prompt('Prix du bien :') || '0'
-        template = `ENTRE LES SOUSSIGNÉS :
+    if (isFinancialDocument) {
+      // Documents financiers : demander montant et préparer données tableau
+      specificInfo = prompt(type === 'devis' ? 'Montant total des honoraires :' : 'Montant des honoraires :') || '0'
+      const montant = parseFloat(specificInfo) || 0
+      
+      // TVA selon le pays (18% pour Bénin/Afrique, 20% pour Europe)
+      const tauxTVA = (agencyProfile.pays === 'France' || agencyProfile.pays === 'Belgique' || agencyProfile.pays === 'Suisse') ? 0.20 : 0.18
+      
+      financialData = {
+        designation: 'Honoraires sur transaction immobilière',
+        quantite: 1,
+        prixUnitaire: montant,
+        totalHT: montant,
+        tauxTVA: tauxTVA,
+        montantTVA: montant * tauxTVA,
+        totalTTC: montant * (1 + tauxTVA)
+      }
+    } else {
+      // Documents juridiques : logique actuelle
+      switch(type) {
+        case 'mandat':
+          specificInfo = prompt('Prix du bien :') || '0'
+          template = `ENTRE LES SOUSSIGNÉS :
 
 Le soussigné, ${recipientInfo.name}, ci-après dénommé "LE VENDEUR"
 Et l'agence ${agencyProfile.nom_agence}, ci-après dénommée "L'AGENCE"
@@ -170,11 +193,11 @@ Signature du Vendeur : ____________________
 Signature de l'Agence : ____________________
 
 Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
-        break
+          break
 
-      case 'visite':
-        specificInfo = prompt('Référence du bien :') || 'REF-001'
-        template = `DATE : ${new Date().toLocaleDateString('fr-FR')}
+        case 'visite':
+          specificInfo = prompt('Référence du bien :') || 'REF-001'
+          template = `DATE : ${new Date().toLocaleDateString('fr-FR')}
 HEURE : ${new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
 
 VISITEUR :
@@ -198,61 +221,8 @@ et en prend connaissance.
 Signature du visiteur : ____________________
 
 Signature de l'agent : ____________________`
-        break
-
-      case 'devis':
-        specificInfo = prompt('Montant total des honoraires :') || '0'
-        template = `PRESTATIONS :
-- Honoraires de négociation immobilière
-- Accompagnement dans la recherche de bien
-- Visites et constitution de dossier
-
-MONTANT TOTAL HT : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
-TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
-MONTANT TTC : ${Math.round(parseInt(specificInfo) * 1.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
-
-CONDITIONS DE PAIEMENT :
-- 50% à la signature du devis
-- 50% à la signature du compromis de vente
-
-VALIDITÉ DU DEVIS : 1 mois
-
-Date : ${new Date().toLocaleDateString('fr-FR')}
-
-Signature client : ____________________
-
-Signature agence : ____________________
-
-Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
-        break
-
-      case 'facture':
-        specificInfo = prompt('Montant des honoraires :') || '0'
-        template = `FACTURE N° : FAC-${Date.now()}
-
-DATE D'ÉMISSION : ${new Date().toLocaleDateString('fr-FR')}
-DATE D'ÉCHÉANCE : ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('fr-FR')}
-
-DÉTAIL DE LA PRESTATION :
-- Honoraires de négociation immobilière
-- Référence bien : ${recipientInfo.type_bien} - ${recipientInfo.secteur}
-
-MONTANT HT : ${parseInt(specificInfo).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
-TVA (20%) : ${Math.round(parseInt(specificInfo) * 0.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
-MONTANT TTC : ${Math.round(parseInt(specificInfo) * 1.2).toLocaleString()} ${agencyProfile.devise || 'FCFA'}
-
-MODE DE PAIEMENT :
-Virement bancaire sur IBAN : ${agencyProfile.iban || 'À communiquer'}
-
-PENALITÉS DE RETARD :
-0,5% par jour de retard après la date d'échéance
-
-Mention : "TVA payée par acompte sur les honoraires"
-
-En cas de litige, le tribunal de commerce de ${agencyProfile.pays || 'Cotonou'} sera seul compétent.
-
-Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
-        break
+          break
+      }
     }
 
     // Génération du PDF avec design Premium Brandé
@@ -345,50 +315,183 @@ Pour l'agence : ${agencyProfile.signataire || 'Le Gérant'}`
     
     // --- CORPS DU DOCUMENT ---
     let yPosition = 145
-    const sections = template.split('\n\n')
     
-    sections.forEach(section => {
-      if (yPosition > 250) {
-        doc.addPage()
-        yPosition = 20
+    if (isFinancialDocument) {
+      // DOCUMENTS FINANCIERS : TABLEAU PROFESSIONNEL
+      
+      // Informations du document financier
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(12)
+      doc.setFont(undefined, 'bold')
+      
+      if (type === 'devis') {
+        doc.text(`DEVIS N° : DEV-${Date.now()}`, 20, yPosition)
+        yPosition += 10
+        doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 20, yPosition)
+        yPosition += 10
+        doc.text(`Validité : 1 mois`, 20, yPosition)
+        yPosition += 15
+      } else {
+        doc.text(`FACTURE N° : FAC-${Date.now()}`, 20, yPosition)
+        yPosition += 10
+        doc.text(`Date d'émission : ${new Date().toLocaleDateString('fr-FR')}`, 20, yPosition)
+        yPosition += 10
+        doc.text(`Date d'échéance : ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('fr-FR')}`, 20, yPosition)
+        yPosition += 15
       }
       
-      // Titre de section en couleur primaire
-      if (section.includes(':') && !section.startsWith(' ')) {
-        doc.setTextColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
-        doc.setFontSize(12)
-        doc.setFont(undefined, 'bold')
-        const lines = section.split('\n')
-        if (lines[0]) {
-          doc.text(lines[0], 20, yPosition)
-          yPosition += 8
+      // Préparation des données du tableau
+      const tableData = [
+        [
+          financialData.designation,
+          financialData.quantite.toString(),
+          `${financialData.prixUnitaire.toLocaleString()} ${agencyProfile.devise || 'FCFA'}`,
+          `${financialData.totalHT.toLocaleString()} ${agencyProfile.devise || 'FCFA'}`
+        ]
+      ]
+      
+      // Configuration du tableau avec style SaaS
+      doc.autoTable({
+        head: [['Désignation', 'Quantité', 'Prix Unitaire', 'Total HT']],
+        body: tableData,
+        startY: yPosition,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 10,
+          cellPadding: 5
+        },
+        headStyles: {
+          fillColor: [primaireRgb.r, primaireRgb.g, primaireRgb.b],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        bodyStyles: {
+          fillColor: [245, 245, 245], // Gris très clair
+          textColor: [0, 0, 0],
+          halign: 'center'
+        },
+        alternateRowStyles: {
+          fillColor: [255, 255, 255] // Blanc pour alternance
+        },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 80 },  // Désignation
+          1: { halign: 'center', cellWidth: 30 }, // Quantité
+          2: { halign: 'right', cellWidth: 50 },  // Prix Unitaire
+          3: { halign: 'right', cellWidth: 50 }   // Total
+        },
+        margin: { left: 20, right: 20 }
+      })
+      
+      // Position après le tableau
+      yPosition = doc.lastAutoTable.finalY + 20
+      
+      // BLOC TOTAL (Bas de page - aligné à droite)
+      const totalX = 140
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(10)
+      doc.setFont(undefined, 'normal')
+      
+      // Ligne de séparation
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.5)
+      doc.line(totalX - 10, yPosition, 195, yPosition)
+      yPosition += 8
+      
+      // Total HT
+      doc.text('Total HT :', totalX, yPosition)
+      doc.text(`${financialData.totalHT.toLocaleString()} ${agencyProfile.devise || 'FCFA'}`, 195, yPosition, { align: 'right' })
+      yPosition += 8
+      
+      // TVA
+      doc.text(`TVA (${(financialData.tauxTVA * 100).toFixed(0)}%) :`, totalX, yPosition)
+      doc.text(`${financialData.montantTVA.toLocaleString()} ${agencyProfile.devise || 'FCFA'}`, 195, yPosition, { align: 'right' })
+      yPosition += 8
+      
+      // Ligne avant total TTC
+      doc.setDrawColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+      doc.setLineWidth(1)
+      doc.line(totalX - 10, yPosition, 195, yPosition)
+      yPosition += 10
+      
+      // NET À PAYER (en gras et plus gros)
+      doc.setTextColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+      doc.setFontSize(14)
+      doc.setFont(undefined, 'bold')
+      doc.text('NET À PAYER :', totalX, yPosition)
+      doc.text(`${financialData.totalTTC.toLocaleString()} ${agencyProfile.devise || 'FCFA'}`, 195, yPosition, { align: 'right' })
+      yPosition += 20
+      
+      // Mentions légales bancaires (bas à gauche)
+      doc.setTextColor(secondaireRgb.r, secondaireRgb.g, secondaireRgb.b)
+      doc.setFontSize(9)
+      doc.setFont(undefined, 'normal')
+      yPosition += 10
+      
+      const ibanText = agencyProfile.iban || 'FR76 3000 6000 0123 4567 8901 894'
+      doc.text('Merci de régler par virement bancaire sur le compte :', 20, yPosition)
+      yPosition += 6
+      doc.setFont(undefined, 'bold')
+      doc.text(`IBAN : ${ibanText}`, 20, yPosition)
+      yPosition += 6
+      doc.setFont(undefined, 'normal')
+      
+      if (type === 'facture') {
+        doc.text('En cas de retard, pénalités de 0,5% par jour.', 20, yPosition)
+        yPosition += 6
+        doc.text('Mention : TVA payée par acompte sur les honoraires', 20, yPosition)
+      } else {
+        doc.text('Conditions de paiement : 50% à la signature, 50% à la signature du compromis', 20, yPosition)
+      }
+      
+    } else {
+      // DOCUMENTS JURIDIQUES : LOGIQUE ACTUELLE
+      const sections = template.split('\n\n')
+      
+      sections.forEach(section => {
+        if (yPosition > 250) {
+          doc.addPage()
+          yPosition = 20
         }
         
-        // Reste du texte en noir
-        doc.setTextColor(0, 0, 0)
-        doc.setFontSize(11)
-        doc.setFont(undefined, 'normal')
-        for (let i = 1; i < lines.length; i++) {
-          if (lines[i]) {
-            doc.text(lines[i], 20, yPosition)
-            yPosition += 6
+        // Titre de section en couleur primaire
+        if (section.includes(':') && !section.startsWith(' ')) {
+          doc.setTextColor(primaireRgb.r, primaireRgb.g, primaireRgb.b)
+          doc.setFontSize(12)
+          doc.setFont(undefined, 'bold')
+          const lines = section.split('\n')
+          if (lines[0]) {
+            doc.text(lines[0], 20, yPosition)
+            yPosition += 8
           }
+          
+          // Reste du texte en noir
+          doc.setTextColor(0, 0, 0)
+          doc.setFontSize(11)
+          doc.setFont(undefined, 'normal')
+          for (let i = 1; i < lines.length; i++) {
+            if (lines[i]) {
+              doc.text(lines[i], 20, yPosition)
+              yPosition += 6
+            }
+          }
+        } else {
+          // Texte normal
+          doc.setTextColor(0, 0, 0)
+          doc.setFontSize(11)
+          doc.setFont(undefined, 'normal')
+          const lines = section.split('\n')
+          lines.forEach(line => {
+            if (line && yPosition < 270) {
+              doc.text(line, 20, yPosition)
+              yPosition += 6
+            }
+          })
         }
-      } else {
-        // Texte normal
-        doc.setTextColor(0, 0, 0)
-        doc.setFontSize(11)
-        doc.setFont(undefined, 'normal')
-        const lines = section.split('\n')
-        lines.forEach(line => {
-          if (line && yPosition < 270) {
-            doc.text(line, 20, yPosition)
-            yPosition += 6
-          }
-        })
-      }
-      yPosition += 4 // Espace entre sections
-    })
+        yPosition += 4 // Espace entre sections
+      })
+    }
     
     // --- FOOTER (PIED DE PAGE) ---
     // Ligne fine en bas avec couleur primaire
