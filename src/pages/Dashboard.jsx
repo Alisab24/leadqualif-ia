@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { jsPDF } from 'jspdf'
 import { 
   LayoutDashboard, TrendingUp, Clock, Users, Zap, CheckCircle, 
   Search, RefreshCw, FileText, X, Phone, MessageCircle, Calendar, Home, Mail, Building2, FileCheck,
@@ -15,8 +16,16 @@ export default function Dashboard() {
   const [agencyId, setAgencyId] = useState('')
   const [error, setError] = useState('')
   const [selectedLead, setSelectedLead] = useState(null)
+  const [activities, setActivities] = useState([])
   const [tempsEconomise, setTempsEconomise] = useState(0)
   const navigate = useNavigate()
+
+  // Effet pour charger les activités quand un lead est sélectionné
+  useEffect(() => {
+    if (selectedLead) {
+      fetchActivities(selectedLead.id)
+    }
+  }, [selectedLead])
 
   // Fonction pour récupérer les données du dashboard
   const fetchDashboardData = async (userId) => {
@@ -184,6 +193,88 @@ export default function Dashboard() {
     }
   }
 
+  // Fonction pour récupérer les activités d'un lead
+  const fetchActivities = async (leadId) => {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Erreur activités:', error)
+        setActivities([])
+      } else {
+        setActivities(data || [])
+      }
+    } catch (error) {
+      console.error('Erreur fetchActivities:', error)
+      setActivities([])
+    }
+  }
+
+  // Fonction pour logger une action
+  const logAction = async (type, description, leadId) => {
+    try {
+      const { error } = await supabase
+        .from('activities')
+        .insert({
+          lead_id: leadId,
+          type_action: type,
+          details: description,
+          created_at: new Date().toISOString()
+        })
+      
+      if (error) {
+        console.error('Erreur log action:', error)
+      } else {
+        // Rafraîchir les activités
+        fetchActivities(leadId)
+      }
+    } catch (error) {
+      console.error('Erreur logAction:', error)
+    }
+  }
+
+  // Fonction pour générer un PDF
+  const generatePDF = (lead) => {
+    try {
+      const doc = new jsPDF()
+      
+      // En-tête
+      doc.setFontSize(20)
+      doc.text('Fiche Prospect', 20, 20)
+      
+      // Informations client
+      doc.setFontSize(12)
+      doc.text(`Nom: ${lead.nom}`, 20, 40)
+      doc.text(`Email: ${lead.email}`, 20, 50)
+      doc.text(`Téléphone: ${lead.telephone || 'Non renseigné'}`, 20, 60)
+      
+      // Projet
+      doc.text('Projet:', 20, 80)
+      doc.text(`Budget: ${lead.budget ? lead.budget.toLocaleString() + ' €' : '-'}`, 20, 90)
+      doc.text(`Type de bien: ${lead.type_bien || '-'}`, 20, 100)
+      doc.text(`Score IA: ${lead.score || 0}/10`, 20, 110)
+      doc.text(`Statut: ${lead.statut_crm || 'À traiter'}`, 20, 120)
+      
+      // Pied de page
+      doc.setFontSize(10)
+      doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} par LeadQualif IA`, 20, 280)
+      
+      // Télécharger le PDF
+      doc.save(`fiche-prospect-${lead.nom.replace(/\s+/g, '-')}.pdf`)
+      
+      // Logger l'action
+      logAction('pdf', 'Fiche PDF téléchargée', lead.id)
+      
+    } catch (error) {
+      console.error('Erreur génération PDF:', error)
+      alert('Erreur lors de la génération du PDF')
+    }
+  }
+
   // --- CALCULS DES STATISTIQUES ---
   const leadsSorted = [...leads].sort((a, b) => (b.score_ia || 0) - (a.score_ia || 0));
   const leadsChaudsCount = leads.filter(l => (l.score_ia || 0) >= 7).length;
@@ -227,28 +318,29 @@ export default function Dashboard() {
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase mb-4">Historique d'Activités</p>
                 
-                {/* Liste des interactions */}
+                {/* Liste des activités */}
                 <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-                  {(selectedLead.interactions || []).length === 0 ? (
+                  {activities.length === 0 ? (
                     <p className="text-slate-400 text-sm text-center py-4">Aucune activité enregistrée</p>
                   ) : (
-                    selectedLead.interactions.map(interaction => (
-                      <div key={interaction.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    activities.map(activity => (
+                      <div key={activity.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <div className="flex justify-between items-start">
                           <span className={`text-xs font-bold px-2 py-1 rounded ${
-                            interaction.type_action === 'Appel' ? 'bg-green-100 text-green-700' :
-                            interaction.type_action === 'Email' ? 'bg-blue-100 text-blue-700' :
-                            interaction.type_action === 'WhatsApp' ? 'bg-purple-100 text-purple-700' :
-                            interaction.type_action === 'Note' ? 'bg-yellow-100 text-yellow-700' :
+                            activity.type_action === 'appel' ? 'bg-green-100 text-green-700' :
+                            activity.type_action === 'email' ? 'bg-blue-100 text-blue-700' :
+                            activity.type_action === 'whatsapp' ? 'bg-purple-100 text-purple-700' :
+                            activity.type_action === 'pdf' ? 'bg-orange-100 text-orange-700' :
+                            activity.type_action === 'rdv' ? 'bg-indigo-100 text-indigo-700' :
                             'bg-gray-100 text-gray-700'
                           }`}>
-                            {interaction.type_action}
+                            {activity.type_action.toUpperCase()}
                           </span>
                           <span className="text-xs text-slate-400">
-                            {new Date(interaction.date).toLocaleDateString('fr-FR')} {new Date(interaction.date).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
+                            {new Date(activity.created_at).toLocaleDateString('fr-FR')} {new Date(activity.created_at).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
                           </span>
                         </div>
-                        {interaction.details && <p className="text-sm text-slate-600 mt-1">{interaction.details}</p>}
+                        {activity.details && <p className="text-sm text-slate-600 mt-1">{activity.details}</p>}
                       </div>
                     ))
                   )}
@@ -263,21 +355,43 @@ export default function Dashboard() {
                   <button 
                     onClick={() => {
                       window.location.href = `tel:${selectedLead.telephone}`
+                      logAction('appel', 'Appel téléphonique lancé', selectedLead.id)
                     }} 
                     className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-blue-600 font-bold text-sm"
                   >
                     <Phone size={16}/> Appeler
                   </button>
-                  <a href={`mailto:${selectedLead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${selectedLead.nom},`} className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-bold text-sm"><Mail size={16}/> Email</a>
+                  <a 
+                    href={`mailto:${selectedLead.email}?subject=Votre projet immobilier - LeadQualif IA&body=Bonjour ${selectedLead.nom},`}
+                    onClick={() => logAction('email', 'Email ouvert', selectedLead.id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-bold text-sm"
+                  >
+                    <Mail size={16}/> Email
+                  </a>
                   <button 
                     onClick={() => {
                       window.open(getWhatsAppLink(selectedLead), '_blank')
+                      logAction('whatsapp', 'Message WhatsApp envoyé', selectedLead.id)
                     }} 
                     className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-bold text-sm"
                   >
                     <MessageCircle size={16}/> WhatsApp
                   </button>
-                  <a href="https://calendly.com/" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-black transition text-sm font-bold shadow-lg shadow-slate-200"><Calendar size={16}/> Prendre RDV</a>
+                  <button 
+                    onClick={() => {
+                      updateStatutCRM(selectedLead.id, 'RDV Pris')
+                      logAction('rdv', 'RDV pris - Statut mis à jour', selectedLead.id)
+                    }} 
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 font-bold text-sm"
+                  >
+                    <Calendar size={16}/> Prendre RDV
+                  </button>
+                  <button 
+                    onClick={() => generatePDF(selectedLead)}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-bold text-sm"
+                  >
+                    <FileText size={16}/> Télécharger Fiche PDF
+                  </button>
                 </>
               )}
             </div>
