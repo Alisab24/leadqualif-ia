@@ -218,6 +218,29 @@ export default function Commercial() {
       // Sauvegarde
       doc.save(`${selectedDocType}_${clientName.replace(/\s/g, '_')}.pdf`);
 
+      // --- TRACABILITÉ : Insérer dans activities si c'est un lead ---
+      if (targetType === 'lead' && selectedLeadId) {
+        try {
+          const { error: activityError } = await supabase
+            .from('activities')
+            .insert({
+              lead_id: selectedLeadId,
+              type: 'document',
+              description: `Document généré : ${selectedDocType} de ${docValue} ${currency}`
+            });
+          
+          if (activityError) {
+            console.warn("Erreur enregistrement activité:", activityError);
+          } else {
+            alert('Document téléchargé et enregistré dans le dossier client !');
+          }
+        } catch (err) {
+          console.warn("Erreur insertion activité:", err);
+        }
+      } else {
+        alert('Document téléchargé avec succès !');
+      }
+
     } catch (err) {
       alert("Erreur lors de la génération : " + err.message);
       console.error(err);
