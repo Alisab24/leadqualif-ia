@@ -194,7 +194,12 @@ export default function Dashboard() {
                   <div key={lead.id} onClick={() => { setSelectedLead(lead); setIsModalOpen(true); }} className="bg-white rounded-lg p-4 cursor-pointer hover:shadow-md transition-all border border-gray-100">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-gray-800 text-sm">{lead.nom}</h4>
-                      <span className="text-xs text-gray-500">{lead.created_at ? new Date(lead.created_at).toLocaleDateString() : ''}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                          Score: {calculateScore(lead)}/10
+                        </span>
+                        <span className="text-xs text-gray-500">{lead.created_at ? new Date(lead.created_at).toLocaleDateString() : ''}</span>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-600 mb-2">
                       {lead.type_bien} • {lead.budget ? `${lead.budget.toLocaleString()}€` : 'Budget non défini'}
@@ -259,32 +264,46 @@ export default function Dashboard() {
         <div className="p-6">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <table className="min-w-full">
+              {/* En-tête du tableau */}
               <thead className="bg-slate-50 border-b">
                 <tr>
-                  <th className="p-4 text-left text-xs font-bold text-gray-500 uppercase">Prospect</th>
-                  <th className="p-4 text-left text-xs font-bold text-gray-500 uppercase">Budget</th>
-                  <th className="p-4 text-left text-xs font-bold text-gray-500 uppercase">Statut</th>
-                  <th className="p-4 text-left text-xs font-bold text-gray-500 uppercase">Action</th>
+                  <th className="p-4 text-left font-bold text-gray-500">Prospect</th>
+                  <th className="p-4 text-left font-bold text-gray-500">Budget</th>
+                  <th className="p-4 text-left font-bold text-gray-500">Score IA</th> {/* Nouvelle Colonne */}
+                  <th className="p-4 text-left font-bold text-gray-500">Statut</th>
+                  <th className="p-4 text-left font-bold text-gray-500">Actions Rapides</th>
                 </tr>
               </thead>
               <tbody>
                 {leads.map(lead => (
                   <tr key={lead.id} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-medium text-slate-800">{lead.nom}</td>
+                    <td className="p-4 font-medium text-slate-800">
+                      {lead.nom}
+                      <div className="text-xs text-gray-400">{lead.type_bien}</div>
+                    </td>
                     <td className="p-4 font-bold text-slate-600">{lead.budget?.toLocaleString()} €</td>
+                    
+                    {/* Colonne Score IA */}
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                        {calculateScore(lead)}/10
+                      </span>
+                    </td>
                     <td className="p-4">
                       <select 
                         value={lead.statut || 'À traiter'}
                         onChange={(e) => updateStatus(lead.id, e.target.value)}
-                        className="bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+                        className="bg-white border border-gray-300 text-gray-700 text-xs rounded p-1"
                       >
                         {STATUS_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
-                    <td className="p-4">
-                      <button onClick={() => openModal(lead)} className="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                        Voir dossier
-                      </button>
+                    {/* Colonne Actions (Version Compacte) */}
+                    <td className="p-4 flex gap-2">
+                      <button onClick={(e) => openWhatsApp(e, lead)} className="p-2 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬</button>
+                      <button onClick={(e) => openCalendar(e, lead)} className="p-2 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅</button>
+                      <button onClick={(e) => openEmail(e, lead)} className="p-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉</button>
+                      <button onClick={() => openModal(lead)} className="p-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200" title="Voir Dossier">👁️</button>
                     </td>
                   </tr>
                 ))}
