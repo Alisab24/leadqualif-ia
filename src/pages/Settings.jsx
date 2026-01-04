@@ -50,9 +50,13 @@ export default function Settings() {
     showBudget: true,
     showType: true,
     showLocation: true,
+    showDelai: true,
+    showMsg: true,
     labelBudget: 'Budget',
     labelType: 'Type de bien',
-    labelLocation: 'Localisation'
+    labelLocation: 'Localisation',
+    labelDelai: 'Délai du projet',
+    labelMsg: 'Message libre'
   })
 
   // --- CHARGEMENT ---
@@ -682,6 +686,40 @@ export default function Settings() {
                         />
                       </button>
                     </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Afficher le Délai du projet</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormSettings({...formSettings, showDelai: !formSettings.showDelai})}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.showDelai ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.showDelai ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Afficher le Message libre</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormSettings({...formSettings, showMsg: !formSettings.showMsg})}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.showMsg ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.showMsg ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -725,6 +763,32 @@ export default function Settings() {
                         onChange={(e) => setFormSettings({...formSettings, labelLocation: e.target.value})}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Localisation"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Label Délai du projet
+                      </label>
+                      <input
+                        type="text"
+                        value={formSettings.labelDelai}
+                        onChange={(e) => setFormSettings({...formSettings, labelDelai: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Délai du projet"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Label Message libre
+                      </label>
+                      <input
+                        type="text"
+                        value={formSettings.labelMsg}
+                        onChange={(e) => setFormSettings({...formSettings, labelMsg: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Message libre"
                       />
                     </div>
                   </div>

@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 export default function Estimation() {
   const { agency_id } = useParams();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
 
+  // Réglages par défaut
   const [settings, setSettings] = useState({
     showBudget: true,
     showType: true,
+    showDelai: true,
+    showMsg: true,
     labelBudget: "Budget estimé",
     labelType: "Type de bien",
+    labelDelai: "Délai du projet",
+    labelMsg: "Message / Précisions",
     agencyName: "LeadQualif IA",
     logoUrl: null
   });
@@ -26,257 +30,199 @@ export default function Estimation() {
     type_bien: 'Appartement',
     budget: '',
     surface: '',
-    projet: 'Achat'
+    projet: 'Achat',
+    delai: 'Indéfini',
+    message: ''
   });
 
+  // Chargement config Agence
   useEffect(() => {
-    const fetchAgencySettings = async () => {
+    const fetchSettings = async () => {
       if (!agency_id) return;
-
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('agency_id, form_settings, plan')
-          .eq('agency_id', agency_id)
-          .single();
-          
-        if (data && data.form_settings) {
-          setSettings(prev => ({
-            ...prev,
-            ...data.form_settings,
-            agencyName: "Agence Partenaire"
-          }));
-        }
-      } catch (err) {
-        console.error("Erreur chargement réglages:", err);
+        const { data } = await supabase.from('profiles').select('form_settings, agency_id').eq('agency_id', agency_id).single();
+        if (data?.form_settings) setSettings(prev => ({ ...prev, ...data.form_settings }));
+      } catch (e) {
+        console.error(e);
       }
     };
-    
-    fetchAgencySettings();
+    fetchSettings();
   }, [agency_id]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
-
     try {
-      const { error } = await supabase.from('leads').insert([
-        {
-          nom: formData.nom,
-          email: formData.email,
-          telephone: formData.telephone,
-          type_bien: formData.type_bien,
-          budget: formData.budget ? parseInt(formData.budget) : 0,
-          surface: formData.surface ? parseInt(formData.surface) : 0,
-          projet: formData.projet,
-          statut: 'À traiter',
-          agency_id: agency_id || null,
-          created_at: new Date(),
-          source: 'Formulaire Web'
-        }
-      ]);
-      
+      const { error } = await supabase.from('leads').insert([{
+        ...formData,
+        budget: formData.budget ? parseInt(formData.budget) : 0,
+        surface: formData.surface ? parseInt(formData.surface) : 0,
+        statut: 'À traiter',
+        created_at: new Date(),
+        agency_id: agency_id || null,
+        source: 'Formulaire Web IA'
+      }]);
       if (error) throw error;
       setSubmitted(true);
-      
     } catch (err) {
-      console.error("Erreur envoi:", err);
-      setError("Une erreur est survenue. Veuillez réessayer.");
+      setError("Erreur technique. Réessayez.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Merci !</h1>
-            <p className="text-lg text-gray-600 mb-8">
-              Votre demande d'estimation a bien été enregistrée.<br />
-              Un agent de {settings.agencyName} vous contactera dans les plus brefs délais.
-            </p>
-            <button
-              onClick={() => {
-                setSubmitted(false);
-                setFormData({
-                  nom: '',
-                  email: '',
-                  telephone: '',
-                  type_bien: 'Appartement',
-                  budget: '',
-                  surface: '',
-                  projet: 'Achat'
-                });
-              }}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Nouvelle estimation
-            </button>
+  if (submitted) return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white py-10 px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white/50 backdrop-blur-xl text-center">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Analyse lancée !</h1>
+          <p className="text-lg text-gray-600 mb-8">
+            Votre projet a été soumis à notre IA.<br />
+            Un expert vous contactera rapidement.
+          </p>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8">
+            <div className="flex items-center justify-center space-x-2 text-blue-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="font-medium">Analyse IA gratuite et sans engagement</span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setSubmitted(false);
+              setFormData({
+                nom: '',
+                email: '',
+                telephone: '',
+                type_bien: 'Appartement',
+                budget: '',
+                surface: '',
+                projet: 'Achat',
+                delai: 'Indéfini',
+                message: ''
+              });
+            }}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
+          >
+            Nouvelle analyse
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
+        {/* Header moderne */}
         <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            {settings.logoUrl ? (
-              <img src={settings.logoUrl} alt={settings.agencyName} className="w-12 h-12 rounded-lg object-contain bg-white p-1" />
-            ) : (
-              <span className="text-white font-bold text-2xl">LQ</span>
-            )}
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+            <span className="text-white font-bold text-3xl">LQ</span>
           </div>
-          <h1 className="text-4xl font-light text-gray-900 mb-4">
-            Estimez votre bien en 2 minutes
+          
+          <h1 className="text-5xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            Analyse IA Immédiate
           </h1>
-          {settings.agencyName && (
-            <p className="text-lg text-blue-600 font-medium mb-2">
-              Estimation pour {settings.agencyName}
-            </p>
-          )}
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Obtenez une estimation gratuite et sans engagement par un professionnel certifié
+          
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
+            Obtenez une analyse précise de votre projet par notre intelligence artificielle
           </p>
-          <div className="flex justify-center items-center space-x-4 mt-6">
-            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+          
+          <div className="flex justify-center items-center space-x-3 mb-8">
+            <span className="bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-4 py-2 rounded-full text-sm font-semibold border border-green-200">
               🔒 RGPD Compliant
             </span>
-            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+            <span className="bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold border border-blue-200">
               🇫🇷 Service France
+            </span>
+            <span className="bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold border border-purple-200">
+              ⚡ Analyse IA
+            </span>
+          </div>
+          
+          <div className="flex justify-center">
+            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium">
+              Powered by LeadQualif AI
             </span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
-          <form className="space-y-8" onSubmit={handleSubmit}>
-            
-            {settings.showType && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  {settings.labelType}
-                </label>
-                <select
-                  name="type_bien"
-                  value={formData.type_bien}
-                  onChange={handleChange}
-                  className="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl"
-                >
-                  <option>Appartement</option>
-                  <option>Maison</option>
-                  <option>Terrain</option>
-                  <option>Local Commercial</option>
-                </select>
+        <div className="bg-white py-10 px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white/50 backdrop-blur-xl">
+          {error && <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium border border-red-100">{error}</div>}
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Grid 2 colonnes pour desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {settings.showType && (
+                <div className="col-span-1">
+                  <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelType}</label>
+                  <select name="type_bien" value={formData.type_bien} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm">
+                    <option>Appartement</option>
+                    <option>Maison</option>
+                    <option>Terrain</option>
+                    <option>Local</option>
+                  </select>
+                </div>
+              )}
+              <div className="col-span-1">
+                <label className="block text-sm font-bold text-slate-700 mb-1">Surface (m²)</label>
+                <input type="number" name="surface" required value={formData.surface} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm" placeholder="Ex: 85" />
               </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Surface (m²)</label>
-              <input
-                type="number"
-                name="surface"
-                required
-                value={formData.surface}
-                onChange={handleChange}
-                className="mt-1 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            {settings.showBudget && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  {settings.labelBudget}
-                </label>
-                <div className="mt-1 relative rounded-xl shadow-sm">
-                  <input
-                    type="number"
-                    name="budget"
-                    value={formData.budget}
-                    onChange={handleChange}
-                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-xl"
-                    placeholder="0"
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">€</span>
+              {settings.showBudget && (
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelBudget}</label>
+                  <div className="relative">
+                    <input type="number" name="budget" value={formData.budget} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm pl-4" placeholder="Votre budget max..." />
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400 font-bold">€</div>
                   </div>
                 </div>
+              )}
+              {settings.showDelai && (
+                 <div className="col-span-1 md:col-span-2">
+                   <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelDelai}</label>
+                   <select name="delai" value={formData.delai} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm">
+                     <option>Urgent (Immédiat)</option>
+                     <option>Dans les 3 mois</option>
+                     <option>Dans les 6 mois</option>
+                     <option>Projet indéfini</option>
+                   </select>
+                 </div>
+              )}
+            </div>
+            {/* Message (Full width) */}
+            {settings.showMsg && (
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelMsg}</label>
+                <textarea name="message" rows="3" value={formData.message} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm" placeholder="Précisez votre recherche..."></textarea>
               </div>
             )}
-
-            <div className="border-t pt-6 mt-6">
-              <p className="text-sm font-semibold text-gray-700 mb-4">Vos coordonnées</p>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Nom complet</label>
-                  <input 
-                    type="text" 
-                    name="nom" 
-                    required 
-                    value={formData.nom} 
-                    onChange={handleChange} 
-                    className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Email</label>
-                  <input 
-                    type="email" 
-                    name="email" 
-                    required 
-                    value={formData.email} 
-                    onChange={handleChange} 
-                    className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Téléphone</label>
-                  <input 
-                    type="tel" 
-                    name="telephone" 
-                    required 
-                    value={formData.telephone} 
-                    onChange={handleChange} 
-                    className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-                  />
+            <div className="border-t border-slate-100 pt-6 mt-6">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Vos Coordonnées</p>
+              <div className="space-y-4">
+                <input type="text" name="nom" required value={formData.nom} onChange={handleChange} placeholder="Nom complet" className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 focus:ring-2 focus:ring-blue-500 transition" />
+                <div className="grid grid-cols-2 gap-4">
+                  <input type="email" name="email" required value={formData.email} onChange={handleChange} placeholder="Email" className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 focus:ring-2 focus:ring-blue-500 transition" />
+                  <input type="tel" name="telephone" required value={formData.telephone} onChange={handleChange} placeholder="Téléphone" className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 focus:ring-2 focus:ring-blue-500 transition" />
                 </div>
               </div>
             </div>
-
-            {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 text-red-700 rounded-xl">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
-              >
-                {loading ? 'Envoi en cours...' : '📋 Recevoir mon estimation'}
-              </button>
-            </div>
-            
-            <p className="text-xs text-center text-gray-400 mt-4">
-              Vos données sont sécurisées et traitées conformément au RGPD.
-            </p>
+            <button type="submit" disabled={loading} className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-500/30 text-lg font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition duration-200">
+              {loading ? 'Analyse en cours...' : 'Lancer l\'analyse IA 🚀'}
+            </button>
           </form>
         </div>
+        <p className="mt-8 text-center text-xs text-slate-400">
+          &copy; {new Date().getFullYear()} LeadQualif System • Données sécurisées
+        </p>
       </div>
     </div>
   );
