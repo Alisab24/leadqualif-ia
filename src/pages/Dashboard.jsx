@@ -47,7 +47,6 @@ export default function Dashboard() {
     if (!kanbanRef.current) return false
     return kanbanRef.current.scrollLeft < kanbanRef.current.scrollWidth - kanbanRef.current.clientWidth
   }
-  }
 
   // Fonction pour copier le lien intelligent
   const copyEstimationLink = async () => {
