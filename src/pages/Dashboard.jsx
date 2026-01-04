@@ -39,6 +39,39 @@ export default function Dashboard() {
     }
   }
 
+  // 1. WhatsApp (Nettoie le numéro et ouvre l'app avec message pré-rempli)
+  const openWhatsApp = (e, lead) => {
+    e.stopPropagation(); // Empêche d'ouvrir la modale
+    if (!lead.telephone) return alert("Pas de numéro de téléphone renseigné.");
+    
+    // Nettoyage basique du numéro (garde que les chiffres)
+    const phone = lead.telephone.replace(/[^0-9]/g, '');
+    const message = `Bonjour ${lead.nom}, je suis votre conseiller LeadQualif. J'ai bien reçu votre demande d'estimation. Avez-vous un moment pour échanger ?`;
+    
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  }
+
+  // 2. Email (Ouvre le client mail avec Sujet et Corps pré-remplis)
+  const openEmail = (e, lead) => {
+    e.stopPropagation();
+    if (!lead.email) return alert("Pas d'email renseigné.");
+
+    const subject = `Votre projet immobilier - Estimation ${lead.type_bien || ''}`;
+    const body = `Bonjour ${lead.nom},\n\nJe fais suite à votre estimation sur notre site.\n\nQuand seriez-vous disponible pour en discuter ?\n\nCordialement,`;
+
+    window.location.href = `mailto:${lead.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  // 3. RDV (Ouvre Google Agenda pour créer un événement pré-rempli)
+  const openCalendar = (e, lead) => {
+    e.stopPropagation();
+    const title = `RDV Client : ${lead.nom}`;
+    const details = `Tel: ${lead.telephone}\nEmail: ${lead.email}\nBudget: ${lead.budget}€`;
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}`;
+
+    window.open(url, '_blank');
+  }
+
   useEffect(() => {
     fetchLeads()
   }, [])
@@ -158,35 +191,57 @@ export default function Dashboard() {
               
               <div className="flex-1 space-y-3">
                 {leads.filter(l => (l.statut || 'À traiter') === statut).map(lead => (
-                  <div key={lead.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group relative" onClick={() => openModal(lead)}>
+                  <div key={lead.id} onClick={() => { setSelectedLead(lead); setIsModalOpen(true); }} className="bg-white rounded-lg p-4 cursor-pointer hover:shadow-md transition-all border border-gray-100">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="font-bold text-slate-800 truncate block w-2/3">{lead.nom}</span>
-                      <span className="bg-blue-50 text-blue-600 text-xs px-2 py-0.5 rounded font-bold border border-blue-100">
-                        {calculateScore(lead)}/10
-                      </span>
+                      <h4 className="font-bold text-gray-800 text-sm">{lead.nom}</h4>
+                      <span className="text-xs text-gray-500">{lead.created_at ? new Date(lead.created_at).toLocaleDateString() : ''}</span>
                     </div>
-                    <div className="text-lg font-bold text-slate-900 mb-1">
-                      {lead.budget ? lead.budget.toLocaleString() + ' €' : '-'}
-                    </div>
-                    <div className="text-xs text-gray-500 mb-3 flex items-center gap-1">
-                      <span>🏠</span> {lead.type_bien || 'Projet Immo'}
-                    </div>
+                    <p className="text-xs text-gray-600 mb-2">
+                      {lead.type_bien} • {lead.budget ? `${lead.budget.toLocaleString()}€` : 'Budget non défini'}
+                    </p>
+                    <p className="text-xs text-gray-500 mb-2">
+                      📧 {lead.email} • 📞 {lead.telephone}
+                    </p>
                     
-                    <div className="flex justify-between items-center border-t pt-2 mt-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    {/* Actions Rapides */}
+                    <div className="flex gap-2 mb-3 mt-2">
                       <button 
-                        disabled={STATUS_ORDER.indexOf(statut) === 0}
-                        onClick={() => updateStatus(lead.id, STATUS_ORDER[STATUS_ORDER.indexOf(statut) - 1])}
-                        className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-slate-800 disabled:opacity-0"
+                        onClick={(e) => openWhatsApp(e, lead)}
+                        className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                        title="Ouvrir WhatsApp"
                       >
-                        ◀
+                        💬 WhatsApp
                       </button>
-                      <button className="text-xs text-blue-500 font-bold hover:underline" onClick={() => openModal(lead)}>
-                        Détails
+                      
+                      <button 
+                        onClick={(e) => openCalendar(e, lead)}
+                        className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                        title="Planifier RDV"
+                      >
+                        📅 RDV
+                      </button>
+                      
+                      <button 
+                        onClick={(e) => openEmail(e, lead)}
+                        className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                        title="Envoyer Email"
+                      >
+                        ✉ Email
+                      </button>
+                    </div>
+
+                    <div className="border-t pt-2 flex justify-between items-center">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, STATUS_ORDER[STATUS_ORDER.indexOf(statut) - 1]); }}
+                        disabled={STATUS_ORDER.indexOf(statut) === 0}
+                        className="text-gray-400 hover:text-gray-600 disabled:text-gray-200 disabled:cursor-not-allowed text-sm"
+                      >
+                        ←
                       </button>
                       <button 
+                        onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, STATUS_ORDER[STATUS_ORDER.indexOf(statut) + 1]); }}
                         disabled={STATUS_ORDER.indexOf(statut) === STATUS_ORDER.length - 1}
-                        onClick={() => updateStatus(lead.id, STATUS_ORDER[STATUS_ORDER.indexOf(statut) + 1])}
-                        className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-slate-800 disabled:opacity-0"
+                        className="text-gray-400 hover:text-gray-600 disabled:text-gray-200 disabled:cursor-not-allowed text-sm"
                       >
                         ▶
                       </button>
