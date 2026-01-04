@@ -215,6 +215,90 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Confiance et Conformité RGPD */}
+      <section className="py-20 px-6 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-light text-gray-900 mb-4">
+              Vos données sont protégées,<br/>votre conformité est assurée
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              LeadQualif intègre la protection des données dès la conception<br/>
+              pour garantir votre tranquillité d'esprit
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
+                <span className="text-2xl">🛡️</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Hébergement Sécurisé</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Données stockées sur des serveurs sécurisés répondant aux normes européennes les plus strictes.
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+                <span className="text-2xl">🔒</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Conformité RGPD</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Registre des activités de traitement et protection de la vie privée dès la conception (Privacy by Design).
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+                <span className="text-2xl">🔐</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Confidentialité Totale</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Vos bases de données clients sont cryptées et ne sont jamais partagées avec des tiers.
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+                <span className="text-2xl">📤</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Exportabilité</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Vous restez propriétaire de vos données et pouvez les exporter à tout moment.
+              </p>
+            </div>
+          </div>
+
+          {/* Mention d'engagement */}
+          <div className="bg-white rounded-2xl p-8 border border-blue-100 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
+                <span className="text-white text-2xl font-bold">LQ</span>
+              </div>
+            </div>
+            <p className="text-gray-700 font-medium text-lg leading-relaxed">
+              LeadQualif s'engage pour la transparence et la sécurité<br/>
+              de l'écosystème immobilier européen
+            </p>
+            <div className="flex justify-center items-center space-x-6 mt-6 text-sm text-gray-600">
+              <div className="flex items-center space-x-2">
+                <span className="text-green-600">✓</span>
+                <span>Certifié ISO 27001</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-green-600">✓</span>
+                <span>Audit de sécurité annuel</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-green-600">✓</span>
+                <span>DPO dédié</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Security & Trust */}
       <section id="security" className="py-20 px-6 bg-gray-50">
         <div className="max-w-6xl mx-auto text-center">
