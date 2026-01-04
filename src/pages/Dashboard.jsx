@@ -18,12 +18,12 @@ export default function Dashboard() {
 
   // Couleurs des étiquettes
   const STATUS_COLORS = {
-    'À traiter': 'bg-red-600 text-white',
-    'Message laissé': 'bg-orange-500 text-white',
-    'RDV Pris': 'bg-blue-600 text-white',
-    'Offre en cours': 'bg-purple-600 text-white',
-    'Vendu': 'bg-green-600 text-white',
-    'Perdu': 'bg-gray-500 text-white'
+    'À traiter': 'bg-[#e11d48] text-white',
+    'Message laissé': 'bg-[#f59e0b] text-white',
+    'RDV Pris': 'bg-[#2563eb] text-white',
+    'Offre en cours': 'bg-[#9333ea] text-white',
+    'Vendu': 'bg-[#16a34a] text-white',
+    'Perdu': 'bg-[#4b5563] text-white'
   }
 
   // Fonctions de navigation Kanban
@@ -46,6 +46,17 @@ export default function Dashboard() {
   const canScrollRight = () => {
     if (!kanbanRef.current) return false
     return kanbanRef.current.scrollLeft < kanbanRef.current.scrollWidth - kanbanRef.current.clientWidth
+  }
+
+  // Forcer la vérification du scroll après chargement des leads
+  const checkScroll = () => {
+    setTimeout(() => {
+      if (kanbanRef.current) {
+        // Force la détection du scroll pour afficher/masquer les flèches
+        const event = new Event('scroll')
+        kanbanRef.current.dispatchEvent(event)
+      }
+    }, 100)
   }
 
   // Fonction pour copier le lien intelligent
@@ -245,6 +256,13 @@ export default function Dashboard() {
     fetchLeads()
   }, [])
 
+  useEffect(() => {
+    // Forcer la vérification du scroll après chargement des leads
+    if (leads.length > 0) {
+      checkScroll()
+    }
+  }, [leads])
+
   async function fetchLeads() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -391,17 +409,17 @@ export default function Dashboard() {
           {canScrollLeft() && (
             <button
               onClick={() => scrollKanban('left')}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white/90 transition-all"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-xl hover:bg-white/90 transition-all"
             >
-              <span className="text-2xl">◀</span>
+              <span className="text-3xl">◀</span>
             </button>
           )}
           {canScrollRight() && (
             <button
               onClick={() => scrollKanban('right')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white/90 transition-all"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-xl hover:bg-white/90 transition-all"
             >
-              <span className="text-2xl">▶</span>
+              <span className="text-3xl">▶</span>
             </button>
           )}
           
@@ -574,7 +592,7 @@ export default function Dashboard() {
                       <select 
                         value={lead.statut || 'À traiter'}
                         onChange={(e) => updateStatus(lead.id, e.target.value)}
-                        className={`bg-white border text-gray-700 text-xs rounded p-1 font-medium ${STATUS_COLORS[lead.statut || 'À traiter']}`}
+                        className={`border text-white text-xs rounded p-1 font-medium ${STATUS_COLORS[lead.statut || 'À traiter']}`}
                       >
                         {STATUS_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
