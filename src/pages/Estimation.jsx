@@ -55,10 +55,32 @@ export default function Estimation() {
     e.preventDefault();
     setLoading(true);
     try {
+      // --- ALGORITHME DE SCORING LEADQUALIF IA ---
+      let scoreIA = 30; // Score de base (Intérêt manifesté)
+      
+      // 1. Critère Budget (Le nerf de la guerre)
+      if (formData.budget > 0) scoreIA += 20;
+      if (formData.budget > 200000) scoreIA += 10; // Bonus gros budget
+      
+      // 2. Critère Urgence (Délai)
+      if (formData.delai === 'Urgent (Immédiat)') scoreIA += 30;
+      else if (formData.delai === 'Dans les 3 mois') scoreIA += 15;
+      else if (formData.delai === 'Projet indéfini') scoreIA -= 10;
+      
+      // 3. Critère Complétude
+      if (formData.message && formData.message.length > 10) scoreIA += 10; // A pris le temps d'écrire
+      if (formData.telephone && formData.telephone.length >= 10) scoreIA += 10;
+      
+      // Plafond à 99% (Nul n'est parfait)
+      if (scoreIA > 99) scoreIA = 99;
+      if (scoreIA < 10) scoreIA = 10;
+      // -------------------------------------------
+
       const { error } = await supabase.from('leads').insert([{
         ...formData,
         budget: formData.budget ? parseInt(formData.budget) : 0,
         surface: formData.surface ? parseInt(formData.surface) : 0,
+        score: scoreIA, // Score IA ajouté
         statut: 'À traiter',
         created_at: new Date(),
         agency_id: agency_id || null,
