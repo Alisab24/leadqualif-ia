@@ -18,6 +18,10 @@ export default function Layout() {
         
         {/* Menu */}
         <nav className="flex-1 space-y-6 w-full flex flex-col items-center pt-4">
+          <Link to="/app/stats" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/stats') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Statistiques Agence">
+            📊
+          </Link>
+          
           <Link to="/app" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Pipeline">
             🚀
           </Link>

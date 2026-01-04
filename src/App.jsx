@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Commercial from './pages/Commercial'
 import Settings from './pages/Settings'
+import Stats from './pages/Stats'
 import Estimation from './pages/Estimation'
 import Layout from './components/Layout'
 
@@ -44,6 +45,7 @@ export default function App() {
       {/* Routes Protégées (App) */}
       <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" />}>
         <Route index element={<Dashboard />} />
+        <Route path="stats" element={<Stats />} />
         <Route path="commercial" element={<Commercial />} />
         <Route path="settings" element={<Settings />} />
       </Route>
