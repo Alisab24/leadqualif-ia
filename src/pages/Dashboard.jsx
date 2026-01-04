@@ -683,13 +683,74 @@ export default function Dashboard() {
                 
                 <div className="space-y-4">
                   {/* Timeline */}
+                  <div className="relative">
+                    {/* Ligne verticale */}
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                    
+                    {/* Activités */}
+                    <div className="space-y-4">
+                      {/* Lead créé */}
+                      <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold z-10">
+                          📄
+                        </div>
+                        <div className="flex-1 bg-gray-50 rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="font-medium text-sm">Lead créé</p>
+                            <p className="text-xs text-gray-500">
+                              {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString() : 'Date inconnue'}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            Score initial: {calculateScore(selectedLead)}/10 • Budget: {selectedLead.budget?.toLocaleString()} €
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Activités réelles avec icônes colorées */}
+                      {selectedLead.activities?.map((activity, index) => {
+                        const { icon, color } = getActivityIcon(activity);
+                        return (
+                          <div key={activity.id || index} className="flex items-start gap-4">
+                            <div className={`w-8 h-8 ${color} rounded-full flex items-center justify-center text-white text-xs font-bold z-10`}>
+                              {icon}
+                            </div>
+                            <div className="flex-1 bg-gray-50 rounded-lg p-3">
+                              <div className="flex justify-between items-start mb-1">
+                                <p className="font-medium text-sm">{activity.description}</p>
+                                <p className="text-xs text-gray-500">
+                                  {activity.created_at ? new Date(activity.created_at).toLocaleDateString() : 'Date inconnue'}
+                                </p>
+                              </div>
+                              {activity.action_type && (
+                                <p className="text-xs text-gray-500 italic">
+                                  Type: {activity.action_type}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Simulation documents */}
+                      <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center text-white text-xs font-bold z-10">
+                          📋
+                        </div>
+                        <div className="flex-1 bg-violet-50 rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="font-medium text-sm">Document 'Mandat' disponible</p>
+                            <p className="text-xs text-gray-500">Hier</p>
+                          </div>
+                          <p className="text-xs text-gray-600">Prêt à être généré dans Commercial</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 bg-gray-50 rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <p className="font-medium text-sm">Lead créé</p>
-                      <p className="text-xs text-gray-500">
-                        {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString() : 'Date inconnue'}
-                      </p>
+                </div>
+              {/* Actions rapides */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <h4 className="font-bold text-gray-900 mb-3">Actions rapides</h4>
                   <div className="grid grid-cols-2 gap-2">
                     <button 
                       onClick={(e) => openWhatsApp(e, selectedLead)}
@@ -709,7 +770,10 @@ export default function Dashboard() {
                     >
                       📅 RDV
                     </button>
-                    <button className="bg-purple-100 text-purple-700 py-2 rounded-lg hover:bg-purple-200 transition-colors font-medium text-sm">
+                    <button 
+                      onClick={(e) => openCall(e, selectedLead)}
+                      className="bg-purple-100 text-purple-700 py-2 rounded-lg hover:bg-purple-200 transition-colors font-medium text-sm"
+                    >
                       📞 Appeler
                     </button>
                   </div>
