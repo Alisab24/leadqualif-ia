@@ -38,7 +38,7 @@ export default function App() {
       {/* Routes Publiques (Accessibles à tous) */}
       <Route path="/" element={<Home />} />
       <Route path="/estimation" element={<Estimation />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={session ? <Navigate to="/app" /> : <Login />} />
       
       {/* Routes Protégées (App) */}
       <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" />}>

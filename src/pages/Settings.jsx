@@ -431,6 +431,64 @@ export default function Settings() {
         </form>
       </div>
 
+      {/* Section Abonnement */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          💎 Abonnement
+        </h2>
+        
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Plan Actuel</h3>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-blue-600">Starter</span>
+                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+                  Actif
+                </span>
+              </div>
+              <p className="text-gray-600 mt-2">49€ / mois</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-500 mb-1">Prochain renouvellement</p>
+              <p className="font-semibold text-gray-900">15 Février 2024</p>
+            </div>
+          </div>
+          
+          <div className="border-t border-blue-100 pt-4">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <p className="text-sm text-gray-600">Utilisateurs</p>
+                <p className="font-semibold">1 / 1 utilisé</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Prospects</p>
+                <p className="font-semibold">Illimité</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Stockage</p>
+                <p className="font-semibold">5 Go</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-6 flex gap-4">
+          <button className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold">
+            Mettre à jour mon offre
+          </button>
+          <button className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">
+            Voir les factures
+          </button>
+        </div>
+        
+        <div className="mt-4 text-center">
+          <a href="#" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            Comparer les plans →
+          </a>
+        </div>
+      </div>
+
       {/* Informations supplémentaires */}
       <div className="mt-8 bg-blue-50 rounded-xl p-6 border border-blue-100">
         <h3 className="text-lg font-bold text-blue-900 mb-3">💡 Informations importantes</h3>
