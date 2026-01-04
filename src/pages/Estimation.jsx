@@ -1,34 +1,17 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Building, Mail, Phone, User, CheckCircle, AlertCircle } from 'lucide-react'
-import { leads } from '../supabaseClient'
+import { useState } from 'react'
+import { supabase } from '../supabaseClient'
 
 export default function Estimation() {
-  const [searchParams] = useSearchParams()
-  const [agencyId, setAgencyId] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState('')
-  const [error, setError] = useState('')
-  
   const [formData, setFormData] = useState({
-    nom: '',
+    nom_complet: '',
     email: '',
     telephone: '',
-    type_bien: 'Appartement',
-    adresse: '',
-    budget: ''
+    type_bien: '',
+    budget_estime: ''
   })
-
-  // Récupérer l'agency_id depuis l'URL
-  useEffect(() => {
-    const aid = searchParams.get('aid')
-    if (aid) {
-      setAgencyId(aid)
-      console.log('Agency ID détecté:', aid)
-    } else {
-      setError('ID d\'agence manquant. Veuillez utiliser le lien complet fourni par votre agence.')
-    }
-  }, [searchParams])
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('') // 'success' ou 'error'
 
   const handleChange = (e) => {
     setFormData({
@@ -40,230 +23,187 @@ export default function Estimation() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
-    setSuccess('')
-
-    if (!agencyId) {
-      setError('ID d\'agence manquant. Impossible de soumettre le formulaire.')
-      setLoading(false)
-      return
-    }
+    setMessage('')
 
     try {
-      console.log('Soumission du lead...', { ...formData, agency_id: agencyId })
-      
-      const result = await leads.create({
-        ...formData,
-        agency_id: agencyId
-      })
+      // Insertion dans la table leads
+      const { data, error } = await supabase
+        .from('leads')
+        .insert([
+          {
+            nom: formData.nom_complet,
+            email: formData.email,
+            telephone: formData.telephone,
+            type_bien: formData.type_bien,
+            budget: formData.budget_estime,
+            statut: 'À traiter',
+            source: 'Formulaire Public',
+            created_at: new Date().toISOString()
+          }
+        ])
 
-      console.log('Résultat soumission:', result)
-
-      if (result.success) {
-        setSuccess('✅ Votre demande a été enregistrée ! Un agent vous contactera rapidement.')
+      if (error) {
+        console.error('Erreur insertion:', error)
+        setMessage('Une erreur est survenue. Veuillez réessayer.')
+        setMessageType('error')
+      } else {
+        setMessage('Merci ! Un agent va vous contacter.')
+        setMessageType('success')
         // Réinitialiser le formulaire
         setFormData({
-          nom: '',
+          nom_complet: '',
           email: '',
           telephone: '',
-          type_bien: 'Appartement',
-          adresse: '',
-          budget: ''
+          type_bien: '',
+          budget_estime: ''
         })
-        
-        // Redirection vers page merci après 2 secondes
-        setTimeout(() => {
-          window.location.href = '/merci'
-        }, 2000)
-      } else {
-        console.error('Erreur soumission:', result.error)
-        setError(result.error || 'Erreur lors de l\'enregistrement de votre demande.')
       }
     } catch (error) {
-      console.error('Erreur catch soumission:', error)
-      setError(`Erreur réseau: ${error.message}`)
+      console.error('Erreur:', error)
+      setMessage('Une erreur est survenue. Veuillez réessayer.')
+      setMessageType('error')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Building size={32} className="text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Découvrez la valeur de votre bien
-            </h1>
-            <p className="text-slate-600">
-              Analyse intelligente par IA pour votre projet immobilier
-            </p>
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <div className="max-w-md mx-auto">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-lg">LQ</span>
           </div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Estimez votre bien en 2 minutes
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Obtenez une estimation gratuite et sans engagement
+          </p>
+        </div>
 
-          {/* Formulaire */}
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                <AlertCircle size={20} />
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                <CheckCircle size={20} />
-                {success}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Nom */}
-                <div>
-                  <label htmlFor="nom" className="block text-sm font-medium text-slate-700 mb-2">
-                    Nom complet *
-                  </label>
-                  <div className="relative">
-                    <User size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                    <input
-                      id="nom"
-                      name="nom"
-                      type="text"
-                      value={formData.nom}
-                      onChange={handleChange}
-                      placeholder="Ex: Marie Dupont"
-                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                    Email *
-                  </label>
-                  <div className="relative">
-                    <Mail size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="marie@email.com"
-                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Téléphone */}
-                <div>
-                  <label htmlFor="telephone" className="block text-sm font-medium text-slate-700 mb-2">
-                    Téléphone *
-                  </label>
-                  <div className="relative">
-                    <Phone size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                    <input
-                      id="telephone"
-                      name="telephone"
-                      type="tel"
-                      value={formData.telephone}
-                      onChange={handleChange}
-                      placeholder="06 12 34 56 78"
-                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Type de bien */}
-                <div>
-                  <label htmlFor="type_bien" className="block text-sm font-medium text-slate-700 mb-2">
-                    Type de bien *
-                  </label>
-                  <select
-                    id="type_bien"
-                    name="type_bien"
-                    value={formData.type_bien}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
-                    <option value="Appartement">Appartement</option>
-                    <option value="Maison">Maison</option>
-                    <option value="Villa">Villa</option>
-                    <option value="Terrain">Terrain</option>
-                    <option value="Local Commercial">Local Commercial</option>
-                  </select>
-                </div>
-
-                {/* Adresse */}
-                <div className="md:col-span-2">
-                  <label htmlFor="adresse" className="block text-sm font-medium text-slate-700 mb-2">
-                    Adresse du bien *
-                  </label>
-                  <input
-                    id="adresse"
-                    name="adresse"
-                    type="text"
-                    value={formData.adresse}
-                    onChange={handleChange}
-                    placeholder="Ex: 75011 Paris, France"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    required
-                  />
-                </div>
-
-                {/* Budget */}
-                <div className="md:col-span-2">
-                  <label htmlFor="budget" className="block text-sm font-medium text-slate-700 mb-2">
-                    Prix estimé / Budget (€)
-                  </label>
-                  <input
-                    id="budget"
-                    name="budget"
-                    type="number"
-                    value={formData.budget}
-                    onChange={handleChange}
-                    placeholder="Ex: 350000"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !agencyId}
-                className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Analyse IA en cours...
-                  </>
-                ) : (
-                  'Obtenir mon analyse IA'
-                )}
-              </button>
-            </form>
-
-            {/* Info section */}
-            <div className="mt-8 p-6 bg-slate-50 rounded-lg">
-              <h3 className="text-lg font-semibold text-slate-900 mb-3">
-                ✨ Ce que vous allez recevoir
-              </h3>
-              <div className="space-y-2 text-slate-600">
-                <p>• Analyse instantanée de votre projet immobilier</p>
-                <p>• Score de qualification personnalisé</p>
-                <p>• Contact prioritaire avec nos agents experts</p>
-                <p>• Estimation de valeur basée sur votre secteur</p>
-              </div>
+        {/* Formulaire */}
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Nom complet */}
+            <div>
+              <label htmlFor="nom_complet" className="block text-sm font-medium text-gray-700 mb-2">
+                Nom complet *
+              </label>
+              <input
+                type="text"
+                id="nom_complet"
+                name="nom_complet"
+                value={formData.nom_complet}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Jean Dupont"
+              />
             </div>
+
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email *
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="jean@example.com"
+              />
+            </div>
+
+            {/* Téléphone */}
+            <div>
+              <label htmlFor="telephone" className="block text-sm font-medium text-gray-700 mb-2">
+                Téléphone *
+              </label>
+              <input
+                type="tel"
+                id="telephone"
+                name="telephone"
+                value={formData.telephone}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="+225 07 00 00 00 00"
+              />
+            </div>
+
+            {/* Type de bien */}
+            <div>
+              <label htmlFor="type_bien" className="block text-sm font-medium text-gray-700 mb-2">
+                Type de bien *
+              </label>
+              <select
+                id="type_bien"
+                name="type_bien"
+                value={formData.type_bien}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Sélectionnez...</option>
+                <option value="Maison">Maison</option>
+                <option value="Appartement">Appartement</option>
+                <option value="Terrain">Terrain</option>
+                <option value="Villa">Villa</option>
+                <option value="Bureau">Bureau</option>
+                <option value="Commerce">Commerce</option>
+              </select>
+            </div>
+
+            {/* Budget estimé */}
+            <div>
+              <label htmlFor="budget_estime" className="block text-sm font-medium text-gray-700 mb-2">
+                Budget / Prix estimé (FCFA)
+              </label>
+              <input
+                type="number"
+                id="budget_estime"
+                name="budget_estime"
+                value={formData.budget_estime}
+                onChange={handleChange}
+                min="0"
+                step="100000"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="10 000 000"
+              />
+            </div>
+
+            {/* Message */}
+            {message && (
+              <div className={`p-4 rounded-lg text-sm ${
+                messageType === 'success' 
+                  ? 'bg-green-50 text-green-800 border border-green-200' 
+                  : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                {message}
+              </div>
+            )}
+
+            {/* Bouton */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Envoi en cours...' : 'Envoyer ma demande'}
+            </button>
+          </form>
+
+          {/* Lien retour */}
+          <div className="mt-6 text-center">
+            <a href="/" className="text-blue-600 hover:text-blue-800 text-sm">
+              ← Retour à l'accueil
+            </a>
           </div>
         </div>
       </div>
