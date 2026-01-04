@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [showNewLeadModal, setShowNewLeadModal] = useState(false)
   const [newLeadForm, setNewLeadForm] = useState({ nom: '', email: '', telephone: '', type_bien: 'Appartement', budget: '' })
   const [copyMessage, setCopyMessage] = useState('')
+  const [userProfile, setUserProfile] = useState(null)
   const kanbanRef = useRef(null)
 
   // Configuration du Pipeline
@@ -218,7 +219,17 @@ export default function Dashboard() {
     
     // Nettoyage basique du numéro (garde que les chiffres)
     const phone = lead.telephone.replace(/[^0-9]/g, '');
-    const message = `Bonjour ${lead.nom}, je suis votre conseiller LeadQualif. J'ai bien reçu votre demande d'estimation. Avez-vous un moment pour échanger ?`;
+    
+    // Template personnalisé ou message par défaut
+    let message;
+    if (userProfile?.whatsapp_template) {
+      message = userProfile.whatsapp_template
+        .replace('{nom}', lead.nom)
+        .replace('{agent}', userProfile.signataire || 'Conseiller')
+        .replace('{agence}', userProfile.nom_agence || 'Agence');
+    } else {
+      message = `Bonjour ${lead.nom}, je suis votre conseiller LeadQualif. J'ai bien reçu votre demande d'estimation. Avez-vous un moment pour échanger ?`;
+    }
     
     // Insertion dans activities (manuel pour le suivi)
     logActivity(lead.id, 'action', 'A contacté via WhatsApp');
@@ -234,8 +245,18 @@ export default function Dashboard() {
     // Tracking automatique avant l'action
     trackActivity(lead.id, 'email', 'Action rapide : Email ouvert');
 
-    const subject = `Votre projet immobilier - Estimation ${lead.type_bien || ''}`;
-    const body = `Bonjour ${lead.nom},\n\nJe fais suite à votre estimation sur notre site.\n\nQuand seriez-vous disponible pour en discuter ?\n\nCordialement,`;
+    // Template personnalisé ou message par défaut
+    let subject, body;
+    if (userProfile?.email_template) {
+      subject = `Votre projet immobilier - ${userProfile.nom_agence || 'Agence'}`;
+      body = userProfile.email_template
+        .replace('{nom}', lead.nom)
+        .replace('{agent}', userProfile.signataire || 'Conseiller')
+        .replace('{agence}', userProfile.nom_agence || 'Agence');
+    } else {
+      subject = `Votre projet immobilier - Estimation ${lead.type_bien || ''}`;
+      body = `Bonjour ${lead.nom},\n\nJe fais suite à votre estimation sur notre site.\n\nQuand seriez-vous disponible pour en discuter ?\n\nCordialement,`;
+    }
 
     // Insertion dans activities (manuel pour le suivi)
     logActivity(lead.id, 'action', 'A contacté via Email');
@@ -243,16 +264,23 @@ export default function Dashboard() {
     window.location.href = `mailto:${lead.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
-  // 3. RDV (Ouvre Google Agenda pour créer un événement pré-rempli)
+  // 3. RDV (Ouvre Google Agenda ou Calendly pour créer un événement pré-rempli)
   const openCalendar = (e, lead) => {
     e.stopPropagation();
     
     // Tracking automatique avant l'action
     trackActivity(lead.id, 'rdv', 'Action rapide : RDV planifié');
 
-    const title = `RDV Client : ${lead.nom}`;
-    const details = `Tel: ${lead.telephone}\nEmail: ${lead.email}\nBudget: ${lead.budget}€`;
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}`;
+    let url;
+    if (userProfile?.calendly_link) {
+      // Utiliser Calendly si configuré
+      url = userProfile.calendly_link;
+    } else {
+      // Google Agenda par défaut
+      const title = `RDV Client : ${lead.nom}`;
+      const details = `Tel: ${lead.telephone}\nEmail: ${lead.email}\nBudget: ${lead.budget}€`;
+      url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}`;
+    }
 
     // Insertion dans activities (manuel pour le suivi)
     logActivity(lead.id, 'action', 'A planifié un RDV');
@@ -390,8 +418,11 @@ export default function Dashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
+        const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).single()
         if (profile?.agency_id) {
+          // Sauvegarder le profil pour les templates
+          setUserProfile(profile)
+          
           // Récupérer les leads
           const { data: leadsData } = await supabase
             .from('leads')
@@ -645,7 +676,7 @@ export default function Dashboard() {
                         className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                         title="Ouvrir WhatsApp"
                       >
-                        💬 WhatsApp
+                        💬 WhatsApp {userProfile?.whatsapp_template && <span className="text-yellow-600">✨</span>}
                       </button>
                       
                       <button 
@@ -653,7 +684,7 @@ export default function Dashboard() {
                         className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                         title="Planifier RDV"
                       >
-                        📅 RDV
+                        📅 RDV {userProfile?.calendly_link && <span className="text-yellow-600">✨</span>}
                       </button>
                       
                       <button 
@@ -661,7 +692,7 @@ export default function Dashboard() {
                         className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                         title="Envoyer Email"
                       >
-                        ✉ Email
+                        ✉ Email {userProfile?.email_template && <span className="text-yellow-600">✨</span>}
                       </button>
                     </div>
 
@@ -752,9 +783,9 @@ export default function Dashboard() {
                       <div className="flex flex-col gap-1">
                         {/* Actions rapides */}
                         <div className="flex gap-1">
-                          <button onClick={(e) => openWhatsApp(e, lead)} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬</button>
-                          <button onClick={(e) => openCalendar(e, lead)} className="p-1.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅</button>
-                          <button onClick={(e) => openEmail(e, lead)} className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉</button>
+                          <button onClick={(e) => openWhatsApp(e, lead)} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬 {userProfile?.whatsapp_template && <span className="text-yellow-600">✨</span>}</button>
+                          <button onClick={(e) => openCalendar(e, lead)} className="p-1.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅 {userProfile?.calendly_link && <span className="text-yellow-600">✨</span>}</button>
+                          <button onClick={(e) => openEmail(e, lead)} className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉ {userProfile?.email_template && <span className="text-yellow-600">✨</span>}</button>
                           <button onClick={(e) => openCall(e, lead)} className="p-1.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200" title="Appeler">📞</button>
                           <button onClick={() => openModal(lead)} className="p-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200" title="Voir Dossier">👁️</button>
                         </div>

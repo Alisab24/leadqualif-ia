@@ -34,6 +34,13 @@ export default function Settings() {
     agency_id: ''
   })
 
+  // --- TEMPLATES DE COMMUNICATION ---
+  const [templates, setTemplates] = useState({
+    whatsapp_template: '',
+    email_template: '',
+    calendly_link: ''
+  })
+
   // --- CHARGEMENT ---
   useEffect(() => {
     loadProfile()
@@ -83,6 +90,13 @@ export default function Settings() {
         agency_id: profileData.agency_id || ''
       })
 
+      // Charger les templates de communication
+      setTemplates({
+        whatsapp_template: profileData.whatsapp_template || '',
+        email_template: profileData.email_template || '',
+        calendly_link: profileData.calendly_link || ''
+      })
+
     } catch (error) {
       console.error('Erreur loadProfile:', error)
       setError('Erreur de chargement')
@@ -119,7 +133,11 @@ export default function Settings() {
         couleur_primaire: formData.couleur_primaire || '#1e40af',
         couleur_secondaire: formData.couleur_secondaire || '#64748b',
         devise: formData.devise || 'FCFA',
-        pays: formData.pays || 'Bénin'
+        pays: formData.pays || 'Bénin',
+        // Templates de communication
+        whatsapp_template: templates.whatsapp_template || '',
+        email_template: templates.email_template || '',
+        calendly_link: templates.calendly_link || ''
       }
 
       console.log('Données envoyées:', dataToSave)
@@ -469,6 +487,61 @@ export default function Settings() {
                   <option value="Algérie">Algérie</option>
                   <option value="Autre">Autre</option>
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Templates de Communication */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Templates de Communication</h2>
+            <div className="space-y-6">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Template WhatsApp
+                </label>
+                <textarea
+                  value={templates.whatsapp_template}
+                  onChange={(e) => setTemplates({...templates, whatsapp_template: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  placeholder="Bonjour {nom}, je suis {agent} de l'agence {agence}. Je vous contacte concernant votre projet immobilier..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Variables disponibles: {'{nom}'}, {'{agent}'}, {'{agence}'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Template Email
+                </label>
+                <textarea
+                  value={templates.email_template}
+                  onChange={(e) => setTemplates({...templates, email_template: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={4}
+                  placeholder="Bonjour {nom},&#10;&#10;Je suis {agent} de l'agence {agence} et je vous remercie pour votre intérêt..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Variables disponibles: {'{nom}'}, {'{agent}'}, {'{agence}'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lien Calendly
+                </label>
+                <input
+                  type="url"
+                  value={templates.calendly_link}
+                  onChange={(e) => setTemplates({...templates, calendly_link: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://calendly.com/votre-agence"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Lien pour la prise de RDV automatique (laissez vide pour Google Calendar par défaut)
+                </p>
               </div>
             </div>
           </div>
