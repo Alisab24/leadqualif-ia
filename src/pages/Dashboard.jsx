@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 
 export default function Dashboard() {
@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [copyMessage, setCopyMessage] = useState('')
+  const kanbanRef = useRef(null)
 
   // Configuration du Pipeline
   const STATUS_ORDER = ['À traiter', 'Message laissé', 'RDV Pris', 'Offre en cours', 'Vendu', 'Perdu']
@@ -23,6 +24,29 @@ export default function Dashboard() {
     'Offre en cours': 'bg-purple-600 text-white',
     'Vendu': 'bg-green-600 text-white',
     'Perdu': 'bg-gray-500 text-white'
+  }
+
+  // Fonctions de navigation Kanban
+  const scrollKanban = (direction) => {
+    if (kanbanRef.current) {
+      const scrollAmount = 300 // pixels par scroll
+      kanbanRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  // Vérifier si le scroll est possible
+  const canScrollLeft = () => {
+    if (!kanbanRef.current) return false
+    return kanbanRef.current.scrollLeft > 0
+  }
+
+  const canScrollRight = () => {
+    if (!kanbanRef.current) return false
+    return kanbanRef.current.scrollLeft < kanbanRef.current.scrollWidth - kanbanRef.current.clientWidth
+  }
   }
 
   // Fonction pour copier le lien intelligent
@@ -363,12 +387,34 @@ export default function Dashboard() {
 
       {/* VUE PIPELINE (KANBAN) */}
       {viewMode === 'kanban' && (
-        <div className="flex gap-4 overflow-x-auto pb-8 items-start min-h-[500px] p-6">
-          {STATUS_ORDER.map(statut => (
-            <div key={statut} className="min-w-[280px] w-72 bg-slate-100 rounded-xl p-3 flex flex-col shrink-0">
-              <div className={`font-bold uppercase text-xs mb-3 px-3 py-1.5 rounded-lg w-fit ${STATUS_COLORS[statut] || 'bg-gray-200'}`}>
-                {statut} • {leads.filter(l => (l.statut || 'À traiter') === statut).length}
-              </div>
+        <div className="relative">
+          {/* Flèches de navigation */}
+          {canScrollLeft() && (
+            <button
+              onClick={() => scrollKanban('left')}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white/90 transition-all"
+            >
+              <span className="text-2xl">◀</span>
+            </button>
+          )}
+          {canScrollRight() && (
+            <button
+              onClick={() => scrollKanban('right')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white/90 transition-all"
+            >
+              <span className="text-2xl">▶</span>
+            </button>
+          )}
+          
+          <div 
+            ref={kanbanRef}
+            className="flex gap-4 overflow-x-auto pb-8 items-start min-h-[500px] p-6"
+          >
+            {STATUS_ORDER.map(statut => (
+              <div key={statut} className="min-w-[280px] w-72 bg-slate-100 rounded-xl p-3 flex flex-col shrink-0">
+                <div className={`font-bold uppercase text-xs mb-3 px-3 py-1.5 rounded-lg w-fit ${STATUS_COLORS[statut] || 'bg-gray-200'}`}>
+                  {statut} • {leads.filter(l => (l.statut || 'À traiter') === statut).length}
+                </div>
               
               <div className="flex-1 space-y-3">
                 {leads.filter(l => (l.statut || 'À traiter') === statut).map(lead => (
@@ -475,6 +521,7 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+        </div>
       )}
 
       {/* VUE LISTE (TABLEAU) */}
@@ -528,7 +575,7 @@ export default function Dashboard() {
                       <select 
                         value={lead.statut || 'À traiter'}
                         onChange={(e) => updateStatus(lead.id, e.target.value)}
-                        className="bg-white border border-gray-300 text-gray-700 text-xs rounded p-1"
+                        className={`bg-white border text-gray-700 text-xs rounded p-1 font-medium ${STATUS_COLORS[lead.statut || 'À traiter']}`}
                       >
                         {STATUS_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
