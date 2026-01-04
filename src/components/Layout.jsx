@@ -22,6 +22,16 @@ export default function Layout() {
             🚀
           </Link>
           
+          <a 
+            href="/estimation" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800" 
+            title="Lien de capture Leads"
+          >
+            🔗
+          </a>
+          
           <Link to="/app/commercial" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/commercial') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Documents">
             📂
           </Link>
@@ -29,6 +39,17 @@ export default function Layout() {
             ⚙️
           </Link>
         </nav>
+        
+        {/* Bouton Voir le site */}
+        <a 
+          href="/" 
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-3 text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors" 
+          title="Voir le site"
+        >
+          🌐
+        </a>
         
         {/* Logout */}
         <button 

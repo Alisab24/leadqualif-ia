@@ -9,6 +9,8 @@ export default function Dashboard() {
   // Modale simplifiée pour éviter les erreurs de build
   const [selectedLead, setSelectedLead] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [copyMessage, setCopyMessage] = useState('')
 
   // Configuration du Pipeline
   const STATUS_ORDER = ['À traiter', 'Message laissé', 'RDV Pris', 'Offre en cours', 'Vendu', 'Perdu']
@@ -21,6 +23,20 @@ export default function Dashboard() {
     'Offre en cours': 'bg-purple-100 text-purple-800 border-purple-200',
     'Vendu': 'bg-green-100 text-green-800 border-green-200',
     'Perdu': 'bg-gray-100 text-gray-800 border-gray-200'
+  }
+
+  // Fonction pour copier le lien
+  const copyEstimationLink = async () => {
+    const url = window.location.origin + '/estimation'
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopyMessage('Lien copié !')
+      setTimeout(() => setCopyMessage(''), 2000)
+    } catch (err) {
+      console.error('Erreur copie:', err)
+      setCopyMessage('Erreur')
+      setTimeout(() => setCopyMessage(''), 2000)
+    }
   }
 
   useEffect(() => {
@@ -99,6 +115,33 @@ export default function Dashboard() {
               >
                 Vue Pipeline
               </button>
+            </div>
+            
+            {/* Nouveau bloc d'actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+              >
+                + Nouveau Lead
+              </button>
+              
+              <div className="relative">
+                <button
+                  onClick={copyEstimationLink}
+                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  title="Copier le lien d'estimation"
+                >
+                  📋
+                </button>
+                
+                {/* Message de copie */}
+                {copyMessage && (
+                  <div className="absolute -top-8 right-0 bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
+                    {copyMessage}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -229,6 +272,48 @@ export default function Dashboard() {
                         📞 Appeler
                     </a>
                 )}
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE CRÉATION LEAD */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl transform transition-all overflow-hidden">
+             <div className="bg-slate-50 p-6 border-b flex justify-between items-center">
+                <h2 className="text-xl font-bold text-slate-800">Nouveau Lead</h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+             </div>
+             <div className="p-6">
+                <form className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Jean Dupont" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="jean@example.com" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                        <input type="tel" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="06 12 34 56 78" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Type de bien</label>
+                        <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option>Maison</option>
+                            <option>Appartement</option>
+                            <option>Terrain</option>
+                        </select>
+                    </div>
+                </form>
+             </div>
+             <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
+                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Annuler</button>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                    Créer le Lead
+                </button>
              </div>
           </div>
         </div>
