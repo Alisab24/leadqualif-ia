@@ -197,7 +197,7 @@ export default function Dashboard() {
         return
       }
 
-      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
+      const { data: profile } = await supabase.from('profiles').select('agency_id, plan').eq('user_id', user.id).single()
       if (!profile?.agency_id) {
         setCopyMessage('Erreur: agence non trouvée')
         return
@@ -422,10 +422,11 @@ export default function Dashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).single()
+        const { data: profile } = await supabase.from('profiles').select('*, plan').eq('user_id', user.id).single()
         if (profile?.agency_id) {
           // Sauvegarder le profil pour les templates
           setUserProfile(profile)
+          console.log('Plan actuel de l\'utilisateur (Dashboard) :', profile.plan)
           
           // Récupérer les leads
           const { data: leadsData } = await supabase

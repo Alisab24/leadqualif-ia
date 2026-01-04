@@ -60,7 +60,7 @@ export default function Settings() {
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, plan')
         .eq('user_id', session.user.id)
         .single()
 
@@ -71,6 +71,7 @@ export default function Settings() {
       }
 
       setProfile(profileData)
+      console.log('Plan actuel de l\'utilisateur (Settings) :', profileData.plan)
       setFormData({
         nom_agence: profileData.nom_agence || '',
         signataire: profileData.signataire || '',

@@ -24,7 +24,9 @@ export function usePlanGuard() {
         .eq('user_id', user.id)
         .single()
 
-      setUserPlan(profile?.plan || 'starter')
+      const plan = profile?.plan || 'starter'
+      setUserPlan(plan)
+      console.log('Plan actuel de l\'utilisateur (PlanGuard) :', plan)
     } catch (error) {
       console.error('Erreur chargement plan utilisateur:', error)
       setUserPlan('starter')
