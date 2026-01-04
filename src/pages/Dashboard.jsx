@@ -10,6 +10,8 @@ export default function Dashboard() {
   const [selectedLead, setSelectedLead] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showNewLeadModal, setShowNewLeadModal] = useState(false)
+  const [newLeadForm, setNewLeadForm] = useState({ nom: '', email: '', telephone: '', type_bien: 'Appartement', budget: '' })
   const [copyMessage, setCopyMessage] = useState('')
   const kanbanRef = useRef(null)
 
@@ -62,6 +64,53 @@ export default function Dashboard() {
     if (scrollInterval) {
       clearInterval(scrollInterval)
       setScrollInterval(null)
+    }
+  }
+
+  // Fonction pour créer un nouveau lead
+  const handleCreateLead = async () => {
+    try {
+      // Récupérer l'utilisateur courant et son agency_id
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('Erreur: utilisateur non connecté')
+        return
+      }
+
+      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
+      if (!profile?.agency_id) {
+        alert('Erreur: agence non trouvée')
+        return
+      }
+
+      // Insérer le lead dans la table
+      const { data, error } = await supabase
+        .from('leads')
+        .insert([{
+          nom: newLeadForm.nom,
+          email: newLeadForm.email,
+          telephone: newLeadForm.telephone,
+          type_bien: newLeadForm.type_bien,
+          budget: parseInt(newLeadForm.budget) || 0,
+          statut: 'À traiter',
+          agency_id: profile.agency_id,
+          created_at: new Date().toISOString(),
+          source: 'Création manuelle Dashboard'
+        }])
+
+      if (error) {
+        console.error('Erreur création lead:', error)
+        alert('Erreur lors de la création du lead')
+      } else {
+        // Succès : rafraîchir les leads, fermer la modale, réinitialiser
+        await fetchLeads()
+        setShowNewLeadModal(false)
+        setNewLeadForm({ nom: '', email: '', telephone: '', type_bien: 'Appartement', budget: '' })
+        console.log('✅ Lead créé avec succès')
+      }
+    } catch (err) {
+      console.error('Erreur handleCreateLead:', err)
+      alert('Erreur lors de la création du lead')
     }
   }
 
@@ -414,7 +463,7 @@ export default function Dashboard() {
             {/* Nouveau bloc d'actions */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => setShowNewLeadModal(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
               >
                 + Nouveau Lead
@@ -941,6 +990,95 @@ export default function Dashboard() {
                     Créer le Lead
                 </button>
              </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE NOUVEAU LEAD */}
+      {showNewLeadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b">
+              <h2 className="text-xl font-bold text-gray-900">Nouveau Lead</h2>
+              <p className="text-sm text-gray-600 mt-1">Ajoutez un nouveau prospect au pipeline</p>
+            </div>
+            
+            <div className="p-6">
+              <form className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                  <input
+                    type="text"
+                    value={newLeadForm.nom}
+                    onChange={(e) => setNewLeadForm({...newLeadForm, nom: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Jean Dupont"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={newLeadForm.email}
+                    onChange={(e) => setNewLeadForm({...newLeadForm, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="jean@exemple.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                  <input
+                    type="tel"
+                    value={newLeadForm.telephone}
+                    onChange={(e) => setNewLeadForm({...newLeadForm, telephone: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="06 12 34 56 78"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type de bien</label>
+                  <select
+                    value={newLeadForm.type_bien}
+                    onChange={(e) => setNewLeadForm({...newLeadForm, type_bien: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Appartement">Appartement</option>
+                    <option value="Maison">Maison</option>
+                    <option value="Terrain">Terrain</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Budget (€)</label>
+                  <input
+                    type="number"
+                    value={newLeadForm.budget}
+                    onChange={(e) => setNewLeadForm({...newLeadForm, budget: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="250000"
+                  />
+                </div>
+              </form>
+            </div>
+            
+            <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
+              <button 
+                onClick={() => setShowNewLeadModal(false)} 
+                className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleCreateLead}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Créer le Lead
+              </button>
+            </div>
           </div>
         </div>
       )}
