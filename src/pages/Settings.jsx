@@ -26,6 +26,14 @@ export default function Settings() {
     pays: 'Bénin'
   })
 
+  // --- PARAMÈTRES AGENCE ---
+  const [agencySettings, setAgencySettings] = useState({
+    agency_name: '',
+    responsible_name: '',
+    logo_url: '',
+    agency_id: ''
+  })
+
   // --- CHARGEMENT ---
   useEffect(() => {
     loadProfile()
@@ -65,6 +73,14 @@ export default function Settings() {
         couleur_secondaire: profileData.couleur_secondaire || '#64748b',
         devise: profileData.devise || 'FCFA',
         pays: profileData.pays || 'Bénin'
+      })
+
+      // Charger les paramètres agence
+      setAgencySettings({
+        agency_name: profileData.nom_agence || '',
+        responsible_name: profileData.signataire || '',
+        logo_url: profileData.logo_url || '',
+        agency_id: profileData.agency_id || ''
       })
 
     } catch (error) {
@@ -191,14 +207,84 @@ export default function Settings() {
       <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
         <form onSubmit={handleSave} className="space-y-6">
           
-          {/* Informations principales */}
+          {/* Paramètres Agence */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Informations de l'agence</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Paramètres de l'agence</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nom de l'agence *
+                </label>
+                <input
+                  type="text"
+                  value={agencySettings.agency_name}
+                  onChange={(e) => setAgencySettings({...agencySettings, agency_name: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: Immobilier Pro"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Responsable *
+                </label>
+                <input
+                  type="text"
+                  value={agencySettings.responsible_name}
+                  onChange={(e) => setAgencySettings({...agencySettings, responsible_name: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: Jean Dupont"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Logo URL
+                </label>
+                <input
+                  type="url"
+                  value={agencySettings.logo_url}
+                  onChange={(e) => setAgencySettings({...agencySettings, logo_url: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://exemple.com/logo.png"
+                />
+                <p className="text-xs text-gray-500 mt-1">URL du logo de votre agence</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ID d'agence
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={agencySettings.agency_id}
+                    readOnly
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                    placeholder="ID généré automatiquement"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(agencySettings.agency_id)}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  >
+                    📋 Copier
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">ID unique pour votre lien d'estimation</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Informations principales */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Informations légales</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nom de l'agence (légal) *
                 </label>
                 <input
                   type="text"

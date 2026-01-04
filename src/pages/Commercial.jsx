@@ -13,6 +13,7 @@ export default function Commercial() {
   const [selectedDocType, setSelectedDocType] = useState(null) // 'Mandat', 'Facture', etc.
   const [targetType, setTargetType] = useState('lead') // 'lead' ou 'libre'
   const [selectedLeadId, setSelectedLeadId] = useState('')
+  const [documentCounter, setDocumentCounter] = useState(1) // Compteur pour numérotation
   
   // Champs libres
   const [freeName, setFreeName] = useState('')
@@ -138,12 +139,20 @@ export default function Commercial() {
       doc.setFontSize(10);
       doc.text(clientAddress || '', 125, 68);
 
+      // --- NUMÉRO DU DOCUMENT ---
+      const currentYear = new Date().getFullYear();
+      const documentNumber = `FAC-${currentYear}-${String(documentCounter).padStart(3, '0')}`;
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`N° ${documentNumber}`, 10, 85);
+
       // --- TITRE DU DOCUMENT ---
       doc.setFontSize(18);
       doc.setTextColor(primaryColor);
       doc.setFont('helvetica', 'bold');
-      doc.text(selectedDocType.toUpperCase(), 10, 90);
-      doc.line(10, 92, 100, 92); // Petit trait souligné
+      doc.text(selectedDocType.toUpperCase(), 10, 100);
+      doc.line(10, 102, 100, 102); // Petit trait souligné
 
       let finalY = 110; // Position verticale curseur
 
@@ -215,31 +224,32 @@ export default function Commercial() {
       const footerText = `${agencyProfile.nom_agence} - ${agencyProfile.identifiant_fiscal ? 'IFU: ' + agencyProfile.identifiant_fiscal : ''} - ${agencyProfile.site_web || ''}`;
       doc.text(footerText, 105, pageHeight - 10, { align: 'center' });
 
-      // Sauvegarde
-      doc.save(`${selectedDocType}_${clientName.replace(/\s/g, '_')}.pdf`);
+      // --- FOOTER ---
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text('Document généré par LeadQualif IA - Le cockpit de l\'immobilier moderne', 105, 285, { align: 'center' });
 
-      // --- TRACABILITÉ : Insérer dans activities si c'est un lead ---
+      // --- HISTORIQUE : Ajouter dans la timeline du lead ---
       if (targetType === 'lead' && selectedLeadId) {
         try {
-          const { error: activityError } = await supabase
-            .from('activities')
-            .insert({
-              lead_id: selectedLeadId,
-              type: 'document',
-              description: `Document généré : ${selectedDocType} de ${docValue} ${currency}`
-            });
-          
-          if (activityError) {
-            console.warn("Erreur enregistrement activité:", activityError);
-          } else {
-            alert('Document téléchargé et enregistré dans le dossier client !');
-          }
+          await supabase.from('activities').insert([{
+            lead_id: selectedLeadId,
+            type: 'document',
+            description: `📄 ${selectedDocType} généré le ${new Date().toLocaleDateString('fr-FR')}`,
+            created_at: new Date().toISOString()
+          }]);
+          console.log('✅ Activité document enregistrée dans la timeline');
         } catch (err) {
-          console.warn("Erreur insertion activité:", err);
+          console.error('Erreur enregistrement activité:', err);
         }
-      } else {
-        alert('Document téléchargé avec succès !');
       }
+
+      // Incrémenter le compteur de documents
+      setDocumentCounter(prev => prev + 1);
+
+      // --- TÉLÉCHARGEMENT ---
+      doc.save(`${selectedDocType}_${clientName.replace(/\s+/g, '_')}.pdf`);
+      alert('Document téléchargé avec succès !');
 
     } catch (err) {
       alert("Erreur lors de la génération : " + err.message);

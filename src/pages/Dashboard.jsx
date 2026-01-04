@@ -111,6 +111,44 @@ export default function Dashboard() {
     }
   }
 
+  // Widget ROI - Calculs statistiques
+  const [stats, setStats] = useState({
+    leadsThisMonth: 0,
+    conversionRate: 0,
+    totalPotential: 0
+  })
+
+  // Calcul des statistiques
+  useEffect(() => {
+    if (leads.length > 0) {
+      const thisMonth = new Date()
+      thisMonth.setDate(1) // 1er du mois
+      thisMonth.setHours(0, 0, 0, 0)
+
+      const leadsThisMonth = leads.filter(lead => 
+        new Date(lead.created_at) >= thisMonth
+      ).length
+
+      const convertedLeads = leads.filter(lead => 
+        lead.statut === 'RDV Pris' || lead.statut === 'Vendu'
+      ).length
+
+      const conversionRate = leads.length > 0 
+        ? Math.round((convertedLeads / leads.length) * 100) 
+        : 0
+
+      const totalPotential = leads.reduce((sum, lead) => 
+        sum + calculatePotential(lead.budget), 0
+      )
+
+      setStats({
+        leadsThisMonth,
+        conversionRate,
+        totalPotential
+      })
+    }
+  }, [leads])
+
   // Fonctions de navigation Kanban (backup)
   const scrollKanban = (direction) => {
     if (kanbanRef.current) {
@@ -472,16 +510,39 @@ export default function Dashboard() {
                   className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
                   title="Copier le lien d'estimation"
                 >
-                  📋
+                  📋 Lien
                 </button>
                 
                 {/* Message de copie */}
                 {copyMessage && (
-                  <div className="absolute -top-8 right-0 bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
+                  <div className="absolute top-full mt-1 right-0 bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
                     {copyMessage}
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Widget ROI - Statistiques */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-700">{stats.leadsThisMonth}</div>
+            <div className="text-sm text-gray-600">Leads ce mois</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-700">{stats.conversionRate}%</div>
+            <div className="text-sm text-gray-600">Taux de conversion</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-700">{stats.totalPotential.toLocaleString()} €</div>
+            <div className="text-sm text-gray-600">Potentiel total</div>
+          </div>
+          <div className="text-center bg-blue-100 rounded-lg p-3">
+            <div className="text-sm font-medium text-blue-800">
+              ✨ Ce mois-ci, LeadQualif IA a identifié <span className="font-bold">{stats.totalPotential.toLocaleString()} €</span> de commissions potentielles pour votre agence.
             </div>
           </div>
         </div>
