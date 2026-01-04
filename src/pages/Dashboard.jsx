@@ -70,47 +70,44 @@ export default function Dashboard() {
   // Fonction pour créer un nouveau lead
   const handleCreateLead = async () => {
     try {
-      // Récupérer l'utilisateur courant et son agency_id
+      // 1. Vérification User
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        alert('Erreur: utilisateur non connecté')
-        return
+      if (!user) throw new Error("Utilisateur non connecté.")
+
+      // 2. Récupération Agency ID (Vital)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('user_id', user.id)
+        .single()
+      
+      if (profileError || !profile?.agency_id) {
+        console.error("Erreur Profil:", profileError)
+        throw new Error("Impossible de trouver votre Agence ID. Vérifiez votre profil.")
       }
 
-      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
-      if (!profile?.agency_id) {
-        alert('Erreur: agence non trouvée')
-        return
-      }
+      // 3. Insertion du Lead
+      const { data, error } = await supabase.from('leads').insert([{
+        nom: newLeadForm.nom,
+        email: newLeadForm.email,
+        telephone: newLeadForm.telephone,
+        type_bien: newLeadForm.type_bien,
+        budget: newLeadForm.budget ? parseInt(newLeadForm.budget) : 0, // Conversion nombre
+        statut: 'À traiter',
+        agency_id: profile.agency_id, // L'ID récupéré
+        created_at: new Date()
+      }]).select()
 
-      // Insérer le lead dans la table
-      const { data, error } = await supabase
-        .from('leads')
-        .insert([{
-          nom: newLeadForm.nom,
-          email: newLeadForm.email,
-          telephone: newLeadForm.telephone,
-          type_bien: newLeadForm.type_bien,
-          budget: parseInt(newLeadForm.budget) || 0,
-          statut: 'À traiter',
-          agency_id: profile.agency_id,
-          created_at: new Date().toISOString(),
-          source: 'Création manuelle Dashboard'
-        }])
+      if (error) throw error
 
-      if (error) {
-        console.error('Erreur création lead:', error)
-        alert('Erreur lors de la création du lead')
-      } else {
-        // Succès : rafraîchir les leads, fermer la modale, réinitialiser
-        await fetchLeads()
-        setShowNewLeadModal(false)
-        setNewLeadForm({ nom: '', email: '', telephone: '', type_bien: 'Appartement', budget: '' })
-        console.log('✅ Lead créé avec succès')
-      }
-    } catch (err) {
-      console.error('Erreur handleCreateLead:', err)
-      alert('Erreur lors de la création du lead')
+      // 4. Succès
+      alert("Lead créé avec succès ! 🚀")
+      setShowNewLeadModal(false)
+      setNewLeadForm({ nom: '', email: '', telephone: '', type_bien: 'Appartement', budget: '' })
+      fetchLeads() // Rafraîchissement immédiat
+    } catch (error) {
+      console.error("ERREUR DÉTAILLÉE :", error)
+      alert(`Erreur : ${error.message || error.details || "Problème inconnu"}`)
     }
   }
 
