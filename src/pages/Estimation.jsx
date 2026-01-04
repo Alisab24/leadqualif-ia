@@ -53,6 +53,7 @@ export default function Estimation() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("ID Agence:", agency_id); // Pour vérifier qu'on a bien l'ID
     setLoading(true);
     try {
       // --- ALGORITHME DE SCORING LEADQUALIF IA ---
@@ -89,7 +90,9 @@ export default function Estimation() {
       if (error) throw error;
       setSubmitted(true);
     } catch (err) {
-      setError("Erreur technique. Réessayez.");
+      console.error("🔴 ERREUR CRITIQUE:", err); // Le log important
+      console.log("Données envoyées:", formData); // Pour vérifier les champs
+      setError(`Erreur technique: ${err.message || err.details || 'Inconnue'}`);
     } finally {
       setLoading(false);
     }
