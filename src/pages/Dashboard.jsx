@@ -44,11 +44,14 @@ export default function Dashboard() {
     e.stopPropagation(); // Empêche d'ouvrir la modale
     if (!lead.telephone) return alert("Pas de numéro de téléphone renseigné.");
     
+    // Tracking automatique avant l'action
+    trackActivity(lead.id, 'whatsapp', 'Action rapide : WhatsApp ouvert');
+    
     // Nettoyage basique du numéro (garde que les chiffres)
     const phone = lead.telephone.replace(/[^0-9]/g, '');
     const message = `Bonjour ${lead.nom}, je suis votre conseiller LeadQualif. J'ai bien reçu votre demande d'estimation. Avez-vous un moment pour échanger ?`;
     
-    // Insertion dans activities
+    // Insertion dans activities (manuel pour le suivi)
     logActivity(lead.id, 'action', 'A contacté via WhatsApp');
     
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -59,10 +62,13 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!lead.email) return alert("Pas d'email renseigné.");
 
+    // Tracking automatique avant l'action
+    trackActivity(lead.id, 'email', 'Action rapide : Email ouvert');
+
     const subject = `Votre projet immobilier - Estimation ${lead.type_bien || ''}`;
     const body = `Bonjour ${lead.nom},\n\nJe fais suite à votre estimation sur notre site.\n\nQuand seriez-vous disponible pour en discuter ?\n\nCordialement,`;
 
-    // Insertion dans activities
+    // Insertion dans activities (manuel pour le suivi)
     logActivity(lead.id, 'action', 'A contacté via Email');
 
     window.location.href = `mailto:${lead.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -71,14 +77,56 @@ export default function Dashboard() {
   // 3. RDV (Ouvre Google Agenda pour créer un événement pré-rempli)
   const openCalendar = (e, lead) => {
     e.stopPropagation();
+    
+    // Tracking automatique avant l'action
+    trackActivity(lead.id, 'rdv', 'Action rapide : RDV planifié');
+
     const title = `RDV Client : ${lead.nom}`;
     const details = `Tel: ${lead.telephone}\nEmail: ${lead.email}\nBudget: ${lead.budget}€`;
     const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}`;
 
-    // Insertion dans activities
+    // Insertion dans activities (manuel pour le suivi)
     logActivity(lead.id, 'action', 'A planifié un RDV');
 
     window.open(url, '_blank');
+  }
+
+  // 4. Appel téléphonique
+  const openCall = (e, lead) => {
+    e.stopPropagation();
+    if (!lead.telephone) return alert("Pas de numéro de téléphone renseigné.");
+    
+    // Tracking automatique avant l'action
+    trackActivity(lead.id, 'call', 'Action rapide : Appel téléphonique');
+    
+    // Insertion dans activities (manuel pour le suivi)
+    logActivity(lead.id, 'action', 'A appelé le client');
+    
+    // Ouvre l'application téléphonique
+    window.location.href = `tel:${lead.telephone}`;
+  }
+
+  // Fonction de tracking automatique (invisible)
+  const trackActivity = async (leadId, actionType, description) => {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .insert([{
+          lead_id: leadId,
+          type: 'action_auto',
+          action_type: actionType, // whatsapp, email, rdv, call
+          description: description,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) {
+        console.error('Erreur tracking activité:', error);
+      } else {
+        console.log('🔍 Tracking enregistré:', description);
+      }
+    } catch (err) {
+      console.error('Erreur trackActivity:', err);
+    }
   }
 
   // Fonction utilitaire pour logger les activités
@@ -111,6 +159,50 @@ export default function Dashboard() {
       return 5000; // Forfait 5k€ pour budgets < 100k€
     } else {
       return Math.round(budget * 0.05); // 5% du budget
+    }
+  }
+
+  // Fonctions pour les Smart Badges
+  const isPriority = (lead) => {
+    return calculateScore(lead) >= 8;
+  }
+
+  const needsRelance = (lead) => {
+    const now = new Date();
+    const lastActivity = lead.lastActivity ? new Date(lead.lastActivity) : new Date(lead.created_at);
+    const hoursSinceActivity = (now - lastActivity) / (1000 * 60 * 60);
+    return hoursSinceActivity > 48; // Plus de 48h sans activité
+  }
+
+  const getLeadStatus = (lead) => {
+    const now = new Date();
+    const lastActivity = lead.lastActivity ? new Date(lead.lastActivity) : new Date(lead.created_at);
+    const hoursSinceActivity = (now - lastActivity) / (1000 * 60 * 60);
+    
+    if (hoursSinceActivity < 24) return 'active';
+    if (hoursSinceActivity > 168) return 'dormant'; // 7 jours = 168 heures
+    return 'normal';
+  }
+
+  // Fonction pour obtenir l'icône et couleur selon le type d'activité
+  const getActivityIcon = (activity) => {
+    switch(activity.action_type || activity.type) {
+      case 'whatsapp':
+        return { icon: '💬', color: 'bg-green-600' };
+      case 'email':
+        return { icon: '📧', color: 'bg-blue-600' };
+      case 'rdv':
+        return { icon: '📅', color: 'bg-orange-600' };
+      case 'call':
+        return { icon: '📞', color: 'bg-purple-600' };
+      case 'action':
+        return { icon: '⚡', color: 'bg-indigo-600' };
+      case 'statut':
+        return { icon: '🔄', color: 'bg-blue-600' };
+      case 'document':
+        return { icon: '📄', color: 'bg-violet-600' };
+      default:
+        return { icon: '📋', color: 'bg-gray-600' };
     }
   }
 
@@ -285,20 +377,34 @@ export default function Dashboard() {
                       </p>
                     </div>
                     
-                    {/* Alertes visuelles */}
-                    {(() => {
-                      const createdAt = new Date(lead.created_at)
-                      const threeDaysAgo = new Date()
-                      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
-                      const isOldAndUntreated = createdAt < threeDaysAgo && (lead.statut || 'À traiter') === 'À traiter'
+                    {/* Alertes visuelles et Smart Badges */}
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {/* Badge Prioritaire */}
+                      {isPriority(lead) && (
+                        <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold animate-pulse flex items-center gap-1">
+                          🔥 Prioritaire
+                        </span>
+                      )}
                       
-                      return isOldAndUntreated ? (
-                        <div className="flex items-center justify-center gap-2 mb-2 bg-red-50 py-2 rounded-lg">
-                          <span className="text-red-600 animate-pulse">🔔</span>
-                          <span className="text-xs font-bold text-red-700">À relancer</span>
-                        </div>
-                      ) : null
-                    })()}
+                      {/* Badge Relance requise */}
+                      {needsRelance(lead) && (
+                        <span className="bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold animate-pulse flex items-center gap-1">
+                          ⚠️ Relance
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Suggestion Business */}
+                    {(lead.statut || 'À traiter') === 'RDV Pris' && (
+                      <div className="mb-2">
+                        <button 
+                          onClick={() => window.location.href = '/app/commercial'}
+                          className="w-full bg-blue-100 text-blue-700 py-1.5 rounded-lg hover:bg-blue-200 transition-colors font-medium text-xs flex items-center justify-center gap-1"
+                        >
+                          📄 Préparer Mandat
+                        </button>
+                      </div>
+                    )}
                     
                     {/* Infos secondaires */}
                     <p className="text-xs text-gray-600 mb-2">
@@ -383,11 +489,28 @@ export default function Dashboard() {
                     </td>
                     <td className="p-4 font-bold text-slate-600">{lead.budget?.toLocaleString()} €</td>
                     
-                    {/* Colonne Score IA */}
+                    {/* Colonne Score IA + Smart Badges */}
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                        {calculateScore(lead)}/10
-                      </span>
+                      <div className="flex flex-col gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                          {calculateScore(lead)}/10
+                        </span>
+                        
+                        {/* Smart Badges */}
+                        <div className="flex flex-col gap-1">
+                          {isPriority(lead) && (
+                            <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold animate-pulse flex items-center gap-1">
+                              🔥 Prioritaire
+                            </span>
+                          )}
+                          
+                          {needsRelance(lead) && (
+                            <span className="bg-yellow-400 text-yellow-900 px-2 py-1 rounded text-xs font-bold animate-pulse flex items-center gap-1">
+                              ⚠️ Relance
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-4">
                       <select 
@@ -399,11 +522,27 @@ export default function Dashboard() {
                       </select>
                     </td>
                     {/* Colonne Actions (Version Compacte) */}
-                    <td className="p-4 flex gap-2">
-                      <button onClick={(e) => openWhatsApp(e, lead)} className="p-2 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬</button>
-                      <button onClick={(e) => openCalendar(e, lead)} className="p-2 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅</button>
-                      <button onClick={(e) => openEmail(e, lead)} className="p-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉</button>
-                      <button onClick={() => openModal(lead)} className="p-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200" title="Voir Dossier">👁️</button>
+                    <td className="p-4">
+                      <div className="flex flex-col gap-1">
+                        {/* Actions rapides */}
+                        <div className="flex gap-1">
+                          <button onClick={(e) => openWhatsApp(e, lead)} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬</button>
+                          <button onClick={(e) => openCalendar(e, lead)} className="p-1.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅</button>
+                          <button onClick={(e) => openEmail(e, lead)} className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉</button>
+                          <button onClick={(e) => openCall(e, lead)} className="p-1.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200" title="Appeler">📞</button>
+                          <button onClick={() => openModal(lead)} className="p-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200" title="Voir Dossier">👁️</button>
+                        </div>
+                        
+                        {/* Suggestion Business */}
+                        {(lead.statut || 'À traiter') === 'RDV Pris' && (
+                          <button 
+                            onClick={() => window.location.href = '/app/commercial'}
+                            className="w-full bg-blue-100 text-blue-700 py-1 rounded hover:bg-blue-200 transition-colors font-medium text-xs"
+                          >
+                            📄 Mandat
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -417,18 +556,28 @@ export default function Dashboard() {
       {isModalOpen && selectedLead && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl transform transition-all overflow-hidden max-h-[90vh] overflow-y-auto">
-            {/* Header */}
+            {/* Header avec synthèse */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 border-b">
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-2xl font-bold mb-2">{selectedLead.nom}</h2>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 mb-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-bold border ${calculateScore(selectedLead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
                       Score: {calculateScore(selectedLead)}/10
                     </span>
                     <span className="text-blue-100">
                       Potentiel: <span className="font-bold text-white">{calculatePotential(selectedLead.budget).toLocaleString()} €</span>
                     </span>
+                  </div>
+                  
+                  {/* Phrase de synthèse */}
+                  <div className="bg-white/20 rounded-lg px-3 py-2 inline-block">
+                    {(() => {
+                      const status = getLeadStatus(selectedLead);
+                      if (status === 'active') return '🟢 Ce lead est actif.';
+                      if (status === 'dormant') return '🔴 Ce lead est dormant.';
+                      return '🟡 Ce lead est en suivi.';
+                    })()}
                   </div>
                 </div>
                 <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white text-2xl">×</button>
@@ -534,71 +683,13 @@ export default function Dashboard() {
                 
                 <div className="space-y-4">
                   {/* Timeline */}
-                  <div className="relative">
-                    {/* Ligne verticale */}
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
-                    
-                    {/* Activités */}
-                    <div className="space-y-4">
-                      {/* Lead créé */}
-                      <div className="flex items-start gap-4">
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold z-10">
-                          📄
-                        </div>
-                        <div className="flex-1 bg-gray-50 rounded-lg p-3">
-                          <div className="flex justify-between items-start mb-1">
-                            <p className="font-medium text-sm">Lead créé</p>
-                            <p className="text-xs text-gray-500">
-                              {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString() : 'Date inconnue'}
-                            </p>
-                          </div>
-                          <p className="text-xs text-gray-600">
-                            Score initial: {calculateScore(selectedLead)}/10 • Budget: {selectedLead.budget?.toLocaleString()} €
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Activités réelles */}
-                      {selectedLead.activities?.map((activity, index) => (
-                        <div key={activity.id || index} className="flex items-start gap-4">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold z-10 ${
-                            activity.type === 'action' ? 'bg-green-600' : 
-                            activity.type === 'statut' ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}>
-                            {activity.type === 'action' ? '💬' : 
-                             activity.type === 'statut' ? '🔄' : '📄'}
-                          </div>
-                          <div className="flex-1 bg-gray-50 rounded-lg p-3">
-                            <div className="flex justify-between items-start mb-1">
-                              <p className="font-medium text-sm">{activity.description}</p>
-                              <p className="text-xs text-gray-500">
-                                {activity.created_at ? new Date(activity.created_at).toLocaleDateString() : 'Date inconnue'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Simulation documents */}
-                      <div className="flex items-start gap-4">
-                        <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold z-10">
-                          📋
-                        </div>
-                        <div className="flex-1 bg-orange-50 rounded-lg p-3">
-                          <div className="flex justify-between items-start mb-1">
-                            <p className="font-medium text-sm">Document 'Mandat' disponible</p>
-                            <p className="text-xs text-gray-500">Hier</p>
-                          </div>
-                          <p className="text-xs text-gray-600">Prêt à être généré dans Commercial</p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
-                </div>
-
-                {/* Actions rapides */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h4 className="font-bold text-gray-900 mb-3">Actions rapides</h4>
+                  <div className="flex-1 bg-gray-50 rounded-lg p-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="font-medium text-sm">Lead créé</p>
+                      <p className="text-xs text-gray-500">
+                        {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString() : 'Date inconnue'}
+                      </p>
                   <div className="grid grid-cols-2 gap-2">
                     <button 
                       onClick={(e) => openWhatsApp(e, selectedLead)}
