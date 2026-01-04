@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
 export default function Estimation() {
+  const { agency_id } = useParams()
+  const [agencyName, setAgencyName] = useState('')
   const [formData, setFormData] = useState({
     nom_complet: '',
     email: '',
@@ -14,6 +17,29 @@ export default function Estimation() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('')
+
+  // Charger les infos de l'agence
+  useEffect(() => {
+    if (agency_id) {
+      loadAgencyInfo()
+    }
+  }, [agency_id])
+
+  const loadAgencyInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('agency_name')
+        .eq('agency_id', agency_id)
+        .single()
+      
+      if (data) {
+        setAgencyName(data.agency_name || 'Agence')
+      }
+    } catch (err) {
+      console.error('Erreur chargement agence:', err)
+    }
+  }
 
   const handleChange = (e) => {
     setFormData({
@@ -42,6 +68,7 @@ export default function Estimation() {
             message: formData.message,
             statut: 'À traiter', // Directement dans le pipeline
             source: 'Formulaire Public LeadQualif',
+            agency_id: agency_id, // Utiliser l'agency_id de l'URL
             pays: 'FR', // Par défaut France
             created_at: new Date().toISOString()
           }
@@ -85,6 +112,11 @@ export default function Estimation() {
           <h1 className="text-4xl font-light text-gray-900 mb-4">
             Estimez votre bien en 2 minutes
           </h1>
+          {agencyName && (
+            <p className="text-lg text-blue-600 font-medium mb-2">
+              Estimation pour {agencyName}
+            </p>
+          )}
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Obtenez une estimation gratuite et sans engagement par un professionnel certifié
           </p>

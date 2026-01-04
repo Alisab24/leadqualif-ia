@@ -17,23 +17,35 @@ export default function Dashboard() {
 
   // Couleurs des étiquettes
   const STATUS_COLORS = {
-    'À traiter': 'bg-red-100 text-red-800 border-red-200',
-    'Message laissé': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'RDV Pris': 'bg-blue-100 text-blue-800 border-blue-200',
-    'Offre en cours': 'bg-purple-100 text-purple-800 border-purple-200',
-    'Vendu': 'bg-green-100 text-green-800 border-green-200',
-    'Perdu': 'bg-gray-100 text-gray-800 border-gray-200'
+    'À traiter': 'bg-red-600 text-white',
+    'Message laissé': 'bg-orange-500 text-white',
+    'RDV Pris': 'bg-blue-600 text-white',
+    'Offre en cours': 'bg-purple-600 text-white',
+    'Vendu': 'bg-green-600 text-white',
+    'Perdu': 'bg-gray-500 text-white'
   }
 
-  // Fonction pour copier le lien
+  // Fonction pour copier le lien intelligent
   const copyEstimationLink = async () => {
-    const url = window.location.origin + '/estimation'
     try {
+      // Récupérer l'agency_id du profil utilisateur connecté
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setCopyMessage('Erreur: utilisateur non connecté')
+        return
+      }
+
+      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
+      if (!profile?.agency_id) {
+        setCopyMessage('Erreur: agence non trouvée')
+        return
+      }
+
+      const url = window.location.origin + '/estimation/' + profile.agency_id
       await navigator.clipboard.writeText(url)
       setCopyMessage('Lien copié !')
       setTimeout(() => setCopyMessage(''), 2000)
     } catch (err) {
-      console.error('Erreur copie:', err)
       setCopyMessage('Erreur')
       setTimeout(() => setCopyMessage(''), 2000)
     }
