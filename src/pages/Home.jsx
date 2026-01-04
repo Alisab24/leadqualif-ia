@@ -1,425 +1,157 @@
-import { Link } from 'react-router-dom'
+import React from 'react';
+import { Link } from 'react-router-dom';
 
-export default function Home() {
+export default function Home() { 
   return (
-    <div className="min-h-screen bg-white font-sans">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            {/* Logo */}
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">LQ</span>
-              </div>
-              <span className="ml-3 text-2xl font-light text-gray-900">LeadQualif</span>
-            </div>
-            
-            {/* Navigation */}
-            <div className="flex items-center space-x-8">
-              <nav className="hidden md:flex space-x-6">
-                <a href="#features" className="text-gray-600 hover:text-gray-900 transition-colors">Fonctionnalités</a>
-                <a href="#pricing" className="text-gray-600 hover:text-gray-900 transition-colors">Tarifs</a>
-                <a href="#security" className="text-gray-600 hover:text-gray-900 transition-colors">Sécurité</a>
-              </nav>
-              <div className="flex items-center space-x-4">
-                <Link
-                  to="/login"
-                  className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
-                >
-                  Connexion
-                </Link>
-                <Link
-                  to="/estimation"
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-medium"
-                >
-                  Essai Gratuit
-                </Link>
-              </div>
-            </div>
+    <div className="min-h-screen bg-white">
+      {/* NAV */}
+      <nav className="flex justify-between items-center p-6 max-w-7xl mx-auto">
+        <div className="text-2xl font-bold text-blue-600 flex items-center gap-2">
+          ✨ LeadQualif IA
+        </div>
+        <div className="flex gap-4">
+          <Link to="/app" className="text-slate-600 hover:text-blue-600 font-medium px-4 py-2">Connexion</Link>
+          <Link to="/estimation" className="bg-blue-600 text-white px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition">
+            Essai Gratuit
+          </Link>
+        </div>
+      </nav>
+
+      {/* HERO SECTION */}
+      <header className="text-center py-20 px-4 bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="inline-block bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-sm font-bold mb-6">
+            🚀 Nouveau : L'IA qui qualifie vos leads 24/7
           </div>
+          <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-6 leading-tight">
+            Arrêtez de perdre vos commissions dans vos e-mails.
+          </h1>
+          <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto">
+            La plupart des agences perdent 30% de leurs revenus par manque de suivi. 
+            LeadQualif IA centralise, qualifie et relance vos prospects à votre place.
+          </p>
+          <div className="flex flex-col md:flex-row justify-center gap-4">
+            <Link to="/estimation" className="bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-blue-700 shadow-xl shadow-blue-200 transition transform hover:-translate-y-1">
+              Démarrer mon essai gratuit
+            </Link>
+            <a href="#demo" className="bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-xl text-lg font-bold hover:bg-gray-50 transition">
+              Voir la démo
+            </a>
+          </div>
+          <p className="mt-4 text-sm text-slate-400">Aucune carte bancaire requise • Annulation à tout moment</p>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-24 px-6">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="mb-8">
-            <span className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium">
-              🇫🇷 🇧🇪 🇱🇺 Disponible en France, Belgique, Luxembourg
-            </span>
-          </div>
-          <h1 className="text-6xl font-light text-gray-900 mb-6 leading-tight">
-            Le Cockpit de l'<span className="font-semibold">Agence Immobilière</span><br/>
-            Moderne
-          </h1>
-          <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Générez des mandats, gérez vos prospects et facturez en un clic.<br/>
-            Conforme RGPD • Documents juridiques professionnels • Support prioritaire
-          </p>
-          <div className="flex justify-center space-x-6">
-            <Link
-              to="/estimation"
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-medium text-lg shadow-lg"
-            >
-              Démarrer Gratuitement
-            </Link>
-            <Link
-              to="/login"
-              className="border border-gray-300 text-gray-700 px-8 py-4 rounded-xl hover:bg-gray-50 transition-all font-medium text-lg"
-            >
-              Espace Client
-            </Link>
+      {/* VISUAL PREUVE (SCREENSHOT) */}
+      <section id="demo" className="py-10 px-4">
+        <div className="max-w-6xl mx-auto bg-slate-900 rounded-2xl p-4 shadow-2xl ring-1 ring-slate-900/10">
+          {/* Simulation d'interface Dashboard */}
+          <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-200 aspect-video relative flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
+              <p className="text-slate-400 font-medium">✨ Visualisation du Pipeline Intelligent & Actions Rapides</p>
+            </div>
+            {/* Ici on mettrait une vraie image plus tard */}
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="py-20 px-6 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
+      {/* FEATURES GRID */}
+      <section className="py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-light text-gray-900 mb-4">
-              Tout ce dont votre agence a besoin
-            </h2>
-            <p className="text-xl text-gray-600">
-              Une plateforme complète pour optimiser votre activité
-            </p>
+            <h2 className="text-3xl font-bold mb-4">Tout ce dont vous avez besoin pour closer</h2>
+            <p className="text-slate-500">Une suite d'outils conçue pour les agents modernes.</p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-2xl border border-gray-100">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">📊</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Pipeline Intelligent</h3>
-              <p className="text-gray-600">
-                Suivez vos prospects du premier contact jusqu'à la signature, avec un aperçu visuel de votre activité.
-              </p>
+            {/* Card 1 */}
+            <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-100 transition">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-2xl mb-6">⚡️</div>
+              <h3 className="text-xl font-bold mb-3">Actions Rapides</h3>
+              <p className="text-slate-600">WhatsApp, Email, RDV en un clic. Plus de copier-coller, plus d'erreurs. Gagnez 1h par jour.</p>
             </div>
-            
-            <div className="bg-white p-8 rounded-2xl border border-gray-100">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">📄</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Documents Juridiques</h3>
-              <p className="text-gray-600">
-                Générez mandats, compromis et factures conformes à la législation française et européenne.
-              </p>
+            {/* Card 2 */}
+            <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 hover:border-green-100 transition">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-2xl mb-6">💰</div>
+              <h3 className="text-xl font-bold mb-3">Scoring & Potentiel</h3>
+              <p className="text-slate-600">Identifiez immédiatement les leads à 20 000€ de commission. Ne perdez plus de temps sur les curieux.</p>
             </div>
-            
-            <div className="bg-white p-8 rounded-2xl border border-gray-100">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">🔒</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Conformité RGPD</h3>
-              <p className="text-gray-600">
-                Hébergement en Europe, chiffrement des données et outils de consentement intégrés.
-              </p>
+            {/* Card 3 */}
+            <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 hover:border-purple-100 transition">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-2xl mb-6">📄</div>
+              <h3 className="text-xl font-bold mb-3">Documents Auto</h3>
+              <p className="text-slate-600">Générez mandats et offres depuis la fiche client. Vos dossiers sont toujours prêts et centralisés.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
+      {/* PRICING */}
+      <section className="py-24 bg-slate-900 text-white">
+        <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-light text-gray-900 mb-4">
-              Tarifs simples et transparents
-            </h2>
-            <p className="text-xl text-gray-600">
-              Sans engagement, annulez à tout moment
-            </p>
+            <h2 className="text-3xl font-bold mb-4">Des tarifs simples et transparents</h2>
+            <p className="text-slate-400">Rentabilisé dès le premier RDV décroché.</p>
           </div>
-          
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Starter */}
-            <div className="bg-white rounded-2xl p-8 border border-gray-200">
-              <h3 className="text-2xl font-semibold text-gray-900 mb-2">Starter</h3>
-              <p className="text-gray-600 mb-6">Pour les agents indépendants</p>
-              <div className="mb-6">
-                <span className="text-5xl font-light text-gray-900">49</span>
-                <span className="text-gray-600"> € / mois</span>
-              </div>
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-3">✓</span>
-                  <span className="text-gray-700">1 utilisateur</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-3">✓</span>
-                  <span className="text-gray-700">Gestion illimitée de prospects</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-3">✓</span>
-                  <span className="text-gray-700">Pipeline des ventes</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-3">✓</span>
-                  <span className="text-gray-700">Documents standards</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-3">✓</span>
-                  <span className="text-gray-700">Support par email</span>
-                </li>
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* STARTER */}
+            <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700">
+              <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Starter</div>
+              <div className="text-4xl font-bold mb-6">29€<span className="text-lg text-slate-500 font-normal">/mois</span></div>
+              <ul className="space-y-4 mb-8 text-slate-300">
+                <li>✅ 1 Utilisateur</li>
+                <li>✅ Pipeline Visuel</li>
+                <li>✅ Actions Rapides (WhatsApp/Mail)</li>
+                <li>✅ Historique Illimité</li>
               </ul>
-              <Link
-                to="/estimation"
-                className="w-full bg-gray-900 text-white py-3 rounded-xl hover:bg-gray-800 transition-all font-medium text-center block"
-              >
-                Essayer Gratuitement
-              </Link>
+              <Link to="/estimation" className="block w-full py-3 bg-slate-700 hover:bg-slate-600 text-center rounded-lg font-bold transition">Choisir Starter</Link>
             </div>
-
-            {/* Business */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl p-8 border-2 border-blue-700 relative">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white px-6 py-2 rounded-full text-sm font-medium">
-                Recommandé
-              </div>
-              <h3 className="text-2xl font-semibold mb-2">Business</h3>
-              <p className="text-blue-100 mb-6">Pour les agences immobilières</p>
-              <div className="mb-6">
-                <span className="text-5xl font-light">149</span>
-                <span className="text-blue-100"> € / mois</span>
-              </div>
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-center">
-                  <span className="text-white mr-3">✓</span>
-                  <span>5 collaborateurs inclus</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-white mr-3">✓</span>
-                  <span>Logo et branding personnalisés</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-white mr-3">✓</span>
-                  <span>Documents juridiques avancés</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-white mr-3">✓</span>
-                  <span>Intégrations API</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-white mr-3">✓</span>
-                  <span>Support prioritaire 24/7</span>
-                </li>
+            {/* PRO */}
+            <div className="bg-blue-600 p-8 rounded-2xl border border-blue-500 transform md:-translate-y-4 shadow-2xl relative">
+              <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">POPULAIRE</div>
+              <div className="text-sm font-bold text-blue-100 uppercase tracking-wide mb-2">Pro</div>
+              <div className="text-4xl font-bold mb-6">79€<span className="text-lg text-blue-200 font-normal">/mois</span></div>
+              <ul className="space-y-4 mb-8 text-white">
+                <li>✅ <strong>Tout du Starter, plus :</strong></li>
+                <li>✅ Templates Personnalisés</li>
+                <li>✅ Statistiques Avancées</li>
+                <li>✅ Génération de Documents</li>
+                <li>✅ Support Prioritaire</li>
               </ul>
-              <Link
-                to="/estimation"
-                className="w-full bg-white text-blue-600 py-3 rounded-xl hover:bg-gray-100 transition-all font-semibold text-center block"
-              >
-                Démarrer l'Essai
-              </Link>
+              <Link to="/estimation" className="block w-full py-3 bg-white text-blue-600 hover:bg-blue-50 text-center rounded-lg font-bold transition">Démarrer l'essai Pro</Link>
+            </div>
+            {/* AGENCE */}
+            <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700">
+              <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Agence</div>
+              <div className="text-4xl font-bold mb-6">Sur Devis</div>
+              <ul className="space-y-4 mb-8 text-slate-300">
+                <li>✅ Multi-Comptes</li>
+                <li>✅ Branding (Logo Agence)</li>
+                <li>✅ Accompagnement Dédié</li>
+                <li>✅ Formation Équipe</li>
+              </ul>
+              <a href="mailto:contact@leadqualif.com" className="block w-full py-3 bg-slate-700 hover:bg-slate-600 text-center rounded-lg font-bold transition">Nous Contacter</a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Confiance et Conformité RGPD */}
-      <section className="py-20 px-6 bg-gradient-to-br from-blue-50 to-indigo-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-light text-gray-900 mb-4">
-              Vos données sont protégées,<br/>votre conformité est assurée
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              LeadQualif intègre la protection des données dès la conception<br/>
-              pour garantir votre tranquillité d'esprit
-            </p>
+      {/* FOOTER */}
+      <footer className="bg-slate-950 py-12 text-slate-400 text-sm">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div>
+            <span className="font-bold text-white text-lg">LeadQualif IA</span>
+            <p className="mt-2">Le CRM immobilier nouvelle génération.</p>
           </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
-                <span className="text-2xl">🛡️</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Hébergement Sécurisé</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Données stockées sur des serveurs sécurisés répondant aux normes européennes les plus strictes.
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
-                <span className="text-2xl">🔒</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Conformité RGPD</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Registre des activités de traitement et protection de la vie privée dès la conception (Privacy by Design).
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
-                <span className="text-2xl">🔐</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Confidentialité Totale</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Vos bases de données clients sont cryptées et ne sont jamais partagées avec des tiers.
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
-                <span className="text-2xl">📤</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Exportabilité</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Vous restez propriétaire de vos données et pouvez les exporter à tout moment.
-              </p>
-            </div>
+          <div className="flex gap-6">
+            <span>🔒 Paiement Sécurisé (Stripe)</span>
+            <span>🇪🇺 Hébergé en Europe (RGPD)</span>
           </div>
-
-          {/* Mention d'engagement */}
-          <div className="bg-white rounded-2xl p-8 border border-blue-100 text-center">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">LQ</span>
-              </div>
-            </div>
-            <p className="text-gray-700 font-medium text-lg leading-relaxed">
-              LeadQualif s'engage pour la transparence et la sécurité<br/>
-              de l'écosystème immobilier européen
-            </p>
-            <div className="flex justify-center items-center space-x-6 mt-6 text-sm text-gray-600">
-              <div className="flex items-center space-x-2">
-                <span className="text-green-600">✓</span>
-                <span>Certifié ISO 27001</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-green-600">✓</span>
-                <span>Audit de sécurité annuel</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-green-600">✓</span>
-                <span>DPO dédié</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Security & Trust */}
-      <section id="security" className="py-20 px-6 bg-gray-50">
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-4xl font-light text-gray-900 mb-12">
-            Sécurité et Confiance
-          </h2>
-          
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🇪🇺</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Hébergement Européen</h3>
-              <p className="text-gray-600">Données stockées en France, conformes RGPD</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🔐</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Chiffrement SSL</h3>
-              <p className="text-gray-600">Communications et données sécurisées</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📋</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Documents Juridiques</h3>
-              <p className="text-gray-600">Modèles conformes droit français</p>
-            </div>
-          </div>
-
-          {/* Payment Badges */}
-          <div className="bg-white rounded-2xl p-8 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Paiement Sécurisé</h3>
-            <div className="flex justify-center items-center space-x-8">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">💳</span>
-                <span className="text-gray-700">Stripe</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">🔵</span>
-                <span className="text-gray-700">Visa</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">🔴</span>
-                <span className="text-gray-700">Mastercard</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">🟡</span>
-                <span className="text-gray-700">Maestro</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mt-4">
-              Transactions sécurisées et cryptées • Paiement en euros • Facturation française
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">LQ</span>
-                </div>
-                <span className="ml-3 text-2xl font-light">LeadQualif</span>
-              </div>
-              <p className="text-gray-400 leading-relaxed">
-                Le cockpit de l'agence immobilière moderne.<br/>
-                Conçu pour les professionnels européens.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-6">Produit</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li><a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Tarifs</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Intégrations</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-6">Support</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Centre d'aide</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Statut du service</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Webinaires</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-6">Légal</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Mentions légales</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">CGU</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">RGPD</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Cookies</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 mb-4 md:mb-0">
-              © 2024 LeadQualif. Tous droits réservés.
-            </p>
-            <div className="flex items-center space-x-6 text-gray-400">
-              <span>🇫🇷 France</span>
-              <span>🇧🇪 Belgique</span>
-              <span>🇱🇺 Luxembourg</span>
-            </div>
+          <div>
+            © 2026 LeadQualif. Tous droits réservés.
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }
