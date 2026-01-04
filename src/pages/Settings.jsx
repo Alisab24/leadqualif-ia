@@ -45,6 +45,16 @@ export default function Settings() {
     calendly_link: ''
   })
 
+  // --- PARAMÈTRES FORMULAIRE ---
+  const [formSettings, setFormSettings] = useState({
+    showBudget: true,
+    showType: true,
+    showLocation: true,
+    labelBudget: 'Budget',
+    labelType: 'Type de bien',
+    labelLocation: 'Localisation'
+  })
+
   // --- CHARGEMENT ---
   useEffect(() => {
     loadProfile()
@@ -103,6 +113,16 @@ export default function Settings() {
         calendly_link: profileData.calendly_link || ''
       })
 
+      // Charger les paramètres du formulaire
+      setFormSettings({
+        showBudget: profileData.form_settings?.showBudget ?? true,
+        showType: profileData.form_settings?.showType ?? true,
+        showLocation: profileData.form_settings?.showLocation ?? true,
+        labelBudget: profileData.form_settings?.labelBudget || 'Budget',
+        labelType: profileData.form_settings?.labelType || 'Type de bien',
+        labelLocation: profileData.form_settings?.labelLocation || 'Localisation'
+      })
+
     } catch (error) {
       console.error('Erreur loadProfile:', error)
       setError('Erreur de chargement')
@@ -144,7 +164,9 @@ export default function Settings() {
         // Templates de communication
         whatsapp_template: templates.whatsapp_template || '',
         email_template: templates.email_template || '',
-        calendly_link: templates.calendly_link || ''
+        calendly_link: templates.calendly_link || '',
+        // Paramètres du formulaire
+        form_settings: formSettings
       }
 
       console.log('Données envoyées:', dataToSave)
@@ -576,6 +598,136 @@ export default function Settings() {
                   <p className="text-xs text-gray-500 mt-1">
                     Lien pour la prise de RDV automatique (laissez vide pour Google Calendar par défaut)
                   </p>
+                </div>
+              </div>
+            </div>
+          </FeatureGate>
+
+          {/* Configuration du Formulaire */}
+          <FeatureGate 
+            feature="templates" 
+            fallback={
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                <div className="text-center">
+                  <span className="text-2xl">🔒</span>
+                  <h3 className="text-lg font-medium text-gray-900 mt-2">Formulaire Personnalisable PRO</h3>
+                  <p className="text-gray-600 mt-1">
+                    Personnalisez votre formulaire d'estimation dans le plan PRO.
+                  </p>
+                  <button 
+                    onClick={() => window.open('/pricing', '_blank')}
+                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Passer au plan PRO
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Configuration du Formulaire</h2>
+              <div className="space-y-6">
+                
+                {/* Toggles */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Champs à afficher</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Afficher le Budget</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormSettings({...formSettings, showBudget: !formSettings.showBudget})}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.showBudget ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.showBudget ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Afficher le Type de bien</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormSettings({...formSettings, showType: !formSettings.showType})}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.showType ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.showType ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Afficher la Localisation</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormSettings({...formSettings, showLocation: !formSettings.showLocation})}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.showLocation ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.showLocation ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Labels personnalisés */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Labels personnalisés</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Label Budget
+                      </label>
+                      <input
+                        type="text"
+                        value={formSettings.labelBudget}
+                        onChange={(e) => setFormSettings({...formSettings, labelBudget: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Budget"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Label Type de bien
+                      </label>
+                      <input
+                        type="text"
+                        value={formSettings.labelType}
+                        onChange={(e) => setFormSettings({...formSettings, labelType: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Type de bien"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Label Localisation
+                      </label>
+                      <input
+                        type="text"
+                        value={formSettings.labelLocation}
+                        onChange={(e) => setFormSettings({...formSettings, labelLocation: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Localisation"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

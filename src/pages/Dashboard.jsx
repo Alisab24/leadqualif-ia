@@ -627,9 +627,17 @@ export default function Dashboard() {
                     {/* En haut : Nom + Score IA */}
                     <div className="flex justify-between items-start mb-3">
                       <h4 className="font-bold text-gray-800 text-sm">{lead.nom}</h4>
-                      <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                        Score: {calculateScore(lead)}/10
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                          Score IA: {calculateScore(lead)}/10
+                        </span>
+                        <div className="relative group">
+                          <span className="text-gray-400 cursor-help text-xs">ℹ️</span>
+                          <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                            Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     
                     {/* Milieu : Potentiel (le plus important) */}
@@ -756,9 +764,17 @@ export default function Dashboard() {
                     {/* Colonne Score IA + Smart Badges */}
                     <td className="p-4">
                       <div className="flex flex-col gap-2">
-                        <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                          {calculateScore(lead)}/10
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                            Score IA: {calculateScore(lead)}/10
+                          </span>
+                          <div className="relative group">
+                            <span className="text-gray-400 cursor-help text-xs">ℹ️</span>
+                            <div className="absolute left-full ml-1 top-0 w-64 bg-gray-800 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                              Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.
+                            </div>
+                          </div>
+                        </div>
                         
                         {/* Smart Badges */}
                         <div className="flex flex-col gap-1">
@@ -827,9 +843,17 @@ export default function Dashboard() {
                 <div>
                   <h2 className="text-2xl font-bold mb-2">{selectedLead.nom}</h2>
                   <div className="flex items-center gap-4 mb-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-bold border ${calculateScore(selectedLead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                      Score: {calculateScore(selectedLead)}/10
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`px-3 py-1 rounded-full text-sm font-bold border ${calculateScore(selectedLead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                        Score IA: {calculateScore(selectedLead)}/10
+                      </span>
+                      <div className="relative group">
+                        <span className="text-gray-400 cursor-help text-sm">ℹ️</span>
+                        <div className="absolute left-full ml-1 top-0 w-64 bg-gray-800 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                          Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.
+                        </div>
+                      </div>
+                    </div>
                     <span className="text-blue-100">
                       Potentiel: <span className="font-bold text-white">{calculatePotential(selectedLead.budget).toLocaleString()} €</span>
                     </span>
@@ -967,7 +991,7 @@ export default function Dashboard() {
                             </p>
                           </div>
                           <p className="text-xs text-gray-600">
-                            Score initial: {calculateScore(selectedLead)}/10 • Budget: {selectedLead.budget?.toLocaleString()} €
+                            Score IA initial: {calculateScore(selectedLead)}/10 • Budget: {selectedLead.budget?.toLocaleString()} €
                           </p>
                         </div>
                       </div>
