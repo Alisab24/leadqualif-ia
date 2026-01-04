@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
+import { usePlanGuard, UpgradeBanner, FeatureGate } from '../components/PlanGuard'
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([])
@@ -15,6 +16,9 @@ export default function Dashboard() {
   const [copyMessage, setCopyMessage] = useState('')
   const [userProfile, setUserProfile] = useState(null)
   const kanbanRef = useRef(null)
+
+  // Plan Guard
+  const { canAccess } = usePlanGuard()
 
   // Configuration du Pipeline
   const STATUS_ORDER = ['À traiter', 'Message laissé', 'RDV Pris', 'Offre en cours', 'Vendu', 'Perdu']
@@ -220,9 +224,9 @@ export default function Dashboard() {
     // Nettoyage basique du numéro (garde que les chiffres)
     const phone = lead.telephone.replace(/[^0-9]/g, '');
     
-    // Template personnalisé ou message par défaut
+    // Template personnalisé ou message par défaut (selon le plan)
     let message;
-    if (userProfile?.whatsapp_template) {
+    if (canAccess('templates') && userProfile?.whatsapp_template) {
       message = userProfile.whatsapp_template
         .replace('{nom}', lead.nom)
         .replace('{agent}', userProfile.signataire || 'Conseiller')
@@ -245,9 +249,9 @@ export default function Dashboard() {
     // Tracking automatique avant l'action
     trackActivity(lead.id, 'email', 'Action rapide : Email ouvert');
 
-    // Template personnalisé ou message par défaut
+    // Template personnalisé ou message par défaut (selon le plan)
     let subject, body;
-    if (userProfile?.email_template) {
+    if (canAccess('templates') && userProfile?.email_template) {
       subject = `Votre projet immobilier - ${userProfile.nom_agence || 'Agence'}`;
       body = userProfile.email_template
         .replace('{nom}', lead.nom)
@@ -272,8 +276,8 @@ export default function Dashboard() {
     trackActivity(lead.id, 'rdv', 'Action rapide : RDV planifié');
 
     let url;
-    if (userProfile?.calendly_link) {
-      // Utiliser Calendly si configuré
+    if (canAccess('templates') && userProfile?.calendly_link) {
+      // Utiliser Calendly si configuré et plan le permet
       url = userProfile.calendly_link;
     } else {
       // Google Agenda par défaut
@@ -556,6 +560,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Bannière d'Upgrade */}
+      <UpgradeBanner />
+
       {/* Widget ROI - Statistiques */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -676,7 +683,7 @@ export default function Dashboard() {
                         className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                         title="Ouvrir WhatsApp"
                       >
-                        💬 WhatsApp {userProfile?.whatsapp_template && <span className="text-yellow-600">✨</span>}
+                        💬 WhatsApp {canAccess('templates') && userProfile?.whatsapp_template && <span className="text-yellow-600">✨</span>}
                       </button>
                       
                       <button 
@@ -684,7 +691,7 @@ export default function Dashboard() {
                         className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                         title="Planifier RDV"
                       >
-                        📅 RDV {userProfile?.calendly_link && <span className="text-yellow-600">✨</span>}
+                        📅 RDV {canAccess('templates') && userProfile?.calendly_link && <span className="text-yellow-600">✨</span>}
                       </button>
                       
                       <button 
@@ -692,7 +699,7 @@ export default function Dashboard() {
                         className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                         title="Envoyer Email"
                       >
-                        ✉ Email {userProfile?.email_template && <span className="text-yellow-600">✨</span>}
+                        ✉ Email {canAccess('templates') && userProfile?.email_template && <span className="text-yellow-600">✨</span>}
                       </button>
                     </div>
 
@@ -783,9 +790,9 @@ export default function Dashboard() {
                       <div className="flex flex-col gap-1">
                         {/* Actions rapides */}
                         <div className="flex gap-1">
-                          <button onClick={(e) => openWhatsApp(e, lead)} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬 {userProfile?.whatsapp_template && <span className="text-yellow-600">✨</span>}</button>
-                          <button onClick={(e) => openCalendar(e, lead)} className="p-1.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅 {userProfile?.calendly_link && <span className="text-yellow-600">✨</span>}</button>
-                          <button onClick={(e) => openEmail(e, lead)} className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉ {userProfile?.email_template && <span className="text-yellow-600">✨</span>}</button>
+                          <button onClick={(e) => openWhatsApp(e, lead)} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200" title="WhatsApp">💬 {canAccess('templates') && userProfile?.whatsapp_template && <span className="text-yellow-600">✨</span>}</button>
+                          <button onClick={(e) => openCalendar(e, lead)} className="p-1.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200" title="RDV">📅 {canAccess('templates') && userProfile?.calendly_link && <span className="text-yellow-600">✨</span>}</button>
+                          <button onClick={(e) => openEmail(e, lead)} className="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Email">✉ {canAccess('templates') && userProfile?.email_template && <span className="text-yellow-600">✨</span>}</button>
                           <button onClick={(e) => openCall(e, lead)} className="p-1.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200" title="Appeler">📞</button>
                           <button onClick={() => openModal(lead)} className="p-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200" title="Voir Dossier">👁️</button>
                         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { usePlanGuard, FeatureGate } from '../components/PlanGuard'
 
 export default function Settings() {
   // --- ÉTATS ---
@@ -9,6 +10,9 @@ export default function Settings() {
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  
+  // Plan Guard
+  const { userPlan, canAccess, getPlanName, getPlanColor } = usePlanGuard()
 
   // --- FORM DATA ---
   const [formData, setFormData] = useState({
@@ -79,7 +83,8 @@ export default function Settings() {
         couleur_primaire: profileData.couleur_primaire || '#1e40af',
         couleur_secondaire: profileData.couleur_secondaire || '#64748b',
         devise: profileData.devise || 'FCFA',
-        pays: profileData.pays || 'Bénin'
+        pays: profileData.pays || 'Bénin',
+        plan: profileData.plan || 'starter'
       })
 
       // Charger les paramètres agence
@@ -134,6 +139,7 @@ export default function Settings() {
         couleur_secondaire: formData.couleur_secondaire || '#64748b',
         devise: formData.devise || 'FCFA',
         pays: formData.pays || 'Bénin',
+        plan: formData.plan || 'starter',
         // Templates de communication
         whatsapp_template: templates.whatsapp_template || '',
         email_template: templates.email_template || '',
@@ -190,8 +196,16 @@ export default function Settings() {
     <div className="min-h-screen bg-gray-50 p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">⚙️ Paramètres</h1>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">⚙️ Paramètres</h1>
+            <div className="flex items-center gap-3 mt-2">
+              <p className="text-gray-600">Personnalisez les informations de votre agence</p>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPlanColor()} bg-gray-100`}>
+                Plan {getPlanName()}
+              </span>
+            </div>
+          </div>
           <Link 
             to="/app" 
             className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2"
@@ -199,7 +213,6 @@ export default function Settings() {
             ← Retour au Dashboard
           </Link>
         </div>
-        <p className="text-gray-600">Personnalisez les informations de votre agence</p>
       </div>
 
       {/* Notifications */}
@@ -492,59 +505,80 @@ export default function Settings() {
           </div>
 
           {/* Templates de Communication */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Templates de Communication</h2>
-            <div className="space-y-6">
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Template WhatsApp
-                </label>
-                <textarea
-                  value={templates.whatsapp_template}
-                  onChange={(e) => setTemplates({...templates, whatsapp_template: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  placeholder="Bonjour {nom}, je suis {agent} de l'agence {agence}. Je vous contacte concernant votre projet immobilier..."
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Variables disponibles: {'{nom}'}, {'{agent}'}, {'{agence}'}
-                </p>
+          <FeatureGate 
+            feature="templates" 
+            fallback={
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                <div className="text-center">
+                  <span className="text-2xl">🔒</span>
+                  <h3 className="text-lg font-medium text-gray-900 mt-2">Templates PRO</h3>
+                  <p className="text-gray-600 mt-1">
+                    Les templates personnalisés sont disponibles dans le plan PRO.
+                  </p>
+                  <button 
+                    onClick={() => window.open('/pricing', '_blank')}
+                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Passer au plan PRO
+                  </button>
+                </div>
               </div>
+            }
+          >
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Templates de Communication</h2>
+              <div className="space-y-6">
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Template WhatsApp
+                  </label>
+                  <textarea
+                    value={templates.whatsapp_template}
+                    onChange={(e) => setTemplates({...templates, whatsapp_template: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={3}
+                    placeholder="Bonjour {nom}, je suis {agent} de l'agence {agence}. Je vous contacte concernant votre projet immobilier..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Variables disponibles: {'{nom}'}, {'{agent}'}, {'{agence}'}
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Template Email
-                </label>
-                <textarea
-                  value={templates.email_template}
-                  onChange={(e) => setTemplates({...templates, email_template: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={4}
-                  placeholder="Bonjour {nom},&#10;&#10;Je suis {agent} de l'agence {agence} et je vous remercie pour votre intérêt..."
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Variables disponibles: {'{nom}'}, {'{agent}'}, {'{agence}'}
-                </p>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Template Email
+                  </label>
+                  <textarea
+                    value={templates.email_template}
+                    onChange={(e) => setTemplates({...templates, email_template: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={4}
+                    placeholder="Bonjour {nom},&#10;&#10;Je suis {agent} de l'agence {agence} et je vous remercie pour votre intérêt..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Variables disponibles: {'{nom}'}, {'{agent}'}, {'{agence}'}
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lien Calendly
-                </label>
-                <input
-                  type="url"
-                  value={templates.calendly_link}
-                  onChange={(e) => setTemplates({...templates, calendly_link: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="https://calendly.com/votre-agence"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Lien pour la prise de RDV automatique (laissez vide pour Google Calendar par défaut)
-                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Lien Calendly
+                  </label>
+                  <input
+                    type="url"
+                    value={templates.calendly_link}
+                    onChange={(e) => setTemplates({...templates, calendly_link: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="https://calendly.com/votre-agence"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lien pour la prise de RDV automatique (laissez vide pour Google Calendar par défaut)
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </FeatureGate>
 
           {/* Adresse */}
           <div>

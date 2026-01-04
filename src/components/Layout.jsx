@@ -1,8 +1,10 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { usePlanGuard, FeatureGate } from '../components/PlanGuard'
 
 export default function Layout() {
   const location = useLocation()
+  const { canAccess } = usePlanGuard()
   
   // Fonction pour vérifier si un lien est actif (pour le style)
   const isActive = (path) => location.pathname === path
@@ -18,9 +20,23 @@ export default function Layout() {
         
         {/* Menu */}
         <nav className="flex-1 space-y-6 w-full flex flex-col items-center pt-4">
-          <Link to="/app/stats" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/stats') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Statistiques Agence">
-            📊
-          </Link>
+          <FeatureGate 
+            feature="stats"
+            fallback={
+              <div className="relative group">
+                <div className="p-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800 cursor-not-allowed opacity-60" title="Statistiques Agence (PRO)">
+                  📊
+                </div>
+                <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  🔒 PRO
+                </div>
+              </div>
+            }
+          >
+            <Link to="/app/stats" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/stats') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Statistiques Agence">
+              📊
+            </Link>
+          </FeatureGate>
           
           <Link to="/app" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Pipeline">
             🚀
