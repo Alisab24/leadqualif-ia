@@ -48,6 +48,9 @@ export default function Dashboard() {
     const phone = lead.telephone.replace(/[^0-9]/g, '');
     const message = `Bonjour ${lead.nom}, je suis votre conseiller LeadQualif. J'ai bien reçu votre demande d'estimation. Avez-vous un moment pour échanger ?`;
     
+    // Insertion dans activities
+    logActivity(lead.id, 'action', 'A contacté via WhatsApp');
+    
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   }
 
@@ -59,6 +62,9 @@ export default function Dashboard() {
     const subject = `Votre projet immobilier - Estimation ${lead.type_bien || ''}`;
     const body = `Bonjour ${lead.nom},\n\nJe fais suite à votre estimation sur notre site.\n\nQuand seriez-vous disponible pour en discuter ?\n\nCordialement,`;
 
+    // Insertion dans activities
+    logActivity(lead.id, 'action', 'A contacté via Email');
+
     window.location.href = `mailto:${lead.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
@@ -69,7 +75,43 @@ export default function Dashboard() {
     const details = `Tel: ${lead.telephone}\nEmail: ${lead.email}\nBudget: ${lead.budget}€`;
     const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}`;
 
+    // Insertion dans activities
+    logActivity(lead.id, 'action', 'A planifié un RDV');
+
     window.open(url, '_blank');
+  }
+
+  // Fonction utilitaire pour logger les activités
+  const logActivity = async (leadId, type, description) => {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .insert([{
+          lead_id: leadId,
+          type: type,
+          description: description,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) {
+        console.error('Erreur insertion activité:', error);
+      } else {
+        console.log('✅ Activité enregistrée:', description);
+      }
+    } catch (err) {
+      console.error('Erreur logActivity:', err);
+    }
+  }
+
+  // Fonction utilitaire pour calculer la commission potentielle
+  const calculatePotential = (budget) => {
+    if (!budget) return 0;
+    
+    if (budget < 100000) {
+      return 5000; // Forfait 5k€ pour budgets < 100k€
+    } else {
+      return Math.round(budget * 0.05); // 5% du budget
+    }
   }
 
   useEffect(() => {
@@ -82,8 +124,43 @@ export default function Dashboard() {
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
         if (profile?.agency_id) {
-          const { data } = await supabase.from('leads').select('*').eq('agency_id', profile.agency_id).order('created_at', { ascending: false })
-          setLeads(data || [])
+          // Récupérer les leads
+          const { data: leadsData } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('agency_id', profile.agency_id)
+            .order('created_at', { ascending: false })
+          
+          // Récupérer les activités récentes pour chaque lead
+          const { data: activitiesData } = await supabase
+            .from('activities')
+            .select('*')
+            .in('lead_id', leadsData?.map(l => l.id) || [])
+            .order('created_at', { ascending: false })
+
+          // Enrichir les leads avec les activités et détecter les leads froids
+          const enrichedLeads = leadsData?.map(lead => {
+            const leadActivities = activitiesData?.filter(a => a.lead_id === lead.id) || []
+            const lastActivity = leadActivities[0] // La plus récente
+            
+            // Détecter si le lead est froid (pas d'activité depuis 3 jours)
+            const threeDaysAgo = new Date()
+            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+            const isCold = lastActivity ? new Date(lastActivity.created_at) < threeDaysAgo : true
+            
+            // Ajouter le champ assigned_to (fictif pour l'instant)
+            const assignedTo = lead.assigned_to || 'Non assigné'
+            
+            return {
+              ...lead,
+              activities: leadActivities,
+              lastActivity: lastActivity?.created_at,
+              isCold,
+              assigned_to: assignedTo
+            }
+          }) || []
+
+          setLeads(enrichedLeads)
         }
       }
     } catch (error) {
@@ -191,20 +268,43 @@ export default function Dashboard() {
               
               <div className="flex-1 space-y-3">
                 {leads.filter(l => (l.statut || 'À traiter') === statut).map(lead => (
-                  <div key={lead.id} onClick={() => { setSelectedLead(lead); setIsModalOpen(true); }} className="bg-white rounded-lg p-4 cursor-pointer hover:shadow-md transition-all border border-gray-100">
-                    <div className="flex justify-between items-start mb-2">
+                  <div key={lead.id} onClick={() => { setSelectedLead(lead); setIsModalOpen(true); }} className="bg-white rounded-lg p-4 cursor-pointer hover:shadow-md transition-all border border-gray-100 relative">
+                    {/* En haut : Nom + Score IA */}
+                    <div className="flex justify-between items-start mb-3">
                       <h4 className="font-bold text-gray-800 text-sm">{lead.nom}</h4>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                          Score: {calculateScore(lead)}/10
-                        </span>
-                        <span className="text-xs text-gray-500">{lead.created_at ? new Date(lead.created_at).toLocaleDateString() : ''}</span>
-                      </div>
+                      <span className={`px-2 py-1 rounded text-xs font-bold border ${calculateScore(lead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                        Score: {calculateScore(lead)}/10
+                      </span>
                     </div>
+                    
+                    {/* Milieu : Potentiel (le plus important) */}
+                    <div className="text-center py-3 mb-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-1">Potentiel</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {calculatePotential(lead.budget).toLocaleString()} €
+                      </p>
+                    </div>
+                    
+                    {/* Alertes visuelles */}
+                    {(() => {
+                      const createdAt = new Date(lead.created_at)
+                      const threeDaysAgo = new Date()
+                      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+                      const isOldAndUntreated = createdAt < threeDaysAgo && (lead.statut || 'À traiter') === 'À traiter'
+                      
+                      return isOldAndUntreated ? (
+                        <div className="flex items-center justify-center gap-2 mb-2 bg-red-50 py-2 rounded-lg">
+                          <span className="text-red-600 animate-pulse">🔔</span>
+                          <span className="text-xs font-bold text-red-700">À relancer</span>
+                        </div>
+                      ) : null
+                    })()}
+                    
+                    {/* Infos secondaires */}
                     <p className="text-xs text-gray-600 mb-2">
-                      {lead.type_bien} • {lead.budget ? `${lead.budget.toLocaleString()}€` : 'Budget non défini'}
+                      {lead.type_bien} • {lead.budget ? `${lead.budget.toLocaleString()}€ budget` : 'Budget non défini'}
                     </p>
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-500 mb-3">
                       📧 {lead.email} • 📞 {lead.telephone}
                     </p>
                     
@@ -313,40 +413,218 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODALE SIMPLE */}
+      {/* MODALE FICHE LEAD PROFESSIONNELLE */}
       {isModalOpen && selectedLead && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl transform transition-all overflow-hidden">
-             <div className="bg-slate-50 p-6 border-b flex justify-between items-center">
-                <h2 className="text-xl font-bold text-slate-800">{selectedLead.nom}</h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
-             </div>
-             <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                        <p className="text-xs text-blue-600 font-bold uppercase">Budget</p>
-                        <p className="font-bold text-lg">{selectedLead.budget?.toLocaleString()} €</p>
-                    </div>
-                    <div className="bg-purple-50 p-3 rounded-lg">
-                        <p className="text-xs text-purple-600 font-bold uppercase">Projet</p>
-                        <p className="font-bold">{selectedLead.type_bien || 'Non défini'}</p>
-                    </div>
-                </div>
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl transform transition-all overflow-hidden max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 border-b">
+              <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-xs text-gray-500 font-bold uppercase mb-1">Contact</p>
-                    <p>📧 {selectedLead.email || 'Pas d\'email'}</p>
-                    <p>📞 {selectedLead.telephone || 'Pas de téléphone'}</p>
-                    <p>📍 {selectedLead.adresse || 'Pas d\'adresse'}</p>
+                  <h2 className="text-2xl font-bold mb-2">{selectedLead.nom}</h2>
+                  <div className="flex items-center gap-4">
+                    <span className={`px-3 py-1 rounded-full text-sm font-bold border ${calculateScore(selectedLead) >= 7 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                      Score: {calculateScore(selectedLead)}/10
+                    </span>
+                    <span className="text-blue-100">
+                      Potentiel: <span className="font-bold text-white">{calculatePotential(selectedLead.budget).toLocaleString()} €</span>
+                    </span>
+                  </div>
                 </div>
-             </div>
-             <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
-                <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Fermer</button>
-                {selectedLead.telephone && (
-                    <a href={`tel:${selectedLead.telephone}`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-sm">
-                        📞 Appeler
-                    </a>
-                )}
-             </div>
+                <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white text-2xl">×</button>
+              </div>
+            </div>
+            
+            {/* Contenu 2 colonnes */}
+            <div className="grid md:grid-cols-2 gap-6 p-6">
+              {/* Colonne Gauche - Infos */}
+              <div className="space-y-6">
+                {/* Coordonnées */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    📞 Coordonnées
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Email</p>
+                      <p className="font-medium">{selectedLead.email || 'Non renseigné'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Téléphone</p>
+                      <p className="font-medium">{selectedLead.telephone || 'Non renseigné'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Localisation</p>
+                      <p className="font-medium">{selectedLead.adresse || 'Non renseignée'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Projet */}
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    🏠 Projet Immobilier
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Type de bien</p>
+                      <p className="font-medium">{selectedLead.type_bien || 'Non défini'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Budget estimé</p>
+                      <p className="font-bold text-lg text-blue-700">{selectedLead.budget?.toLocaleString()} €</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Statut actuel</p>
+                      <span className={`px-2 py-1 rounded text-xs font-bold border ${STATUS_COLORS[selectedLead.statut || 'À traiter'] || 'bg-gray-200'}`}>
+                        {selectedLead.statut || 'À traiter'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Assignation */}
+                <div className="bg-purple-50 rounded-xl p-4">
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    👥 Assignation
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Agent assigné</p>
+                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option>{selectedLead.assigned_to || 'Non assigné'}</option>
+                        <option>Alice Martin (AM)</option>
+                        <option>Bob Dupont (BD)</option>
+                        <option>Carol Lambert (CL)</option>
+                      </select>
+                    </div>
+                    <button className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                      Assigner à cet agent
+                    </button>
+                  </div>
+                </div>
+
+                {/* Documents */}
+                <div className="bg-orange-50 rounded-xl p-4">
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    📄 Documents
+                  </h3>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => window.location.href = '/app/commercial'}
+                      className="w-full bg-orange-100 text-orange-700 py-2 rounded-lg hover:bg-orange-200 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      📋 Mandat (Générer)
+                    </button>
+                    <button 
+                      onClick={() => window.location.href = '/app/commercial'}
+                      className="w-full bg-orange-100 text-orange-700 py-2 rounded-lg hover:bg-orange-200 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      💰 Offre (Générer)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Colonne Droite - Timeline */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  🕒 Historique des activités
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Timeline */}
+                  <div className="relative">
+                    {/* Ligne verticale */}
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                    
+                    {/* Activités */}
+                    <div className="space-y-4">
+                      {/* Lead créé */}
+                      <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold z-10">
+                          📄
+                        </div>
+                        <div className="flex-1 bg-gray-50 rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="font-medium text-sm">Lead créé</p>
+                            <p className="text-xs text-gray-500">
+                              {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString() : 'Date inconnue'}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            Score initial: {calculateScore(selectedLead)}/10 • Budget: {selectedLead.budget?.toLocaleString()} €
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Activités réelles */}
+                      {selectedLead.activities?.map((activity, index) => (
+                        <div key={activity.id || index} className="flex items-start gap-4">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold z-10 ${
+                            activity.type === 'action' ? 'bg-green-600' : 
+                            activity.type === 'statut' ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}>
+                            {activity.type === 'action' ? '💬' : 
+                             activity.type === 'statut' ? '🔄' : '📄'}
+                          </div>
+                          <div className="flex-1 bg-gray-50 rounded-lg p-3">
+                            <div className="flex justify-between items-start mb-1">
+                              <p className="font-medium text-sm">{activity.description}</p>
+                              <p className="text-xs text-gray-500">
+                                {activity.created_at ? new Date(activity.created_at).toLocaleDateString() : 'Date inconnue'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Simulation documents */}
+                      <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold z-10">
+                          📋
+                        </div>
+                        <div className="flex-1 bg-orange-50 rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="font-medium text-sm">Document 'Mandat' disponible</p>
+                            <p className="text-xs text-gray-500">Hier</p>
+                          </div>
+                          <p className="text-xs text-gray-600">Prêt à être généré dans Commercial</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions rapides */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <h4 className="font-bold text-gray-900 mb-3">Actions rapides</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={(e) => openWhatsApp(e, selectedLead)}
+                      className="bg-green-100 text-green-700 py-2 rounded-lg hover:bg-green-200 transition-colors font-medium text-sm"
+                    >
+                      💬 WhatsApp
+                    </button>
+                    <button 
+                      onClick={(e) => openEmail(e, selectedLead)}
+                      className="bg-blue-100 text-blue-700 py-2 rounded-lg hover:bg-blue-200 transition-colors font-medium text-sm"
+                    >
+                      ✉ Email
+                    </button>
+                    <button 
+                      onClick={(e) => openCalendar(e, selectedLead)}
+                      className="bg-orange-100 text-orange-700 py-2 rounded-lg hover:bg-orange-200 transition-colors font-medium text-sm"
+                    >
+                      📅 RDV
+                    </button>
+                    <button className="bg-purple-100 text-purple-700 py-2 rounded-lg hover:bg-purple-200 transition-colors font-medium text-sm">
+                      📞 Appeler
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
