@@ -26,7 +26,46 @@ export default function Dashboard() {
     'Perdu': 'bg-[#4b5563] text-white'
   }
 
-  // Fonctions de navigation Kanban
+  // Fonction de style infaillible pour les statuts
+  const getStatusStyle = (status) => {
+    const colors = {
+      'À traiter': '#ef4444', // Rouge
+      'Message laissé': '#f97316', // Orange
+      'RDV Pris': '#2563eb', // Bleu
+      'Offre en cours': '#9333ea', // Violet
+      'Vendu': '#16a34a', // Vert
+      'Perdu': '#6b7280' // Gris
+    };
+    return { backgroundColor: colors[status] || '#e5e7eb', color: 'white', fontWeight: 'bold' };
+  }
+
+  // Navigation Bitrix24 (Scroll au survol)
+  const [scrollInterval, setScrollInterval] = useState(null)
+
+  const startScroll = (direction) => {
+    if (scrollInterval) return // Éviter les intervalles multiples
+    
+    const interval = setInterval(() => {
+      if (kanbanRef.current) {
+        const scrollAmount = 5 // Pixels par frame pour un mouvement fluide
+        kanbanRef.current.scrollBy({
+          left: direction === 'left' ? -scrollAmount : scrollAmount,
+          behavior: 'auto' // Pas de smooth pour un contrôle précis
+        })
+      }
+    }, 16) // ~60fps
+    
+    setScrollInterval(interval)
+  }
+
+  const stopScroll = () => {
+    if (scrollInterval) {
+      clearInterval(scrollInterval)
+      setScrollInterval(null)
+    }
+  }
+
+  // Fonctions de navigation Kanban (backup)
   const scrollKanban = (direction) => {
     if (kanbanRef.current) {
       const scrollAmount = 300 // pixels par scroll
@@ -405,23 +444,23 @@ export default function Dashboard() {
       {/* VUE PIPELINE (KANBAN) */}
       {viewMode === 'kanban' && (
         <div className="relative">
-          {/* Flèches de navigation */}
-          {canScrollLeft() && (
-            <button
-              onClick={() => scrollKanban('left')}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-xl hover:bg-white/90 transition-all"
-            >
-              <span className="text-3xl">◀</span>
-            </button>
-          )}
-          {canScrollRight() && (
-            <button
-              onClick={() => scrollKanban('right')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-xl hover:bg-white/90 transition-all"
-            >
-              <span className="text-3xl">▶</span>
-            </button>
-          )}
+          {/* Navigation Bitrix24 - Zone gauche */}
+          <div 
+            className="absolute left-0 top-0 h-full w-12 bg-gradient-to-r from-black/20 to-transparent hover:from-black/30 transition-all duration-200 flex items-center justify-center cursor-pointer z-40"
+            onMouseEnter={() => startScroll('left')}
+            onMouseLeave={stopScroll}
+          >
+            <span className="text-white text-2xl font-bold select-none">◀</span>
+          </div>
+          
+          {/* Navigation Bitrix24 - Zone droite */}
+          <div 
+            className="absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-black/20 to-transparent hover:from-black/30 transition-all duration-200 flex items-center justify-center cursor-pointer z-40"
+            onMouseEnter={() => startScroll('right')}
+            onMouseLeave={stopScroll}
+          >
+            <span className="text-white text-2xl font-bold select-none">▶</span>
+          </div>
           
           <div 
             ref={kanbanRef}
@@ -429,7 +468,10 @@ export default function Dashboard() {
           >
             {STATUS_ORDER.map(statut => (
               <div key={statut} className="min-w-[280px] w-72 bg-slate-100 rounded-xl p-3 flex flex-col shrink-0">
-                <div className={`font-bold uppercase text-xs mb-3 px-3 py-1.5 rounded-lg w-fit ${STATUS_COLORS[statut] || 'bg-gray-200'}`}>
+                <div 
+                  style={getStatusStyle(statut)}
+                  className="font-bold uppercase text-xs mb-3 px-3 py-1.5 rounded-lg w-fit"
+                >
                   {statut} • {leads.filter(l => (l.statut || 'À traiter') === statut).length}
                 </div>
               
@@ -592,7 +634,8 @@ export default function Dashboard() {
                       <select 
                         value={lead.statut || 'À traiter'}
                         onChange={(e) => updateStatus(lead.id, e.target.value)}
-                        className={`border text-white text-xs rounded p-1 font-medium ${STATUS_COLORS[lead.statut || 'À traiter']}`}
+                        style={getStatusStyle(lead.statut || 'À traiter')}
+                        className="border text-xs rounded p-1 font-medium"
                       >
                         {STATUS_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
