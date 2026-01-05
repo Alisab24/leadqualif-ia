@@ -12,7 +12,7 @@ export default function Layout() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-16 bg-slate-900 flex flex-col items-center justify-between p-2 z-50">
+      <div className="fixed left-0 top-0 h-full w-16 bg-gradient-to-b from-slate-900 via-blue-900 to-slate-900 flex flex-col items-center justify-between p-2 z-50 border-r border-white/10">
         {/* Logo */}
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
           <span className="text-white font-bold text-sm">N</span>
@@ -24,7 +24,7 @@ export default function Layout() {
             feature="stats"
             fallback={
               <div className="relative group">
-                <div className="p-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800 cursor-not-allowed opacity-60" title="Statistiques Agence (PRO)">
+                <div className="p-4 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/10 cursor-not-allowed opacity-60" title="Statistiques Agence (PRO)">
                   📊
                 </div>
                 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
@@ -33,12 +33,12 @@ export default function Layout() {
               </div>
             }
           >
-            <Link to="/app/stats" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/stats') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Statistiques Agence">
+            <Link to="/app/stats" className={`p-4 rounded-xl transition-all duration-300 ${isActive('/app/stats') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Statistiques Agence">
               📊
             </Link>
           </FeatureGate>
           
-          <Link to="/app" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Pipeline">
+          <Link to="/app" className={`p-4 rounded-xl transition-all duration-300 ${isActive('/app') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Pipeline">
             🚀
           </Link>
           
@@ -46,16 +46,16 @@ export default function Layout() {
             href="/estimation" 
             target="_blank"
             rel="noopener noreferrer"
-            className="p-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800" 
+            className="p-4 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/10" 
             title="Lien de capture Leads"
           >
             🔗
           </a>
           
-          <Link to="/app/commercial" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/commercial') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Documents">
+          <Link to="/app/commercial" className={`p-4 rounded-xl transition-all duration-300 ${isActive('/app/commercial') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Documents">
             📂
           </Link>
-          <Link to="/app/settings" className={`p-3 rounded-xl transition-all duration-200 ${isActive('/app/settings') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Paramètres">
+          <Link to="/app/settings" className={`p-4 rounded-xl transition-all duration-300 ${isActive('/app/settings') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Paramètres">
             ⚙️
           </Link>
         </nav>
@@ -65,7 +65,7 @@ export default function Layout() {
           href="/" 
           target="_blank"
           rel="noopener noreferrer"
-          className="p-3 text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors" 
+          className="p-4 text-blue-400 hover:bg-white/10 rounded-xl transition-all duration-300" 
           title="Voir le site"
         >
           🌐
@@ -74,7 +74,7 @@ export default function Layout() {
         {/* Logout */}
         <button 
           onClick={() => supabase.auth.signOut()} 
-          className="mt-auto mb-4 p-3 text-red-400 hover:bg-red-900/30 rounded-xl transition-colors" 
+          className="mt-auto mb-4 p-4 text-red-400 hover:bg-white/10 rounded-xl transition-all duration-300" 
           title="Déconnexion"
         >
           🚪
@@ -82,7 +82,7 @@ export default function Layout() {
       </div>
       
       {/* CONTENU PRINCIPAL (A droite) */}
-      <div className="flex-1 ml-20 h-full overflow-y-auto bg-gray-50">
+      <div className="flex-1 ml-20 h-full overflow-y-auto bg-slate-50">
         <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-full">
           <Outlet /> {/* C'est ICI que Dashboard/Commercial s'affichent */}
         </div>

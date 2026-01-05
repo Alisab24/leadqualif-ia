@@ -504,7 +504,7 @@ export default function Dashboard() {
   if (loading) return "Chargement du Pipeline..."
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header avec toggle */}
       <div className="bg-white border-b border-gray-200 px-8 py-4">
         <div className="flex justify-between items-center">
@@ -623,7 +623,7 @@ export default function Dashboard() {
               
               <div className="flex-1 space-y-3">
                 {leads.filter(l => (l.statut || 'À traiter') === statut).map(lead => (
-                  <div key={lead.id} onClick={() => { setSelectedLead(lead); setIsModalOpen(true); }} className="bg-white rounded-lg p-4 cursor-pointer hover:shadow-md transition-all border border-gray-100 relative">
+                  <div key={lead.id} onClick={() => { setSelectedLead(lead); setIsModalOpen(true); }} className="bg-white rounded-xl shadow-lg shadow-blue-900/5 p-4 cursor-pointer hover:shadow-xl transition-all border border-slate-100 relative">
                     {/* En haut : Nom + Score IA */}
                     <div className="flex justify-between items-start mb-3">
                       <h4 className="font-bold text-gray-800 text-sm">{lead.nom}</h4>
@@ -712,20 +712,28 @@ export default function Dashboard() {
                       </button>
                     </div>
 
-                    <div className="border-t pt-2 flex justify-between items-center">
+                    <div className="border-t border-slate-100 pt-3 mt-3 flex justify-between items-center px-2 py-2 bg-gray-50 rounded-b-xl">
                       <button 
                         onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, STATUS_ORDER[STATUS_ORDER.indexOf(statut) - 1]); }}
                         disabled={STATUS_ORDER.indexOf(statut) === 0}
-                        className="text-gray-400 hover:text-gray-600 disabled:text-gray-200 disabled:cursor-not-allowed text-sm"
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                          STATUS_ORDER.indexOf(statut) === 0 
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
                       >
-                        ←
+                        ⬅️
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, STATUS_ORDER[STATUS_ORDER.indexOf(statut) + 1]); }}
                         disabled={STATUS_ORDER.indexOf(statut) === STATUS_ORDER.length - 1}
-                        className="text-gray-400 hover:text-gray-600 disabled:text-gray-200 disabled:cursor-not-allowed text-sm"
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                          STATUS_ORDER.indexOf(statut) === STATUS_ORDER.length - 1 
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
                       >
-                        ▶
+                        ➡️
                       </button>
                     </div>
                   </div>

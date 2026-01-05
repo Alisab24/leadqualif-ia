@@ -119,31 +119,31 @@ export default function Stats() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des statistiques...</p>
+          <p className="text-slate-600">Chargement des statistiques...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Statistiques Agence</h1>
-          <p className="text-gray-600">Vue d'ensemble de vos performances et de votre activité</p>
+          <h1 className="text-3xl font-bold text-slate-800 mb-2">Statistiques Agence</h1>
+          <p className="text-slate-600">Vue d'ensemble de vos performances et de votre activité</p>
         </div>
 
         {/* Résumé Business */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Commission Totale */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Commission Totale Identifiée</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Commission Totale Identifiée</p>
                 <p className="text-3xl font-bold text-green-600">
                   {stats.totalCommission.toLocaleString()} €
                 </p>
@@ -155,10 +155,10 @@ export default function Stats() {
           </div>
 
           {/* Volume de Leads */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Volume de Leads</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Volume de Leads</p>
                 <p className="text-3xl font-bold text-blue-600">{stats.leadsThisMonth}</p>
                 <div className="flex items-center mt-2">
                   {stats.leadsThisMonth > stats.leadsLastMonth ? (
@@ -166,7 +166,7 @@ export default function Stats() {
                   ) : (
                     <span className="text-red-600 text-sm font-medium">↓ {stats.leadsLastMonth - stats.leadsThisMonth}</span>
                   )}
-                  <span className="text-gray-500 text-sm ml-2">vs mois dernier</span>
+                  <span className="text-slate-500 text-sm ml-2">vs mois dernier</span>
                 </div>
               </div>
               <div className="bg-blue-100 rounded-full p-3">
@@ -176,12 +176,12 @@ export default function Stats() {
           </div>
 
           {/* Taux de Transformation */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Taux de Transformation</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Taux de Transformation</p>
                 <p className="text-3xl font-bold text-purple-600">{stats.conversionRate}%</p>
-                <p className="text-gray-500 text-sm mt-2">Leads signés / Leads totaux</p>
+                <p className="text-slate-500 text-sm mt-2">Leads signés / Leads totaux</p>
               </div>
               <div className="bg-purple-100 rounded-full p-3">
                 <span className="text-2xl">🎯</span>
@@ -193,8 +193,8 @@ export default function Stats() {
         {/* Graphiques Visuels */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Graphique en barres - Leads par mois */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Leads par mois (6 derniers mois)</h2>
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-4">Leads par mois (6 derniers mois)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={stats.monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -209,8 +209,8 @@ export default function Stats() {
           </div>
 
           {/* Graphique circulaire - Répartition par statut */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Répartition par Statut</h2>
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-4">Répartition par Statut</h2>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -234,8 +234,8 @@ export default function Stats() {
         </div>
 
         {/* Rapport Mensuel Automatique */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Rapport Mensuel</h2>
+        <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
+          <h2 className="text-lg font-bold text-slate-800 mb-4">Rapport Mensuel</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
