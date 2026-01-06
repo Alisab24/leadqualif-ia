@@ -2,215 +2,67 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-// import DocumentService from '../services/documentService'; // Temporairement désactivé
-import CRMHistory from './CRMHistory';
 
 export default function DocumentManager({ lead, agencyId }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [agencyProfile, setAgencyProfile] = useState(null);
-  const [activeTab, setActiveTab] = useState('IMMO'); // Onglet par défaut
 
-  // 1. CHARGEMENT DATA
   useEffect(() => {
-    const fetchData = async () => {
-      if (agencyId) {
-        const { data } = await supabase.from('profiles').select('*').eq('agency_id', agencyId).single();
-        setAgencyProfile(data);
-      }
-      fetchDocuments();
-    };
-    fetchData();
-  }, [agencyId, lead.id]);
+    if (lead?.id) fetchDocuments();
+  }, [lead]);
 
   const fetchDocuments = async () => {
-    try {
-      // const docs = await DocumentService.getLeadDocuments(lead.id, agencyId);
-      // setDocuments(docs);
-      setDocuments([]); // Temporairement vide
-    } catch (error) {
-      console.error('Erreur chargement documents:', error);
-    } finally {
-      setLoading(false);
-    }
+    const { data } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('lead_id', lead.id)
+      .order('created_at', { ascending: false });
+    if (data) setDocuments(data);
   };
 
-  // 2. CONFIGURATION DES MODÈLES (TEMPLATES)
-  const templates = {
-    IMMO: [
-      { name: 'Bon de Visite', icon: '👀', type: 'juridique' },
-      { name: 'Mandat de Vente', icon: '⚖️', type: 'juridique' },
-      { name: 'Offre d\'Achat', icon: '💰', type: 'transaction' },
-      { name: 'Fiche Client', icon: '📋', type: 'recap' },
-      { name: 'Compte-rendu', icon: '📝', type: 'suivi' }
-    ],
-    SMMA: [
-      { name: 'Devis Prestation', icon: '💶', type: 'vente' },
-      { name: 'Contrat Service', icon: '🤝', type: 'juridique' },
-      { name: 'Facture', icon: '🧾', type: 'compta' },
-      { name: 'Brief Onboarding', icon: '🚀', type: 'projet' }
-    ]
-  };
-
-  // 3. GÉNÉRATEUR PDF INTELLIGENT
   const generatePDF = async (docName) => {
     setLoading(true);
     const doc = new jsPDF();
-    const today = new Date().toLocaleDateString();
+    doc.text(`Document: ${docName}`, 10, 10);
+    doc.text(`Client: ${lead.nom}`, 10, 20);
+    doc.save(`${docName}.pdf`);
 
-    // -- HEADER (Logo & Branding) --
-    doc.setFontSize(20);
-    doc.setTextColor(41, 98, 255); // Bleu Agence
-    doc.text(agencyProfile?.agency_name?.toUpperCase() || "AGENCE PARTENAIRE", 15, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Email: ${agencyProfile?.email || 'contact@agence.com'}`, 15, 26);
-    doc.text(`Tel: ${agencyProfile?.telephone || 'Non renseigné'}`, 15, 31);
-
-    doc.setDrawColor(200);
-    doc.line(15, 35, 195, 35); // Ligne de séparation
-
-    // -- TITRE --
-    doc.setFontSize(18);
-    doc.setTextColor(0);
-    doc.text(docName.toUpperCase(), 105, 50, { align: 'center' });
-
-    // -- INFO CLIENT --
-    doc.setFillColor(245, 247, 250);
-    doc.rect(15, 60, 180, 25, 'F'); // Fond gris léger
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("CLIENT / PROSPECT :", 20, 68);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Nom : ${lead.nom}`, 20, 75);
-    doc.text(`Email : ${lead.email}`, 100, 75);
-    doc.text(`Tel : ${lead.telephone}`, 20, 82);
-    doc.text(`Projet : ${lead.type_bien}`, 100, 82);
-    let cursorY = 100;
-
-    // -- CONTENU DYNAMIQUE --
-    doc.setFontSize(11);
-    if (docName === 'Bon de Visite') {
-      doc.text("Je soussigné(e), reconnais avoir visité ce jour les biens présentés par l'agence.", 15, cursorY);
-      doc.text(`Bien : ${lead.type_bien} - Budget env. ${lead.budget} €`, 15, cursorY + 10);
-      doc.text("Je m'engage à ne traiter que par l'intermédiaire de l'agence.", 15, cursorY + 20);
-      doc.text("Signature Client :", 130, cursorY + 50);
-    } 
-    else if (docName === 'Mandat de Vente') {
-      doc.text("LE MANDANT charge le MANDATAIRE de vendre le bien désigné ci-après.", 15, cursorY);
-      doc.text(`Type de bien : ${lead.type_bien}`, 15, cursorY + 10);
-      doc.text(`Prix net vendeur souhaité : ${lead.budget} €`, 15, cursorY + 20);
-      doc.text("Durée du mandat : 3 mois irrévocables.", 15, cursorY + 30);
-      doc.text("Bon pour Mandat (Signature) :", 120, cursorY + 60);
-    }
-    else if (docName === 'Devis Prestation') {
-       doc.autoTable({
-        startY: cursorY,
-        head: [['Désignation', 'Qté', 'Prix Unitaire', 'Total']],
-        body: [
-          ['Frais de dossier / Onboarding', '1', '150 €', '150 €'],
-          ['Accompagnement Mensuel', '1', '500 €', '500 €'],
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [41, 98, 255] }
-      });
-      doc.text("TOTAL HT : 650 €", 140, doc.lastAutoTable.finalY + 20);
-    }
-    else {
-      doc.text("Document généré automatiquement pour le suivi du dossier.", 15, cursorY);
-      doc.text(`Date : ${today}`, 15, cursorY + 10);
-    }
-
-    // -- FOOTER --
-    const pageHeight = doc.internal.pageSize.height;
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Généré par LeadQualif IA - CRM Intelligent", 105, pageHeight - 10, { align: 'center' });
-
-    doc.save(`${docName}_${lead.nom}.pdf`);
-
-    // -- SAUVEGARDE HISTORIQUE AVEC SERVICE CENTRALISÉ --
-    try {
-      // Récupérer l'utilisateur actuel
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Créer le document avec le service unifié
-      // await DocumentService.createDocument({
-      //   leadId: lead.id,
-      //   agencyId: agencyId,
-      //   type: docName,
-      //   title: `${docName} - ${lead.nom}`,
-      //   content: {
-      //     template: docName,
-      //     category: activeTab,
-      //     generatedAt: new Date().toISOString(),
-      //     agencyData: agencyProfile
-      //   },
-      //   metadata: {
-      //     clientName: lead.nom,
-      //     clientEmail: lead.email,
-      //     clientPhone: lead.telephone,
-      //     budget: lead.budget,
-      //     typeBien: lead.type_bien,
-      //     delai: lead.delai
-      //   },
-      //   userId: user?.id
-      // });
-      
-      fetchDocuments();
-    } catch (err) { 
-      console.error('Erreur sauvegarde document:', err); 
-    }
+    await supabase.from('documents').insert([{
+      lead_id: lead.id,
+      agency_id: agencyId,
+      type: docName,
+      status: 'Généré'
+    }]);
+    fetchDocuments();
     setLoading(false);
   };
 
   return (
     <div>
-      {/* ONGLETS DE SÉLECTION PAR MÉTIER */}
-      <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-xl">
-        <button
-          onClick={() => setActiveTab('IMMO')}
-          className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
-            activeTab === 'IMMO' 
-              ? 'bg-white text-blue-600 shadow-md border border-blue-100' 
-              : 'text-slate-600 hover:text-slate-800 hover:bg-white/50'
-          }`}
+      <div className="flex gap-2 mb-4">
+        <button 
+          onClick={() => generatePDF('Devis')} 
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          IMMOBILIER
+          {loading ? 'Génération...' : 'Générer Devis'}
         </button>
-        <button
-          onClick={() => setActiveTab('SMMA')}
-          className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
-            activeTab === 'SMMA' 
-              ? 'bg-white text-blue-600 shadow-md border border-blue-100' 
-              : 'text-slate-600 hover:text-slate-800 hover:bg-white/50'
-          }`}
+        <button 
+          onClick={() => generatePDF('Contrat')} 
+          disabled={loading}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
         >
-          MARKETING DIGITAL
+          {loading ? 'Génération...' : 'Générer Contrat'}
         </button>
       </div>
-
-      {/* GRILLE DOCUMENTS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
-        {templates[activeTab].map((tpl) => (
-          <button
-            key={tpl.name}
-            onClick={() => generatePDF(tpl.name)}
-            disabled={loading}
-            className="flex flex-col items-center justify-center p-4 border border-slate-100 rounded-xl hover:bg-white hover:shadow-md hover:border-blue-200 transition group bg-slate-50/30"
-          >
-            <span className="text-2xl mb-2 group-hover:scale-110 transition">{tpl.icon}</span>
-            <span className="text-xs font-bold text-slate-700 text-center">{tpl.name}</span>
-          </button>
+      
+      <div className="space-y-2">
+        {documents.map(doc => (
+          <div key={doc.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <span className="font-medium">{doc.type}</span>
+            <span className="text-sm text-gray-500">{doc.status}</span>
+          </div>
         ))}
-      </div>
-
-      {/* HISTORIQUE CRM UNIFIÉ */}
-      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-        <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-          📋 HISTORIQUE CRM
-        </h4>
-        <CRMHistory lead={lead} agencyId={agencyId} />
       </div>
     </div>
   );
