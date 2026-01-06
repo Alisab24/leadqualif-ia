@@ -111,7 +111,31 @@ export default function DocumentManager({ lead, agencyId }) {
     setLoading(false);
   };
 
-  // 4. Actions sur les documents
+  // Fonctions utilitaires pour les documents
+  const getDocumentIcon = (type) => {
+    const icons = {
+      'Bon de Visite': '📄',
+      'Mandat de Vente': '⚖️',
+      'Offre d\'Achat': '💰',
+      'Devis': '📋',
+      'Contrat': '📝',
+      'Facture': '🧾'
+    }
+    return icons[type] || '📄'
+  }
+
+  const getDocumentTitle = (type) => {
+    return type || 'Document'
+  }
+
+  const getDocumentStatusColor = (status) => {
+    const colors = {
+      'Généré': 'bg-gray-100 text-gray-700 border-gray-200',
+      'Envoyé': 'bg-blue-100 text-blue-700 border-blue-200',
+      'Signé': 'bg-green-100 text-green-700 border-green-200'
+    }
+    return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200'
+  }
   const updateDocumentStatus = async (docId, newStatus) => {
     try {
       await supabase.from('documents').update({ 
