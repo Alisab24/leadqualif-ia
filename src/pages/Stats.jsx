@@ -6,9 +6,12 @@ export default function Stats() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     totalCommission: 0,
+    leadsThisWeek: 0,
     leadsThisMonth: 0,
     leadsLastMonth: 0,
     conversionRate: 0,
+    averageScore: 0,
+    hotLeadsPercentage: 0,
     monthlyData: [],
     statusDistribution: []
   })
@@ -42,6 +45,11 @@ export default function Stats() {
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+      
+      // Stats semaine
+      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()))
+      startOfWeek.setHours(0, 0, 0, 0)
+      const leadsThisWeek = leads.filter(lead => new Date(lead.created_at) >= startOfWeek).length
 
       const leadsThisMonth = leads.filter(lead => new Date(lead.created_at) >= thisMonth).length
       const leadsLastMonth = leads.filter(lead => {
@@ -51,6 +59,12 @@ export default function Stats() {
 
       const convertedLeads = leads.filter(lead => lead.statut === 'Vendu').length
       const conversionRate = leads.length > 0 ? Math.round((convertedLeads / leads.length) * 100) : 0
+
+      // Stats IA
+      const scores = leads.filter(lead => lead.score).map(lead => lead.score)
+      const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+      const hotLeads = leads.filter(lead => lead.score >= 70).length
+      const hotLeadsPercentage = leads.length > 0 ? Math.round((hotLeads / leads.length) * 100) : 0
 
       // Calculer la commission totale
       const totalCommission = leads.reduce((sum, lead) => {
@@ -97,9 +111,12 @@ export default function Stats() {
 
       setStats({
         totalCommission,
+        leadsThisWeek,
         leadsThisMonth,
         leadsLastMonth,
         conversionRate,
+        averageScore,
+        hotLeadsPercentage,
         monthlyData,
         statusDistribution
       })
@@ -137,29 +154,28 @@ export default function Stats() {
           <p className="text-slate-600">Vue d'ensemble de vos performances et de votre activité</p>
         </div>
 
-        {/* Résumé Business */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Commission Totale */}
+        {/* Résumé Business - KPI Professionnels */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Leads cette semaine */}
           <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Commission Totale Identifiée</p>
-                <p className="text-3xl font-bold text-green-600">
-                  {stats.totalCommission.toLocaleString()} €
-                </p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Leads cette semaine</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.leadsThisWeek}</p>
+                <p className="text-slate-500 text-sm mt-2">7 derniers jours</p>
               </div>
-              <div className="bg-green-100 rounded-full p-3">
-                <span className="text-2xl">💰</span>
+              <div className="bg-blue-100 rounded-full p-3">
+                <span className="text-2xl">📊</span>
               </div>
             </div>
           </div>
 
-          {/* Volume de Leads */}
+          {/* Leads ce mois */}
           <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Volume de Leads</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.leadsThisMonth}</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Leads ce mois</p>
+                <p className="text-3xl font-bold text-green-600">{stats.leadsThisMonth}</p>
                 <div className="flex items-center mt-2">
                   {stats.leadsThisMonth > stats.leadsLastMonth ? (
                     <span className="text-green-600 text-sm font-medium">↑ +{stats.leadsThisMonth - stats.leadsLastMonth}</span>
@@ -169,8 +185,55 @@ export default function Stats() {
                   <span className="text-slate-500 text-sm ml-2">vs mois dernier</span>
                 </div>
               </div>
-              <div className="bg-blue-100 rounded-full p-3">
+              <div className="bg-green-100 rounded-full p-3">
                 <span className="text-2xl">📈</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Score moyen IA */}
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600 mb-1">Score moyen IA</p>
+                <p className="text-3xl font-bold text-purple-600">{stats.averageScore}%</p>
+                <p className="text-slate-500 text-sm mt-2">Intention d'achat</p>
+              </div>
+              <div className="bg-purple-100 rounded-full p-3">
+                <span className="text-2xl">🧠</span>
+              </div>
+            </div>
+          </div>
+
+          {/* % Leads chauds */}
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600 mb-1">% Leads chauds</p>
+                <p className="text-3xl font-bold text-orange-600">{stats.hotLeadsPercentage}%</p>
+                <p className="text-slate-500 text-sm mt-2">Score ≥ 70%</p>
+              </div>
+              <div className="bg-orange-100 rounded-full p-3">
+                <span className="text-2xl">🔥</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Business Additionnels */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Commission Totale */}
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600 mb-1">Commission Totale Identifiée</p>
+                <p className="text-3xl font-bold text-green-600">
+                  {stats.totalCommission.toLocaleString()} €
+                </p>
+                <p className="text-slate-500 text-sm mt-2">Potentiel business</p>
+              </div>
+              <div className="bg-green-100 rounded-full p-3">
+                <span className="text-2xl">💰</span>
               </div>
             </div>
           </div>
@@ -180,12 +243,24 @@ export default function Stats() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-1">Taux de Transformation</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.conversionRate}%</p>
+                <p className="text-3xl font-bold text-indigo-600">{stats.conversionRate}%</p>
                 <p className="text-slate-500 text-sm mt-2">Leads signés / Leads totaux</p>
               </div>
-              <div className="bg-purple-100 rounded-full p-3">
+              <div className="bg-indigo-100 rounded-full p-3">
                 <span className="text-2xl">🎯</span>
               </div>
+            </div>
+          </div>
+
+          {/* Performance IA */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-purple-200">
+            <div className="text-center">
+              <p className="text-sm font-medium text-purple-700 mb-2">Performance IA</p>
+              <div className="flex justify-center items-center space-x-2">
+                <span className="text-2xl">⚡</span>
+                <p className="text-2xl font-bold text-purple-800">{stats.averageScore}%</p>
+              </div>
+              <p className="text-purple-600 text-sm mt-2">Score de qualification moyen</p>
             </div>
           </div>
         </div>

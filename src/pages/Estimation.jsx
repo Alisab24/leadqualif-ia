@@ -8,8 +8,10 @@ export default function Estimation() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
+  const [showClientPreview, setShowClientPreview] = useState(false);
+  const [scoreData, setScoreData] = useState(null);
 
-  // Réglages par défaut
+  // Réglages par défaut avec personnalisation SMMA/IMMO
   const [settings, setSettings] = useState({
     showBudget: true,
     showType: true,
@@ -20,7 +22,10 @@ export default function Estimation() {
     labelDelai: "Délai du projet",
     labelMsg: "Message / Précisions",
     agencyName: "LeadQualif IA",
-    logoUrl: null
+    logoUrl: null,
+    agencyType: "IMMO", // IMMO ou SMMA
+    introText: "Obtenez une analyse précise de votre projet par notre intelligence artificielle",
+    analysisLabel: "Analyse IA"
   });
 
   const [formData, setFormData] = useState({
@@ -58,9 +63,34 @@ export default function Estimation() {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  // Fonction pour calculer la lecture métier
+  const calculateBusinessInsights = (score, budget, delai) => {
+    let priority = "Faible";
+    let delay = "6+ mois";
+    let potential = "0€";
+    let action = "Relance";
+    let priorityColor = "bg-gray-100 text-gray-700";
+
+    if (score >= 80) {
+      priority = "Élevé";
+      delay = "1-2 semaines";
+      potential = `${Math.round((budget || 0) * 0.02)}€`;
+      action = "Appel immédiat";
+      priorityColor = "bg-red-100 text-red-700";
+    } else if (score >= 60) {
+      priority = "Moyen";
+      delay = "2-4 semaines";
+      potential = `${Math.round((budget || 0) * 0.015)}€`;
+      action = "RDV prioritaire";
+      priorityColor = "bg-yellow-100 text-yellow-700";
+    }
+
+    return { priority, delay, potential, action, priorityColor };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("ID Agence:", agency_id); // Pour vérifier qu'on a bien l'ID
+    console.log("ID Agence:", agency_id);
     setLoading(true);
     try {
       // --- ALGORITHME DE SCORING LEADQUALIF IA ---
@@ -84,6 +114,10 @@ export default function Estimation() {
       if (scoreIA < 10) scoreIA = 10;
       // -------------------------------------------
 
+      // Calcul des insights métier
+      const insights = calculateBusinessInsights(scoreIA, parseInt(formData.budget) || 0, formData.delai);
+      setScoreData({ score: scoreIA, insights });
+
       const { error } = await supabase.from('leads').insert([{
         ...formData,
         budget: formData.budget ? parseInt(formData.budget) : 0,
@@ -97,8 +131,8 @@ export default function Estimation() {
       if (error) throw error;
       setSubmitted(true);
     } catch (err) {
-      console.error("🔴 ERREUR CRITIQUE:", err); // Le log important
-      console.log("Données envoyées:", formData); // Pour vérifier les champs
+      console.error("🔴 ERREUR CRITIQUE:", err);
+      console.log("Données envoyées:", formData);
       setError(`Erreur technique: ${err.message || err.details || 'Inconnue'}`);
     } finally {
       setLoading(false);
@@ -107,45 +141,135 @@ export default function Estimation() {
 
   if (submitted) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white py-10 px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white/50 backdrop-blur-xl text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Analyse lancée !</h1>
-          <p className="text-lg text-gray-600 mb-8">
-            Votre projet a été soumis à notre IA.<br />
-            Un expert vous contactera rapidement.
-          </p>
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8">
-            <div className="flex items-center justify-center space-x-2 text-blue-700">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white py-10 px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white/50 backdrop-blur-xl">
+          
+          {/* Header succès */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="font-medium">Analyse IA gratuite et sans engagement</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              {settings.analysisLabel} lancée !
+            </h1>
+            <p className="text-lg text-gray-600 mb-2">
+              Votre projet a été soumis à notre IA.<br />
+              Un expert vous contactera rapidement.
+            </p>
+            <p className="text-sm text-gray-500 mb-8">
+              Analyse prédictive de la probabilité de conversion
+            </p>
+          </div>
+
+          {/* BLOC LECTURE MÉTIER */}
+          {scoreData && (
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-6 mb-8 border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                🔥 Lecture métier de votre projet
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl p-4 text-center">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Niveau de priorité</div>
+                  <div className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${scoreData.insights.priorityColor}`}>
+                    {scoreData.insights.priority}
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 text-center">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">⏱ Délai estimé de closing</div>
+                  <div className="text-lg font-bold text-slate-800">{scoreData.insights.delay}</div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 text-center">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">💰 Potentiel estimé</div>
+                  <div className="text-lg font-bold text-green-600">{scoreData.insights.potential}</div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 text-center">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">🎯 Action recommandée</div>
+                  <div className="text-sm font-bold text-blue-600">{scoreData.insights.action}</div>
+                </div>
+              </div>
+
+              {/* Info-bulle score */}
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold text-blue-700">Score IA (Intention d'achat): {scoreData.score}%</span>
+                  <span className="text-xs text-blue-600">• Score calculé automatiquement selon budget, urgence et engagement</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Boutons d'action */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => setShowClientPreview(!showClientPreview)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg flex items-center justify-center space-x-2"
+            >
+              <span>👁️</span>
+              <span>{showClientPreview ? 'Masquer' : 'Aperçu client'}</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setScoreData(null);
+                setShowClientPreview(false);
+                setFormData({
+                  nom: '',
+                  email: '',
+                  telephone: '',
+                  type_bien: 'Appartement',
+                  budget: '',
+                  surface: '',
+                  projet: 'Achat',
+                  delai: 'Indéfini',
+                  message: ''
+                });
+              }}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
+            >
+              Nouvelle analyse
+            </button>
+          </div>
+
+          {/* APERÇU CLIENT */}
+          {showClientPreview && (
+            <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-200">
+              <h3 className="text-lg font-bold text-green-800 mb-4">👁️ Aperçu Client</h3>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h4 className="text-xl font-bold text-green-800 mb-2">Votre projet est en cours d'analyse</h4>
+                <p className="text-green-700 mb-4">
+                  Un expert vous recontacte dans les plus brefs délais pour étudier votre projet en détail.
+                </p>
+                <div className="bg-white rounded-xl p-4">
+                  <p className="text-sm text-gray-600">
+                    <strong>Prochaine étape :</strong> Un conseiller spécialisé vous appellera pour affiner votre recherche et vous présenter les meilleures opportunités correspondant à votre projet.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 text-center">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+              <div className="flex items-center justify-center space-x-2 text-blue-700">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span className="font-medium">{settings.analysisLabel} gratuite et sans engagement</span>
+              </div>
             </div>
           </div>
-          <button
-            onClick={() => {
-              setSubmitted(false);
-              setFormData({
-                nom: '',
-                email: '',
-                telephone: '',
-                type_bien: 'Appartement',
-                budget: '',
-                surface: '',
-                projet: 'Achat',
-                delai: 'Indéfini',
-                message: ''
-              });
-            }}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
-          >
-            Nouvelle analyse
-          </button>
         </div>
       </div>
     </div>
@@ -154,7 +278,7 @@ export default function Estimation() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header moderne */}
+        {/* Header moderne avec personnalisation */}
         <div className="text-center mb-12">
           {settings.logoUrl ? (
             <div className="w-24 h-24 mx-auto mb-6 bg-white rounded-2xl shadow-lg p-3 flex items-center justify-center">
@@ -181,17 +305,21 @@ export default function Estimation() {
           )}
           
           <h1 className="text-5xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Analyse IA Immédiate
+            {settings.analysisLabel} Immédiate
           </h1>
           
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-            Obtenez une analyse précise de votre projet par notre intelligence artificielle
+            {settings.introText}
+          </p>
+          
+          <p className="text-sm text-gray-500 mb-8">
+            Analyse prédictive de la probabilité de conversion
           </p>
           
           {settings.agencyName && settings.agencyName !== 'LeadQualif IA' && (
             <div className="mb-8">
               <span className="bg-gradient-to-r from-slate-100 to-slate-50 text-slate-700 px-6 py-3 rounded-full text-base font-semibold border border-slate-200 shadow-sm">
-                Proposé par {settings.agencyName}
+                {settings.analysisLabel} proposée par {settings.agencyName}
               </span>
             </div>
           )}
@@ -204,7 +332,7 @@ export default function Estimation() {
               🇫🇷 Service France
             </span>
             <span className="bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold border border-purple-200">
-              ⚡ Analyse IA
+              ⚡ {settings.analysisLabel}
             </span>
           </div>
           
@@ -275,8 +403,17 @@ export default function Estimation() {
                 </div>
               </div>
             </div>
+            
+            {/* Info-bulle Score IA */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center space-x-2">
+                <span className="font-semibold text-blue-700">Score IA (Intention d'achat)</span>
+                <span className="text-xs text-blue-600">• Score calculé automatiquement selon budget, urgence et engagement</span>
+              </div>
+            </div>
+            
             <button type="submit" disabled={loading} className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-500/30 text-lg font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition duration-200">
-              {loading ? 'Analyse en cours...' : 'Lancer l\'analyse IA 🚀'}
+              {loading ? 'Analyse en cours...' : `Lancer l'${settings.analysisLabel.toLowerCase()} 🚀`}
             </button>
           </form>
         </div>
