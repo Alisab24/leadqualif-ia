@@ -127,6 +127,24 @@ export default function Dashboard() {
                   {leads.filter(l => l.statut === statut).map(lead => (
                     <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition relative group border-l-4 border-l-transparent hover:border-l-blue-500">
                       
+                      {/* Flèches de navigation flottantes */}
+                      {idx > 0 && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, statuts[idx-1]); }} 
+                          className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-blue-600 z-20 hover:scale-110 transition opacity-0 group-hover:opacity-100"
+                        >
+                          ⬅️
+                        </button>
+                      )}
+                      {idx < statuts.length - 1 && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, statuts[idx+1]); }} 
+                          className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-blue-600 z-20 hover:scale-110 transition opacity-0 group-hover:opacity-100"
+                        >
+                          ➡️
+                        </button>
+                      )}
+                      
                       {/* Tags & Score IA */}
                       <div className="flex justify-between mb-2">
                         <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{lead.type_bien || 'Projet'}</span>
@@ -139,12 +157,6 @@ export default function Dashboard() {
                       </div>
                       <h4 className="font-bold text-slate-900 truncate">{lead.nom}</h4>
                       <p className="text-sm text-slate-500 mb-3 font-medium">{(lead.budget || 0).toLocaleString()} €</p>
-                      
-                      {/* Navigation */}
-                      <div className="flex justify-between pt-2 border-t border-slate-50 mt-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                        {idx > 0 ? <button onClick={() => updateStatus(lead.id, statuts[idx-1])} className="text-slate-400 hover:text-blue-600 px-2">⬅️</button> : <div/>}
-                        {idx < statuts.length - 1 ? <button onClick={() => updateStatus(lead.id, statuts[idx+1])} className="text-blue-600 hover:text-blue-800 px-2">➡️</button> : <div/>}
-                      </div>
                     </div>
                   ))}
                 </div>
