@@ -57,7 +57,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
       {/* SIDEBAR STYLE BITRIX24 */}
-      <aside className="group w-20 hover:w-64 bg-gradient-to-b from-slate-900 to-blue-900 text-white flex flex-col h-screen fixed left-0 top-0 shadow-2xl transition-all duration-300 z-50">
+      <aside className="group w-16 hover:w-64 bg-gradient-to-b from-slate-900 to-blue-900 text-white flex flex-col h-screen fixed left-0 top-0 shadow-2xl transition-all duration-300 z-50">
         {/* HAUT : LOGO */}
         <div>
           <div className="h-20 flex items-center justify-center border-b border-white/5 bg-black/20">
@@ -101,7 +101,7 @@ export default function Layout() {
         )}
       </aside>
 
-      {/* CONTENU PRINCIPAL (Décalé de 20 pour laisser la place aux icônes) */}
+      {/* CONTENU PRINCIPAL (Décalé de 16 pour laisser la place aux icônes) */}
       <div className="flex-1 ml-16 transition-all duration-300">
         <Outlet />
       </div>
