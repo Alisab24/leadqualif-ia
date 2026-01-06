@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
+  const [calendlyLink, setCalendlyLink] = useState(null);
 
   // --- 1. AUTH & CHARGEMENT ---
   useEffect(() => {
@@ -23,7 +24,13 @@ export default function Dashboard() {
   const fetchLeads = async (userId) => {
     setLoading(true);
     try {
-      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', userId).single();
+      const { data: profile } = await supabase.from('profiles').select('agency_id, calendly_link').eq('user_id', userId).single();
+      
+      // Stocker le lien Calendly
+      if (profile?.calendly_link) {
+        setCalendlyLink(profile.calendly_link);
+      }
+      
       let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
       
       if (profile?.agency_id) {
@@ -122,6 +129,47 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">{selectedLead.nom}</h2>
                 <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-slate-600 text-2xl">×</button>
+              </div>
+              
+              {/* BARRE D'ACTIONS RAPIDES */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {/* WhatsApp */}
+                <a 
+                  href={`https://wa.me/${selectedLead.telephone?.replace(/\D/g,'')}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="flex flex-col items-center justify-center p-3 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition border border-green-200 shadow-sm"
+                >
+                  <span className="text-2xl mb-1">💬</span>
+                  <span className="text-xs font-bold">WhatsApp</span>
+                </a>
+                
+                {/* Email */}
+                <a 
+                  href={`mailto:${selectedLead.email}`}
+                  className="flex flex-col items-center justify-center p-3 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition border border-blue-200 shadow-sm"
+                >
+                  <span className="text-2xl mb-1">📧</span>
+                  <span className="text-xs font-bold">Email</span>
+                </a>
+                
+                {/* Calendly (Seulement si lien configuré) */}
+                {calendlyLink ? (
+                  <a 
+                    href={calendlyLink} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex flex-col items-center justify-center p-3 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition border border-purple-200 shadow-sm"
+                  >
+                    <span className="text-2xl mb-1">📅</span>
+                    <span className="text-xs font-bold">Prendre RDV</span>
+                  </a>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-3 bg-gray-50 text-gray-400 rounded-xl border border-gray-200 shadow-sm">
+                    <span className="text-2xl mb-1">📅</span>
+                    <span className="text-xs font-bold">RDV</span>
+                  </div>
+                )}
               </div>
               
               {/* Infos Clés */}
