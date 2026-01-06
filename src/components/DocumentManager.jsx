@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import DocumentService from '../services/documentService';
+// import DocumentService from '../services/documentService'; // Temporairement désactivé
 import CRMHistory from './CRMHistory';
 
 export default function DocumentManager({ lead, agencyId }) {
@@ -25,10 +25,13 @@ export default function DocumentManager({ lead, agencyId }) {
 
   const fetchDocuments = async () => {
     try {
-      const docs = await DocumentService.getLeadDocuments(lead.id, agencyId);
-      setDocuments(docs);
+      // const docs = await DocumentService.getLeadDocuments(lead.id, agencyId);
+      // setDocuments(docs);
+      setDocuments([]); // Temporairement vide
     } catch (error) {
       console.error('Erreur chargement documents:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -132,27 +135,27 @@ export default function DocumentManager({ lead, agencyId }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       // Créer le document avec le service unifié
-      await DocumentService.createDocument({
-        leadId: lead.id,
-        agencyId: agencyId,
-        type: docName,
-        title: `${docName} - ${lead.nom}`,
-        content: {
-          template: docName,
-          category: activeTab,
-          generatedAt: new Date().toISOString(),
-          agencyData: agencyProfile
-        },
-        metadata: {
-          clientName: lead.nom,
-          clientEmail: lead.email,
-          clientPhone: lead.telephone,
-          budget: lead.budget,
-          typeBien: lead.type_bien,
-          delai: lead.delai
-        },
-        userId: user?.id
-      });
+      // await DocumentService.createDocument({
+      //   leadId: lead.id,
+      //   agencyId: agencyId,
+      //   type: docName,
+      //   title: `${docName} - ${lead.nom}`,
+      //   content: {
+      //     template: docName,
+      //     category: activeTab,
+      //     generatedAt: new Date().toISOString(),
+      //     agencyData: agencyProfile
+      //   },
+      //   metadata: {
+      //     clientName: lead.nom,
+      //     clientEmail: lead.email,
+      //     clientPhone: lead.telephone,
+      //     budget: lead.budget,
+      //     typeBien: lead.type_bien,
+      //     delai: lead.delai
+      //   },
+      //   userId: user?.id
+      // });
       
       fetchDocuments();
     } catch (err) { 
