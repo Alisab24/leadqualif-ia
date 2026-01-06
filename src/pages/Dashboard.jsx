@@ -1,11 +1,13 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import IntegratedDashboard from '../components/IntegratedDashboard';
+import DatabaseDebug from '../components/DatabaseDebug';
 
 export default function Dashboard() {
   const [session, setSession] = useState(null);
   const [agencyId, setAgencyId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [version] = useState('2.0'); // Force reload
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -67,5 +69,13 @@ export default function Dashboard() {
     );
   }
 
-  return <IntegratedDashboard agencyId={agencyId} />;
+  return (
+    <div>
+      <div className="bg-blue-600 text-white text-center py-1 text-xs">
+        Dashboard v{version} - Nouveau design intégré
+      </div>
+      <IntegratedDashboard agencyId={agencyId} />
+      <DatabaseDebug />
+    </div>
+  );
 }
