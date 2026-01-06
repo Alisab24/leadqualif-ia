@@ -143,6 +143,54 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* ACTIVITÉS RÉCENTES */}
+        <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">📋 Activités Récentes</h3>
+            <Link 
+              to="/documents"
+              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            >
+              Voir tous les documents →
+            </Link>
+          </div>
+          
+          {/* Derniers documents générés */}
+          <div className="space-y-3">
+            {leads.slice(0, 5).map(lead => (
+              <div key={lead.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
+                    {lead.statut === 'Gagné' ? '✅' : lead.statut === 'Perdu' ? '❌' : '📝'}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-800">{lead.nom}</p>
+                    <p className="text-xs text-slate-500">{lead.email}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">
+                    {new Date(lead.created_at).toLocaleDateString()}
+                  </p>
+                  <p className="text-xs font-medium text-slate-700">
+                    {lead.statut}
+                  </p>
+                </div>
+              </div>
+            ))}
+            
+            {leads.length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                <span className="text-2xl mb-2 block">📭</span>
+                <p>Aucune activité récente</p>
+                <p className="text-sm mt-2">
+                  Commencez par <Link to="/estimation" className="text-blue-600 hover:text-blue-700 font-medium">ajouter un lead</Link>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* VUE KANBAN */}
         {viewMode === 'kanban' && (
           <div ref={scrollContainerRef} className="flex overflow-x-auto pb-6 gap-6 min-h-[70vh]">
