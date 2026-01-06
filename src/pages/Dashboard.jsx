@@ -16,26 +16,8 @@ export default function Dashboard() {
   const [agencyId, setAgencyId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban');
 
-  // --- MOTEUR DE SCROLL BITRIX (Auto-scroll au survol) ---
+  // --- MOTEUR DE SCROLL BITRIX (Scroll direct) ---
   const scrollContainerRef = useRef(null);
-  const scrollInterval = useRef(null);
-
-  const startScroll = (direction) => {
-    stopScroll(); // Sécurité
-    scrollInterval.current = setInterval(() => {
-      if (scrollContainerRef.current) {
-        const speed = 25; // Vitesse de défilement
-        scrollContainerRef.current.scrollLeft += direction === 'right' ? speed : -speed;
-      }
-    }, 16); // ~60 FPS
-  };
-
-  const stopScroll = () => {
-    if (scrollInterval.current) {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = null;
-    }
-  };
 
   // --- DONNÉES ---
   useEffect(() => {
@@ -111,7 +93,7 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* 1. HEADER FIXE (Ne bouge jamais) */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-20 shadow-sm">
+      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-50 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Pipeline Commercial</h1>
@@ -150,30 +132,23 @@ export default function Dashboard() {
       {/* 2. ZONE DE CONTENU (Scrollable) */}
       <main className="flex-1 relative overflow-hidden">
         
-        {/* --- ZONES DE SCROLL AUTO (Invisibles mais actives) --- */}
+        {/* --- BOUTONS DE SCROLL FIXES (Style Bitrix24) --- */}
         {viewMode === 'kanban' && (
           <>
-            {/* Zone Gauche */}
-            <div 
-              onMouseEnter={() => startScroll('left')} 
-              onMouseLeave={stopScroll}
-              className="absolute left-0 top-0 bottom-0 w-16 z-30 cursor-pointer hover:bg-gradient-to-r from-black/5 to-transparent flex items-center justify-start pl-2 group"
+            {/* Bouton Gauche - Fixe et visible */}
+            <button
+              onClick={() => scrollContainerRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
+              className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-white shadow-xl rounded-full w-12 h-12 flex items-center justify-center cursor-pointer border border-slate-200 text-2xl hover:scale-110 transition-transform"
             >
-              {/* Flèche visuelle (Apparaît au survol) */}
-              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-slate-600 opacity-0 group-hover:opacity-100 transition-all border border-slate-200 hover:scale-110">
-                ⬅️
-              </div>
-            </div>
-            {/* Zone Droite */}
-            <div 
-              onMouseEnter={() => startScroll('right')} 
-              onMouseLeave={stopScroll}
-              className="absolute right-0 top-0 bottom-0 w-16 z-30 cursor-pointer hover:bg-gradient-to-l from-black/5 to-transparent flex items-center justify-end pr-2 group"
+              ◀
+            </button>
+            {/* Bouton Droit - Fixe et visible */}
+            <button
+              onClick={() => scrollContainerRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
+              className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-white shadow-xl rounded-full w-12 h-12 flex items-center justify-center cursor-pointer border border-slate-200 text-2xl hover:scale-110 transition-transform"
             >
-              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-slate-600 opacity-0 group-hover:opacity-100 transition-all border border-slate-200 hover:scale-110">
-                ➡️
-              </div>
-            </div>
+              ▶
+            </button>
           </>
         )}
 
@@ -181,7 +156,7 @@ export default function Dashboard() {
         {viewMode === 'kanban' && (
           <div 
             ref={scrollContainerRef}
-            className="h-full overflow-x-auto overflow-y-hidden flex px-6 pt-6 gap-6 scroll-smooth pb-4"
+            className="h-full overflow-x-auto overflow-y-hidden flex px-20 pt-6 gap-6 scroll-smooth pb-4"
           >
             {statuts.map((statut, idx) => (
               <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full bg-slate-100/50 rounded-xl border border-slate-200/60">
