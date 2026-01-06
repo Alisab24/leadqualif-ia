@@ -102,7 +102,7 @@ export default function Layout() {
       </aside>
 
       {/* CONTENU PRINCIPAL (Décalé de 16 pour laisser la place aux icônes) */}
-      <div className="flex-1 ml-16 transition-all duration-300">
+      <div className="flex-1 ml-10 transition-all duration-300">
         <Outlet />
       </div>
     </div>
