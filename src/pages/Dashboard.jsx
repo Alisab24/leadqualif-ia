@@ -125,6 +125,13 @@ export default function Dashboard() {
                 📝 Liste
               </button>
             </div>
+            {/* Bouton Documents */}
+            <Link 
+              to="/documents"
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg shadow hover:shadow-md hover:-translate-y-0.5 transition font-medium flex items-center gap-2"
+            >
+              📂 Documents
+            </Link>
             {/* LIEN DYNAMIQUE (Utilise l'ID Agence) */}
             <Link 
               to={agencyId ? `/estimation/${agencyId}` : '/estimation'} 
@@ -286,7 +293,7 @@ export default function Dashboard() {
               
               <div className="border-t border-slate-100 pt-8">
                 <h3 className="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2">📂 Documents & Historique</h3>
-                <DocumentManager lead={selectedLead} agencyId={session?.user?.id} />
+                <DocumentManager lead={selectedLead} agencyId={agencyId} />
               </div>
             </div>
           </div>
