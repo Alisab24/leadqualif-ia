@@ -193,7 +193,7 @@ export default function Dashboard() {
             <div 
               onMouseEnter={() => startScroll('left')} 
               onMouseLeave={stopScroll}
-              className="fixed left-2 top-1/2 -translate-y-1/2 z-40 h-32 w-16 flex items-center justify-center cursor-pointer bg-white/80 backdrop-blur-sm rounded-full shadow-xl hover:bg-white transition-all group border border-slate-200"
+              className="fixed left-8 top-1/2 -translate-y-1/2 z-40 h-32 w-16 flex items-center justify-center cursor-pointer bg-white/80 backdrop-blur-sm rounded-full shadow-xl hover:bg-white transition-all group border border-slate-200"
             >
               <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white group-hover:scale-110 transition">
                 ⬅️
