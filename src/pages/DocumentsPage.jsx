@@ -1,470 +1,176 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Link } from 'react-router-dom';
-// import DocumentService from '../services/documentService';
-import DocumentOptimizer from '../components/DocumentOptimizer';
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState([]);
-  const [filteredDocuments, setFilteredDocuments] = useState([]);
+  const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [agencyId, setAgencyId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [dateRange, setDateRange] = useState('all');
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({ total: 0, signed: 0, offers: 0, pending: 0 });
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Récupérer l'utilisateur et son agence
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('agency_id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (profile?.agency_id) {
-          setAgencyId(profile.agency_id);
-          
-          // Récupérer les documents via le service
-          // const docs = await DocumentService.getAgencyDocuments(profile.agency_id);
-          // setDocuments(docs);
-          // setFilteredDocuments(docs);
-          setDocuments([]);
-          setFilteredDocuments([]);
-          
-          // Récupérer les statistiques
-          // const documentStats = await DocumentService.getDocumentStats(profile.agency_id);
-          // setStats(documentStats);
-          setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
-        }
-      } catch (error) {
-        console.error('Erreur:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchDocuments();
   }, []);
 
-  // Filtrage et recherche
-  useEffect(() => {
-    let filtered = documents;
+  const fetchDocuments = async () => {
+    setLoading(true);
+    try {
+      // On récupère les docs + le nom du lead associé
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*, leads (nom)')
+        .order('created_at', { ascending: false });
 
-    // Recherche
-    if (searchTerm) {
-      filtered = filtered.filter(doc => 
-        doc.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.leads?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.leads?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtre par type
-    if (filterType !== 'all') {
-      filtered = filtered.filter(doc => doc.type === filterType);
-    }
-
-    // Filtre par statut
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(doc => doc.status === filterStatus);
-    }
-
-    // Filtre par date
-    const now = new Date();
-    if (dateRange === '7jours') {
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(doc => new Date(doc.created_at) >= sevenDaysAgo);
-    } else if (dateRange === '30jours') {
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(doc => new Date(doc.created_at) >= thirtyDaysAgo);
-    }
-
-    setFilteredDocuments(filtered);
-  }, [documents, searchTerm, filterType, filterStatus, dateRange]);
-
-  // Types de documents uniques
-  const documentTypes = [...new Set(documents.map(doc => doc.type))];
-
-  // Fonction pour obtenir la couleur du statut
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Brouillon': return 'bg-gray-50 text-gray-700 border-gray-200';
-      case 'Généré': return 'bg-green-50 text-green-700 border-green-200';
-      case 'Envoyé': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Signé': return 'bg-purple-50 text-purple-700 border-purple-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+      if (error) throw error;
+      if (data) {
+        setDocs(data);
+        // Calcul des stats
+        setStats({
+          total: data.length,
+          signed: data.filter(d => d.status === 'Signé').length,
+          offers: data.filter(d => d.type.includes('Offre') || d.type.includes('Devis')).length,
+          pending: data.filter(d => d.status === 'Généré' || d.status === 'Envoyé').length
+        });
+      }
+    } catch (error) {
+      console.error('Erreur chargement docs:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="text-center py-20">
-          <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-slate-600">Chargement des documents...</p>
-        </div>
-      </div>
-    );
-  }
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'Signé': return 'bg-green-100 text-green-700 border-green-200';
+      case 'Envoyé': return 'bg-blue-100 text-blue-700 border-blue-200';
+      default: return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+  };
+
+  if (loading) return 'Chargement de la bibliothèque...';
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      {/* Header avec statistiques */}
-      <div className="mb-8">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800 mb-2">📂 Centre de Documents</h1>
-            <p className="text-slate-600">
-              {filteredDocuments.length} document{filteredDocuments.length > 1 ? 's' : ''} trouvé{filteredDocuments.length > 1 ? 's' : ''}
-              {filteredDocuments.length !== documents.length && ` sur ${documents.length} total`}
-            </p>
-          </div>
-          <Link 
-            to="/dashboard"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            📊 Dashboard
-          </Link>
+    <div className="min-h-screen bg-slate-50 p-6">
+      {/* EN-TÊTE */}
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Centre de Documents</h1>
+          <p className="text-slate-500 mt-1">Gérez, archivez et suivez tous vos contrats et propositions.</p>
         </div>
+        <button 
+          onClick={fetchDocuments} 
+          className="p-2 bg-white text-slate-600 rounded-lg shadow-sm hover:bg-slate-50 border border-slate-200"
+        >
+          🔄 Actualiser
+        </button>
+      </div>
 
-        {/* Cartes de statistiques */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600">Total</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-xl">📄</div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600">Ce mois</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.thisMonth}</p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-xl">📅</div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600">Cette semaine</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.thisWeek}</p>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-xl">📊</div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600">Immobilier</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.immo}</p>
-                </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 text-xl">🏠</div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600">Marketing</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.smma}</p>
-                </div>
-                <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 text-xl">🚀</div>
-              </div>
-            </div>
+      {/* STATISTIQUES (KPIs) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        {/* Carte 1 */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Documents</p>
+            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.total}</p>
           </div>
-        )}
-
-        {/* Filtres et recherche */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Recherche</label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher un document ou client..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Type de document</label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Tous les types</option>
-                {documentTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Statut</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Tous les statuts</option>
-                <option value="Brouillon">Brouillon</option>
-                <option value="Généré">Généré</option>
-                <option value="Envoyé">Envoyé</option>
-                <option value="Signé">Signé</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Période</label>
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Toutes les dates</option>
-                <option value="7jours">7 derniers jours</option>
-                <option value="30jours">30 derniers jours</option>
-              </select>
-            </div>
-            
-            <div className="flex items-end">
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterType('all');
-                  setFilterStatus('all');
-                  setDateRange('all');
-                }}
-                className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                🔄 Réinitialiser
-              </button>
-            </div>
+          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-2xl">📂</div>
+        </div>
+        
+        {/* Carte 2 */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Contrats Signés</p>
+            <p className="text-3xl font-bold text-green-600 mt-1">{stats.signed}</p>
           </div>
+          <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-2xl">✅</div>
+        </div>
+        
+        {/* Carte 3 */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Offres & Devis</p>
+            <p className="text-3xl font-bold text-purple-600 mt-1">{stats.offers}</p>
+          </div>
+          <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-2xl">💰</div>
+        </div>
+        
+        {/* Carte 4 */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">À Traiter</p>
+            <p className="text-3xl font-bold text-orange-500 mt-1">{stats.pending}</p>
+          </div>
+          <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-2xl">⏳</div>
         </div>
       </div>
 
-      {filteredDocuments.length === 0 ? (
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center py-20">
-          <span className="text-6xl mb-4 block">🔍</span>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">
-            {documents.length === 0 ? 'Aucun document' : 'Aucun résultat trouvé'}
-          </h3>
-          <p className="text-slate-500 mb-6">
-            {documents.length === 0 
-              ? 'Pour générer des documents, allez sur le Dashboard et cliquez sur un Lead.'
-              : 'Essayez de modifier vos filtres ou votre recherche.'
-            }
-          </p>
-          {documents.length === 0 && (
-            <Link 
-              to="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              📊 Voir le Dashboard
-            </Link>
-          )}
+      {/* LISTE DES DOCUMENTS (TABLEAU) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <h3 className="font-bold text-lg text-slate-800">Historique complet</h3>
+          <input 
+            type="text" 
+            placeholder="Rechercher un document..." 
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white" 
+          />
         </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="text-left p-4 font-medium text-slate-700">Type</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Client</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Version</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Statut</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Projet</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Date</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Optimisation</th>
-                  <th className="text-left p-4 font-medium text-slate-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDocuments.map((doc) => (
-                  <tr key={doc.id} className="border-b border-slate-50 hover:bg-slate-50">
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-red-50 text-red-500 rounded flex items-center justify-center text-xs font-bold">PDF</div>
-                        <span className="font-medium text-slate-700">{doc.type}</span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div>
-                        <p className="font-medium text-slate-700">{doc.leads?.nom || 'N/A'}</p>
-                        <p className="text-xs text-slate-500">{doc.leads?.email || 'N/A'}</p>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className="px-2 py-1 bg-slate-50 text-slate-700 text-xs font-bold rounded-full border border-slate-200">
-                        v{doc.version}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 text-xs font-bold rounded-full border ${getStatusColor(doc.status)}`}>
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-600">
-                      {doc.leads?.type_bien && (
-                        <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
-                          {doc.leads.type_bien}
-                        </span>
-                      )}
-                      {doc.leads?.budget && (
-                        <span className="ml-2 text-green-600 font-medium">
-                          {parseInt(doc.leads.budget).toLocaleString()} €
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-slate-600">
-                      <div>
-                        <p>{new Date(doc.created_at).toLocaleDateString()}</p>
-                        <p className="text-xs text-slate-500">{new Date(doc.created_at).toLocaleTimeString().slice(0,5)}</p>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      {doc.metadata?.ai_optimized ? (
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                            ✨ Optimisé
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {doc.metadata?.optimization_score}%
-                          </span>
-                        </div>
-                      ) : (
-                        <DocumentOptimizer 
-                          document={doc} 
-                          lead={doc.leads}
-                          onOptimized={(optimizedDoc) => {
-                            // Mettre à jour le document dans la liste
-                            setDocuments(prev => prev.map(d => 
-                              d.id === doc.id ? optimizedDoc : d
-                            ));
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <button className="text-blue-600 hover:text-blue-800 text-sm" title="Télécharger">
-                          📥
-                        </button>
-                        <button className="text-green-600 hover:text-green-800 text-sm" title="Envoyer">
-                          📧
-                        </button>
-                        <button className="text-purple-600 hover:text-purple-800 text-sm" title="Voir">
-                          👁️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Optimisation IA en lot */}
-      {documents.length > 0 && (
-        <div className="mt-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
-          <h3 className="font-bold text-slate-800 mb-4">🤖 Optimisation IA Intelligente</h3>
-          <div className="bg-white rounded-lg p-4 mb-4">
-            <p className="text-slate-600 text-sm mb-3">
-              Optimisez automatiquement tous vos documents avec notre IA pour améliorer leur qualité, 
-              complétude et professionnalisme.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="text-center">
-                <div className="text-2xl mb-2">📈</div>
-                <div className="font-medium text-slate-800">Amélioration</div>
-                <div className="text-slate-500">Score +30%</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl mb-2">⚡</div>
-                <div className="font-medium text-slate-800">Rapidité</div>
-                <div className="text-slate-500">2x plus vite</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl mb-2">✨</div>
-                <div className="font-medium text-slate-800">Qualité</div>
-                <div className="text-slate-500">Professionnelle</div>
-              </div>
-            </div>
-          </div>
+        
+        <table className="min-w-full divide-y divide-slate-100">
+          <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase">
+            <tr>
+              <th className="px-6 py-4 text-left">Type</th>
+              <th className="px-6 py-4 text-left">Client associé</th>
+              <th className="px-6 py-4 text-left">Date</th>
+              <th className="px-6 py-4 text-left">Statut</th>
+              <th className="px-6 py-4 text-right">Action</th>
+            </tr>
+          </thead>
           
-          <button
-            onClick={async () => {
-              // Optimiser tous les documents non optimisés
-              const nonOptimizedDocs = documents.filter(doc => !doc.metadata?.ai_optimized);
-              if (nonOptimizedDocs.length === 0) {
-                alert('Tous vos documents sont déjà optimisés !');
-                return;
-              }
-              
-              if (confirm(`Optimiser ${nonOptimizedDocs.length} document(s) non optimisé(s) ?`)) {
-                for (const doc of nonOptimizedDocs) {
-                  try {
-                    await DocumentOptimizationService.optimizeDocument(doc.id, doc.leads);
-                  } catch (error) {
-                    console.error('Erreur optimisation document:', error);
-                  }
-                }
-                // Rafraîchir la liste
-                window.location.reload();
-              }
-            }}
-            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all font-medium flex items-center justify-center gap-2"
-          >
-            🚀 Optimiser tous les documents ({documents.filter(doc => !doc.metadata?.ai_optimized).length})
-          </button>
-        </div>
-      )}
-
-      {/* Actions rapides */}
-      <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-        <h3 className="font-bold text-slate-800 mb-4">🚀 Actions rapides</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link 
-            to="/dashboard"
-            className="text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            📊 Dashboard
-          </Link>
-          <Link 
-            to="/estimation"
-            className="text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            🚀 Nouveau Lead
-          </Link>
-          <Link 
-            to="/settings"
-            className="text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            ⚙️ Paramètres
-          </Link>
-        </div>
+          <tbody className="divide-y divide-slate-100">
+            {docs.length > 0 ? docs.map((doc) => (
+              <tr key={doc.id} className="hover:bg-slate-50 transition group cursor-pointer">
+                {/* Type + Icone */}
+                <td className="px-6 py-4 whitespace-nowrap flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-50 text-red-500 rounded-lg flex items-center justify-center font-bold text-xs border border-red-100">
+                    PDF
+                  </div>
+                  <span className="font-bold text-slate-700">{doc.type}</span>
+                </td>
+                
+                {/* Client */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-slate-900">
+                    {doc.leads?.nom || 'Lead supprimé'}
+                  </div>
+                </td>
+                
+                {/* Date */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                  {new Date(doc.created_at).toLocaleDateString()} 
+                  <span className="text-xs text-slate-400">à {new Date(doc.created_at).toLocaleTimeString().slice(0,5)}</span>
+                </td>
+                
+                {/* Statut */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-3 py-1 text-xs font-bold rounded-full border ${getStatusColor(doc.status)}`}>
+                    {doc.status}
+                  </span>
+                </td>
+                
+                {/* Actions */}
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <button className="text-blue-600 hover:text-blue-800 font-medium text-sm border border-blue-100 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition">
+                    Voir 👁️
+                  </button>
+                </td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan="5" className="px-6 py-12 text-center text-slate-400 italic">
+                  Aucun document généré pour le moment.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
