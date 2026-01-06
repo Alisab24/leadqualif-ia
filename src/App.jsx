@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 // Imports des pages (Vérifie qu'ils existent)
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Stats from './pages/Stats';
 import Estimation from './pages/Estimation';
 import DocumentsPage from './pages/DocumentsPage';
 import Settings from './pages/Settings';
@@ -35,6 +36,7 @@ function App() {
           {/* 2. Routes Protégées (Avec Layout Menu) */}
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/stats" element={<Stats />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/settings" element={<Settings />} />
             

@@ -145,87 +145,57 @@ export default function Dashboard() {
       {/* 2. SCROLLABLE AREA */}
       <main className="flex-1 relative overflow-hidden">
         
+        {/* VUE KANBAN */}
         {viewMode === 'kanban' && (
-          <div className="h-full relative">
+          <div className="h-full relative group/board">
             
-            {/* --- AUTO-SCROLL ZONES (High Z-Index) --- */}
-            
-            {/* LEFT ZONE */}
+            {/* --- ZONE SCROLL GAUCHE (Active au survol) --- */}
+            {/* Fixed, collée au menu (left-20), z-index max */}
             <div 
               onMouseEnter={() => startScroll('left')} 
               onMouseLeave={stopScroll}
-              className="absolute left-0 top-0 bottom-0 w-24 z-50 flex items-center justify-start pl-2 cursor-pointer transition-all hover:bg-gradient-to-r from-black/10 to-transparent group"
+              className="fixed left-20 top-20 bottom-0 w-24 z-50 flex items-center justify-start pl-4 cursor-pointer hover:bg-red-500/10 transition-colors"
             >
-              {/* Always visible arrow on hover */}
-              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:scale-110">
+              <button className="w-12 h-12 bg-white shadow-xl rounded-full text-blue-600 font-bold text-xl border border-slate-200 flex items-center justify-center hover:scale-110 transition">
                 ⬅️
-              </div>
+              </button>
             </div>
             
-            {/* RIGHT ZONE */}
+            {/* --- ZONE SCROLL DROITE (Active au survol) --- */}
+            {/* Fixed, collée à droite, z-index max */}
             <div 
               onMouseEnter={() => startScroll('right')} 
               onMouseLeave={stopScroll}
-              className="absolute right-0 top-0 bottom-0 w-24 z-50 flex items-center justify-end pr-2 cursor-pointer transition-all hover:bg-gradient-to-l from-black/10 to-transparent group"
+              className="fixed right-0 top-20 bottom-0 w-24 z-50 flex items-center justify-end pr-4 cursor-pointer hover:bg-red-500/10 transition-colors"
             >
-              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:scale-110">
+              <button className="w-12 h-12 bg-white shadow-xl rounded-full text-blue-600 font-bold text-xl border border-slate-200 flex items-center justify-center hover:scale-110 transition">
                 ➡️
-              </div>
+              </button>
             </div>
             
-            {/* KANBAN BOARD */}
+            {/* LE TABLEAU */}
             <div 
               ref={scrollContainerRef}
-              className="flex h-full overflow-x-auto overflow-y-hidden gap-6 p-6 scroll-smooth no-scrollbar items-start"
+              className="flex h-full overflow-x-auto overflow-y-hidden gap-6 p-6 scroll-smooth items-start"
             >
               {statuts.map((statut, idx) => (
                 <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full bg-slate-100/50 rounded-xl border border-slate-200 max-h-[85vh]">
-                  {/* Column Header */}
+                  {/* Header Colonne */}
                   <div className="p-4 font-bold text-slate-700 bg-white/60 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
                     {statut} 
                     <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{leads.filter(l => l.statut === statut).length}</span>
                   </div>
                   
-                  {/* Cards List */}
+                  {/* Liste des cartes */}
                   <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
                     {leads.filter(l => l.statut === statut).map(lead => (
                       <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative">
-                        
                         <div className="flex justify-between mb-2">
                           <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">{lead.type_bien || 'Projet'}</span>
-                          {lead.score > 0 && (
-                            <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-1 rounded">⚡ {lead.score}%</span>
-                          )}
+                          {lead.score > 0 && <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-1 rounded">⚡ {lead.score}%</span>}
                         </div>
-                        
                         <h4 className="font-bold text-slate-900 mb-1">{lead.nom}</h4>
                         <p className="text-sm text-slate-500 font-medium">{(lead.budget || 0).toLocaleString()} €</p>
-                        
-                        {/* Card Navigation (Inside Card) */}
-                        <div className="absolute inset-y-0 right-2 flex flex-col justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           {idx < statuts.length - 1 && (
-                             <button 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 updateStatus(lead.id, statuts[idx+1]);
-                               }} 
-                               className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
-                             >
-                               ▶
-                             </button>
-                           )}
-                           {idx > 0 && (
-                             <button 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 updateStatus(lead.id, statuts[idx-1]);
-                               }} 
-                               className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
-                             >
-                               ◀
-                             </button>
-                           )}
-                        </div>
                       </div>
                     ))}
                   </div>
