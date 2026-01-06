@@ -1,17 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Configuration Supabase
-console.log('Vérification variables Supabase...')
+// Configuration Supabase avec gestion d'erreur
+console.log('🔍 Vérification variables Supabase...')
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (supabaseUrl) {
-  console.log('URL Supabase détectée')
-} else {
-  console.log('URL Supabase manquante')
+// Vérification des variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ ERREUR CRITIQUE: Variables Supabase manquantes!')
+  console.error('URL:', supabaseUrl ? '✅' : '❌ manquante')
+  console.error('Anon Key:', supabaseAnonKey ? '✅' : '❌ manquante')
+  console.error('Veuillez configurer les variables d\'environnement dans Vercel')
+  
+  // Créer un client factice pour éviter le crash complet
+  window.SUPABASE_ERROR = true
+  window.SUPABASE_ERROR_MESSAGE = 'Configuration Supabase manquante'
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder-key')
 
 // Fonctions utilitaires pour l'authentification
 export const auth = {
