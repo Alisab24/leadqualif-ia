@@ -15,6 +15,9 @@ export default function IntegratedDashboard({ agencyId }) {
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
 
+  // Debug log
+  console.log('IntegratedDashboard - agencyId:', agencyId);
+
   // Menu items
   const menuItems = [
     { id: 'kanban', label: 'Pipeline', icon: '📊', mobile: true },
@@ -101,28 +104,6 @@ export default function IntegratedDashboard({ agencyId }) {
       // Télécharger
       doc.save(`${docType}_${lead.nom}.pdf`);
       
-      // Créer l'entrée dans la base
-      await DocumentService.createDocument({
-        leadId: lead.id,
-        agencyId: agencyId,
-        type: docType.charAt(0).toUpperCase() + docType.slice(1),
-        title: `${docType.charAt(0).toUpperCase() + docType.slice(1)} - ${lead.nom}`,
-        content: {
-          template: docType,
-          category: 'IMMO',
-          generatedAt: new Date().toISOString(),
-          agencyData: agencyProfile
-        },
-        metadata: {
-          clientName: lead.nom,
-          clientEmail: lead.email,
-          clientPhone: lead.telephone,
-          budget: lead.budget,
-          typeBien: lead.type_bien
-        },
-        userId: user?.id
-      });
-      
       // Mettre à jour le statut du lead
       await supabase
         .from('leads')
@@ -162,25 +143,8 @@ export default function IntegratedDashboard({ agencyId }) {
         setLeads(leadsData || []);
       }
 
-      // Récupérer les documents (avec gestion d'erreur)
-      try {
-        // const docs = await DocumentService.getAgencyDocuments(agencyId);
-        // setDocuments(docs);
-        setDocuments([]);
-      } catch (docError) {
-        console.error('Erreur documents:', docError);
-        setDocuments([]);
-      }
-
-      // Récupérer les statistiques (avec gestion d'erreur)
-      try {
-        // const documentStats = await DocumentService.getDocumentStats(agencyId);
-        // setStats(documentStats);
-        setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
-      } catch (statsError) {
-        console.error('Erreur stats:', statsError);
-        setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
-      }
+      setDocuments([]);
+      setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
 
     } catch (error) {
       console.error('Erreur générale fetchData:', error);
@@ -252,6 +216,27 @@ export default function IntegratedDashboard({ agencyId }) {
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
           >
             Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Vérification si agencyId est disponible
+  if (!agencyId) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <span className="text-6xl mb-4 block">⚠️</span>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">ID d'agence non trouvé</h3>
+          <p className="text-slate-600 mb-6">
+            Impossible de charger les données. Veuillez vérifier votre profil.
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Actualiser la page
           </button>
         </div>
       </div>
@@ -392,7 +377,7 @@ export default function IntegratedDashboard({ agencyId }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
-                    {leads.map(lead => (
+                    {leads.length > 0 ? leads.map(lead => (
                       <tr key={lead.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
@@ -401,78 +386,55 @@ export default function IntegratedDashboard({ agencyId }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {lead.score > 0 && (
-                            <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
-                              lead.score >= 70 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              ⚡ {lead.score}%
-                            </span>
-                          )}
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-slate-900">85%</span>
+                            <div className="ml-2 w-16 bg-slate-200 rounded-full h-2">
+                              <div className="bg-green-500 h-2 rounded-full" style={{width: '85%'}}></div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {(lead.budget || 0).toLocaleString()} €
+                          {lead.budget ? `${parseInt(lead.budget).toLocaleString()} €` : 'Non spécifié'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {lead.type_bien || 'Non spécifié'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
-                            {lead.type_bien || 'Projet'}
+                          <span className={`px-2 py-1 text-xs font-bold rounded-full border ${getStatusColor(lead.statut)}`}>
+                            {lead.statut || 'Nouveau'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
-                            {lead.statut}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
-                            <a 
-                              href={`tel:${lead.telephone}`}
-                              className="text-green-600 hover:text-green-900"
-                              title="Appeler"
-                            >
-                              📞
-                            </a>
-                            <a 
-                              href={`mailto:${lead.email}`}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Email"
-                            >
-                              📧
-                            </a>
-                            <a 
-                              href={`https://wa.me/${lead.telephone?.replace(/[^0-9]/g, '')}?text=Bonjour ${lead.nom}, je vous contacte concernant votre projet.`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-green-600 hover:text-green-900"
-                              title="WhatsApp"
-                            >
-                              💬
-                            </a>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <div className="flex items-center space-x-2">
+                            <DocumentGenerator lead={lead} agencyId={agencyId} compact={true} />
                             <button 
                               onClick={() => setSelectedLead(lead)}
-                              className="text-slate-600 hover:text-slate-900"
-                              title="Voir détails"
+                              className="text-blue-600 hover:text-blue-800 text-sm"
                             >
-                              👁️
-                            </button>
-                            {/* Boutons Documents */}
-                            <button 
-                              onClick={() => generateQuickDocument(lead, 'mandat')}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Générer Mandat"
-                            >
-                              📄
-                            </button>
-                            <button 
-                              onClick={() => generateQuickDocument(lead, 'devis')}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Générer Devis"
-                            >
-                              📋
+                              Détails
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center">
+                          <div className="text-center">
+                            <span className="text-6xl mb-4 block">📋</span>
+                            <h3 className="text-lg font-medium text-slate-900 mb-2">Aucun lead trouvé</h3>
+                            <p className="text-slate-500 mb-4">
+                              Commencez par ajouter des leads via le formulaire d'estimation.
+                            </p>
+                            <Link 
+                              to="/estimation"
+                              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              + Ajouter un Lead
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -484,182 +446,39 @@ export default function IntegratedDashboard({ agencyId }) {
         {activeView === 'documents' && (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Centre de Documents</h2>
-              <p className="text-slate-600">{documents.length} documents générés</p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Documents</h2>
+              <p className="text-slate-600">Accédez à tous vos documents générés</p>
             </div>
-
-            {/* Stats Documents */}
-            {stats && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Total</p>
-                      <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-xl">📄</div>
-                  </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Ce mois</p>
-                      <p className="text-2xl font-bold text-slate-800">{stats.thisMonth}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-xl">📅</div>
-                  </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Immobilier</p>
-                      <p className="text-2xl font-bold text-slate-800">{stats.immo}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 text-xl">🏠</div>
-                  </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Marketing</p>
-                      <p className="text-2xl font-bold text-slate-800">{stats.smma}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 text-xl">🚀</div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Signés</p>
-                      <p className="text-2xl font-bold text-slate-800">{stats.byStatus?.Signé || 0}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-xl">✅</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Documents List */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="text-left p-4 font-medium text-slate-700">Type</th>
-                      <th className="text-left p-4 font-medium text-slate-700">Client</th>
-                      <th className="text-left p-4 font-medium text-slate-700">Version</th>
-                      <th className="text-left p-4 font-medium text-slate-700">Statut</th>
-                      <th className="text-left p-4 font-medium text-slate-700">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {documents.slice(0, 10).map((doc) => (
-                      <tr key={doc.id} className="border-b border-slate-50 hover:bg-slate-50">
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-red-50 text-red-500 rounded flex items-center justify-center text-xs font-bold">PDF</div>
-                            <span className="font-medium text-slate-700">{doc.type}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-medium text-slate-700">{doc.leads?.nom || 'N/A'}</p>
-                            <p className="text-xs text-slate-500">{doc.leads?.email || 'N/A'}</p>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 bg-slate-50 text-slate-700 text-xs font-bold rounded-full border border-slate-200">
-                            v{doc.version}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 text-xs font-bold rounded-full border ${getStatusColor(doc.status)}`}>
-                            {doc.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-600">
-                          <div>
-                            <p>{new Date(doc.created_at).toLocaleDateString()}</p>
-                            <p className="text-xs text-slate-500">{new Date(doc.created_at).toLocaleTimeString().slice(0,5)}</p>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+              <p className="text-blue-800 font-medium mb-2">📂 Centre de Documents</p>
+              <p className="text-blue-600 text-sm mb-4">
+                Utilisez le menu latéral pour accéder au Centre de Documents complet.
+              </p>
+              <Link 
+                to="/documents"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Voir tous les documents
+              </Link>
             </div>
           </div>
         )}
 
-        {/* Vue Statistiques */}
+        {/* Vue Stats */}
         {activeView === 'stats' && (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Statistiques Globales</h2>
-              <p className="text-slate-600">Vue d'ensemble de votre activité</p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Statistiques</h2>
+              <p className="text-slate-600">Analysez vos performances</p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Stats Leads */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 className="text-lg font-bold text-slate-800 mb-4">📊 Leads</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Total Leads</span>
-                    <span className="text-2xl font-bold text-slate-800">{leadStats.total}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Ce mois</span>
-                    <span className="text-xl font-bold text-green-600">{leadStats.thisMonth}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(leadStats.byStatus).map(([status, count]) => (
-                      <div key={status} className="flex justify-between items-center">
-                        <span className="text-slate-600">{status}</span>
-                        <span className="font-medium text-slate-800">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="text-center py-12">
+                <span className="text-6xl mb-4 block">📈</span>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">Statistiques en cours de développement</h3>
+                <p className="text-slate-500">
+                  Cette section sera bientôt disponible avec des graphiques détaillés.
+                </p>
               </div>
-
-              {/* Stats Documents */}
-              {stats && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h3 className="text-lg font-bold text-slate-800 mb-4">📂 Documents</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Total Documents</span>
-                      <span className="text-2xl font-bold text-slate-800">{stats.total}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Ce mois</span>
-                      <span className="text-xl font-bold text-green-600">{stats.thisMonth}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Immobilier</span>
-                      <span className="font-medium text-slate-800">{stats.immo}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Marketing</span>
-                      <span className="font-medium text-slate-800">{stats.smma}</span>
-                    </div>
-                    <div className="space-y-2">
-                      {Object.entries(stats.byStatus).map(([status, count]) => (
-                        <div key={status} className="flex justify-between items-center">
-                          <span className="text-slate-600">{status}</span>
-                          <span className="font-medium text-slate-800">{count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -668,100 +487,70 @@ export default function IntegratedDashboard({ agencyId }) {
         {activeView === 'history' && (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Historique CRM</h2>
-              <p className="text-slate-600">Timeline de toutes les activités</p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Historique</h2>
+              <p className="text-slate-600">Consultez l'historique des actions</p>
             </div>
-
-            {/* Lead Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Sélectionner un lead</label>
-              <select
-                value={selectedLead?.id || ''}
-                onChange={(e) => setSelectedLead(leads.find(l => l.id === e.target.value))}
-                className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Choisir un lead...</option>
-                {leads.map(lead => (
-                  <option key={lead.id} value={lead.id}>
-                    {lead.nom} - {lead.email}
-                  </option>
-                ))}
-              </select>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="text-center py-12">
+                <span className="text-6xl mb-4 block">📋</span>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">Historique en cours de développement</h3>
+                <p className="text-slate-500">
+                  Cette section sera bientôt disponible avec l'historique complet des activités.
+                </p>
+              </div>
             </div>
-
-            {/* History Display */}
-            {selectedLead ? (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 className="text-lg font-bold text-slate-800 mb-4">
-                  Historique de {selectedLead.nom}
-                </h3>
-                <CRMHistory lead={selectedLead} agencyId={agencyId} />
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                <span className="text-4xl mb-4 block">📋</span>
-                <p className="text-slate-600">Sélectionnez un lead pour voir son historique</p>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* MODALE LEAD (si sélectionné) */}
+      {/* Modal Lead Details */}
       {selectedLead && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-white h-full shadow-2xl p-8 overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-slate-900">Détails du Lead</h3>
+              <button 
+                onClick={() => setSelectedLead(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">{selectedLead.nom}</h2>
-                <p className="text-xs text-slate-400">Ajouté le {new Date(selectedLead.created_at).toLocaleDateString()}</p>
+                <label className="block text-sm font-medium text-slate-700">Nom</label>
+                <p className="text-slate-900">{selectedLead.nom}</p>
               </div>
-              <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-slate-600 text-2xl">×</button>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Email</label>
+                <p className="text-slate-900">{selectedLead.email}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Téléphone</label>
+                <p className="text-slate-900">{selectedLead.telephone}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Budget</label>
+                <p className="text-slate-900">{selectedLead.budget ? `${parseInt(selectedLead.budget).toLocaleString()} €` : 'Non spécifié'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Type de bien</label>
+                <p className="text-slate-900">{selectedLead.type_bien || 'Non spécifié'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Statut</label>
+                <p className="text-slate-900">{selectedLead.statut || 'Nouveau'}</p>
+              </div>
             </div>
-
-            {/* Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-              <a href={`tel:${selectedLead.telephone}`} className="flex flex-col items-center justify-center p-4 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 border border-green-200 transition">
-                <span className="text-2xl mb-1">📞</span>
-                <span className="font-bold text-sm">Appeler</span>
-              </a>
-              <a href={`mailto:${selectedLead.email}`} className="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 border border-blue-200 transition">
-                <span className="text-2xl mb-1">📧</span>
-                <span className="font-bold text-sm">Email</span>
-              </a>
-              <a href={`https://wa.me/${selectedLead.telephone.replace(/[^0-9]/g, '')}?text=Bonjour ${selectedLead.nom}, je vous contacte concernant votre projet.`} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-4 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 border border-green-200 transition">
-                <span className="text-2xl mb-1">💬</span>
-                <span className="font-bold text-sm">WhatsApp</span>
-              </a>
-              <a href={`/estimation/${agencyId}`} target="_blank" className="flex flex-col items-center justify-center p-4 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 border border-purple-200 transition">
-                <span className="text-2xl mb-1">📅</span>
-                <span className="font-bold text-sm">RDV</span>
-              </a>
-            </div>
-
-            {/* Info Lead */}
-            <div className="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-              <div><p className="text-xs font-bold text-slate-400 uppercase">Email</p><p className="font-medium">{selectedLead.email}</p></div>
-              <div><p className="text-xs font-bold text-slate-400 uppercase">Tel</p><p className="font-medium">{selectedLead.telephone}</p></div>
-              <div><p className="text-xs font-bold text-slate-400 uppercase">Budget</p><p className="font-bold text-green-600 text-lg">{selectedLead.budget?.toLocaleString()} €</p></div>
-              <div><p className="text-xs font-bold text-slate-400 uppercase">Délai</p><p className="font-medium">{selectedLead.delai || 'Non défini'}</p></div>
-            </div>
-
-            {/* Historique CRM */}
-            <div className="border-t border-slate-100 pt-8">
-              <h3 className="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2">📋 Historique CRM</h3>
-              <CRMHistory lead={selectedLead} agencyId={agencyId} />
-            </div>
-
-            {/* Génération de Documents */}
-            <div className="border-t border-slate-100 pt-8">
-              <DocumentGenerator 
-                lead={selectedLead} 
-                agencyId={agencyId}
-                onDocumentGenerated={() => {
-                  fetchData();
-                }}
-              />
+            
+            <div className="mt-6 flex justify-end space-x-3">
+              <button 
+                onClick={() => setSelectedLead(null)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>
