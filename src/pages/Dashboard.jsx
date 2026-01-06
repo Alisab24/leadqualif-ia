@@ -130,7 +130,7 @@ export default function Dashboard() {
               to="/documents"
               className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg shadow hover:shadow-md hover:-translate-y-0.5 transition font-medium flex items-center gap-2"
             >
-              📂 Documents
+              📂 Docs
             </Link>
             {/* LIEN DYNAMIQUE (Utilise l'ID Agence) */}
             <Link 
@@ -138,7 +138,7 @@ export default function Dashboard() {
               target="_blank" 
               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg shadow hover:shadow-lg hover:-translate-y-0.5 transition font-bold"
             >
-              + Nouveau Lead
+              + Lead
             </Link>
           </div>
         </header>
