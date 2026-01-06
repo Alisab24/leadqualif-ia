@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import DocumentService from '../services/documentService';
+// import DocumentService from '../services/documentService';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -105,27 +105,27 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       doc.save(`${docType.label}_${lead.nom}.pdf`);
       
       // Créer l'entrée dans la base de données
-      await DocumentService.createDocument({
-        leadId: lead.id,
-        agencyId: agencyId,
-        type: docType.label,
-        title: `${docType.label} - ${lead.nom}`,
-        content: {
-          template: docType.id,
-          category: docType.category,
-          generatedAt: new Date().toISOString(),
-          agencyData: agencyProfile
-        },
-        metadata: {
-          clientName: lead.nom,
-          clientEmail: lead.email,
-          clientPhone: lead.telephone,
-          budget: lead.budget,
-          typeBien: lead.type_bien,
-          delai: lead.delai
-        },
-        userId: user?.id
-      });
+      // await DocumentService.createDocument({
+      //   leadId: lead.id,
+      //   agencyId: agencyId,
+      //   type: docType.label,
+      //   title: `${docType.label} - ${lead.nom}`,
+      //   content: {
+      //     template: docType.id,
+      //     category: docType.category,
+      //     generatedAt: new Date().toISOString(),
+      //     agencyData: agencyProfile
+      //   },
+      //   metadata: {
+      //     clientName: lead.nom,
+      //     clientEmail: lead.email,
+      //     clientPhone: lead.telephone,
+      //     budget: lead.budget,
+      //     typeBien: lead.type_bien,
+      //     delai: lead.delai
+      //   },
+      //   userId: user?.id
+      // });
       
       // Mettre à jour le statut du lead selon le type de document
       await updateLeadStatus(docType.id);

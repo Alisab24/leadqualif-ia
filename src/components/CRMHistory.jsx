@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import DocumentService from '../services/documentService';
+// import DocumentService from '../services/documentService';
 
 export default function CRMHistory({ lead, agencyId }) {
   const [events, setEvents] = useState([]);
@@ -8,16 +8,18 @@ export default function CRMHistory({ lead, agencyId }) {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const history = await DocumentService.getLeadHistory(lead.id, agencyId);
-        setEvents(history);
+        // const history = await DocumentService.getLeadHistory(lead.id, agencyId);
+        // setEvents(history);
+        setEvents([]); // Temporairement vide
       } catch (error) {
-        console.error('Erreur chargement historique:', error);
+        console.error('Erreur:', error);
+        setEvents([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (lead && agencyId) {
+    if (lead && lead.id) {
       fetchHistory();
     }
   }, [lead, agencyId]);

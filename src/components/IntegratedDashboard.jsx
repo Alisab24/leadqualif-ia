@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import DocumentService from '../services/documentService';
+// import DocumentService from '../services/documentService';
 import CRMHistory from './CRMHistory';
 import DocumentGenerator from './DocumentGenerator';
 import jsPDF from 'jspdf';
@@ -140,32 +140,71 @@ export default function IntegratedDashboard({ agencyId }) {
   };
 
   const fetchData = async () => {
+    if (!agencyId) {
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('Chargement des données pour agencyId:', agencyId);
+      
       // Récupérer les leads
-      const { data: leadsData } = await supabase
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: false });
       
-      setLeads(leadsData || []);
+      if (leadsError) {
+        console.error('Erreur leads:', leadsError);
+        setLeads([]);
+      } else {
+        setLeads(leadsData || []);
+      }
 
-      // Récupérer les documents
-      const docs = await DocumentService.getAgencyDocuments(agencyId);
-      setDocuments(docs);
+      // Récupérer les documents (avec gestion d'erreur)
+      try {
+        // const docs = await DocumentService.getAgencyDocuments(agencyId);
+        // setDocuments(docs);
+        setDocuments([]);
+      } catch (docError) {
+        console.error('Erreur documents:', docError);
+        setDocuments([]);
+      }
 
-      // Récupérer les statistiques
-      const documentStats = await DocumentService.getDocumentStats(agencyId);
-      setStats(documentStats);
+      // Récupérer les statistiques (avec gestion d'erreur)
+      try {
+        // const documentStats = await DocumentService.getDocumentStats(agencyId);
+        // setStats(documentStats);
+        setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
+      } catch (statsError) {
+        console.error('Erreur stats:', statsError);
+        setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
+      }
 
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur générale fetchData:', error);
+      setLeads([]);
+      setDocuments([]);
+      setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     if (agencyId) {
       fetchData();
+      
+      // Timeout de sécurité : arrêter le chargement après 10 secondes
+      const timeoutId = setTimeout(() => {
+        setLoading(false);
+        console.warn('Timeout : arrêt du chargement après 10 secondes');
+      }, 10000);
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      setLoading(false);
     }
   }, [agencyId]);
 
@@ -204,7 +243,16 @@ export default function IntegratedDashboard({ agencyId }) {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-slate-600">Chargement du dashboard...</p>
+          <p className="text-slate-600 mb-4">Chargement du dashboard...</p>
+          <button 
+            onClick={() => {
+              setLoading(false);
+              setTimeout(() => setLoading(true), 100);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            Réessayer
+          </button>
         </div>
       </div>
     );

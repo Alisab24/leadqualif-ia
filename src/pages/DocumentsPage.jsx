@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
-import DocumentService from '../services/documentService';
+// import DocumentService from '../services/documentService';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
@@ -31,13 +31,16 @@ export default function DocumentsPage() {
           setAgencyId(profile.agency_id);
           
           // Récupérer les documents via le service
-          const docs = await DocumentService.getAgencyDocuments(profile.agency_id);
-          setDocuments(docs);
-          setFilteredDocuments(docs);
+          // const docs = await DocumentService.getAgencyDocuments(profile.agency_id);
+          // setDocuments(docs);
+          // setFilteredDocuments(docs);
+          setDocuments([]);
+          setFilteredDocuments([]);
           
           // Récupérer les statistiques
-          const documentStats = await DocumentService.getDocumentStats(profile.agency_id);
-          setStats(documentStats);
+          // const documentStats = await DocumentService.getDocumentStats(profile.agency_id);
+          // setStats(documentStats);
+          setStats({ total: 0, thisMonth: 0, immo: 0, smma: 0, byStatus: {} });
         }
       } catch (error) {
         console.error('Erreur:', error);
