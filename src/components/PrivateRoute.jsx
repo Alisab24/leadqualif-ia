@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 export default function PrivateRoute({ children }) {
-  const [session, setSession] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    // Vérifie la session active au démarrage
+  useEffect(() => {
+    // Vérifie la session actuelle
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -18,27 +18,27 @@ export default function PrivateRoute({ children }) {
       setSession(session);
       setLoading(false);
     });
-
+    
     return () => subscription.unsubscribe();
   }, []);
 
-  // Écran de chargement pendant la vérification
   if (loading) {
+    // Affiche un loader au lieu de crasher ou d'afficher une page blanche
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Chargement de l'application...</p>
+          <p className="text-slate-600">Chargement de l'authentification...</p>
         </div>
       </div>
     );
   }
 
-  // Redirige vers login si pas de session
+  // Si pas de session, retour à la case départ
   if (!session) {
     return <Navigate to="/" replace />;
   }
 
-  // Affiche le composant enfant si session valide
+  // Si tout est bon, on affiche la page protégée
   return children;
 }

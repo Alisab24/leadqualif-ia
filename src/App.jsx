@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
+// Imports des pages (Vérifie qu'ils existent)
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
@@ -12,24 +14,22 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Route Publique (Login) */}
+        {/* 1. Routes Publiques */}
         <Route path="/" element={<Login />} />
-
-        {/* Route Publique (Estimation pour les clients) */}
         <Route path="/estimation" element={<Estimation />} />
         <Route path="/estimation/:agencyId" element={<Estimation />} />
 
-        {/* Routes Protégées (Toutes celles avec le Menu Latéral) */}
+        {/* 2. Routes Protégées (Avec Layout Menu) */}
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/settings" element={<Settings />} />
           
-          {/* Redirection par défaut si on est perdu */}
+          {/* Redirection de secours */}
           <Route path="/app" element={<Navigate to="/dashboard" replace />} />
         </Route>
-
-        {/* Catch all - Redirige vers login */}
+        
+        {/* 3. Catch-all (404) -> Redirige vers Login */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
