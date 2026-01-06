@@ -1,7 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import IntegratedDashboard from '../components/IntegratedDashboard';
-import DatabaseDebug from '../components/DatabaseDebug';
 
 export default function Dashboard() {
   const [session, setSession] = useState(null);
@@ -72,10 +71,9 @@ export default function Dashboard() {
   return (
     <div>
       <div className="bg-blue-600 text-white text-center py-1 text-xs">
-        Dashboard v{version} - Nouveau design intégré
+        Dashboard v{version} - Pipeline & Leads Restaurés
       </div>
       <IntegratedDashboard agencyId={agencyId} />
-      <DatabaseDebug />
     </div>
   );
 }

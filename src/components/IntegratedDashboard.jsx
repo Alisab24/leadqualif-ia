@@ -15,6 +15,7 @@ export default function IntegratedDashboard({ agencyId }) {
   // Menu items
   const menuItems = [
     { id: 'kanban', label: 'Pipeline', icon: '📊', mobile: true },
+    { id: 'list', label: 'Liste', icon: '📝', mobile: true },
     { id: 'documents', label: 'Documents', icon: '📂', mobile: true },
     { id: 'stats', label: 'Statistiques', icon: '📈', mobile: true },
     { id: 'history', label: 'Historique', icon: '📋', mobile: true }
@@ -206,15 +207,167 @@ export default function IntegratedDashboard({ agencyId }) {
                       <div 
                         key={lead.id} 
                         onClick={() => setSelectedLead(lead)}
-                        className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition"
+                        className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition relative group border-l-4 border-l-transparent hover:border-l-blue-500"
                       >
+                        {/* Tags & Score IA */}
+                        <div className="flex justify-between mb-2">
+                          <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                            {lead.type_bien || 'Projet'}
+                          </span>
+                          {/* AFFICHAGE SCORE IA */}
+                          {lead.score > 0 && (
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded flex items-center gap-1 ${
+                              lead.score >= 70 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              ⚡ {lead.score}%
+                            </span>
+                          )}
+                        </div>
                         <h4 className="font-bold text-slate-900 truncate">{lead.nom}</h4>
-                        <p className="text-sm text-slate-500">{(lead.budget || 0).toLocaleString()} €</p>
+                        <p className="text-sm text-slate-500 mb-3 font-medium">
+                          {(lead.budget || 0).toLocaleString()} €
+                        </p>
+                        
+                        {/* Actions rapides */}
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <a 
+                            href={`tel:${lead.telephone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 text-xs bg-green-50 text-green-600 p-1.5 rounded hover:bg-green-100 text-center"
+                            title="Appeler"
+                          >
+                            📞
+                          </a>
+                          <a 
+                            href={`mailto:${lead.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 text-xs bg-blue-50 text-blue-600 p-1.5 rounded hover:bg-blue-100 text-center"
+                            title="Email"
+                          >
+                            📧
+                          </a>
+                          <a 
+                            href={`https://wa.me/${lead.telephone?.replace(/[^0-9]/g, '')}?text=Bonjour ${lead.nom}, je vous contacte concernant votre projet.`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 text-xs bg-green-50 text-green-600 p-1.5 rounded hover:bg-green-100 text-center"
+                            title="WhatsApp"
+                          >
+                            💬
+                          </a>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLead(lead);
+                            }}
+                            className="flex-1 text-xs bg-slate-50 text-slate-600 p-1.5 rounded hover:bg-slate-100 text-center"
+                            title="Voir détails"
+                          >
+                            👁️
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Vue Liste */}
+        {activeView === 'list' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Liste des Leads</h2>
+              <p className="text-slate-600">{leadStats.total} leads au total</p>
+            </div>
+
+            {/* Tableau des leads */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Nom</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Score IA</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Budget</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {leads.map(lead => (
+                      <tr key={lead.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-slate-900">{lead.nom}</div>
+                            <div className="text-sm text-slate-500">{lead.email}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {lead.score > 0 && (
+                            <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
+                              lead.score >= 70 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              ⚡ {lead.score}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {(lead.budget || 0).toLocaleString()} €
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
+                            {lead.type_bien || 'Projet'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
+                            {lead.statut}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex gap-2">
+                            <a 
+                              href={`tel:${lead.telephone}`}
+                              className="text-green-600 hover:text-green-900"
+                              title="Appeler"
+                            >
+                              📞
+                            </a>
+                            <a 
+                              href={`mailto:${lead.email}`}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Email"
+                            >
+                              📧
+                            </a>
+                            <a 
+                              href={`https://wa.me/${lead.telephone?.replace(/[^0-9]/g, '')}?text=Bonjour ${lead.nom}, je vous contacte concernant votre projet.`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-green-600 hover:text-green-900"
+                              title="WhatsApp"
+                            >
+                              💬
+                            </a>
+                            <button 
+                              onClick={() => setSelectedLead(lead)}
+                              className="text-slate-600 hover:text-slate-900"
+                              title="Voir détails"
+                            >
+                              👁️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -447,7 +600,7 @@ export default function IntegratedDashboard({ agencyId }) {
       </div>
 
       {/* MODALE LEAD (si sélectionné) */}
-      {selectedLead && activeView === 'kanban' && (
+      {selectedLead && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm">
           <div className="w-full max-w-2xl bg-white h-full shadow-2xl p-8 overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
