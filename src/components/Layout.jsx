@@ -72,7 +72,7 @@ export default function Layout() {
           {/* NAVIGATION */}
           <nav className="mt-6 flex flex-col">
             <NavItem to="/dashboard" icon="📊" label="Tableau de bord" />
-            <NavItem to="/estimation" icon="🚀" label="Nouveau Lead" />
+            <NavItem to="/stats" icon="📈" label="Statistiques" />
             <NavItem to="/documents" icon="📂" label="Mes Documents" />
             <div className="my-2 border-t border-white/5 mx-4"></div>
             <NavItem to="/settings" icon="⚙️" label="Paramètres" />
