@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import DocumentService from '../services/documentService';
+import CRMHistory from './CRMHistory';
 
 export default function DocumentManager({ lead, agencyId }) {
   const [documents, setDocuments] = useState([]);
@@ -22,12 +24,12 @@ export default function DocumentManager({ lead, agencyId }) {
   }, [agencyId, lead.id]);
 
   const fetchDocuments = async () => {
-    const { data } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('lead_id', lead.id)
-      .order('created_at', { ascending: false });
-    if (data) setDocuments(data);
+    try {
+      const docs = await DocumentService.getLeadDocuments(lead.id, agencyId);
+      setDocuments(docs);
+    } catch (error) {
+      console.error('Erreur chargement documents:', error);
+    }
   };
 
   // 2. CONFIGURATION DES MODÈLES (TEMPLATES)
@@ -124,18 +126,37 @@ export default function DocumentManager({ lead, agencyId }) {
 
     doc.save(`${docName}_${lead.nom}.pdf`);
 
-    // -- SAUVEGARDE HISTORIQUE --
+    // -- SAUVEGARDE HISTORIQUE AVEC SERVICE CENTRALISÉ --
     try {
-      await supabase.from('documents').insert([{
-        lead_id: lead.id,
-        agency_id: agencyId,
+      // Récupérer l'utilisateur actuel
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Créer le document avec le service unifié
+      await DocumentService.createDocument({
+        leadId: lead.id,
+        agencyId: agencyId,
         type: docName,
-        status: 'Généré',
-        created_at: new Date()
-      }]);
+        title: `${docName} - ${lead.nom}`,
+        content: {
+          template: docName,
+          category: activeTab,
+          generatedAt: new Date().toISOString(),
+          agencyData: agencyProfile
+        },
+        metadata: {
+          clientName: lead.nom,
+          clientEmail: lead.email,
+          clientPhone: lead.telephone,
+          budget: lead.budget,
+          typeBien: lead.type_bien,
+          delai: lead.delai
+        },
+        userId: user?.id
+      });
+      
       fetchDocuments();
     } catch (err) { 
-      console.error(err); 
+      console.error('Erreur sauvegarde document:', err); 
     }
     setLoading(false);
   };
@@ -181,29 +202,12 @@ export default function DocumentManager({ lead, agencyId }) {
         ))}
       </div>
 
-      {/* HISTORIQUE */}
+      {/* HISTORIQUE CRM UNIFIÉ */}
       <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
         <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-          HISTORIQUE DU DOSSIER
+          📋 HISTORIQUE CRM
         </h4>
-        <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-          {documents.length > 0 ? documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-red-50 text-red-500 rounded flex items-center justify-center text-xs font-bold">PDF</div>
-                <div>
-                  <p className="text-sm font-bold text-slate-700">{doc.type}</p>
-                  <p className="text-[10px] text-slate-400">{new Date(doc.created_at).toLocaleDateString()} • {new Date(doc.created_at).toLocaleTimeString().slice(0,5)}</p>
-                </div>
-              </div>
-              <span className="px-2 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
-                {doc.status}
-              </span>
-            </div>
-          )) : (
-            <div className="text-center py-4 text-slate-400 text-xs italic">Aucun document généré pour le moment.</div>
-          )}
-        </div>
+        <CRMHistory lead={lead} agencyId={agencyId} />
       </div>
     </div>
   );
