@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
 import DocumentManager from '../components/DocumentManager';
@@ -15,6 +15,10 @@ export default function Dashboard() {
   const [calendlyLink, setCalendlyLink] = useState(null);
   const [agencyId, setAgencyId] = useState(null); // Pour le lien estimation
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
+
+  // Refs pour le scroll fluide
+  const scrollContainerRef = useRef(null);
+  const scrollInterval = useRef(null);
 
   // 1. AUTH & DATA
   useEffect(() => {
@@ -69,6 +73,23 @@ export default function Dashboard() {
 
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
+  // Logique de Scroll Moteur
+  const startScroll = (direction) => {
+    stopScroll(); // Sécurité
+    scrollInterval.current = setInterval(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft += direction === 'right' ? 15 : -15;
+      }
+    }, 16); // ~60fps fluidity
+  };
+
+  const stopScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
+
   // Helper Google Calendar
   const getGoogleCalendarLink = (lead) => {
     const title = encodeURIComponent(`RDV avec ${lead.nom}`);
@@ -117,7 +138,7 @@ export default function Dashboard() {
 
         {/* VUE KANBAN */}
         {viewMode === 'kanban' && (
-          <div className="flex overflow-x-auto pb-6 gap-6 min-h-[70vh]">
+          <div ref={scrollContainerRef} className="flex overflow-x-auto pb-6 gap-6 min-h-[70vh]">
             {statuts.map((statut, idx) => (
               <div key={statut} className="min-w-[300px] flex flex-col bg-slate-100/50 rounded-xl border border-slate-200">
                 <div className="p-4 font-bold text-slate-700 bg-white/60 rounded-t-xl flex justify-between sticky top-0 backdrop-blur-sm z-10">
@@ -163,6 +184,32 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* ZONES DE DÉFILEMENT LATÉRAL (Visible seulement en vue Kanban) */}
+        {viewMode === 'kanban' && (
+          <>
+            {/* Zone Gauche */}
+            <div 
+              onMouseEnter={() => startScroll('left')} 
+              onMouseLeave={stopScroll}
+              className="fixed left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-12 flex items-center justify-start pl-2 cursor-pointer hover:bg-gradient-to-r from-slate-200/50 to-transparent transition-all group"
+            >
+              <div className="w-8 h-8 bg-white shadow-lg rounded-full flex items-center justify-center text-slate-600 group-hover:scale-110 transition">
+                ⬅️
+              </div>
+            </div>
+            {/* Zone Droite */}
+            <div 
+              onMouseEnter={() => startScroll('right')} 
+              onMouseLeave={stopScroll}
+              className="fixed right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-12 flex items-center justify-end pr-2 cursor-pointer hover:bg-gradient-to-l from-slate-200/50 to-transparent transition-all group"
+            >
+              <div className="w-8 h-8 bg-white shadow-lg rounded-full flex items-center justify-center text-slate-600 group-hover:scale-110 transition">
+                ➡️
+              </div>
+            </div>
+          </>
         )}
 
         {/* VUE LISTE */}
