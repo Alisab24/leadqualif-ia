@@ -70,8 +70,8 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="bg-blue-600 text-white text-center py-1 text-xs">
-        Dashboard v{version} - Génération de Documents Intégrée
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white text-center py-1 text-xs">
+        Dashboard v{version} - Optimisation IA Intégrée
       </div>
       <IntegratedDashboard agencyId={agencyId} />
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
 // import DocumentService from '../services/documentService';
+import DocumentOptimizer from '../components/DocumentOptimizer';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
@@ -294,6 +295,8 @@ export default function DocumentsPage() {
                   <th className="text-left p-4 font-medium text-slate-700">Statut</th>
                   <th className="text-left p-4 font-medium text-slate-700">Projet</th>
                   <th className="text-left p-4 font-medium text-slate-700">Date</th>
+                  <th className="text-left p-4 font-medium text-slate-700">Optimisation</th>
+                  <th className="text-left p-4 font-medium text-slate-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -339,11 +342,103 @@ export default function DocumentsPage() {
                         <p className="text-xs text-slate-500">{new Date(doc.created_at).toLocaleTimeString().slice(0,5)}</p>
                       </div>
                     </td>
+                    <td className="p-4">
+                      {doc.metadata?.ai_optimized ? (
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                            ✨ Optimisé
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {doc.metadata?.optimization_score}%
+                          </span>
+                        </div>
+                      ) : (
+                        <DocumentOptimizer 
+                          document={doc} 
+                          lead={doc.leads}
+                          onOptimized={(optimizedDoc) => {
+                            // Mettre à jour le document dans la liste
+                            setDocuments(prev => prev.map(d => 
+                              d.id === doc.id ? optimizedDoc : d
+                            ));
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <button className="text-blue-600 hover:text-blue-800 text-sm" title="Télécharger">
+                          📥
+                        </button>
+                        <button className="text-green-600 hover:text-green-800 text-sm" title="Envoyer">
+                          📧
+                        </button>
+                        <button className="text-purple-600 hover:text-purple-800 text-sm" title="Voir">
+                          👁️
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Optimisation IA en lot */}
+      {documents.length > 0 && (
+        <div className="mt-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+          <h3 className="font-bold text-slate-800 mb-4">🤖 Optimisation IA Intelligente</h3>
+          <div className="bg-white rounded-lg p-4 mb-4">
+            <p className="text-slate-600 text-sm mb-3">
+              Optimisez automatiquement tous vos documents avec notre IA pour améliorer leur qualité, 
+              complétude et professionnalisme.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="text-center">
+                <div className="text-2xl mb-2">📈</div>
+                <div className="font-medium text-slate-800">Amélioration</div>
+                <div className="text-slate-500">Score +30%</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl mb-2">⚡</div>
+                <div className="font-medium text-slate-800">Rapidité</div>
+                <div className="text-slate-500">2x plus vite</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl mb-2">✨</div>
+                <div className="font-medium text-slate-800">Qualité</div>
+                <div className="text-slate-500">Professionnelle</div>
+              </div>
+            </div>
+          </div>
+          
+          <button
+            onClick={async () => {
+              // Optimiser tous les documents non optimisés
+              const nonOptimizedDocs = documents.filter(doc => !doc.metadata?.ai_optimized);
+              if (nonOptimizedDocs.length === 0) {
+                alert('Tous vos documents sont déjà optimisés !');
+                return;
+              }
+              
+              if (confirm(`Optimiser ${nonOptimizedDocs.length} document(s) non optimisé(s) ?`)) {
+                for (const doc of nonOptimizedDocs) {
+                  try {
+                    await DocumentOptimizationService.optimizeDocument(doc.id, doc.leads);
+                  } catch (error) {
+                    console.error('Erreur optimisation document:', error);
+                  }
+                }
+                // Rafraîchir la liste
+                window.location.reload();
+              }
+            }}
+            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all font-medium flex items-center justify-center gap-2"
+          >
+            🚀 Optimiser tous les documents ({documents.filter(doc => !doc.metadata?.ai_optimized).length})
+          </button>
         </div>
       )}
 
