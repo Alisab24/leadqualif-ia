@@ -1,57 +1,39 @@
-import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { supabase } from './supabaseClient'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Estimation from './pages/Estimation';
+import DocumentsPage from './pages/DocumentsPage'; // NOUVEL IMPORT
+import Settings from './pages/Settings';           // NOUVEL IMPORT
+import Layout from './components/Layout';
+import PrivateRoute from './components/PrivateRoute';
 
-// Imports des pages
-import Home from './pages/Home'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Commercial from './pages/Commercial'
-import Settings from './pages/Settings'
-import DocumentsPage from './pages/DocumentsPage'
-import Stats from './pages/Stats'
-import Estimation from './pages/Estimation'
-import Layout from './components/Layout'
-
-export default function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Vérifie la session active au démarrage
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
-
-    // Écoute les changements (connexion/déconnexion)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setLoading(false)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  // Écran de chargement simple pour éviter l'écran blanc pendant la vérification
-  if (loading) return "Chargement de l'application..."
-
+function App() {
   return (
-    <Routes>
-      {/* Routes Publiques (Accessibles à tous) */}
-      <Route path="/" element={<Home />} />
-      <Route path="/estimation/:agency_id" element={<Estimation />} />
-      <Route path="/estimation" element={<Navigate to="/" />} />
-      <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
-      <Route path="/app" element={session ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-      
-      {/* Routes Protégées (App) */}
-      <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />}>
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="stats" element={<Stats />} />
-        <Route path="commercial" element={<Commercial />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="documents" element={<DocumentsPage />} />
-      </Route>
-    </Routes>
-  )
+    <Router>
+      <Routes>
+        {/* Route Publique (Login) */}
+        <Route path="/" element={<Login />} />
+
+        {/* Route Publique (Estimation pour les clients) */}
+        <Route path="/estimation" element={<Estimation />} />
+        <Route path="/estimation/:agencyId" element={<Estimation />} />
+
+        {/* Routes Protégées (Toutes celles avec le Menu Latéral) */}
+        <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/documents" element={<DocumentsPage />} /> {/* LA ROUTE MANQUANTE */}
+          <Route path="/settings" element={<Settings />} />       {/* LA ROUTE MANQUANTE */}
+          
+          {/* Redirection par défaut si on est perdu */}
+          <Route path="/app" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+
+        {/* Catch all - Redirige vers login */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
+  );
 }
+
+export default App;
