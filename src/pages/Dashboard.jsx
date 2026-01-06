@@ -71,7 +71,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="bg-blue-600 text-white text-center py-1 text-xs">
-        Dashboard v{version} - Pipeline & Leads Restaurés
+        Dashboard v{version} - Génération de Documents Intégrée
       </div>
       <IntegratedDashboard agencyId={agencyId} />
     </div>

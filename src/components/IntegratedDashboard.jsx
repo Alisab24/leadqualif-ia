@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import DocumentService from '../services/documentService';
 import CRMHistory from './CRMHistory';
+import DocumentGenerator from './DocumentGenerator';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export default function IntegratedDashboard({ agencyId }) {
   const [activeView, setActiveView] = useState('kanban'); // kanban, documents, stats, history
@@ -21,33 +24,146 @@ export default function IntegratedDashboard({ agencyId }) {
     { id: 'history', label: 'Historique', icon: '📋', mobile: true }
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Récupérer les leads
-        const { data: leadsData } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('agency_id', agencyId)
-          .order('created_at', { ascending: false });
-        
-        setLeads(leadsData || []);
-
-        // Récupérer les documents
-        const docs = await DocumentService.getAgencyDocuments(agencyId);
-        setDocuments(docs);
-
-        // Récupérer les statistiques
-        const documentStats = await DocumentService.getDocumentStats(agencyId);
-        setStats(documentStats);
-
-      } catch (error) {
-        console.error('Erreur:', error);
-      } finally {
-        setLoading(false);
+  const generateQuickDocument = async (lead, docType) => {
+    try {
+      // Récupérer l'utilisateur actuel
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Récupérer le profil de l'agence
+      const { data: agencyProfile } = await supabase
+        .from('agencies')
+        .select('*')
+        .eq('id', agencyId)
+        .single();
+      
+      // Générer le PDF
+      const doc = new jsPDF();
+      
+      // En-tête
+      doc.setFontSize(20);
+      doc.text(`${docType.toUpperCase()} - ${lead.nom}`, 20, 30);
+      
+      // Informations agence
+      if (agencyProfile) {
+        doc.setFontSize(12);
+        doc.text(`${agencyProfile.name}`, 20, 50);
+        doc.text(`${agencyProfile.address || ''}`, 20, 60);
+        doc.text(`${agencyProfile.phone || ''}`, 20, 70);
+        doc.text(`${agencyProfile.email || ''}`, 20, 80);
       }
-    };
+      
+      // Informations client
+      doc.setFontSize(14);
+      doc.text('INFORMATIONS CLIENT', 20, 100);
+      doc.setFontSize(11);
+      doc.text(`Nom: ${lead.nom}`, 20, 115);
+      doc.text(`Email: ${lead.email}`, 20, 125);
+      doc.text(`Téléphone: ${lead.telephone}`, 20, 135);
+      doc.text(`Budget: ${(lead.budget || 0).toLocaleString()} €`, 20, 145);
+      doc.text(`Type de bien: ${lead.type_bien || 'Non spécifié'}`, 20, 155);
+      
+      // Contenu spécifique
+      doc.setFontSize(14);
+      doc.text('DÉTAILS DU DOCUMENT', 20, 180);
+      
+      let content = '';
+      let newStatus = lead.statut;
+      
+      switch (docType) {
+        case 'mandat':
+          content = `Le soussigné ${lead.nom} donne mandat exclusif à ${agencyProfile?.name || 'l\'agence'} pour la vente du bien. Durée: 3 mois. Commission: 5% du prix de vente.`;
+          newStatus = 'Mandat signé';
+          break;
+        case 'devis':
+          content = `Devis pour services immobiliers - ${lead.nom}\nHonoraires: ${((lead.budget || 0) * 0.03).toLocaleString()} € (3%)\nAccompagnement vente: Inclus`;
+          newStatus = 'Offre en cours';
+          break;
+        case 'facture':
+          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nMontant: ${((lead.budget || 0) * 0.03).toLocaleString()} €`;
+          newStatus = 'Gagné';
+          break;
+        case 'bon_visite':
+          content = `BON DE VISITE\nClient: ${lead.nom}\nDate: ${new Date().toLocaleDateString()}`;
+          newStatus = 'Visite planifiée';
+          break;
+      }
+      
+      doc.setFontSize(11);
+      const splitText = doc.splitTextToSize(content, 170);
+      doc.text(splitText, 20, 195);
+      
+      // Pied de page
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text("Généré par LeadQualif IA - CRM Intelligent", 105, pageHeight - 10, { align: 'center' });
+      
+      // Télécharger
+      doc.save(`${docType}_${lead.nom}.pdf`);
+      
+      // Créer l'entrée dans la base
+      await DocumentService.createDocument({
+        leadId: lead.id,
+        agencyId: agencyId,
+        type: docType.charAt(0).toUpperCase() + docType.slice(1),
+        title: `${docType.charAt(0).toUpperCase() + docType.slice(1)} - ${lead.nom}`,
+        content: {
+          template: docType,
+          category: 'IMMO',
+          generatedAt: new Date().toISOString(),
+          agencyData: agencyProfile
+        },
+        metadata: {
+          clientName: lead.nom,
+          clientEmail: lead.email,
+          clientPhone: lead.telephone,
+          budget: lead.budget,
+          typeBien: lead.type_bien
+        },
+        userId: user?.id
+      });
+      
+      // Mettre à jour le statut du lead
+      await supabase
+        .from('leads')
+        .update({ statut: newStatus })
+        .eq('id', lead.id);
+      
+      // Rafraîchir les données
+      fetchData();
+      
+      console.log(`Document ${docType} généré pour ${lead.nom}`);
+      
+    } catch (error) {
+      console.error('Erreur génération document:', error);
+    }
+  };
 
+  const fetchData = async () => {
+    try {
+      // Récupérer les leads
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .order('created_at', { ascending: false });
+      
+      setLeads(leadsData || []);
+
+      // Récupérer les documents
+      const docs = await DocumentService.getAgencyDocuments(agencyId);
+      setDocuments(docs);
+
+      // Récupérer les statistiques
+      const documentStats = await DocumentService.getDocumentStats(agencyId);
+      setStats(documentStats);
+
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
+  };
+
+  useEffect(() => {
     if (agencyId) {
       fetchData();
     }
@@ -166,12 +282,12 @@ export default function IntegratedDashboard({ agencyId }) {
 
       {/* CONTENU PRINCIPAL */}
       <div className="max-w-7xl mx-auto p-4 lg:p-6">
-        {/* Vue Pipeline Kanban */}
+        {/* Vue Pipeline Kanban - Temporairement désactivé */}
         {activeView === 'kanban' && (
           <div>
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-slate-800 mb-2">Pipeline Commercial</h2>
-              <p className="text-slate-600">{leadStats.total} leads • Pipeline actif</p>
+              <p className="text-slate-600">Utilisez la vue Liste pour accéder aux fonctionnalités complètes</p>
             </div>
             
             {/* Stats Cards */}
@@ -192,86 +308,15 @@ export default function IntegratedDashboard({ agencyId }) {
               ))}
             </div>
 
-            {/* Kanban Board */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Object.keys(leadStats.byStatus).map(status => (
-                <div key={status} className="bg-slate-100/50 rounded-xl border border-slate-200">
-                  <div className="p-4 font-bold text-slate-700 bg-white/60 rounded-t-xl flex justify-between">
-                    {status}
-                    <span className="bg-slate-200 text-xs px-2 py-1 rounded-full">
-                      {leadStats.byStatus[status]}
-                    </span>
-                  </div>
-                  <div className="p-3 space-y-3 min-h-[200px]">
-                    {leads.filter(l => l.statut === status).map(lead => (
-                      <div 
-                        key={lead.id} 
-                        onClick={() => setSelectedLead(lead)}
-                        className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition relative group border-l-4 border-l-transparent hover:border-l-blue-500"
-                      >
-                        {/* Tags & Score IA */}
-                        <div className="flex justify-between mb-2">
-                          <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-                            {lead.type_bien || 'Projet'}
-                          </span>
-                          {/* AFFICHAGE SCORE IA */}
-                          {lead.score > 0 && (
-                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded flex items-center gap-1 ${
-                              lead.score >= 70 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              ⚡ {lead.score}%
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="font-bold text-slate-900 truncate">{lead.nom}</h4>
-                        <p className="text-sm text-slate-500 mb-3 font-medium">
-                          {(lead.budget || 0).toLocaleString()} €
-                        </p>
-                        
-                        {/* Actions rapides */}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <a 
-                            href={`tel:${lead.telephone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 text-xs bg-green-50 text-green-600 p-1.5 rounded hover:bg-green-100 text-center"
-                            title="Appeler"
-                          >
-                            📞
-                          </a>
-                          <a 
-                            href={`mailto:${lead.email}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 text-xs bg-blue-50 text-blue-600 p-1.5 rounded hover:bg-blue-100 text-center"
-                            title="Email"
-                          >
-                            📧
-                          </a>
-                          <a 
-                            href={`https://wa.me/${lead.telephone?.replace(/[^0-9]/g, '')}?text=Bonjour ${lead.nom}, je vous contacte concernant votre projet.`}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 text-xs bg-green-50 text-green-600 p-1.5 rounded hover:bg-green-100 text-center"
-                            title="WhatsApp"
-                          >
-                            💬
-                          </a>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedLead(lead);
-                            }}
-                            className="flex-1 text-xs bg-slate-50 text-slate-600 p-1.5 rounded hover:bg-slate-100 text-center"
-                            title="Voir détails"
-                          >
-                            👁️
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+              <p className="text-blue-800 font-medium mb-2">📋 Vue Liste Recommandée</p>
+              <p className="text-blue-600 text-sm mb-4">Accédez aux boutons de génération de documents et actions complètes dans la vue Liste.</p>
+              <button 
+                onClick={() => setActiveView('list')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Aller à la Vue Liste
+              </button>
             </div>
           </div>
         )}
@@ -360,6 +405,21 @@ export default function IntegratedDashboard({ agencyId }) {
                               title="Voir détails"
                             >
                               👁️
+                            </button>
+                            {/* Boutons Documents */}
+                            <button 
+                              onClick={() => generateQuickDocument(lead, 'mandat')}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Générer Mandat"
+                            >
+                              📄
+                            </button>
+                            <button 
+                              onClick={() => generateQuickDocument(lead, 'devis')}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Générer Devis"
+                            >
+                              📋
                             </button>
                           </div>
                         </td>
@@ -643,6 +703,17 @@ export default function IntegratedDashboard({ agencyId }) {
             <div className="border-t border-slate-100 pt-8">
               <h3 className="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2">📋 Historique CRM</h3>
               <CRMHistory lead={selectedLead} agencyId={agencyId} />
+            </div>
+
+            {/* Génération de Documents */}
+            <div className="border-t border-slate-100 pt-8">
+              <DocumentGenerator 
+                lead={selectedLead} 
+                agencyId={agencyId}
+                onDocumentGenerated={() => {
+                  fetchData();
+                }}
+              />
             </div>
           </div>
         </div>
