@@ -4,8 +4,13 @@ import { Link } from 'react-router-dom';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
+  const [filteredDocuments, setFilteredDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [dateRange, setDateRange] = useState('all');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,13 +36,16 @@ export default function DocumentsPage() {
               leads!inner(
                 nom, 
                 email, 
-                telephone
+                telephone,
+                type_bien,
+                budget
               )
             `)
             .eq('agency_id', profile.agency_id)
             .order('created_at', { ascending: false });
 
           setDocuments(docs || []);
+          setFilteredDocuments(docs || []);
         }
       } catch (error) {
         console.error('Erreur:', error);
@@ -49,9 +57,70 @@ export default function DocumentsPage() {
     fetchData();
   }, []);
 
+  // Filtrage et recherche
+  useEffect(() => {
+    let filtered = documents;
+
+    // Recherche
+    if (searchTerm) {
+      filtered = filtered.filter(doc => 
+        doc.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.leads?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.leads?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtre par type
+    if (filterType !== 'all') {
+      filtered = filtered.filter(doc => doc.type === filterType);
+    }
+
+    // Filtre par statut
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(doc => doc.status === filterStatus);
+    }
+
+    // Filtre par date
+    const now = new Date();
+    if (dateRange === '7jours') {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(doc => new Date(doc.created_at) >= sevenDaysAgo);
+    } else if (dateRange === '30jours') {
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(doc => new Date(doc.created_at) >= thirtyDaysAgo);
+    }
+
+    setFilteredDocuments(filtered);
+  }, [documents, searchTerm, filterType, filterStatus, dateRange]);
+
+  // Statistiques
+  const stats = {
+    total: documents.length,
+    thisMonth: documents.filter(doc => {
+      const docDate = new Date(doc.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length,
+    thisWeek: documents.filter(doc => {
+      const docDate = new Date(doc.created_at);
+      const now = new Date();
+      const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+      return docDate >= weekStart;
+    }).length,
+    immo: documents.filter(doc => 
+      ['Bon de Visite', 'Mandat de Vente', 'Offre d\'Achat', 'Fiche Client', 'Compte-rendu'].includes(doc.type)
+    ).length,
+    smma: documents.filter(doc => 
+      ['Devis Prestation', 'Contrat Service', 'Facture', 'Brief Onboarding'].includes(doc.type)
+    ).length
+  };
+
+  // Types de documents uniques
+  const documentTypes = [...new Set(documents.map(doc => doc.type))];
+
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6">
         <div className="text-center py-20">
           <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-slate-600">Chargement des documents...</p>
@@ -61,28 +130,155 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto p-6">
+      {/* Header avec statistiques */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">📂 Mes Documents</h1>
-        <p className="text-slate-600">
-          {documents.length} document{documents.length > 1 ? 's' : ''} généré{documents.length > 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {documents.length === 0 ? (
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center py-20">
-          <span className="text-6xl mb-4 block">📄</span>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">Aucun document</h3>
-          <p className="text-slate-500 mb-6">
-            Pour générer des documents, allez sur le <b>Dashboard</b> et cliquez sur un Lead.
-          </p>
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 mb-2">📂 Centre de Documents</h1>
+            <p className="text-slate-600">
+              {filteredDocuments.length} document{filteredDocuments.length > 1 ? 's' : ''} trouvé{filteredDocuments.length > 1 ? 's' : ''}
+              {filteredDocuments.length !== documents.length && ` sur ${documents.length} total`}
+            </p>
+          </div>
           <Link 
             to="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
-            📊 Voir le Dashboard
+            📊 Dashboard
           </Link>
+        </div>
+
+        {/* Cartes de statistiques */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Total</p>
+                <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-xl">📄</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Ce mois</p>
+                <p className="text-2xl font-bold text-slate-800">{stats.thisMonth}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-xl">📅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Cette semaine</p>
+                <p className="text-2xl font-bold text-slate-800">{stats.thisWeek}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-xl">📊</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Immobilier</p>
+                <p className="text-2xl font-bold text-slate-800">{stats.immo}</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 text-xl">🏠</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Marketing</p>
+                <p className="text-2xl font-bold text-slate-800">{stats.smma}</p>
+              </div>
+              <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 text-xl">🚀</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtres et recherche */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Recherche</label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Rechercher un document ou client..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Type de document</label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les types</option>
+                {documentTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Période</label>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Toutes les dates</option>
+                <option value="7jours">7 derniers jours</option>
+                <option value="30jours">30 derniers jours</option>
+              </select>
+            </div>
+            
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterType('all');
+                  setDateRange('all');
+                }}
+                className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                🔄 Réinitialiser
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {filteredDocuments.length === 0 ? (
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center py-20">
+          <span className="text-6xl mb-4 block">🔍</span>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">
+            {documents.length === 0 ? 'Aucun document' : 'Aucun résultat trouvé'}
+          </h3>
+          <p className="text-slate-500 mb-6">
+            {documents.length === 0 
+              ? 'Pour générer des documents, allez sur le Dashboard et cliquez sur un Lead.'
+              : 'Essayez de modifier vos filtres ou votre recherche.'
+            }
+          </p>
+          {documents.length === 0 && (
+            <Link 
+              to="/dashboard"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              📊 Voir le Dashboard
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-100">
@@ -94,12 +290,13 @@ export default function DocumentsPage() {
                   <th className="text-left p-4 font-medium text-slate-700">Client</th>
                   <th className="text-left p-4 font-medium text-slate-700">Email</th>
                   <th className="text-left p-4 font-medium text-slate-700">Téléphone</th>
+                  <th className="text-left p-4 font-medium text-slate-700">Projet</th>
                   <th className="text-left p-4 font-medium text-slate-700">Date</th>
                   <th className="text-left p-4 font-medium text-slate-700">Statut</th>
                 </tr>
               </thead>
               <tbody>
-                {documents.map((doc) => (
+                {filteredDocuments.map((doc) => (
                   <tr key={doc.id} className="border-b border-slate-50 hover:bg-slate-50">
                     <td className="p-4">
                       <div className="flex items-center gap-2">
@@ -110,6 +307,18 @@ export default function DocumentsPage() {
                     <td className="p-4 font-medium text-slate-700">{doc.leads?.nom || 'N/A'}</td>
                     <td className="p-4 text-slate-600">{doc.leads?.email || 'N/A'}</td>
                     <td className="p-4 text-slate-600">{doc.leads?.telephone || 'N/A'}</td>
+                    <td className="p-4 text-slate-600">
+                      {doc.leads?.type_bien && (
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+                          {doc.leads.type_bien}
+                        </span>
+                      )}
+                      {doc.leads?.budget && (
+                        <span className="ml-2 text-green-600 font-medium">
+                          {parseInt(doc.leads.budget).toLocaleString()} €
+                        </span>
+                      )}
+                    </td>
                     <td className="p-4 text-slate-600">
                       {new Date(doc.created_at).toLocaleDateString()} à {new Date(doc.created_at).toLocaleTimeString().slice(0,5)}
                     </td>
@@ -127,20 +336,26 @@ export default function DocumentsPage() {
       )}
 
       {/* Actions rapides */}
-      <div className="mt-8 bg-blue-50 rounded-xl p-6 border border-blue-100">
+      <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
         <h3 className="font-bold text-slate-800 mb-4">🚀 Actions rapides</h3>
-        <div className="flex gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link 
             to="/dashboard"
-            className="flex-1 text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
           >
             📊 Dashboard
           </Link>
           <Link 
             to="/estimation"
-            className="flex-1 text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
           >
             🚀 Nouveau Lead
+          </Link>
+          <Link 
+            to="/settings"
+            className="text-center px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            ⚙️ Paramètres
           </Link>
         </div>
       </div>
