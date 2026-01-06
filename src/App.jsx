@@ -42,6 +42,7 @@ export default function App() {
       <Route path="/estimation/:agency_id" element={<Estimation />} />
       <Route path="/estimation" element={<Navigate to="/" />} />
       <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/app" element={session ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
       
       {/* Routes Protégées (App) */}
       <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />}>
