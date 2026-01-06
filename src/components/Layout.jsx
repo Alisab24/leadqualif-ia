@@ -34,85 +34,75 @@ export default function Layout() {
 
   const isActive = (path) => location.pathname === path;
 
-  // Composant Lien Menu
+  // Composant Lien Menu Optimisé Bitrix
   const NavItem = ({ to, icon, label }) => (
     <Link 
       to={to} 
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+      className={`flex items-center h-12 px-4 mb-2 mx-2 rounded-xl transition-all duration-200 overflow-hidden whitespace-nowrap group-hover:px-4 ${
         isActive(to) 
-          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 font-medium' 
+          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
           : 'text-slate-400 hover:bg-white/10 hover:text-white'
       }`}
     >
-      <span className={`text-xl ${isActive(to) ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>
-        {icon}
+      {/* Icône toujours visible et centrée si menu fermé */}
+      {icon}
+
+      {/* Texte visible seulement au survol du menu global */}
+      <span className="ml-4 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+        {label}
       </span>
-      {label}
     </Link>
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-gradient-to-b from-slate-900 to-blue-900 text-white flex flex-col h-screen fixed left-0 top-0 shadow-2xl">
-        {/* LOGO */}
-        <div className="p-6 pb-8 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/30">
+      {/* SIDEBAR STYLE BITRIX24 */}
+      <aside className="group w-20 hover:w-64 bg-gradient-to-b from-slate-900 to-blue-900 text-white flex flex-col h-screen fixed left-0 top-0 shadow-2xl transition-all duration-300 z-50">
+        {/* HAUT : LOGO */}
+        <div>
+          <div className="h-20 flex items-center justify-center border-b border-white/5 bg-black/20">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg text-lg">
               N
             </div>
-            <span className="font-bold text-lg tracking-wide">LeadQualif IA</span>
+            <span className="ml-3 font-bold text-lg tracking-wide opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute left-20">
+              LeadQualif
+            </span>
           </div>
+
+          {/* NAVIGATION */}
+          <nav className="mt-6 flex flex-col">
+            <NavItem to="/dashboard" icon="📊" label="Tableau de bord" />
+            <NavItem to="/estimation" icon="🚀" label="Nouveau Lead" />
+            <NavItem to="/documents" icon="📂" label="Mes Documents" />
+            <div className="my-2 border-t border-white/5 mx-4"></div>
+            <NavItem to="/settings" icon="⚙️" label="Paramètres" />
+          </nav>
         </div>
 
-        {/* NAVIGATION */}
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <NavItem to="/dashboard" icon="📊" label="Dashboard" />
-          <NavItem to="/estimation" icon="🚀" label="Nouveau Lead" />
-          <NavItem to="/documents" icon="📂" label="Documents" />
-          
-          <div className="pt-4 pb-2">
-            <p className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Configuration</p>
-          </div>
-          
-          <NavItem to="/settings" icon="⚙️" label="Paramètres" />
-        </nav>
-
-        {/* PROFIL UTILISATEUR (Bas de page) */}
+        {/* BAS : PROFIL */}
         {session && (
-          <div className="p-4 border-t border-white/5 bg-black/20">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition group relative">
-              
-              {/* Avatar */}
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold shadow-inner">
+          <div className="p-4 border-t border-white/5 bg-black/20 overflow-hidden">
+            <div className="flex items-center gap-3 transition-all">
+              <div className="w-10 h-10 min-w-[40px] rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold shadow-inner border-2 border-slate-800">
                 {session.user.email?.charAt(0).toUpperCase()}
               </div>
-
-              {/* Info User */}
-              <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-bold text-white truncate">
-                  {profile?.first_name || 'Utilisateur'}
-                </p>
-                <p className="text-[10px] text-slate-400 truncate">
-                  {session.user.email}
-                </p>
+              
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col w-full overflow-hidden">
+                <p className="text-xs font-bold truncate text-white">{profile?.first_name || 'Utilisateur'}</p>
+                <button 
+                  onClick={handleLogout}
+                  className="text-[10px] text-red-400 hover:text-red-300 text-left flex items-center gap-1 mt-1"
+                >
+                  🛑 Déconnexion
+                </button>
               </div>
-
-              {/* Logout Button */}
-              <button 
-                onClick={handleLogout}
-                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition"
-                title="Se déconnecter"
-              >
-                🛑
-              </button>
             </div>
           </div>
         )}
       </aside>
 
-      {/* CONTENU PRINCIPAL */}
-      <div className="flex-1 ml-64">
+      {/* CONTENU PRINCIPAL (Décalé de 20 pour laisser la place aux icônes) */}
+      <div className="flex-1 ml-20 transition-all duration-300">
         <Outlet />
       </div>
     </div>

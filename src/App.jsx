@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Commercial from './pages/Commercial'
 import Settings from './pages/Settings'
+import DocumentsPage from './pages/DocumentsPage'
 import Stats from './pages/Stats'
 import Estimation from './pages/Estimation'
 import Layout from './components/Layout'
@@ -40,14 +41,15 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/estimation/:agency_id" element={<Estimation />} />
       <Route path="/estimation" element={<Navigate to="/" />} />
-      <Route path="/login" element={session ? <Navigate to="/app" /> : <Login />} />
+      <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
       
       {/* Routes Protégées (App) */}
-      <Route path="/app" element={session ? <Layout /> : <Navigate to="/login" />}>
-        <Route index element={<Dashboard />} />
+      <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />}>
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="stats" element={<Stats />} />
         <Route path="commercial" element={<Commercial />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="documents" element={<DocumentsPage />} />
       </Route>
     </Routes>
   )
