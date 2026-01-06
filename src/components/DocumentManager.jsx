@@ -7,19 +7,20 @@ export default function DocumentManager({ lead, agencyId }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
+  const [activeTab, setActiveTab] = useState('IMMO'); // 'IMMO' ou 'SMMA'
 
-  // 1. Charger le profil Agence (pour le Logo/Branding)
+  // 1. Chargement Profil Agence & Historique
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!agencyId) return;
-      const { data } = await supabase.from('profiles').select('*').eq('agency_id', agencyId).single();
-      setAgencyProfile(data);
+    const fetchData = async () => {
+      if (agencyId) {
+        const { data } = await supabase.from('profiles').select('*').eq('agency_id', agencyId).single();
+        setAgencyProfile(data);
+      }
+      fetchDocuments();
     };
-    fetchProfile();
-    fetchDocuments();
+    fetchData();
   }, [agencyId, lead.id]);
 
-  // 2. Charger l'historique des documents du lead
   const fetchDocuments = async () => {
     const { data } = await supabase
       .from('documents')
@@ -29,264 +30,187 @@ export default function DocumentManager({ lead, agencyId }) {
     if (data) setDocuments(data);
   };
 
+  // 2. Définition des Modèles (Templates)
+  const templates = {
+    IMMO: [
+      { name: 'Bon de Visite', icon: '', type: 'juridique' },
+      { name: 'Mandat de Vente', icon: '', type: 'juridique' },
+      { name: 'Offre d\'Achat', icon: '', type: 'transaction' },
+      { name: 'Fiche Client', icon: '', type: 'recap' },
+      { name: 'Compte-rendu Visite', icon: '', type: 'suivi' }
+    ],
+    SMMA: [
+      { name: 'Devis Prestation', icon: '', type: 'vente' },
+      { name: 'Contrat Service', icon: '', type: 'juridique' },
+      { name: 'Facture', icon: '', type: 'compta' },
+      { name: 'Brief Client', icon: '', type: 'projet' }
+    ]
+  };
+
   // 3. Moteur de Génération PDF
-  const generatePDF = async (type) => {
+  const generatePDF = async (docName) => {
     setLoading(true);
     const doc = new jsPDF();
+    const today = new Date().toLocaleDateString();
 
-    // --- HEADER (Branding Agence) ---
-    // Couleur principale (Bleu Pro par défaut)
-    const primaryColor = [41, 98, 255]; 
-    
-    // Logo (Si url existe, sinon texte)
-    doc.setFontSize(22);
-    doc.setTextColor(...primaryColor);
-    doc.text(agencyProfile?.agency_name || "AGENCE PARTENAIRE", 15, 20);
-
+    // --- HEADER BRANDING ---
+    doc.setFontSize(20);
+    doc.setTextColor(41, 98, 255); // Bleu Agence
+    doc.text(agencyProfile?.agency_name?.toUpperCase() || "AGENCE PARTENAIRE", 15, 20);
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Email: ${agencyProfile?.email || 'contact@agence.com'}`, 15, 28);
-    doc.text(`Tél: ${agencyProfile?.phone || '01 23 45 67 89'}`, 15, 36);
+    doc.text(`Email: ${agencyProfile?.email || 'contact@agence.com'}`, 15, 26);
+    doc.text(`Tel: ${agencyProfile?.telephone || 'Non renseigné'}`, 15, 31);
 
-    // Trait de séparation
+    // Ligne séparatrice
     doc.setDrawColor(200);
-    doc.line(15, 42, 195, 42);
+    doc.line(15, 36, 195, 36);
 
-    // --- CONTENU DU DOCUMENT (Selon le Type) ---
-    doc.setTextColor(0);
+    // --- TITRE DOCUMENT ---
     doc.setFontSize(18);
-    doc.text(type.toUpperCase(), 105, 55, { align: 'center' });
-    
-    let bodyData = [];
-    if (type === 'Bon de Visite') {
-      doc.setFontSize(12);
-      doc.text(`Je soussigné(e), ${lead.nom}, reconnais avoir visité ce jour :`, 15, 70);
-      doc.text(`Type de bien : ${lead.type_bien || 'Non spécifié'}`, 15, 80);
-      doc.text(`Budget annoncé : ${lead.budget} €`, 15, 90);
-      doc.text("Conditions : En cas d'achat, je m'engage à passer par l'intermédiaire de l'agence.", 15, 110);
-      doc.text("Signature du Client :", 120, 150);
-      doc.text("Signature de l'Agence :", 20, 150);
+    doc.setTextColor(0);
+    doc.text(docName.toUpperCase(), 105, 50, { align: 'center' });
+
+    // --- CORPS DU TEXTE (Logique conditionnelle) ---
+    doc.setFontSize(11);
+    let cursorY = 70;
+
+    // Bloc Info Client
+    doc.setFillColor(245, 247, 250);
+    doc.rect(15, 60, 180, 25, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("CLIENT / PROSPECT :", 20, 68);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Nom : ${lead.nom}`, 20, 75);
+    doc.text(`Email : ${lead.email}`, 100, 75);
+    doc.text(`Tel : ${lead.telephone}`, 20, 82);
+    doc.text(`Projet : ${lead.type_bien}`, 100, 82);
+    cursorY = 100;
+
+    // Contenu Spécifique
+    if (docName === 'Bon de Visite') {
+      doc.text("Je soussigné(e), reconnais avoir visité ce jour les biens présentés par l'agence.", 15, cursorY);
+      cursorY += 10;
+      doc.text(`Bien concerné : Projet ${lead.type_bien} - Budget ${lead.budget} €`, 15, cursorY);
+      cursorY += 20;
+      doc.text("En cas d'acquisition, je m'engage à ne traiter que par l'intermédiaire de l'agence.", 15, cursorY);
+      cursorY += 30;
+      doc.text("Signature du visiteur :", 130, cursorY);
+      doc.text("Tampon de l'agence :", 20, cursorY);
     } 
-    else if (type === 'Mandat de Vente') {
-      doc.setFontSize(11);
-      const text = `Entre l'agence ${agencyProfile?.agency_name || '...'} et le client ${lead.nom}.\n\nObjet : Le mandant charge le mandataire de vendre le bien désigné ci-après.\n\nType : ${lead.type_bien}\nSurface : ${lead.surface || '?'} m2\nPrix net vendeur souhaité : ${lead.budget} €\n\nDurée : Ce mandat est consenti pour une durée irrévocable de 3 mois.`;
-      doc.text(text, 15, 70, { maxWidth: 180 });
-      
-      doc.text("Lu et approuvé (Bon pour mandat)", 120, 160);
+    else if (docName === 'Mandat de Vente') {
+      doc.text("ENTRE LES SOUSSIGNÉS :", 15, cursorY);
+      cursorY += 10;
+      doc.text("Le Mandant (Client) désigné ci-dessus, et Le Mandataire (L'Agence).", 15, cursorY);
+      cursorY += 15;
+      doc.text("IL A ÉTÉ CONVENU CE QUI SUIT :", 15, cursorY);
+      cursorY += 10;
+      doc.text("Le Mandant charge le Mandataire de vendre le bien désigné ci-après.", 15, cursorY);
+      doc.text(`Désignation : ${lead.type_bien} d'environ ${lead.surface || '...'} m2.`, 15, cursorY + 6);
+      doc.text(`Prix net vendeur : ${lead.budget} € (Honoraires agence en sus).`, 15, cursorY + 12);
+      cursorY += 40;
+      doc.text("Lu et approuvé, Bon pour Mandat.", 120, cursorY);
     }
-    else if (type === 'Offre d\'Achat') {
-      doc.text(`Je soussigné(e) ${lead.nom}`, 15, 70);
-      doc.text(`Fais une offre d'achat ferme et irrévocable au prix de : ${lead.budget} €`, 15, 80);
-      doc.text("Validité de l'offre : 7 jours.", 15, 100);
+    else if (docName === 'Devis Prestation' || docName === 'Facture') {
+      doc.autoTable({
+        startY: cursorY,
+        head: [['Désignation', 'Qté', 'Prix Unitaire', 'Total']],
+        body: [
+          ['Accompagnement / Service', '1', '500 €', '500 €'],
+          ['Frais de dossier', '1', '50 €', '50 €'],
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [41, 98, 255] }
+      });
+      cursorY = doc.lastAutoTable.finalY + 20;
+      doc.setFontSize(14);
+      doc.text("TOTAL À PAYER : 550 €", 140, cursorY);
     }
     else {
-      // Document générique / Facture simple
-      doc.text(`Client : ${lead.nom}`, 15, 70);
-      doc.text(`Date : ${new Date().toLocaleDateString()}`, 15, 80);
-      doc.text("Prestation de services.", 15, 100);
+      // Texte générique
+      doc.text("Document généré automatiquement pour le suivi du dossier.", 15, cursorY);
+      doc.text(`Date de génération : ${today}`, 15, cursorY + 10);
     }
 
-    // --- FOOTER (Légal) ---
+    // --- FOOTER ---
     const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text(`Document généré automatiquement le ${new Date().toLocaleDateString()} par LeadQualif IA.`, 105, pageHeight - 10, { align: 'center' });
+    doc.text("Ce document est généré par LeadQualif IA - Solution CRM Pro.", 105, pageHeight - 10, { align: 'center' });
 
-    // --- SAUVEGARDE & TÉLÉCHARGEMENT ---
-    doc.save(`${type}_${lead.nom}.pdf`);
+    // Sauvegarde
+    doc.save(`${docName}_${lead.nom.replace(' ', '_')}.pdf`);
 
-    // 4. Enregistrer dans l'historique Supabase
+    // Enregistrement BDD
     try {
       await supabase.from('documents').insert([{
         lead_id: lead.id,
         agency_id: agencyId,
-        type: type,
+        type: docName,
         status: 'Généré',
         created_at: new Date()
       }]);
-      fetchDocuments(); // Rafraîchir la liste
-    } catch (err) {
-      console.error("Erreur historique:", err);
+      fetchDocuments();
+    } catch (err) { 
+      console.error(err); 
     }
     setLoading(false);
   };
 
-  // Fonctions utilitaires pour les documents
-  const getDocumentIcon = (type) => {
-    const icons = {
-      'Bon de Visite': '📄',
-      'Mandat de Vente': '⚖️',
-      'Offre d\'Achat': '💰',
-      'Devis': '📋',
-      'Contrat': '📝',
-      'Facture': '🧾'
-    }
-    return icons[type] || '📄'
-  }
-
-  const getDocumentTitle = (type) => {
-    return type || 'Document'
-  }
-
-  const getDocumentStatusColor = (status) => {
-    const colors = {
-      'Généré': 'bg-gray-100 text-gray-700 border-gray-200',
-      'Envoyé': 'bg-blue-100 text-blue-700 border-blue-200',
-      'Signé': 'bg-green-100 text-green-700 border-green-200'
-    }
-    return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200'
-  }
-  const updateDocumentStatus = async (docId, newStatus) => {
-    try {
-      await supabase.from('documents').update({ 
-        status: newStatus,
-        updated_at: new Date()
-      }).eq('id', docId)
-      
-      // Mettre à jour la liste locale
-      setDocuments(prev => prev.map(doc => 
-        doc.id === docId ? { ...doc, status: newStatus } : doc
-      ))
-      
-      // Afficher une notification
-      showNotification(`Document marqué comme ${newStatus}`)
-    } catch (error) {
-      console.error('Erreur mise à jour statut:', error)
-    }
-  }
-
-  const deleteDocument = async (docId) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) {
-      try {
-        await supabase.from('documents').delete().eq('id', docId)
-        setDocuments(prev => prev.filter(doc => doc.id !== docId))
-        showNotification('Document supprimé')
-      } catch (error) {
-        console.error('Erreur suppression document:', error)
-      }
-    }
-  }
-
-  const showNotification = (message) => {
-    // Créer une notification toast simple
-    const notification = document.createElement('div')
-    notification.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse'
-    notification.textContent = message
-    document.body.appendChild(notification)
-    
-    setTimeout(() => {
-      notification.remove()
-    }, 3000)
-  }
-
-  return (
+    return (
     <div>
-      {/* BOUTONS D'ACTION */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <button onClick={() => generatePDF('Bon de Visite')} disabled={loading} className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 flex items-center gap-2 transition">
-          📄 Bon de Visite
+      {/* Tabs de Sélection */}
+      <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
+        <button
+          onClick={() => setActiveTab('IMMO')}
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition ${
+            activeTab === 'IMMO' 
+              ? 'bg-white text-blue-600 shadow-sm' 
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          🏠 IMMOBILIER
         </button>
-        <button onClick={() => generatePDF('Mandat de Vente')} disabled={loading} className="px-3 py-2 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 flex items-center gap-2 transition">
-          ⚖️ Mandat
-        </button>
-        <button onClick={() => generatePDF('Offre d\'Achat')} disabled={loading} className="px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 flex items-center gap-2 transition">
-          💰 Offre
+        <button
+          onClick={() => setActiveTab('SMMA')}
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition ${
+            activeTab === 'SMMA' 
+              ? 'bg-white text-blue-600 shadow-sm' 
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          🚀 MARKETING DIGITAL
         </button>
       </div>
 
-      {/* TIMELINE HISTORIQUE */}
-      <div className="space-y-3">
-        {documents.map((doc) => (
-          <div key={doc.id} className="flex items-start gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:shadow-md transition-all relative">
-            {/* Icône document */}
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl flex-shrink-0">
-              {getDocumentIcon(doc.type)}
-            </div>
-            
-            {/* Contenu principal */}
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-semibold text-slate-800">{getDocumentTitle(doc.type)}</h4>
-                  <p className="text-xs text-slate-500">
-                    Créé le {new Date(doc.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDocumentStatusColor(doc.status)}`}>
-                  {doc.status}
-                </span>
-              </div>
-              
-              {/* Actions principales */}
-              <div className="flex gap-2 mt-3">
-                {doc.file_url ? (
-                  <a 
-                    href={doc.file_url} 
-                    target="_blank"
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
-                  >
-                    📥 Télécharger
-                  </a>
-                ) : (
-                  <span className="text-slate-400 text-xs">En cours de génération...</span>
-                )}
-                
-                {/* Bouton de régénération */}
-                <button 
-                  onClick={() => generatePDF(doc.type)}
-                  className="text-orange-600 hover:text-orange-700 text-sm font-medium flex items-center gap-1"
-                >
-                  🔄 Régénérer
-                </button>
-              </div>
-            </div>
-            
-            {/* Menu d'actions (3 points) */}
-            <div className="absolute top-2 right-2">
-              <div className="relative group">
-                <button className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 rounded hover:bg-gray-100">
-                  ⋮
-                </button>
-                
-                {/* Menu déroulant */}
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                  <div className="py-1">
-                    <button
-                      onClick={() => updateDocumentStatus(doc.id, 'Envoyé')}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                    >
-                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                      Marquer comme Envoyé
-                    </button>
-                    
-                    <button
-                      onClick={() => updateDocumentStatus(doc.id, 'Signé')}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-green-50 flex items-center gap-2 transition-colors"
-                    >
-                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      Marquer comme Signé
-                    </button>
-                    
-                    <button
-                      onClick={() => deleteDocument(doc.id)}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors"
-                    >
-                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Grille de Boutons */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+        {templates[activeTab].map((tpl) => (
+          <button
+            key={tpl.name}
+            onClick={() => generatePDF(tpl.name)}
+            disabled={loading}
+            className="flex flex-col items-center justify-center p-3 border border-gray-100 rounded-xl hover:bg-gray-50 hover:shadow-sm transition group"
+          >
+            <span className="text-2xl mb-1 group-hover:scale-110 transition">{tpl.icon}</span>
+            <span className="text-xs font-medium text-center text-gray-700">{tpl.name}</span>
+          </button>
         ))}
-        
-        {documents.length === 0 && (
-          <div className="text-center py-8 text-slate-500">
-            <div className="text-4xl mb-2">📄</div>
-            <p className="text-sm">Aucun document généré pour ce lead</p>
-            <p className="text-xs mt-1">Commencez par générer un mandat ou un devis</p>
+      </div>
+
+      {/* Historique Timeline */}
+      <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Historique des documents</h4>
+      <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+        {documents.length > 0 ? documents.map((doc) => (
+          <div key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-red-500">📄</span>
+              <span className="font-medium text-gray-700">{doc.type}</span>
+            </div>
+            <span className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString()}</span>
           </div>
+        )) : (
+          <p className="text-xs text-gray-400 italic text-center py-2">Aucun document généré.</p>
         )}
       </div>
     </div>
