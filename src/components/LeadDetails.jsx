@@ -264,7 +264,7 @@ const LeadDetails = () => {
                 </div>
               )}
               <div>
-                <label className="text-sm font-medium text-gray-500">Score de qualification</label>
+                <label className="text-sm font-medium text-gray-500">Score IA <span className="text-gray-400 cursor-help" title="Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.">ℹ️</span></label>
                 <div className="mt-2">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-lg font-bold ${getScoreColor(lead.score_qualification || 0)}`}>
                     {lead.score_qualification || 0}/100

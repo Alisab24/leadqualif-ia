@@ -98,7 +98,12 @@ export default function Dashboard() {
                     {/* Tags */}
                     <div className="flex justify-between mb-2">
                       <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{lead.type_bien || 'Projet'}</span>
-                      {lead.score > 0 && <span className="text-xs font-bold text-green-600">⚡ {lead.score}%</span>}
+                      {lead.score > 0 && (
+                        <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                          <span>⚡ {lead.score}%</span>
+                          <span className="text-xs text-green-500 cursor-help" title="Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.">ℹ️</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Contenu */}
@@ -178,6 +183,25 @@ export default function Dashboard() {
                 <div><p className="text-xs text-slate-400 uppercase">Téléphone</p><p className="font-medium">{selectedLead.telephone}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase">Budget</p><p className="font-bold text-green-600 text-lg">{selectedLead.budget?.toLocaleString()} €</p></div>
                 <div><p className="text-xs text-slate-400 uppercase">Délai</p><p className="font-medium">{selectedLead.delai || 'Non défini'}</p></div>
+              </div>
+              
+              {/* Score IA */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-blue-700">Score IA</span>
+                    <span className="text-sm text-blue-500 cursor-help" title="Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.">ℹ️</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-32 bg-blue-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${Math.min(selectedLead.score || 0, 100)}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-lg font-bold text-blue-700">{selectedLead.score || 0}%</span>
+                  </div>
+                </div>
               </div>
               
               {/* Message */}

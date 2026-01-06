@@ -341,10 +341,11 @@ const LeadForm = ({ onClose, onSuccess }) => {
                   </span>
                 </div>
 
-                {/* Score */}
+                {/* Score IA */}
                 <div>
-                  <span className="text-sm font-medium text-gray-700">Score : </span>
+                  <span className="text-sm font-medium text-gray-700">Score IA : </span>
                   <span className="font-bold text-gray-900">{qualificationResult.score}/100</span>
+                  <span className="text-gray-400 cursor-help ml-1" title="Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.">ℹ️</span>
                   <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className={`h-2 rounded-full ${
