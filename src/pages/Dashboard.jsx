@@ -18,23 +18,6 @@ export default function Dashboard() {
 
   // --- BITRIX SCROLL ENGINE ---
   const scrollContainerRef = useRef(null);
-  const scrollInterval = useRef(null);
-
-  const startScroll = (direction) => {
-    stopScroll();
-    scrollInterval.current = setInterval(() => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollLeft += direction === 'right' ? 25 : -25;
-      }
-    }, 16);
-  };
-
-  const stopScroll = () => {
-    if (scrollInterval.current) {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = null;
-    }
-  };
 
   // --- DATA LOADING ---
   useEffect(() => {
@@ -115,8 +98,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50">
       <main className="flex-1 p-6 overflow-x-hidden">
         {/* HEADER */}
-        <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <div>
+        <header className="flex flex-wrap gap-4 mb-8">
+          <div className="flex-1 min-w-[300px]">
             <h1 className="text-3xl font-bold text-slate-900">Pipeline Commercial</h1>
             <div className="flex gap-3 text-sm mt-2">
               <span className="bg-white px-3 py-1 rounded-lg shadow-sm border border-slate-200">📄 <b>{stats.total}</b> Leads</span>
@@ -152,21 +135,19 @@ export default function Dashboard() {
         {/* VUE KANBAN (Bitrix Style) */}
         {viewMode === 'kanban' && (
           <div className="relative group/board">
-            {/* SCROLL ZONES (Visible on Hover) */}
-            <div 
-              onMouseEnter={() => startScroll('left')} 
-              onMouseLeave={stopScroll} 
-              className="fixed left-20 top-0 bottom-0 w-24 z-30 cursor-pointer hover:bg-gradient-to-r from-slate-900/10 to-transparent transition-all flex items-center justify-start pl-4 opacity-0 hover:opacity-100"
+            {/* BOUTONS DE SCROLL VISIBLES */}
+            <button
+              onClick={() => scrollContainerRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
+              className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-white shadow-xl rounded-full w-12 h-12 flex items-center justify-center cursor-pointer border border-slate-200 text-2xl hover:scale-110 transition-transform"
             >
-              <div className="w-12 h-12 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">⬅️</div>
-            </div>
-            <div 
-              onMouseEnter={() => startScroll('right')} 
-              onMouseLeave={stopScroll} 
-              className="fixed right-0 top-0 bottom-0 w-24 z-30 cursor-pointer hover:bg-gradient-to-l from-slate-900/10 to-transparent transition-all flex items-center justify-end pr-4 opacity-0 hover:opacity-100"
+              ⬅️
+            </button>
+            <button
+              onClick={() => scrollContainerRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
+              className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-white shadow-xl rounded-full w-12 h-12 flex items-center justify-center cursor-pointer border border-slate-200 text-2xl hover:scale-110 transition-transform"
             >
-              <div className="w-12 h-12 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">➡️</div>
-            </div>
+              ➡️
+            </button>
 
             <div 
               ref={scrollContainerRef} 
