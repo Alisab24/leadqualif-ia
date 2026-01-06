@@ -16,18 +16,18 @@ export default function Dashboard() {
   const [agencyId, setAgencyId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban');
 
-  // --- MOTEUR DE SCROLL BITRIX (Auto-Scroll) ---
+  // --- BITRIX SCROLL ENGINE (Corrected) ---
   const scrollContainerRef = useRef(null);
   const scrollInterval = useRef(null);
 
   const startScroll = (direction) => {
-    stopScroll(); // Reset avant de lancer
+    stopScroll();
     scrollInterval.current = setInterval(() => {
       if (scrollContainerRef.current) {
-        // Vitesse de défilement (ajuster le 25 si trop rapide)
+        // Speed: 25px per frame
         scrollContainerRef.current.scrollLeft += direction === 'right' ? 25 : -25;
       }
-    }, 16); // ~60 FPS
+    }, 16);
   };
 
   const stopScroll = () => {
@@ -105,92 +105,92 @@ export default function Dashboard() {
   );
 
   return (
-    // CONTAINER PRINCIPAL FIXE (Ne scrolle pas globalement)
+    // FIXED CONTAINER
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* 1. HEADER FIXE (Reste toujours en haut) */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-20 shadow-sm flex flex-wrap justify-between items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            Pipeline <span className="text-sm font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{stats.total} leads</span>
-          </h1>
-          <p className="text-sm text-green-600 font-bold mt-1">Potentiel : {stats.potential.toLocaleString()} €</p>
+      {/* 1. HEADER (Fixed height, no shrink) */}
+      <header className="flex-none h-20 bg-white border-b border-slate-200 px-6 z-20 shadow-sm flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-slate-900 hidden md:block">Pipeline</h1>
+          <div className="flex gap-2">
+             <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-sm font-bold border border-blue-100">{stats.total} leads</span>
+             <span className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-sm font-bold border border-green-100 hidden sm:block">{stats.potential.toLocaleString()} €</span>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
           <div className="bg-slate-100 p-1 rounded-lg flex">
             <button 
               onClick={() => setViewMode('kanban')} 
-              className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${viewMode === 'kanban' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${viewMode === 'kanban' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
             >
-              📊 Tableau
+              📊
             </button>
             <button 
               onClick={() => setViewMode('list')} 
-              className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${viewMode === 'list' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${viewMode === 'list' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
             >
-              📝 Liste
+              📝
             </button>
           </div>
           <Link 
             to={agencyId ? `/estimation/${agencyId}` : '/estimation'} 
             target="_blank" 
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow font-bold hover:bg-blue-700 transition"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow font-bold hover:bg-blue-700 whitespace-nowrap"
           >
-            + Nouveau
+            + Lead
           </Link>
         </div>
       </header>
 
-      {/* 2. ZONE DE CONTENU (C'est ici que ça scrolle) */}
+      {/* 2. SCROLLABLE AREA */}
       <main className="flex-1 relative overflow-hidden">
         
-        {/* VUE KANBAN AVEC SCROLL INTELLIGENT */}
         {viewMode === 'kanban' && (
           <div className="h-full relative">
             
-            {/* --- ZONES ACTIVES DE SCROLL (Moteur Invisible + Flèches Visibles) --- */}
+            {/* --- AUTO-SCROLL ZONES (High Z-Index) --- */}
             
-            {/* ZONE GAUCHE */}
+            {/* LEFT ZONE */}
             <div 
               onMouseEnter={() => startScroll('left')} 
               onMouseLeave={stopScroll}
-              className="absolute left-0 top-0 bottom-0 w-20 z-30 flex items-center justify-start pl-2 hover:bg-gradient-to-r from-slate-900/10 to-transparent cursor-pointer group transition-all"
+              className="absolute left-0 top-0 bottom-0 w-24 z-50 flex items-center justify-start pl-2 cursor-pointer transition-all hover:bg-gradient-to-r from-black/10 to-transparent group"
             >
-              <button className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-100 hover:scale-110 transition active:scale-95">
+              {/* Always visible arrow on hover */}
+              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:scale-110">
                 ⬅️
-              </button>
+              </div>
             </div>
             
-            {/* ZONE DROITE */}
+            {/* RIGHT ZONE */}
             <div 
               onMouseEnter={() => startScroll('right')} 
               onMouseLeave={stopScroll}
-              className="absolute right-0 top-0 bottom-0 w-20 z-30 flex items-center justify-end pr-2 hover:bg-gradient-to-l from-slate-900/10 to-transparent cursor-pointer group transition-all"
+              className="absolute right-0 top-0 bottom-0 w-24 z-50 flex items-center justify-end pr-2 cursor-pointer transition-all hover:bg-gradient-to-l from-black/10 to-transparent group"
             >
-              <button className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-100 hover:scale-110 transition active:scale-95">
+              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:scale-110">
                 ➡️
-              </button>
+              </div>
             </div>
             
-            {/* LE TABLEAU (Scrollable) */}
+            {/* KANBAN BOARD */}
             <div 
               ref={scrollContainerRef}
               className="flex h-full overflow-x-auto overflow-y-hidden gap-6 p-6 scroll-smooth no-scrollbar items-start"
             >
               {statuts.map((statut, idx) => (
                 <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full bg-slate-100/50 rounded-xl border border-slate-200 max-h-[85vh]">
-                  {/* Header Colonne */}
+                  {/* Column Header */}
                   <div className="p-4 font-bold text-slate-700 bg-white/60 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
                     {statut} 
                     <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{leads.filter(l => l.statut === statut).length}</span>
                   </div>
                   
-                  {/* Cartes (Scroll Vertical interne) */}
+                  {/* Cards List */}
                   <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
                     {leads.filter(l => l.statut === statut).map(lead => (
                       <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative">
                         
-                        {/* Badges */}
                         <div className="flex justify-between mb-2">
                           <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">{lead.type_bien || 'Projet'}</span>
                           {lead.score > 0 && (
@@ -201,32 +201,30 @@ export default function Dashboard() {
                         <h4 className="font-bold text-slate-900 mb-1">{lead.nom}</h4>
                         <p className="text-sm text-slate-500 font-medium">{(lead.budget || 0).toLocaleString()} €</p>
                         
-                        {/* Navigation Carte (Apparaît au survol) */}
-                        <div className="absolute inset-y-0 left-0 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          {idx > 0 && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateStatus(lead.id, statuts[idx-1]);
-                              }} 
-                              className="w-6 h-6 bg-white shadow-md rounded-full text-slate-400 hover:text-blue-600 flex items-center justify-center -ml-3 text-xs border"
-                            >
-                              ◀
-                            </button>
-                          )}
-                        </div>
-                        <div className="absolute inset-y-0 right-0 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          {idx < statuts.length - 1 && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateStatus(lead.id, statuts[idx+1]);
-                              }} 
-                              className="w-6 h-6 bg-white shadow-md rounded-full text-blue-600 hover:text-blue-700 flex items-center justify-center -mr-3 text-xs border"
-                            >
-                              ▶
-                            </button>
-                          )}
+                        {/* Card Navigation (Inside Card) */}
+                        <div className="absolute inset-y-0 right-2 flex flex-col justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                           {idx < statuts.length - 1 && (
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 updateStatus(lead.id, statuts[idx+1]);
+                               }} 
+                               className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
+                             >
+                               ▶
+                             </button>
+                           )}
+                           {idx > 0 && (
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 updateStatus(lead.id, statuts[idx-1]);
+                               }} 
+                               className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
+                             >
+                               ◀
+                             </button>
+                           )}
                         </div>
                       </div>
                     ))}
@@ -237,7 +235,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* VUE LISTE (Simple table) */}
         {viewMode === 'list' && (
           <div className="p-6 h-full overflow-y-auto">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -265,7 +262,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* MODALE DÉTAIL (Toujours là) */}
+        {/* MODAL */}
         {selectedLead && (
           <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm">
             <div className="w-full max-w-2xl bg-white h-full shadow-2xl p-8 overflow-y-auto animate-slide-in">
