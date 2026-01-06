@@ -3,8 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
-import DocumentsPage from './pages/DocumentsPage'; // NOUVEL IMPORT
-import Settings from './pages/Settings';           // NOUVEL IMPORT
+import DocumentsPage from './pages/DocumentsPage';
+import Settings from './pages/Settings';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -22,8 +22,8 @@ function App() {
         {/* Routes Protégées (Toutes celles avec le Menu Latéral) */}
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/documents" element={<DocumentsPage />} /> {/* LA ROUTE MANQUANTE */}
-          <Route path="/settings" element={<Settings />} />       {/* LA ROUTE MANQUANTE */}
+          <Route path="/documents" element={<DocumentsPage />} />
+          <Route path="/settings" element={<Settings />} />
           
           {/* Redirection par défaut si on est perdu */}
           <Route path="/app" element={<Navigate to="/dashboard" replace />} />
