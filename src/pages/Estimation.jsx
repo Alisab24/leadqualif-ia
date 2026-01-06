@@ -40,8 +40,15 @@ export default function Estimation() {
     const fetchSettings = async () => {
       if (!agency_id) return;
       try {
-        const { data } = await supabase.from('profiles').select('form_settings, agency_id').eq('agency_id', agency_id).single();
-        if (data?.form_settings) setSettings(prev => ({ ...prev, ...data.form_settings }));
+        const { data } = await supabase.from('profiles').select('form_settings, agency_id, nom_agence, logo_url').eq('agency_id', agency_id).single();
+        if (data?.form_settings) {
+          setSettings(prev => ({ 
+            ...prev, 
+            ...data.form_settings,
+            agencyName: data.nom_agence || 'LeadQualif IA',
+            logoUrl: data.logo_url || null
+          }));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -149,9 +156,29 @@ export default function Estimation() {
       <div className="max-w-2xl mx-auto">
         {/* Header moderne */}
         <div className="text-center mb-12">
-          <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <span className="text-white font-bold text-3xl">LQ</span>
-          </div>
+          {settings.logoUrl ? (
+            <div className="w-24 h-24 mx-auto mb-6 bg-white rounded-2xl shadow-lg p-3 flex items-center justify-center">
+              <img 
+                src={settings.logoUrl} 
+                alt={settings.agencyName}
+                className="w-full h-full object-contain rounded-lg"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div 
+                className="w-full h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl"
+                style={{ display: 'none' }}
+              >
+                {settings.agencyName?.substring(0, 2).toUpperCase() || 'LQ'}
+              </div>
+            </div>
+          ) : (
+            <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+              <span className="text-white font-bold text-3xl">LQ</span>
+            </div>
+          )}
           
           <h1 className="text-5xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             Analyse IA Immédiate
@@ -160,6 +187,14 @@ export default function Estimation() {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
             Obtenez une analyse précise de votre projet par notre intelligence artificielle
           </p>
+          
+          {settings.agencyName && settings.agencyName !== 'LeadQualif IA' && (
+            <div className="mb-8">
+              <span className="bg-gradient-to-r from-slate-100 to-slate-50 text-slate-700 px-6 py-3 rounded-full text-base font-semibold border border-slate-200 shadow-sm">
+                Proposé par {settings.agencyName}
+              </span>
+            </div>
+          )}
           
           <div className="flex justify-center items-center space-x-3 mb-8">
             <span className="bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-4 py-2 rounded-full text-sm font-semibold border border-green-200">
