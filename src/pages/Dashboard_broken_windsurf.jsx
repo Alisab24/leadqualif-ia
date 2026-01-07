@@ -1,16 +1,36 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
+import DocumentManager from '../components/DocumentManager';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState('kanban');
-  
+  const [viewMode, setViewMode] = useState('kanban'); // ✅ AJOUT OBLIGATOIRE
+
   const [session, setSession] = useState(null);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
+  const [calendlyLink, setCalendlyLink] = useState(null);
+  const [agencyId, setAgencyId] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const scrollContainerRef = useRef(null);
+  const scrollInterval = useRef(null);
+
+  const handleDocumentGenerated = (document) => {
+    setRefreshTrigger(prev => prev + 1);
+    console.log('Document généré:', document);
+  };
+
+  const updateStatus = async (leadId, newStatus) => {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, statut: newStatus } : l));
+    await supabase
+      .from('leads')
+      .update({ statut: newStatus })
+      .eq('id', leadId);
+  };
 
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
@@ -20,6 +40,7 @@ export default function Dashboard() {
       if (session) {
         fetchLeads();
         fetchStats();
+        fetchAgencySettings();
       }
     });
   }, []);
@@ -43,7 +64,8 @@ export default function Dashboard() {
     try {
       const { data: leads } = await supabase
         .from('leads')
-        .select('budget, statut');
+        .select('budget')
+        .not('is_deleted', true);
       if (leads) {
         const total = leads.length;
         const won = leads.filter(l => l.statut === 'Gagné').length;
@@ -55,18 +77,44 @@ export default function Dashboard() {
     }
   };
 
-  const updateStatus = async (leadId, newStatus) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, statut: newStatus } : l));
-    await supabase
-      .from('leads')
-      .update({ statut: newStatus })
-      .eq('id', leadId);
+  const fetchAgencySettings = async () => {
+    try {
+      const { data: settings, error } = await supabase
+        .from('agency_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (settings) {
+        setCalendlyLink(settings.calendly_link);
+        setAgencyId(settings.agency_id);
+      }
+    } catch (error) {
+      console.error('Erreur settings:', error);
+    }
+  };
+
+  const startScroll = (direction) => {
+    stopScroll();
+    scrollInterval.current = setInterval(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft += direction === 'right' ? 30 : -30;
+      }
+    }, 16);
+  };
+
+  const stopScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center">Chargement...</div>;
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-50 overflow-hidden font-sans">
+      
       <header className="flex-none h-16 bg-white border-b border-slate-200 px-6 z-40 shadow-sm flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-slate-900 hidden md:block">Pipeline</h1>
@@ -128,9 +176,9 @@ export default function Dashboard() {
                     <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{leads.filter(l => l.statut === statut).length}</span>
                   </div>
                   
-                  <div className="p-3 space-y-3 overflow-y-auto flex-1">
+                  <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
                     {leads.filter(l => l.statut === statut).map(lead => (
-                      <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition">
+                      <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative">
                         <div className="flex justify-between mb-2">
                           <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">{lead.type_bien || 'Projet'}</span>
                           <div className="flex gap-1">
@@ -197,7 +245,7 @@ export default function Dashboard() {
 
         {selectedLead && (
           <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm">
-            <div className="w-full max-w-2xl bg-white h-full shadow-2xl p-8 overflow-y-auto">
+            <div className="w-full max-w-2xl bg-white h-full shadow-2xl p-8 overflow-y-auto animate-slide-in">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">{selectedLead.nom}</h2>
                 <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">✕</button>
@@ -209,25 +257,37 @@ export default function Dashboard() {
                 <a href={`tel:${selectedLead.telephone}`} className="flex flex-col items-center p-3 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 border border-blue-200">
                   <span className="text-2xl">📞</span><span className="font-bold text-xs mt-1">Appeler</span>
                 </a>
-                <a href="#" className="flex flex-col items-center p-3 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 border border-purple-200">
+                <a href={calendlyLink || '#'} target="_blank" className="flex flex-col items-center p-3 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 border border-purple-200">
                   <span className="text-2xl">📅</span><span className="font-bold text-xs mt-1">RDV</span>
                 </a>
               </div>
-              
               <div className="border-t pt-6">
-                <h3 className="font-bold text-lg mb-4">Informations</h3>
-                <div className="space-y-3">
-                  <div><strong>Email:</strong> {selectedLead.email}</div>
-                  <div><strong>Téléphone:</strong> {selectedLead.telephone}</div>
-                  <div><strong>Budget:</strong> {(selectedLead.budget || 0).toLocaleString()} €</div>
-                  <div><strong>Statut:</strong> {selectedLead.statut}</div>
-                  <div><strong>Type de bien:</strong> {selectedLead.type_bien || 'Non spécifié'}</div>
-                </div>
+                <h3 className="font-bold text-lg mb-4">Documents</h3>
+                <DocumentManager 
+                  lead={selectedLead} 
+                  agencyId={agencyId} 
+                  onDocumentGenerated={handleDocumentGenerated}
+                />
+              </div>
+              <div className="border-t pt-6 mt-6">
+                <DocumentHistory leadId={selectedLead.id} refreshTrigger={refreshTrigger} />
+              </div>
+              <div className="border-t pt-6 mt-6">
+                {/* <DocumentTimeline leadId={selectedLead.id} refreshTrigger={refreshTrigger} /> */}
               </div>
             </div>
           </div>
         )}
       </main>
+
+      <StatusSuggestionModal
+        isOpen={statusModal.isOpen}
+        onClose={handleStatusCancel}
+        documentType={statusModal.documentType}
+        leadName={statusModal.leadName}
+        onConfirm={handleStatusConfirm}
+        onCancel={handleStatusCancel}
+      />
     </div>
   );
 }
