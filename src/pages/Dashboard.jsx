@@ -17,8 +17,8 @@ export default function Dashboard() {
   const scrollInterval = useRef(null);
 
   // États pour les flèches de scroll
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(false);
+  const [showLeftArrow, setShowLeftArrow] = useState(true);
+  const [showRightArrow, setShowRightArrow] = useState(true);
 
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
@@ -246,7 +246,12 @@ export default function Dashboard() {
               ref={scrollContainerRef}
               className="p-6 h-full overflow-x-auto overflow-y-hidden"
               onScroll={checkScrollOverflow}
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              style={{ 
+                scrollbarWidth: 'none', 
+                msOverflowStyle: 'none',
+                whiteSpace: 'nowrap',
+                WebkitScrollbar: 'none'
+              }}
             >
             <div className="flex gap-6 h-full">
               {statuts.map((statut, idx) => (
