@@ -341,9 +341,9 @@ export default function Dashboard() {
                   
                   <div className="p-3 space-y-3 overflow-y-auto flex-1">
                     {leads.filter(l => l.statut === statut).map(lead => (
-                      <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition">
+                      <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200">
                         <div className="flex justify-between mb-2">
-                          <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">{lead.type_bien || 'Projet'}</span>
+                          <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">🏠 {lead.type_bien || 'Projet'}</span>
                           <div className="flex gap-1">
                              <button 
                                onClick={(e) => {
@@ -365,10 +365,34 @@ export default function Dashboard() {
                              </button>
                           </div>
                         </div>
-                        <div className="font-bold text-slate-900 mb-1">{lead.nom}</div>
-                        <div className="text-sm text-slate-600 mb-2">{lead.email}</div>
-                        <div className="text-sm text-slate-600">{lead.telephone}</div>
-                        <div className="text-sm font-bold text-green-600">{(lead.budget || 0).toLocaleString()} €</div>
+                        <div className="font-bold text-slate-900 mb-1 text-sm">{lead.nom}</div>
+                        <div className="space-y-1 mb-2">
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <span>📧</span>
+                            <span className="truncate">{lead.email || '—'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <span>📞</span>
+                            <span>{lead.telephone || '—'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-bold text-green-600">
+                            <span>💰</span>
+                            <span>{(lead.budget || 0).toLocaleString()} €</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            lead.statut === 'À traiter' ? 'bg-gray-100 text-gray-800' :
+                            lead.statut === 'Contacté' ? 'bg-blue-100 text-blue-800' :
+                            lead.statut === 'Offre en cours' ? 'bg-yellow-100 text-yellow-800' :
+                            lead.statut === 'RDV fixé' ? 'bg-orange-100 text-orange-800' :
+                            lead.statut === 'Négociation' ? 'bg-purple-100 text-purple-800' :
+                            lead.statut === 'Gagné' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            🏷️ {lead.statut}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -387,14 +411,14 @@ export default function Dashboard() {
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Client</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
-                      <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Score IA</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Budget</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Dernière act.</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
-                      <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Nom</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Email</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Téléphone</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-slate-500 uppercase">Budget</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
+                      <th className="px-3 py-2 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
@@ -404,19 +428,15 @@ export default function Dashboard() {
                         className="hover:bg-slate-50 cursor-pointer transition-colors"
                         onClick={() => setSelectedLead(lead)}
                       >
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className="font-bold text-slate-900">{lead.nom}</div>
-                            <div className="text-xs text-slate-400">{lead.email || '—'}</div>
-                            <div className="text-xs text-slate-400">{lead.telephone || '—'}</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 font-medium text-slate-900 text-sm">{lead.nom}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{lead.email || '—'}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{lead.telephone || '—'}</td>
+                        <td className="px-3 py-2">
                           <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700">
-                            {lead.type_bien || 'Non défini'}
+                            🏠 {lead.type_bien || 'Non défini'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             lead.statut === 'À traiter' ? 'bg-gray-100 text-gray-800' :
                             lead.statut === 'Contacté' ? 'bg-blue-100 text-blue-800' :
@@ -426,47 +446,18 @@ export default function Dashboard() {
                             lead.statut === 'Gagné' ? 'bg-green-100 text-green-800' :
                             'bg-red-100 text-red-800'
                           }`}>
-                            {lead.statut}
+                            🏷️ {lead.statut}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {lead.score_ia || lead.ia_score ? (
-                            <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full ${
-                              (lead.score_ia || lead.ia_score) < 40 ? 'bg-red-100 text-red-800' :
-                              (lead.score_ia || lead.ia_score) < 70 ? 'bg-orange-100 text-orange-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              {(lead.score_ia || lead.ia_score) < 40 ? '🔴' : 
-                               (lead.score_ia || lead.ia_score) < 70 ? '🟠' : '🟢'} {lead.score_ia || lead.ia_score}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-green-600">
+                        <td className="px-3 py-2 text-right font-bold text-green-600 text-sm">
                           {(lead.budget || 0).toLocaleString('fr-FR')} €
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">
-                          {(() => {
-                            const date = new Date(lead.updated_at || lead.created_at);
-                            const now = new Date();
-                            const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-                            const hours = Math.floor((now - date) / (1000 * 60 * 60));
-                            
-                            if (hours < 1) return "il y a <1h";
-                            if (hours < 24) return `il y a ${hours}h`;
-                            if (diff === 1) return "Hier";
-                            if (diff < 7) return `il y a ${diff}j`;
-                            if (diff < 30) return `il y a ${Math.floor(diff/7)}s`;
-                            return date.toLocaleDateString('fr-FR');
-                          })()}
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           <span className="inline-flex px-2 py-1 text-xs rounded bg-slate-50 text-slate-700 border">
-                            {lead.source || 'Inconnue'}
+                            🌍 {lead.source || 'Inconnue'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           <div className="flex items-center justify-center space-x-1">
                             <a 
                               href={`https://wa.me/${lead.telephone?.replace(/\D/g,'')}`} 
@@ -483,17 +474,24 @@ export default function Dashboard() {
                               title="Appeler"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              📞
+                              �
+                            </a>
+                            <a 
+                              href={`mailto:${lead.email}`}
+                              className="text-orange-600 hover:text-orange-800 p-1"
+                              title="Email"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              �
                             </a>
                             <button 
-                              className="text-indigo-600 hover:text-indigo-800 p-1"
-                              title="Documents"
+                              className="text-purple-600 hover:text-purple-800 p-1"
+                              title="RDV"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedLead(lead);
                               }}
                             >
-                              📄
+                              �
                             </button>
                           </div>
                         </td>
@@ -508,99 +506,126 @@ export default function Dashboard() {
 
         {selectedLead && (
           <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm">
-            <div className="w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto">
+            <div className="w-full max-w-sm bg-white h-full shadow-2xl overflow-y-auto">
               {/* Header */}
-              <div className="p-6 border-b border-slate-200">
+              <div className="p-4 border-b border-slate-200">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold text-slate-900">{selectedLead.nom}</h2>
+                  <h2 className="text-xl font-bold text-slate-900">{selectedLead.nom}</h2>
                   <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                     ✕
                   </button>
                 </div>
 
-                {/* Zone 1 - Actions rapides */}
-                <div className="grid grid-cols-4 gap-2 mb-6">
-                  <ActionBtn 
-                    icon="💬" 
-                    label="WhatsApp" 
-                    color="green" 
+                {/* Actions rapides */}
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  <button 
                     onClick={() => window.open(`https://wa.me/${selectedLead.telephone?.replace(/\D/g,'')}`, '_blank')}
-                  />
-                  <ActionBtn 
-                    icon="📞" 
-                    label="Appeler" 
-                    color="blue" 
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold transition-colors"
+                    title="WhatsApp"
+                  >
+                    <span className="text-lg mb-1">💬</span>
+                    WhatsApp
+                  </button>
+                  <button 
                     onClick={() => window.open(`tel:${selectedLead.telephone}`, '_blank')}
-                  />
-                  <ActionBtn 
-                    icon="📅" 
-                    label="RDV" 
-                    color="purple" 
-                    onClick={() => {}}
-                  />
-                  <ActionBtn 
-                    icon="✉️" 
-                    label="Email" 
-                    color="orange" 
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
+                    title="Appeler"
+                  >
+                    <span className="text-lg mb-1">📞</span>
+                    Appeler
+                  </button>
+                  <button 
                     onClick={() => window.open(`mailto:${selectedLead.email}`, '_blank')}
-                  />
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold transition-colors"
+                    title="Email"
+                  >
+                    <span className="text-lg mb-1">📧</span>
+                    Email
+                  </button>
+                  <button 
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold transition-colors"
+                    title="RDV"
+                  >
+                    <span className="text-lg mb-1">📅</span>
+                    RDV
+                  </button>
                 </div>
 
-                {/* Zone 2 - Informations client */}
-                <div className="bg-slate-50 rounded-xl p-4 space-y-1">
-                  <InfoRow icon="📧" label="Email" value={selectedLead.email || '—'} />
-                  <InfoRow icon="📱" label="Téléphone" value={selectedLead.telephone || '—'} />
-                  <InfoRow icon="💰" label="Budget" value={`${(selectedLead.budget || 0).toLocaleString('fr-FR')} €`} highlight />
-                  <InfoRow icon="📌" label="Statut" value={selectedLead.statut} badge />
-                  <InfoRow icon="🏠" label="Type de bien" value={selectedLead.type_bien || 'Non défini'} />
-                  {selectedLead.score_ia && (
-                    <InfoRow icon="🧠" label="Score IA" value={`${selectedLead.score_ia}/100`} highlight />
-                  )}
-                  {selectedLead.source && (
-                    <InfoRow icon="🌐" label="Source" value={selectedLead.source} />
-                  )}
+                {/* Informations client compactes */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="text-sm text-slate-500">📧</span>
+                    <span className="text-sm text-slate-800">{selectedLead.email || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="text-sm text-slate-500">📞</span>
+                    <span className="text-sm text-slate-800">{selectedLead.telephone || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="text-sm text-slate-500">💰</span>
+                    <span className="text-sm font-bold text-green-600">{(selectedLead.budget || 0).toLocaleString('fr-FR')} €</span>
+                  </div>
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="text-sm text-slate-500">🏷️</span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                      selectedLead.statut === 'À traiter' ? 'bg-gray-100 text-gray-800' :
+                      selectedLead.statut === 'Contacté' ? 'bg-blue-100 text-blue-800' :
+                      selectedLead.statut === 'Offre en cours' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedLead.statut === 'RDV fixé' ? 'bg-orange-100 text-orange-800' :
+                      selectedLead.statut === 'Négociation' ? 'bg-purple-100 text-purple-800' :
+                      selectedLead.statut === 'Gagné' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedLead.statut}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="text-sm text-slate-500">🏠</span>
+                    <span className="text-sm text-slate-800">{selectedLead.type_bien || 'Non défini'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="text-sm text-slate-500">🌍</span>
+                    <span className="text-sm text-slate-800">{selectedLead.source || 'Inconnue'}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Zone 3 - Actions avancées */}
-              <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-slate-900">Actions avancées</h3>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="flex items-center gap-3 p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-indigo-700 font-medium transition-colors">
+              {/* Actions avancées */}
+              <div className="p-4 space-y-3">
+                <h3 className="font-bold text-slate-900 text-sm">Actions avancées</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="flex items-center gap-2 p-2 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-indigo-700 text-xs font-medium transition-colors">
                     📄 Documents
                   </button>
-                  <button className="flex items-center gap-3 p-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 font-medium transition-colors">
+                  <button className="flex items-center gap-2 p-2 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 text-xs font-medium transition-colors">
                     🧠 Suggestion IA
                   </button>
-                  <button className="flex items-center gap-3 p-3 bg-green-50 hover:bg-green-100 rounded-lg text-green-700 font-medium transition-colors">
+                  <button className="flex items-center gap-2 p-2 bg-green-50 hover:bg-green-100 rounded-lg text-green-700 text-xs font-medium transition-colors">
                     📋 Historique
                   </button>
-                  <button className="flex items-center gap-3 p-3 bg-orange-50 hover:bg-orange-100 rounded-lg text-orange-700 font-medium transition-colors">
+                  <button className="flex items-center gap-2 p-2 bg-orange-50 hover:bg-orange-100 rounded-lg text-orange-700 text-xs font-medium transition-colors">
                     ✏️ Modifier
                   </button>
                 </div>
 
-                {/* Timeline */}
-                <div className="mt-6">
-                  <h3 className="font-bold text-slate-900 mb-4">Historique</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                {/* Timeline simple */}
+                <div className="mt-4">
+                  <h3 className="font-bold text-slate-900 text-sm mb-3">Historique</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5"></div>
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-slate-900">Création du lead</div>
+                        <div className="text-xs font-medium text-slate-900">Création du lead</div>
                         <div className="text-xs text-slate-500">
                           {new Date(selectedLead.created_at).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
                     </div>
                     {selectedLead.updated_at && (
-                      <div className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-1.5"></div>
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-slate-900">Dernière modification</div>
+                          <div className="text-xs font-medium text-slate-900">Dernière modification</div>
                           <div className="text-xs text-slate-500">
                             {new Date(selectedLead.updated_at).toLocaleDateString('fr-FR')}
                           </div>
