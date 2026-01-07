@@ -19,22 +19,20 @@ export default function Dashboard() {
   // États pour les flèches de scroll
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const [initialAnimation, setInitialAnimation] = useState(true);
 
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
-  // Logique de scroll professionnel type Bitrix24
+  // Logique de scroll simple et stable type Bitrix24
   const checkScrollOverflow = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
     
-    const hasHorizontalOverflow = container.scrollWidth > container.clientWidth;
+    const hasOverflow = container.scrollWidth > container.clientWidth;
     const canScrollLeft = container.scrollLeft > 0;
     const canScrollRight = container.scrollLeft < container.scrollWidth - container.clientWidth;
     
-    setShowLeftArrow(hasHorizontalOverflow && canScrollLeft);
-    setShowRightArrow(hasHorizontalOverflow && canScrollRight);
+    setShowLeftArrow(hasOverflow && canScrollLeft);
+    setShowRightArrow(hasOverflow && canScrollRight);
   };
 
   const scrollByAmount = (amount) => {
@@ -46,49 +44,14 @@ export default function Dashboard() {
       behavior: 'smooth'
     });
     
-    // Mettre à jour les flèches après le scroll
-    setTimeout(checkScrollOverflow, 100);
+    setTimeout(checkScrollOverflow, 300);
   };
 
-  const startContinuousScroll = (direction) => {
-    if (isScrolling) return;
-    setIsScrolling(true);
-    
-    const scrollAmount = direction === 'left' ? -8 : 8;
-    scrollByAmount(scrollAmount);
-    
-    // Scroll continu pendant le hover
-    scrollInterval.current = setInterval(() => {
-      scrollByAmount(scrollAmount);
-    }, 50);
-  };
-
-  const stopContinuousScroll = () => {
-    if (scrollInterval.current) {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = null;
-    }
-    setIsScrolling(false);
-  };
-
-  // Vérifier l'overflow au chargement et au redimensionnement
+  // Vérification au chargement et au scroll
   useEffect(() => {
-    const handleResize = () => {
-      setTimeout(checkScrollOverflow, 100);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    setTimeout(checkScrollOverflow, 200); // Vérification initiale
-    
-    // Animation initiale unique (1 seconde max)
-    setTimeout(() => {
-      setInitialAnimation(false);
-    }, 800);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      stopContinuousScroll();
-    };
+    setTimeout(checkScrollOverflow, 500);
+    window.addEventListener('resize', checkScrollOverflow);
+    return () => window.removeEventListener('resize', checkScrollOverflow);
   }, []);
 
   // Fonctions de scroll automatique (optionnel et sécurisé)
@@ -256,53 +219,34 @@ export default function Dashboard() {
 
       <main className="flex-1 overflow-hidden">
         {viewMode === 'kanban' && (
-          <div className="relative p-6 h-full overflow-hidden">
-            {/* Flèche gauche */}
+          <div className="p-6 h-full overflow-hidden">
+            {/* Flèche gauche fixe */}
             {showLeftArrow && (
               <button
-                onMouseDown={() => startContinuousScroll('left')}
-                onMouseUp={stopContinuousScroll}
-                onMouseLeave={stopContinuousScroll}
-                className={`absolute left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/95 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-xl ${
-                  initialAnimation ? 'animate-pulse' : ''
-                }`}
-                style={{
-                  opacity: isScrolling && showLeftArrow ? 1 : 0.8,
-                  boxShadow: isScrolling && showLeftArrow 
-                    ? '0 0 20px rgba(59, 130, 246, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15)' 
-                    : '0 4px 12px rgba(0, 0, 0, 0.1)',
-                  transform: `translate(-50%, -50%) ${initialAnimation ? 'scale(1.05)' : 'scale(1)'}`
-                }}
+                onClick={() => scrollByAmount(-320)}
+                className="fixed left-4 top-1/2 -translate-y-1/2 z-[9999] w-12 h-12 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                style={{ opacity: 0.9 }}
               >
-                <span className="text-gray-700 text-lg select-none">◀</span>
+                <span className="text-gray-700 text-xl select-none">◀</span>
               </button>
             )}
             
-            {/* Flèche droite */}
+            {/* Flèche droite fixe */}
             {showRightArrow && (
               <button
-                onMouseDown={() => startContinuousScroll('right')}
-                onMouseUp={stopContinuousScroll}
-                onMouseLeave={stopContinuousScroll}
-                className={`absolute right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/95 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-xl ${
-                  initialAnimation ? 'animate-pulse' : ''
-                }`}
-                style={{
-                  opacity: isScrolling && showRightArrow ? 1 : 0.8,
-                  boxShadow: isScrolling && showRightArrow 
-                    ? '0 0 20px rgba(59, 130, 246, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15)' 
-                    : '0 4px 12px rgba(0, 0, 0, 0.1)',
-                  transform: `translate(50%, -50%) ${initialAnimation ? 'scale(1.05)' : 'scale(1)'}`
-                }}
+                onClick={() => scrollByAmount(320)}
+                className="fixed right-4 top-1/2 -translate-y-1/2 z-[9999] w-12 h-12 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                style={{ opacity: 0.9 }}
               >
-                <span className="text-gray-700 text-lg select-none">▶</span>
+                <span className="text-gray-700 text-xl select-none">▶</span>
               </button>
             )}
             
             <div 
               ref={scrollContainerRef}
-              className="p-6 h-full overflow-x-auto"
+              className="p-6 h-full overflow-x-auto overflow-y-hidden"
               onScroll={checkScrollOverflow}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
             <div className="flex gap-6 h-full">
               {statuts.map((statut, idx) => (
