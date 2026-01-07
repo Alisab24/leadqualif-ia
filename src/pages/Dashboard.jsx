@@ -15,29 +15,26 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
   const [calendlyLink, setCalendlyLink] = useState(null);
   const [agencyId, setAgencyId] = useState(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0); // Pour forcer le rafraîchissement
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [statusModal, setStatusModal] = useState({
     isOpen: false,
     documentType: null,
     leadId: null,
     leadName: null
   });
-  const [viewMode, setViewMode] = useState('kanban');
 
   const scrollContainerRef = useRef(null);
   const scrollInterval = useRef(null);
 
   const handleDocumentGenerated = (document) => {
-    // Forcer le rafraîchissement de l'historique et de la timeline
     setRefreshTrigger(prev => prev + 1);
     console.log('Document généré, rafraîchissement déclenché:', document);
     
-    // Trouver le lead correspondant pour la suggestion
     const lead = leads.find(l => l.id === document.lead_id);
     if (lead) {
       setStatusModal({
         isOpen: true,
-        documentType: document.type_document,
+        documentType: document.type,
         leadId: document.lead_id,
         leadName: lead.nom
       });
@@ -65,6 +62,74 @@ export default function Dashboard() {
     });
   };
 
+  const updateStatus = async (leadId, newStatus) => {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, statut: newStatus } : l));
+    await supabase
+      .from('leads')
+      .update({ statut: newStatus })
+      .eq('id', leadId);
+  };
+
+  const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        fetchLeads();
+        fetchStats();
+        fetchAgencySettings();
+      }
+    });
+  }, []);
+
+  const fetchLeads = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setLeads(data || []);
+    } catch (error) {
+      console.error('Erreur chargement leads:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('budget')
+        .not('is_deleted', true);
+      if (leads) {
+        const total = leads.length;
+        const won = leads.filter(l => l.statut === 'Gagné').length;
+        const potential = leads.reduce((sum, l) => sum + (l.budget || 0), 0);
+        setStats({ total, won, potential });
+      }
+    } catch (error) {
+      console.error('Erreur stats:', error);
+    }
+  };
+
+  const fetchAgencySettings = async () => {
+    try {
+      const { data: settings } = await supabase
+        .from('agency_settings')
+        .select('*')
+        .single();
+      if (settings) {
+        setCalendlyLink(settings.calendly_link);
+        setAgencyId(settings.agency_id);
+      }
+    } catch (error) {
+      console.error('Erreur settings:', error);
+    }
+  };
+
   const startScroll = (direction) => {
     stopScroll();
     scrollInterval.current = setInterval(() => {
@@ -80,63 +145,6 @@ export default function Dashboard() {
       scrollInterval.current = null;
     }
   };
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchLeads(session.user.id);
-      else navigate('/');
-    });
-  }, [navigate]);
-
-  const fetchLeads = async (userId) => {
-    setLoading(true);
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id, calendly_link')
-        .eq('user_id', userId)
-        .single();
-      
-      if (profile) {
-        setAgencyId(profile.agency_id);
-        setCalendlyLink(profile.calendly_link);
-      }
-      
-      let query = supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (profile?.agency_id) {
-        query = query.eq('agency_id', profile.agency_id);
-      }
-      
-      const { data } = await query;
-      if (data) {
-        setLeads(data);
-        setStats({
-          total: data.length,
-          won: data.filter(l => l.statut === 'Gagné').length,
-          potential: data.reduce((acc, l) => acc + (l.budget || 0), 0)
-        });
-      }
-    } catch (err) { 
-      console.error(err); 
-    } finally { 
-      setLoading(false); 
-    }
-  };
-
-  const updateStatus = async (leadId, newStatus) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, statut: newStatus } : l));
-    await supabase
-      .from('leads')
-      .update({ statut: newStatus })
-      .eq('id', leadId);
-  };
-
-  const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
   if (loading) return <div className="flex h-screen items-center justify-center">Chargement...</div>;
 
@@ -156,57 +164,47 @@ export default function Dashboard() {
           <div className="bg-slate-100 p-1 rounded-lg flex">
             <button 
               onClick={() => setViewMode('kanban')} 
-              className={`px-3 py-1 rounded text-xs font-bold transition ${viewMode === 'kanban' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+              }`}
             >
-              📊 Tableau
+              📋 Kanban
             </button>
             <button 
               onClick={() => setViewMode('list')} 
-              className={`px-3 py-1 rounded text-xs font-bold transition ${viewMode === 'list' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+              }`}
             >
-              📝 Liste
+              📋 Liste
             </button>
           </div>
-          <Link 
-            to={agencyId ? `/estimation/${agencyId}` : '/estimation'} 
-            target="_blank" 
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg shadow text-xs font-bold hover:bg-blue-700 whitespace-nowrap"
-          >
-            + Nouveau
+          
+          <Link to="/stats" className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800">
+            📊 Stats
           </Link>
+          
+          <Link to="/documents" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            📂 Documents
+          </Link>
+          
+          <Link to="/settings" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            ⚙️ Settings
+          </Link>
+          
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            🚪 Déconnexion
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 relative overflow-hidden w-full">
-        
+      <main className="flex-1 overflow-hidden">
         {viewMode === 'kanban' && (
-          <div className="h-full w-full relative">
-            
-            <div 
-              onMouseEnter={() => startScroll('left')} 
-              onMouseLeave={stopScroll}
-              className="absolute left-0 top-0 bottom-0 w-24 z-50 flex items-center justify-start pl-2 cursor-pointer transition-all hover:bg-gradient-to-r from-slate-300/30 to-transparent"
-            >
-              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-200 hover:scale-110 transition">
-                ⬅️
-              </div>
-            </div>
-
-            <div 
-              onMouseEnter={() => startScroll('right')} 
-              onMouseLeave={stopScroll}
-              className="absolute right-0 top-0 bottom-0 w-24 z-50 flex items-center justify-end pr-2 cursor-pointer transition-all hover:bg-gradient-to-l from-slate-300/30 to-transparent"
-            >
-              <div className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-blue-600 border border-slate-200 hover:scale-110 transition">
-                ➡️
-              </div>
-            </div>
-
-            <div 
-              ref={scrollContainerRef}
-              className="flex h-full overflow-x-auto overflow-y-hidden gap-6 p-6 scroll-smooth items-start"
-              style={{ scrollBehavior: 'smooth' }}
-            >
+          <div className="p-6 h-full overflow-x-auto">
+            <div className="flex gap-6 h-full">
               {statuts.map((statut, idx) => (
                 <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full max-h-[85vh] bg-slate-100/50 rounded-xl border border-slate-200">
                   <div className="p-4 font-bold text-slate-700 bg-white/80 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
@@ -219,13 +217,7 @@ export default function Dashboard() {
                       <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative">
                         <div className="flex justify-between mb-2">
                           <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">{lead.type_bien || 'Projet'}</span>
-                          {lead.score > 0 && <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-1 rounded">⚡ {lead.score}%</span>}
-                        </div>
-                        <h4 className="font-bold text-slate-900 mb-1">{lead.nom}</h4>
-                        <p className="text-sm text-slate-500 font-medium">{(lead.budget || 0).toLocaleString()} €</p>
-
-                        <div className="absolute inset-y-0 right-2 flex flex-col justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           {idx < statuts.length - 1 && (
+                          <div className="flex gap-1">
                              <button 
                                onClick={(e) => {
                                  e.stopPropagation();
@@ -233,10 +225,8 @@ export default function Dashboard() {
                                }} 
                                className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
                              >
-                               ▶
+                               →
                              </button>
-                           )}
-                           {idx > 0 && (
                              <button 
                                onClick={(e) => {
                                  e.stopPropagation();
@@ -244,10 +234,14 @@ export default function Dashboard() {
                                }} 
                                className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
                              >
-                               ◀
+                               ←
                              </button>
-                           )}
+                          </div>
                         </div>
+                        <div className="font-bold text-slate-900 mb-1">{lead.nom}</div>
+                        <div className="text-sm text-slate-600 mb-2">{lead.email}</div>
+                        <div className="text-sm text-slate-600">{lead.telephone}</div>
+                        <div className="text-sm font-bold text-green-600">{(lead.budget || 0).toLocaleString()} €</div>
                       </div>
                     ))}
                   </div>
@@ -322,7 +316,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Modal de suggestion de statut */}
       <StatusSuggestionModal
         isOpen={statusModal.isOpen}
         onClose={handleStatusCancel}
