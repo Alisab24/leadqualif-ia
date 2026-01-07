@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [showRightArrow, setShowRightArrow] = useState(true);
   const scrollInterval = useRef(null);
 
-  const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
+  const statuts = ['À traiter', 'Contacté', 'Offre en cours', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
   // Logique de scroll simple et stable type Bitrix24
   const checkScrollOverflow = () => {
@@ -333,26 +333,113 @@ export default function Dashboard() {
         {viewMode === 'list' && (
           <div className="p-6 h-full overflow-y-auto w-full">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Nom</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Budget</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {leads.map(lead => (
-                    <tr key={lead.id} onClick={() => setSelectedLead(lead)} className="hover:bg-slate-50 cursor-pointer">
-                      <td className="px-6 py-4 font-bold text-slate-700">{lead.nom}</td>
-                      <td className="px-6 py-4">
-                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{lead.statut}</span>
-                      </td>
-                      <td className="px-6 py-4 font-bold text-green-600">{(lead.budget || 0).toLocaleString()} €</td>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase w-12">
+                        <input type="checkbox" className="rounded border-slate-300" />
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase">Nom</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
+                      <th className="px-3 py-3 text-right text-xs font-bold text-slate-500 uppercase">Budget</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase">Urgence</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
+                      <th className="px-3 py-3 text-center text-xs font-bold text-slate-500 uppercase">Score IA</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase">Dernière activité</th>
+                      <th className="px-3 py-3 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {leads.map(lead => (
+                      <tr key={lead.id} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                        <td className="px-3 py-3">
+                          <input type="checkbox" className="rounded border-slate-300" />
+                        </td>
+                        <td className="px-3 py-3 font-medium text-slate-900">{lead.nom}</td>
+                        <td className="px-3 py-3 text-sm text-slate-600">
+                          {lead.type_bien === 'Appartement' && '🏢'}
+                          {lead.type_bien === 'Maison' && '🏡'}
+                          {lead.type_bien === 'Service' && '🛠️'}
+                          {lead.type_bien === 'SMMA' && '📱'}
+                          {!lead.type_bien && '📋'}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            lead.statut === 'À traiter' ? 'bg-gray-100 text-gray-800' :
+                            lead.statut === 'Contacté' ? 'bg-blue-100 text-blue-800' :
+                            lead.statut === 'Offre en cours' ? 'bg-yellow-100 text-yellow-800' :
+                            lead.statut === 'RDV fixé' ? 'bg-orange-100 text-orange-800' :
+                            lead.statut === 'Négociation' ? 'bg-purple-100 text-purple-800' :
+                            lead.statut === 'Gagné' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {lead.statut}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-green-600">
+                          {(lead.budget || 0).toLocaleString()} €
+                        </td>
+                        <td className="px-3 py-3 text-sm">
+                          <span className={`inline-flex px-2 py-1 text-xs rounded ${
+                            lead.urgence === 'Haute' ? 'bg-red-100 text-red-700' :
+                            lead.urgence === 'Moyenne' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {lead.urgence || 'Normale'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-600">
+                          <span className={`inline-flex px-2 py-1 text-xs rounded ${
+                            lead.source === 'Formulaire' ? 'bg-blue-50 text-blue-700 border' :
+                            lead.source === 'WhatsApp' ? 'bg-green-50 text-green-700 border' :
+                            lead.source === 'Manuel' ? 'bg-gray-50 text-gray-700 border' :
+                            lead.source === 'Ads' ? 'bg-purple-50 text-purple-700 border' :
+                            'bg-slate-50 text-slate-700 border'
+                          }`}>
+                            {lead.source || 'Inconnue'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {lead.score_ia || lead.ia_score ? (
+                            <span className="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-pink-100 text-pink-800 border border-pink-200">
+                              {lead.score_ia || lead.ia_score}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-600">
+                          {lead.updated_at ? 
+                            new Date(lead.updated_at).toLocaleDateString('fr-FR') : 
+                            'Aucune'
+                          }
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-center space-x-2">
+                            <a href={`https://wa.me/${lead.telephone?.replace(/\D/g,'')}`} target="_blank" className="text-green-600 hover:text-green-800 p-1">
+                              💬
+                            </a>
+                            <a href={`tel:${lead.telephone}`} className="text-blue-600 hover:text-blue-800 p-1">
+                              📞
+                            </a>
+                            <button className="text-indigo-600 hover:text-indigo-800 p-1">
+                              📄
+                            </button>
+                            <button className="text-slate-600 hover:text-slate-800 p-1">
+                              ✏️
+                            </button>
+                            <button className="text-gray-600 hover:text-gray-800 p-1">
+                              ⋯
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
