@@ -334,6 +334,114 @@ export default function Dashboard() {
                   <div><strong>Type de bien:</strong> {selectedLead.type_bien || 'Non spécifié'}</div>
                 </div>
               </div>
+
+              {/* Timeline d'historique du lead */}
+              <div className="border-t pt-6">
+                <h3 className="font-bold text-lg mb-4">📜 Historique du lead</h3>
+                
+                {(() => {
+                  // Données déjà disponibles dans le lead
+                  const events = [];
+                  
+                  // Création du lead
+                  if (selectedLead.created_at) {
+                    events.push({
+                      icon: '👤',
+                      label: 'Lead créé',
+                      detail: `Nouveau lead : ${selectedLead.nom}`,
+                      date: selectedLead.created_at,
+                      color: 'bg-blue-100 text-blue-800 border-blue-200'
+                    });
+                  }
+                  
+                  // Suggestion IA
+                  if (selectedLead.score_ia || selectedLead.ia_score) {
+                    events.push({
+                      icon: '🧠',
+                      label: 'IA',
+                      detail: `Lead chaud (score ${selectedLead.score_ia || selectedLead.ia_score})`,
+                      date: selectedLead.created_at,
+                      color: 'bg-purple-100 text-purple-800 border-purple-200'
+                    });
+                  }
+                  
+                  // Changement de statut
+                  if (selectedLead.statut) {
+                    events.push({
+                      icon: '📊',
+                      label: 'Statut',
+                      detail: `Statut actuel : ${selectedLead.statut}`,
+                      date: selectedLead.updated_at || selectedLead.created_at,
+                      color: 'bg-green-100 text-green-800 border-green-200'
+                    });
+                  }
+                  
+                  // RDV (simulation basée sur statut)
+                  if (selectedLead.statut === 'RDV fixé') {
+                    events.push({
+                      icon: '📅',
+                      label: 'RDV fixé',
+                      detail: 'Rendez-vous programmé',
+                      date: selectedLead.updated_at || selectedLead.created_at,
+                      color: 'bg-orange-100 text-orange-800 border-orange-200'
+                    });
+                  }
+                  
+                  // Document généré (simulation)
+                  if (selectedLead.statut === 'Négociation' || selectedLead.statut === 'Gagné') {
+                    events.push({
+                      icon: '📄',
+                      label: 'Devis généré',
+                      detail: 'Document créé et envoyé',
+                      date: selectedLead.updated_at || selectedLead.created_at,
+                      color: 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                    });
+                  }
+                  
+                  // Tri par date
+                  events.sort((a, b) => new Date(b.date) - new Date(a.date));
+                  
+                  if (events.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-gray-500">
+                        <div className="text-3xl mb-2">📜</div>
+                        <p className="text-sm">Aucun historique disponible</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-4">
+                      {events.map((event, index) => (
+                        <div key={index} className="flex items-start space-x-3">
+                          {/* Icône */}
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border ${event.color}`}>
+                            <span className="text-sm">{event.icon}</span>
+                          </div>
+                          
+                          {/* Contenu */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-900">{event.label}</span>
+                              <span className="text-xs text-gray-500">
+                                {event.date ? 
+                                  new Date(event.date).toLocaleDateString('fr-FR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                  }) : 
+                                  'Date inconnue'
+                                }
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{event.detail}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         )}
