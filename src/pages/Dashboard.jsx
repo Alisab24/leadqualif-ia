@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -12,7 +12,64 @@ export default function Dashboard() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
 
+  // Refs pour le scroll automatique (optionnel)
+  const scrollContainerRef = useRef(null);
+  const scrollInterval = useRef(null);
+
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
+
+  // Fonctions de scroll automatique (optionnel et sécurisé)
+  const startScroll = (direction) => {
+    if (!scrollContainerRef.current) return;
+    
+    // Arrêter le scroll précédent
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+    }
+    
+    // Scroll fluide
+    scrollInterval.current = setInterval(() => {
+      if (!scrollContainerRef.current) return;
+      
+      const scrollAmount = 5;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }, 30);
+  };
+
+  const stopScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    
+    // Zones de 50px sur les côtés
+    const leftZone = 50;
+    const rightZone = width - 50;
+    
+    if (x <= leftZone) {
+      startScroll('left');
+    } else if (x >= rightZone) {
+      startScroll('right');
+    } else {
+      stopScroll();
+    }
+  };
+
+  const handleMouseLeave = () => {
+    stopScroll();
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,6 +79,13 @@ export default function Dashboard() {
         fetchStats();
       }
     });
+  }, []);
+
+  // Nettoyage des intervalles au démontage
+  useEffect(() => {
+    return () => {
+      stopScroll();
+    };
   }, []);
 
   const fetchLeads = async () => {
@@ -119,7 +183,12 @@ export default function Dashboard() {
 
       <main className="flex-1 overflow-hidden">
         {viewMode === 'kanban' && (
-          <div className="p-6 h-full overflow-x-auto">
+          <div 
+            ref={scrollContainerRef}
+            className="p-6 h-full overflow-x-auto"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
             <div className="flex gap-6 h-full">
               {statuts.map((statut, idx) => (
                 <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full max-h-[85vh] bg-slate-100/50 rounded-xl border border-slate-200">
