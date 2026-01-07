@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
 import DocumentsPage from './pages/DocumentsPage';
+import DocumentsCenter from './pages/DocumentsCenter';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import Layout from './components/Layout';
@@ -24,6 +25,7 @@ export default function App() {
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/documents" element={<DocumentsPage />} />
+          <Route path="/documents-center" element={<DocumentsCenter />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/app" element={<Navigate to="/dashboard" replace />} />
