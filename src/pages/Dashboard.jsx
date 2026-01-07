@@ -14,11 +14,11 @@ export default function Dashboard() {
 
   // Refs pour le scroll automatique (optionnel)
   const scrollContainerRef = useRef(null);
-  const scrollInterval = useRef(null);
 
   // États pour les flèches de scroll
   const [showLeftArrow, setShowLeftArrow] = useState(true);
   const [showRightArrow, setShowRightArrow] = useState(true);
+  const scrollInterval = useRef(null);
 
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
@@ -47,11 +47,35 @@ export default function Dashboard() {
     setTimeout(checkScrollOverflow, 300);
   };
 
+  // Scroll continu au hover
+  const startHoverScroll = (direction) => {
+    if (scrollInterval.current) return;
+    
+    scrollInterval.current = setInterval(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      
+      const scrollAmount = direction === 'left' ? -8 : 8;
+      container.scrollLeft += scrollAmount;
+    }, 30);
+  };
+
+  const stopHoverScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
+
   // Vérification au chargement et au scroll
   useEffect(() => {
     setTimeout(checkScrollOverflow, 500);
     window.addEventListener('resize', checkScrollOverflow);
-    return () => window.removeEventListener('resize', checkScrollOverflow);
+    
+    return () => {
+      window.removeEventListener('resize', checkScrollOverflow);
+      stopHoverScroll(); // Nettoyer l'intervalle
+    };
   }, []);
 
   // Fonctions de scroll automatique (optionnel et sécurisé)
@@ -224,10 +248,12 @@ export default function Dashboard() {
             {showLeftArrow && (
               <button
                 onClick={() => scrollByAmount(-320)}
-                className="fixed left-4 top-1/2 -translate-y-1/2 z-[9999] w-12 h-12 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                onMouseEnter={() => startHoverScroll('left')}
+                onMouseLeave={stopHoverScroll}
+                className="fixed left-16 top-1/2 -translate-y-1/2 z-50 w-11 h-11 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
                 style={{ opacity: 0.9 }}
               >
-                <span className="text-gray-700 text-xl select-none">◀</span>
+                <span className="text-gray-700 text-lg select-none">◀</span>
               </button>
             )}
             
@@ -235,10 +261,12 @@ export default function Dashboard() {
             {showRightArrow && (
               <button
                 onClick={() => scrollByAmount(320)}
-                className="fixed right-4 top-1/2 -translate-y-1/2 z-[9999] w-12 h-12 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                onMouseEnter={() => startHoverScroll('right')}
+                onMouseLeave={stopHoverScroll}
+                className="fixed right-4 top-1/2 -translate-y-1/2 z-50 w-11 h-11 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
                 style={{ opacity: 0.9 }}
               >
-                <span className="text-gray-700 text-xl select-none">▶</span>
+                <span className="text-gray-700 text-lg select-none">▶</span>
               </button>
             )}
             
