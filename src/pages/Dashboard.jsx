@@ -337,36 +337,36 @@ export default function Dashboard() {
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Client</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Nom</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Email</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Téléphone</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Type / Projet</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
-                      <th className="px-3 py-2 text-center text-xs font-bold text-slate-500 uppercase">Score IA</th>
-                      <th className="px-3 py-2 text-right text-xs font-bold text-slate-500 uppercase">Budget</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Dernière activité</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
-                      <th className="px-3 py-2 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Client</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Score IA</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Budget</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Dernière act.</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {leads.map(lead => (
-                      <tr key={lead.id} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                        <td className="px-3 py-2">
-                          <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-xs font-bold text-slate-600">
-                            {lead.nom?.charAt(0)?.toUpperCase() || '?'}
+                      <tr 
+                        key={lead.id} 
+                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => setSelectedLead(lead)}
+                      >
+                        <td className="px-4 py-3">
+                          <div>
+                            <div className="font-bold text-slate-900">{lead.nom}</div>
+                            <div className="text-xs text-slate-400">{lead.email || '—'}</div>
+                            <div className="text-xs text-slate-400">{lead.telephone || '—'}</div>
                           </div>
                         </td>
-                        <td className="px-3 py-2 font-bold text-slate-900">{lead.nom}</td>
-                        <td className="px-3 py-2 text-sm text-slate-500">{lead.email || '—'}</td>
-                        <td className="px-3 py-2 text-sm text-slate-500">{lead.telephone || '—'}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700">
                             {lead.type_bien || 'Non défini'}
                           </span>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             lead.statut === 'À traiter' ? 'bg-gray-100 text-gray-800' :
                             lead.statut === 'Contacté' ? 'bg-blue-100 text-blue-800' :
@@ -379,53 +379,71 @@ export default function Dashboard() {
                             {lead.statut}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           {lead.score_ia || lead.ia_score ? (
-                            <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
+                            <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full ${
                               (lead.score_ia || lead.ia_score) < 40 ? 'bg-red-100 text-red-800' :
                               (lead.score_ia || lead.ia_score) < 70 ? 'bg-orange-100 text-orange-800' :
                               'bg-green-100 text-green-800'
                             }`}>
-                              {lead.score_ia || lead.ia_score}
+                              {(lead.score_ia || lead.ia_score) < 40 ? '🔴' : 
+                               (lead.score_ia || lead.ia_score) < 70 ? '🟠' : '🟢'} {lead.score_ia || lead.ia_score}
                             </span>
                           ) : (
-                            <span className="text-gray-400 text-xs">—</span>
+                            <span className="text-gray-400 text-sm">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right font-bold text-green-600">
+                        <td className="px-4 py-3 text-right font-bold text-green-600">
                           {(lead.budget || 0).toLocaleString('fr-FR')} €
                         </td>
-                        <td className="px-3 py-2 text-sm text-slate-600">
+                        <td className="px-4 py-3 text-sm text-slate-600">
                           {(() => {
                             const date = new Date(lead.updated_at || lead.created_at);
                             const now = new Date();
                             const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+                            const hours = Math.floor((now - date) / (1000 * 60 * 60));
                             
-                            if (diff === 0) return "Aujourd'hui";
+                            if (hours < 1) return "il y a <1h";
+                            if (hours < 24) return `il y a ${hours}h`;
                             if (diff === 1) return "Hier";
                             if (diff < 7) return `il y a ${diff}j`;
                             if (diff < 30) return `il y a ${Math.floor(diff/7)}s`;
                             return date.toLocaleDateString('fr-FR');
                           })()}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <span className="inline-flex px-2 py-1 text-xs rounded bg-slate-50 text-slate-700 border">
                             {lead.source || 'Inconnue'}
                           </span>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <div className="flex items-center justify-center space-x-1">
-                            <a href={`https://wa.me/${lead.telephone?.replace(/\D/g,'')}`} target="_blank" className="text-green-600 hover:text-green-800 p-1">
+                            <a 
+                              href={`https://wa.me/${lead.telephone?.replace(/\D/g,'')}`} 
+                              target="_blank" 
+                              className="text-green-600 hover:text-green-800 p-1"
+                              title="WhatsApp"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               💬
                             </a>
-                            <a href={`tel:${lead.telephone}`} className="text-blue-600 hover:text-blue-800 p-1">
+                            <a 
+                              href={`tel:${lead.telephone}`} 
+                              className="text-blue-600 hover:text-blue-800 p-1"
+                              title="Appeler"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               📞
                             </a>
-                            <button onClick={() => setSelectedLead(lead)} className="text-indigo-600 hover:text-indigo-800 p-1">
+                            <button 
+                              className="text-indigo-600 hover:text-indigo-800 p-1"
+                              title="Documents"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedLead(lead);
+                              }}
+                            >
                               📄
-                            </button>
-                            <button className="text-slate-600 hover:text-slate-800 p-1">
-                              ✏️
                             </button>
                           </div>
                         </td>
