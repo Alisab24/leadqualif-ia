@@ -282,6 +282,47 @@ export default function Dashboard() {
                   <span className="text-2xl">📅</span><span className="font-bold text-xs mt-1">RDV</span>
                 </a>
               </div>
+
+              {/* Actions pro - UI enrichie */}
+              <div className="grid grid-cols-3 gap-3 mb-8">
+                <a 
+                  href={`mailto:${selectedLead.email || ''}?subject=Suivi de votre projet immobilier&body=Bonjour ${selectedLead.nom || ''},%0D%0A%0D%0AJe vous contacte concernant votre projet immobilier.%0D%0A%0D%0AN'hésitez pas à me faire savoir vos disponibilités pour en discuter.%0D%0A%0D%0ACordialement,%0D%0A[Votre nom]`}
+                  className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${
+                    selectedLead.email 
+                      ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200' 
+                      : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-2xl">✉️</span>
+                  <span className="font-bold text-xs mt-1">Email</span>
+                </a>
+                
+                <button 
+                  onClick={() => {
+                    // TODO: Ouvrir panneau documents
+                    console.log('Documents button clicked');
+                  }}
+                  className="flex flex-col items-center p-3 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 border border-indigo-200"
+                >
+                  <span className="text-2xl">📄</span>
+                  <span className="font-bold text-xs mt-1">Documents</span>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    // TODO: Afficher suggestion IA
+                    console.log('IA suggestion button clicked');
+                  }}
+                  className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${
+                    selectedLead.score_ia || selectedLead.ia_score
+                      ? 'bg-pink-50 text-pink-700 hover:bg-pink-100 border-pink-200' 
+                      : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-2xl">🧠</span>
+                  <span className="font-bold text-xs mt-1">Suggestion IA</span>
+                </button>
+              </div>
               
               <div className="border-t pt-6">
                 <h3 className="font-bold text-lg mb-4">Informations</h3>
