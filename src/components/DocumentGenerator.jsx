@@ -4,19 +4,48 @@ import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated, compact = false }) {
+export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated, compact = false, agencyType = 'immobilier' }) {
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
 
-  // Templates de documents disponibles
-  const documentTypes = [
-    { id: 'mandat', label: 'Mandat', icon: '📄', category: 'IMMO' },
-    { id: 'devis', label: 'Devis', icon: '📋', category: 'IMMO' },
-    { id: 'facture', label: 'Facture', icon: '🧾', category: 'IMMO' },
-    { id: 'bon_visite', label: 'Bon de visite', icon: '🏠', category: 'IMMO' },
-    { id: 'contrat', label: 'Contrat', icon: '📝', category: 'SMMA' },
-    { id: 'rapport', label: 'Rapport', icon: '📊', category: 'SMMA' }
-  ];
+  // Templates de documents selon type d'agence
+  const getDocumentTypes = () => {
+    if (agencyType === 'immobilier') {
+      return [
+        { id: 'mandat', label: 'Mandat', icon: '📄', category: 'IMMO' },
+        { id: 'devis', label: 'Devis', icon: '📋', category: 'IMMO' },
+        { id: 'compromis', label: 'Compromis', icon: '🤝', category: 'IMMO' },
+        { id: 'facture', label: 'Facture', icon: '🧾', category: 'IMMO' },
+        { id: 'bon_visite', label: 'Bon de visite', icon: '🏠', category: 'IMMO' }
+      ];
+    } else {
+      return [
+        { id: 'devis', label: 'Devis', icon: '📋', category: 'SMMA' },
+        { id: 'contrat', label: 'Contrat de prestation', icon: '📝', category: 'SMMA' },
+        { id: 'facture', label: 'Facture', icon: '🧾', category: 'SMMA' },
+        { id: 'rapport', label: 'Rapport de performance', icon: '📊', category: 'SMMA' }
+      ];
+    }
+  };
+
+  const documentTypes = getDocumentTypes();
+
+  // Fonction pour formater le budget selon la devise de l'agence
+  const formatBudget = (amount) => {
+    if (!agencyProfile) return `${amount.toLocaleString()} €`;
+    
+    const { devise, symbole_devise, format_devise } = agencyProfile;
+    
+    switch (devise) {
+      case 'XOF':
+        return `${amount.toLocaleString()} ${symbole_devise}`;
+      case 'CAD':
+        return `${symbole_devise}${amount.toLocaleString()}`;
+      case 'EUR':
+      default:
+        return `${amount.toLocaleString()} ${symbole_devise}`;
+    }
+  };
 
   React.useEffect(() => {
     const fetchAgencyProfile = async () => {
@@ -120,7 +149,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       yPos += 10;
       doc.text(`Téléphone: ${lead.telephone}`, 20, yPos);
       yPos += 10;
-      doc.text(`Budget: ${(lead.budget || 0).toLocaleString()} €`, 20, yPos);
+      doc.text(`Budget: ${formatBudget(lead.budget || 0)}`, 20, yPos);
       yPos += 10;
       doc.text(`Type de bien: ${lead.type_bien || 'Non spécifié'}`, 20, yPos);
       
@@ -136,19 +165,22 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
           content = `Le soussigné ${lead.nom} donne mandat exclusif à ${agencyProfile.legalName || agencyProfile.name} pour la vente du bien situé au [adresse]. Durée: 3 mois. Commission: 5% du prix de vente.`;
           break;
         case 'devis':
-          content = `Devis pour services immobiliers - ${lead.nom}\nClient: ${lead.nom}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\nHonoraires: ${((lead.budget || 0) * 0.03).toLocaleString()} € (3%)\nAccompagnement vente: Inclus\nMarketing: Inclus`;
+          content = `Devis pour services ${agencyType === 'immobilier' ? 'immobiliers' : 'marketing'} - ${lead.nom}\nClient: ${lead.nom}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\nHonoraires: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'})\n${agencyType === 'immobilier' ? 'Accompagnement vente: Inclus\nMarketing: Inclus' : 'Services: Marketing digital, gestion réseaux sociaux\nCréation contenu: Inclus'}`;
+          break;
+        case 'compromis':
+          content = `COMPROMIS DE VENTE\nVendeur: [Nom du vendeur]\nAcheteur: ${lead.nom}\nBien: [adresse du bien]\nPrix: ${formatBudget(lead.budget || 0)}\nDate: ${new Date().toLocaleDateString()}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nConditions: \n- Accompte 10% à la signature\n- Solde à la levée des clauses suspensives\n- Délai de rétractation: 10 jours`;
           break;
         case 'facture':
-          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nMontant HT: ${((lead.budget || 0) * 0.03).toLocaleString()} €\nTVA: 20%\nTotal TTC: ${((lead.budget || 0) * 0.036).toLocaleString()} €\n\n${agencyProfile.paymentConditions || 'Paiement à réception de facture'}`;
+          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nMontant HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA: 20%\nTotal TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\n${agencyProfile.paymentConditions || 'Paiement à réception de facture'}`;
           break;
         case 'bon_visite':
-          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${agencyProfile.name || 'Agence'}\nAgence: ${agencyProfile.legalName || agencyProfile.name}`;
+          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${agencyProfile.name || 'Agence'}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nHoraires: [à définir]\nContact: ${agencyProfile.phone || ''}`;
           break;
         case 'contrat':
-          content = `CONTRAT DE SERVICES\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${((lead.budget || 0) * 0.05).toLocaleString()} €\n\n${agencyProfile.paymentConditions || 'Paiement mensuel'}`;
+          content = `CONTRAT DE PRESTATION\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${formatBudget((lead.budget || 0) * 0.05)}\n\n${agencyProfile.paymentConditions || 'Paiement mensuel'}`;
           break;
         case 'rapport':
-          content = `RAPPORT D'ACTIVITÉ\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nPerformances: [à compléter]\nRecommandations: [à compléter]`;
+          content = `RAPPORT DE PERFORMANCE\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nPerformances:\n- Taux d'engagement: [à compléter]\n- Croissance abonnés: [à compléter]\n- Taux de conversion: [à compléter]\n\nRecommandations: [à compléter]`;
           break;
       }
       

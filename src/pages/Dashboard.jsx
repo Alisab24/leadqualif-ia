@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
+import DocumentGenerator from '../components/DocumentGenerator';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
+  const [agencyType, setAgencyType] = useState('immobilier');
 
   // Refs pour le scroll automatique (optionnel)
   const scrollContainerRef = useRef(null);
@@ -187,9 +189,29 @@ export default function Dashboard() {
       if (session) {
         fetchLeads();
         fetchStats();
+        fetchAgencyType();
       }
     });
   }, []);
+
+  const fetchAgencyType = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('type_agence')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (profile?.type_agence) {
+          setAgencyType(profile.type_agence);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur récupération type agence:', error);
+    }
+  };
 
   // Nettoyage des intervalles au démontage
   useEffect(() => {
@@ -634,6 +656,19 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Génération de documents */}
+              <div className="p-4 border-t border-slate-200">
+                <DocumentGenerator 
+                  lead={selectedLead} 
+                  agencyId={session?.user?.user_metadata?.agency_id || 'default'}
+                  agencyType={agencyType}
+                  onDocumentGenerated={(data) => {
+                    console.log('Document généré:', data);
+                    // Optionnel: rafraîchir la liste des documents
+                  }}
+                />
               </div>
             </div>
           </div>

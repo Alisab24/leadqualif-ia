@@ -16,6 +16,8 @@ export default function Settings() {
     adresse: '',
     pays: 'France',
     devise: 'EUR',
+    symbole_devise: '€',
+    format_devise: '1 000 €',
     calendly_link: '',
     logo_url: '',
     couleur_primaire: '#2563eb',
@@ -73,6 +75,8 @@ export default function Settings() {
           adresse: data.adresse || '',
           pays: data.pays || 'France',
           devise: data.devise || 'EUR',
+          symbole_devise: data.symbole_devise || '€',
+          format_devise: data.format_devise || '1 000 €',
           calendly_link: data.calendly_link || '',
           logo_url: data.logo_url || '',
           couleur_primaire: data.couleur_primaire || '#2563eb',
@@ -112,7 +116,47 @@ export default function Settings() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Logique automatique pour la devise selon le pays
+    if (name === 'pays') {
+      let devise = 'EUR';
+      let symbole = '€';
+      let format = '1 000 €';
+      
+      switch (value) {
+        case 'France':
+          devise = 'EUR';
+          symbole = '€';
+          format = '1 000 €';
+          break;
+        case 'Bénin':
+        case 'Sénégal':
+        case 'Côte d\'Ivoire':
+          devise = 'XOF';
+          symbole = 'FCFA';
+          format = '1 000 000 FCFA';
+          break;
+        case 'Canada':
+          devise = 'CAD';
+          symbole = '$';
+          format = '$1,000';
+          break;
+        default:
+          devise = 'EUR';
+          symbole = '€';
+          format = '1 000 €';
+      }
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value,
+        devise: devise,
+        symbole_devise: symbole,
+        format_devise: format
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleNestedChange = (parent, key, value) => {
@@ -147,6 +191,8 @@ export default function Settings() {
           adresse: formData.adresse,
           pays: formData.pays,
           devise: formData.devise,
+          symbole_devise: formData.symbole_devise,
+          format_devise: formData.format_devise,
           calendly_link: formData.calendly_link,
           logo_url: formData.logo_url,
           couleur_primaire: formData.couleur_primaire,
@@ -296,26 +342,29 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-1">Pays</label>
-                  <input 
+                  <label className="block text-sm font-bold mb-1">Pays *</label>
+                  <select 
                     name="pays" 
                     value={formData.pays} 
                     onChange={handleChange} 
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Devise</label>
-                  <select 
-                    name="devise" 
-                    value={formData.devise} 
-                    onChange={handleChange} 
                     className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="EUR">€ EUR</option>
-                    <option value="USD">$ USD</option>
-                    <option value="GBP">£ GBP</option>
+                    <option value="France">🇫🇷 France</option>
+                    <option value="Bénin">🇧🇯 Bénin</option>
+                    <option value="Sénégal">🇸🇳 Sénégal</option>
+                    <option value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</option>
+                    <option value="Canada">🇨🇦 Canada</option>
+                    <option value="Autre">🌍 Autre</option>
                   </select>
+                  <p className="text-xs text-slate-500 mt-1">Le pays détermine automatiquement la devise et le format</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-1">Devise (lecture seule)</label>
+                  <div className="flex items-center gap-2 p-2 border border-slate-200 rounded-lg bg-slate-50">
+                    <span className="font-medium">{formData.devise}</span>
+                    <span className="text-slate-500">({formData.symbole_devise})</span>
+                    <span className="text-xs text-slate-400">Format: {formData.format_devise}</span>
+                  </div>
                 </div>
               </div>
               <div>
