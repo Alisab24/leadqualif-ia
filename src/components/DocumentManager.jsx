@@ -4,31 +4,10 @@ import { supabase } from '../supabaseClient';
 export default function DocumentManager({ lead, agencyId, onDocumentGenerated }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [userAgencyId, setUserAgencyId] = useState(null);
 
   useEffect(() => {
     if (lead?.id) fetchDocuments();
-    fetchUserAgencyId();
   }, [lead]);
-
-  const fetchUserAgencyId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('agency_id')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (profile?.agency_id) {
-          setUserAgencyId(profile.agency_id);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur récupération agency_id:', error);
-    }
-  };
 
   const fetchDocuments = async () => {
     try {
@@ -48,38 +27,24 @@ export default function DocumentManager({ lead, agencyId, onDocumentGenerated })
 
   const generateDocument = async (docType) => {
     setLoading(true);
-    
     try {
-      // Créer l'entrée dans la table documents
-      const documentData = {
-        lead_id: lead.id,
-        agency_id: userAgencyId || agencyId,
-        type: docType.toLowerCase(), // 'devis' | 'contrat' | 'facture'
-        statut: 'généré',
-        file_url: null, // Pas de fichier pour l'instant
-        created_at: new Date().toISOString()
-      };
-
       const { data, error } = await supabase
         .from('documents')
-        .insert([documentData])
+        .insert([{
+          lead_id: lead.id,
+          agency_id: agencyId, // 🔴 utiliser le vrai agency_id
+          type: docType.toLowerCase(),
+          statut: 'généré'
+        }])
         .select()
         .single();
-      
-      if (error) {
-        console.error('Erreur lors de la création du document:', error);
-      } else {
-        // Rafraîchir la liste des documents
-        fetchDocuments();
-        console.log('Document créé avec succès:', data);
-        
-        // Notifier le parent pour rafraîchir l'historique et la timeline
-        if (onDocumentGenerated) {
-          onDocumentGenerated(data);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la génération du document:', error);
+
+      if (error) throw error;
+
+      fetchDocuments();
+      onDocumentGenerated?.(data);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }

@@ -2,9 +2,6 @@
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
 import DocumentManager from '../components/DocumentManager';
-import DocumentHistory from '../components/DocumentHistory';
-import DocumentTimeline from '../components/DocumentTimeline';
-import StatusSuggestionModal from '../components/StatusSuggestionModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -16,50 +13,14 @@ export default function Dashboard() {
   const [calendlyLink, setCalendlyLink] = useState(null);
   const [agencyId, setAgencyId] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [statusModal, setStatusModal] = useState({
-    isOpen: false,
-    documentType: null,
-    leadId: null,
-    leadName: null
-  });
+  const [viewMode, setViewMode] = useState('kanban');
 
   const scrollContainerRef = useRef(null);
   const scrollInterval = useRef(null);
 
   const handleDocumentGenerated = (document) => {
     setRefreshTrigger(prev => prev + 1);
-    console.log('Document généré, rafraîchissement déclenché:', document);
-    
-    const lead = leads.find(l => l.id === document.lead_id);
-    if (lead) {
-      setStatusModal({
-        isOpen: true,
-        documentType: document.type,
-        leadId: document.lead_id,
-        leadName: lead.nom
-      });
-    }
-  };
-
-  const handleStatusConfirm = async (newStatus) => {
-    if (statusModal.leadId) {
-      await updateStatus(statusModal.leadId, newStatus);
-    }
-    setStatusModal({
-      isOpen: false,
-      documentType: null,
-      leadId: null,
-      leadName: null
-    });
-  };
-
-  const handleStatusCancel = () => {
-    setStatusModal({
-      isOpen: false,
-      documentType: null,
-      leadId: null,
-      leadName: null
-    });
+    console.log('Document généré:', document);
   };
 
   const updateStatus = async (leadId, newStatus) => {
@@ -301,7 +262,7 @@ export default function Dashboard() {
                 <h3 className="font-bold text-lg mb-4">Documents</h3>
                 <DocumentManager 
                   lead={selectedLead} 
-                  agencyId={session?.user?.id} 
+                  agencyId={agencyId} 
                   onDocumentGenerated={handleDocumentGenerated}
                 />
               </div>
