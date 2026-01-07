@@ -16,7 +16,74 @@ export default function Dashboard() {
   const scrollContainerRef = useRef(null);
   const scrollInterval = useRef(null);
 
+  // États pour les flèches de scroll
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
+
+  // Logique de scroll professionnel type Bitrix24
+  const checkScrollOverflow = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const hasHorizontalOverflow = container.scrollWidth > container.clientWidth;
+    const canScrollLeft = container.scrollLeft > 0;
+    const canScrollRight = container.scrollLeft < container.scrollWidth - container.clientWidth;
+    
+    setShowLeftArrow(hasHorizontalOverflow && canScrollLeft);
+    setShowRightArrow(hasHorizontalOverflow && canScrollRight);
+  };
+
+  const scrollByAmount = (amount) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    container.scrollBy({
+      left: amount,
+      behavior: 'smooth'
+    });
+    
+    // Mettre à jour les flèches après le scroll
+    setTimeout(checkScrollOverflow, 100);
+  };
+
+  const startContinuousScroll = (direction) => {
+    if (isScrolling) return;
+    setIsScrolling(true);
+    
+    const scrollAmount = direction === 'left' ? -8 : 8;
+    scrollByAmount(scrollAmount);
+    
+    // Scroll continu pendant le hover
+    scrollInterval.current = setInterval(() => {
+      scrollByAmount(scrollAmount);
+    }, 50);
+  };
+
+  const stopContinuousScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+    setIsScrolling(false);
+  };
+
+  // Vérifier l'overflow au chargement et au redimensionnement
+  useEffect(() => {
+    const handleResize = () => {
+      setTimeout(checkScrollOverflow, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    setTimeout(checkScrollOverflow, 200); // Vérification initiale
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      stopContinuousScroll();
+    };
+  }, []);
 
   // Fonctions de scroll automatique (optionnel et sécurisé)
   const startScroll = (direction) => {
@@ -183,12 +250,38 @@ export default function Dashboard() {
 
       <main className="flex-1 overflow-hidden">
         {viewMode === 'kanban' && (
-          <div 
-            ref={scrollContainerRef}
-            className="p-6 h-full overflow-x-auto"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-          >
+          <div className="relative p-6 h-full overflow-hidden">
+            {/* Flèche gauche */}
+            {showLeftArrow && (
+              <button
+                onMouseDown={() => startContinuousScroll('left')}
+                onMouseUp={stopContinuousScroll}
+                onMouseLeave={stopContinuousScroll}
+                className="absolute left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
+                style={{ opacity: isScrolling && showLeftArrow ? 1 : 0.7 }}
+              >
+                <span className="text-gray-700 text-lg">◀</span>
+              </button>
+            )}
+            
+            {/* Flèche droite */}
+            {showRightArrow && (
+              <button
+                onMouseDown={() => startContinuousScroll('right')}
+                onMouseUp={stopContinuousScroll}
+                onMouseLeave={stopContinuousScroll}
+                className="absolute right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
+                style={{ opacity: isScrolling && showRightArrow ? 1 : 0.7 }}
+              >
+                <span className="text-gray-700 text-lg">▶</span>
+              </button>
+            )}
+            
+            <div 
+              ref={scrollContainerRef}
+              className="p-6 h-full overflow-x-auto"
+              onScroll={checkScrollOverflow}
+            >
             <div className="flex gap-6 h-full">
               {statuts.map((statut, idx) => (
                 <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full max-h-[85vh] bg-slate-100/50 rounded-xl border border-slate-200">
@@ -233,6 +326,7 @@ export default function Dashboard() {
                 </div>
               ))}
               <div className="min-w-[50px]"></div>
+            </div>
             </div>
           </div>
         )}
