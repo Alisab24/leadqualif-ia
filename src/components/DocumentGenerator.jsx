@@ -117,104 +117,167 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       // Générer le PDF
       const doc = new jsPDF();
       
-      // En-tête avec logo si disponible
+      // Configuration du document
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 20;
+      let currentY = margin;
+      
+      // Couleurs professionnelles
+      const primaryColor = [59, 130, 246]; // blue-500
+      const textGray = [107, 114, 128]; // gray-500
+      const textLight = [243, 244, 246]; // gray-100
+      
+      // Header document
+      doc.setFillColor(...textLight);
+      doc.rect(0, 0, pageWidth, 80, 'F');
+      
+      // Logo agence
       if (profileToUse?.logo_url) {
         try {
-          doc.addImage(profileToUse.logo_url, 'PNG', 20, 15, 30, 15);
+          doc.addImage(profileToUse.logo_url, 'PNG', margin, 15, 40, 20);
         } catch (e) {
           console.log('Logo non chargé, utilisation du texte');
         }
       }
       
+      // Informations agence dans header
       doc.setFontSize(20);
-      doc.text(`${docType.label.toUpperCase()} - ${lead.nom}`, 20, 50);
+      doc.setTextColor(...primaryColor);
+      doc.setFont(undefined, 'bold');
+      doc.text(profileToUse?.name || 'Agence', pageWidth - margin - 80, 25, { align: 'right' });
       
-      // Informations agence (complètes)
+      doc.setFontSize(10);
+      doc.setTextColor(...textGray);
+      doc.setFont(undefined, 'normal');
+      if (profileToUse?.address) {
+        doc.text(profileToUse.address, pageWidth - margin - 80, 35, { align: 'right' });
+      }
+      if (profileToUse?.email) {
+        doc.text(profileToUse.email, pageWidth - margin - 80, 42, { align: 'right' });
+      }
+      if (profileToUse?.phone) {
+        doc.text(profileToUse.phone, pageWidth - margin - 80, 49, { align: 'right' });
+      }
+      
+      // Type et numéro du document
+      currentY = 100;
+      doc.setFontSize(24);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text(docType.label.toUpperCase(), margin, currentY);
+      
       doc.setFontSize(12);
-      let yPos = 65;
-      doc.text(`${profileToUse.legalName || profileToUse.name}`, 20, yPos);
-      yPos += 10;
-      if (profileToUse.legalStatus) {
-        doc.text(`${profileToUse.legalStatus}`, 20, yPos);
-        yPos += 10;
-      }
-      if (profileToUse.registrationNumber) {
-        doc.text(`${profileToUse.registrationNumber}`, 20, yPos);
-        yPos += 10;
-      }
-      if (profileToUse.address) {
-        doc.text(`${profileToUse.address}`, 20, yPos);
-        yPos += 10;
-      }
-      if (profileToUse.phone) {
-        doc.text(`Tél: ${profileToUse.phone}`, 20, yPos);
-        yPos += 10;
-      }
-      if (profileToUse.email) {
-        doc.text(`Email: ${profileToUse.email}`, 20, yPos);
-        yPos += 10;
-      }
+      doc.setTextColor(...textGray);
+      doc.setFont(undefined, 'normal');
+      const documentNumber = `DOC-${Date.now().toString().slice(-6)}`;
+      doc.text(`N°: ${documentNumber}`, margin, currentY + 10);
+      doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, margin, currentY + 17);
       
-      // Informations client
-      yPos += 10;
+      // Ligne de séparation
+      doc.setDrawColor(...textGray);
+      doc.setLineWidth(0.5);
+      doc.line(margin, currentY + 25, pageWidth - margin, currentY + 25);
+      
+      // Bloc client
+      currentY = currentY + 40;
       doc.setFontSize(14);
-      doc.text('INFORMATIONS CLIENT', 20, yPos);
-      yPos += 15;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text('CLIENT', margin, currentY);
+      
+      currentY += 10;
       doc.setFontSize(11);
-      doc.text(`Nom: ${lead.nom}`, 20, yPos);
-      yPos += 10;
-      doc.text(`Email: ${lead.email}`, 20, yPos);
-      yPos += 10;
-      doc.text(`Téléphone: ${lead.telephone}`, 20, yPos);
-      yPos += 10;
-      doc.text(`Budget: ${formatBudget(lead.budget || 0)}`, 20, yPos);
-      yPos += 10;
-      doc.text(`Type de bien: ${lead.type_bien || 'Non spécifié'}`, 20, yPos);
+      doc.setTextColor(...textGray);
+      doc.setFont(undefined, 'normal');
       
-      // Contenu spécifique selon type
-      yPos += 15;
+      const clientInfo = [
+        lead.nom || 'Non spécifié',
+        lead.email || 'Non spécifié',
+        lead.telephone || 'Non spécifié',
+        lead.type_bien || 'Projet non spécifié',
+        `Budget: ${formatBudget(lead.budget || 0)}`
+      ];
+      
+      clientInfo.forEach(info => {
+        doc.text(info, margin, currentY);
+        currentY += 7;
+      });
+      
+      // Ligne de séparation
+      doc.setDrawColor(...textGray);
+      doc.setLineWidth(0.5);
+      doc.line(margin, currentY + 5, pageWidth - margin, currentY + 5);
+      
+      // Corps du document
+      currentY += 15;
       doc.setFontSize(14);
-      doc.text('DÉTAILS DU DOCUMENT', 20, yPos);
-      yPos += 15;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text('DÉTAILS', margin, currentY);
       
+      currentY += 15;
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      
+      // Contenu structuré selon type
       let content = '';
       switch (docType.id) {
         case 'mandat':
-          content = `Le soussigné ${lead.nom} donne mandat exclusif à ${profileToUse.legalName || profileToUse.name} pour la vente du bien situé au [adresse]. Durée: 3 mois. Commission: 5% du prix de vente.`;
+          content = `OBJET: MANDAT EXCLUSIF DE VENTE\n\nLe soussigné ${lead.nom} donne mandat exclusif à ${profileToUse?.name || 'Agence'} pour la vente du bien situé au [adresse du bien].\n\nDURÉE: 3 mois à compter de la date de signature.\n\nCOMMISSION: 5% du prix de vente HT, payable par le vendeur au moment de la signature de l'acte de vente.\n\nENGAGEMENTS:\n- Le vendeur s'engage à ne pas confier de mandat à une autre agence\n- L'agence s'engage à assurer la promotion du bien\n- Les visites seront organisées selon la disponibilité du vendeur`;
           break;
         case 'devis':
-          content = `Devis pour services ${agencyType === 'immobilier' ? 'immobiliers' : 'marketing'} - ${lead.nom}\nClient: ${lead.nom}\nAgence: ${profileToUse.legalName || profileToUse.name}\nHonoraires: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'})\n${agencyType === 'immobilier' ? 'Accompagnement vente: Inclus\nMarketing: Inclus' : 'Services: Marketing digital, gestion réseaux sociaux\nCréation contenu: Inclus'}`;
+          content = `DEVIS N°${documentNumber}\n\nCLIENT: ${lead.nom}\nAGENCE: ${profileToUse?.name || 'Agence'}\nDATE: ${new Date().toLocaleDateString('fr-FR')}\n\nPRESTATIONS PROPOSÉES:\n${agencyType === 'immobilier' ? '• Accompagnement complet à la vente\n• Estimation et valorisation du bien\n• Marketing professionnel (photos, visites virtuelles)\n• Publication sur les plateformes immobilières\n• Gestion des candidatures et négociations\n• Assistance jusqu\'à la signature' : '• Stratégie marketing digitale personnalisée\n• Gestion des réseaux sociaux\n• Création de contenu professionnel\n• Campagnes publicitaires ciblées\n• Analyse des performances\n• Reporting mensuel'}\n\nMONTANT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'} du budget projet)\n\nVALIDITÉ: 1 mois à compter de la date d\'émission`;
           break;
         case 'compromis':
-          content = `COMPROMIS DE VENTE\nVendeur: [Nom du vendeur]\nAcheteur: ${lead.nom}\nBien: [adresse du bien]\nPrix: ${formatBudget(lead.budget || 0)}\nDate: ${new Date().toLocaleDateString()}\nAgence: ${profileToUse.legalName || profileToUse.name}\n\nConditions: \n- Accompte 10% à la signature\n- Solde à la levée des clauses suspensives\n- Délai de rétractation: 10 jours`;
+          content = `COMPROMIS DE VENTE\n\nVendeur: [Nom du vendeur]\nAcheteur: ${lead.nom}\nBien: [adresse complète du bien]\nPrix de vente: ${formatBudget(lead.budget || 0)}\nDate de signature: ${new Date().toLocaleDateString('fr-FR')}\n\nCLAUSES SUSPENSIVES:\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nDÉLAI DE RÉTRACTATION: 10 jours à compter de la signature\n\nACCOMPTE: ${formatBudget((lead.budget || 0) * 0.10)} (10% du prix de vente)\n\nSOLDE: ${formatBudget((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDATE PRÉVISIONNELLE DE SIGNATURE DÉFINITIVE: [à déterminer]`;
           break;
         case 'facture':
-          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nPrestataire: ${profileToUse.legalName || profileToUse.name}\n${profileToUse.registrationNumber || ''}\n${profileToUse.address || ''}\n\nMontant HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA: 20%\nTotal TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\n${profileToUse.paymentConditions || 'Paiement à réception de facture'}`;
+          content = `FACTURE N°${documentNumber}\n\nCLIENT: ${lead.nom}\n${lead.email}\n${lead.telephone}\n\nPRESTATAIRE: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS:\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}\n\nMONTANT HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA (20%): ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.006 : 0.01))}\nTOTAL TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\n${profileToUse?.paymentConditions || 'Paiement à réception de facture'}\nÉchéance: 30 jours`;
           break;
         case 'bon_visite':
-          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${profileToUse.name || 'Agence'}\nAgence: ${profileToUse.legalName || profileToUse.name}\n\nHoraires: [à définir]\nContact: ${profileToUse.phone || ''}`;
+          content = `BON DE VISITE\n\nCLIENT: ${lead.nom}\nTÉLÉPHONE: ${lead.telephone}\nEMAIL: ${lead.email}\n\nBIEN VISITÉ: [adresse du bien]\nDATE DE VISITE: ${new Date().toLocaleDateString('fr-FR')}\nHEURE: [à définir]\n\nAGENT PRÉSENT: ${profileToUse?.name || 'Agence'}\nCONTACT: ${profileToUse?.phone || ''}\n\nOBSERVATIONS:\n[Notes et remarques sur la visite]\n\nPROCHAINES ÉTAPES:\n• Retour client sous 48h\n• Proposition d'offre (si intérêt)\n• Prise de contact vendeur\n• Préparation compromis (si accord)`;
           break;
         case 'contrat':
-          content = `CONTRAT DE PRESTATION\nClient: ${lead.nom}\nPrestataire: ${profileToUse.legalName || profileToUse.name}\n${profileToUse.registrationNumber || ''}\n${profileToUse.address || ''}\n\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${formatBudget((lead.budget || 0) * 0.05)}\n\n${profileToUse.paymentConditions || 'Paiement mensuel'}`;
+          content = `CONTRAT DE PRESTATION DE SERVICES\n\nCLIENT: ${lead.nom}\nPRESTATAIRE: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET: Prestations de marketing digital\n\nDURÉE: 6 mois à compter de la date de signature\n\nPRESTATIONS INCLUSES:\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (10 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT: ${formatBudget((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION:\nPréavis de 30 jours par courriel recommandé`;
           break;
         case 'rapport':
-          content = `RAPPORT DE PERFORMANCE\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nAgence: ${profileToUse.legalName || profileToUse.name}\n\nPerformances:\n- Taux d'engagement: [à compléter]\n- Croissance abonnés: [à compléter]\n- Taux de conversion: [à compléter]\n\nRecommandations: [à compléter]`;
+          content = `RAPPORT DE PERFORMANCE\n\nCLIENT: ${lead.nom}\nPÉRIODE: ${new Date().toLocaleDateString('fr-FR')}\nAGENCE: ${profileToUse?.name || 'Agence'}\n\nINDICATEURS CLÉS:\n\nTAUX D'ENGAGEMENT: [à compléter]%\nCROISSANCE DES ABONNÉS: [à compléter]\nTAUX DE CONVERSION: [à compléter]%\nPORTÉE MOYENNE: [à compléter]\n\nPERFORMANCES PAR PLATEFORME:\n\nInstagram: [à compléter]\nFacebook: [à compléter]\nLinkedIn: [à compléter]\n\nRECOMMANDATIONS:\n• [Recommandation 1]\n• [Recommandation 2]\n• [Recommandation 3]\n\nPROCHAINES ACTIONS:\n• Optimisation contenu\n• Nouvelles campagnes\n• Analyse concurrentielle`;
           break;
       }
       
-      doc.setFontSize(11);
-      const splitText = doc.splitTextToSize(content, 170);
-      doc.text(splitText, 20, yPos);
+      // Découper le contenu en lignes pour éviter le débordement
+      const splitContent = doc.splitTextToSize(content, pageWidth - 2 * margin);
+      splitContent.forEach(line => {
+        if (currentY > pageHeight - 60) {
+          doc.addPage();
+          currentY = margin;
+        }
+        doc.text(line, margin, currentY);
+        currentY += 6;
+      });
       
-      // Pied de page avec mentions légales
-      const pageHeight = doc.internal.pageSize.height;
+      // Footer
+      const footerY = pageHeight - 40;
+      doc.setDrawColor(...textGray);
+      doc.setLineWidth(0.5);
+      doc.line(margin, footerY, pageWidth - margin, footerY);
+      
+      // Mentions légales
       doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text("Généré par LeadQualif IA - CRM Intelligent", 105, pageHeight - 10, { align: 'center' });
-      
-      if (profileToUse.legalMention) {
-        doc.text(profileToUse.legalMention, 105, pageHeight - 5, { align: 'center' });
+      doc.setTextColor(...textGray);
+      doc.setFont(undefined, 'normal');
+      if (profileToUse?.legalMention) {
+        const splitLegal = doc.splitTextToSize(profileToUse.legalMention, pageWidth - 2 * margin);
+        splitLegal.forEach((line, index) => {
+          doc.text(line, margin, footerY + 10 + (index * 5));
+        });
       }
+      
+      // Signature
+      doc.text('Signature:', margin, pageHeight - 15);
+      doc.line(margin + 35, pageHeight - 15, margin + 100, pageHeight - 15);
       
       // Convertir le PDF en Blob pour la preview
       const pdfBlob = doc.output('blob');
@@ -430,10 +493,10 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       
       {/* Preview Modal */}
       {showPreview && generatedDocument && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-200 bg-slate-50 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                   <span className="text-lg">📄</span>
@@ -453,37 +516,51 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
               </button>
             </div>
             
-            {/* Content */}
-            <div className="flex-1 overflow-hidden">
-              <iframe
-                src={generatedDocument.pdfUrl}
-                className="w-full h-full border-0"
-                title={`Aperçu ${generatedDocument.type}`}
-              />
+            {/* Content - Preview responsive */}
+            <div className="flex-1 overflow-auto bg-slate-100 p-4">
+              <div className="flex justify-center">
+                <div className="bg-white shadow-lg" style={{ 
+                  width: '100%', 
+                  maxWidth: '842px', // A4 width in pixels at 96 DPI
+                  height: 'auto',
+                  transform: 'scale(0.9)',
+                  transformOrigin: 'top center'
+                }}>
+                  <iframe
+                    src={generatedDocument.pdfUrl}
+                    className="w-full border-0"
+                    style={{ 
+                      height: '1189px', // A4 height in pixels at 96 DPI
+                      minHeight: '600px'
+                    }}
+                    title={`Aperçu ${generatedDocument.type}`}
+                  />
+                </div>
+              </div>
             </div>
             
             {/* Actions */}
-            <div className="flex items-center justify-between p-6 border-t border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-slate-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 md:p-6 border-t border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-sm text-slate-600">
+                <div>
                   <span className="font-medium">Agence:</span> {generatedDocument.agencyData?.name || 'Non spécifiée'}
                 </div>
-                <div className="text-sm text-slate-600">
+                <div>
                   <span className="font-medium">Devise:</span> {generatedDocument.agencyData?.devise || 'EUR'}
                 </div>
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-full sm:w-auto">
                 <button
                   onClick={downloadDocument}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   <span>⬇</span>
                   Télécharger
                 </button>
                 <button
                   onClick={printDocument}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
                 >
                   <span>🖨</span>
                   Imprimer
