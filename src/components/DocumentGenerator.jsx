@@ -208,6 +208,25 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
           lead_id: lead.id,
           agency_id: agencyId,
           type_document: docType.label.toLowerCase(),
+          titre: `${docType.label} - ${lead.nom}`,
+          contenu_html: JSON.stringify({
+            template: docType.id,
+            category: docType.category,
+            generatedAt: new Date().toISOString(),
+            agencyData: agencyProfile,
+            clientData: {
+              nom: lead.nom,
+              email: lead.email,
+              telephone: lead.telephone,
+              budget: lead.budget,
+              type_bien: lead.type_bien
+            }
+          }),
+          montant: lead.budget || 0,
+          devise: agencyProfile?.devise || 'EUR',
+          client_nom: lead.nom,
+          client_email: lead.email,
+          client_telephone: lead.telephone,
           statut: 'généré',
           fichier_url: `${docType.label}_${lead.nom.replace(/\s+/g, '_')}.pdf`,
           contenu: JSON.stringify({

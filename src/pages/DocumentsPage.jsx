@@ -73,6 +73,21 @@ export default function DocumentsPage() {
     }
   };
 
+  // Fonction pour formater le montant selon la devise
+  const formatAmount = (amount, currency) => {
+    if (!amount) return '—';
+    
+    switch (currency) {
+      case 'XOF':
+        return `${amount.toLocaleString()} FCFA`;
+      case 'CAD':
+        return `$${amount.toLocaleString()}`;
+      case 'EUR':
+      default:
+        return `${amount.toLocaleString()} €`;
+    }
+  };
+
   // Types de documents selon type d'agence
   const getDocumentTypes = () => {
     if (agencyType === 'immobilier') {
@@ -181,7 +196,7 @@ export default function DocumentsPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">{getDocumentIcon(doc.type_document)}</span>
                           <div>
-                            <h4 className="font-semibold text-slate-900 capitalize">{doc.type_document}</h4>
+                            <h4 className="font-semibold text-slate-900">{doc.titre || doc.type_document}</h4>
                             <p className="text-xs text-slate-500">ID: {doc.id.slice(0, 8)}</p>
                           </div>
                         </div>
@@ -192,9 +207,19 @@ export default function DocumentsPage() {
                       
                       {/* Informations client */}
                       <div className="mb-3">
-                        <p className="font-medium text-slate-900">{doc.leads?.nom || 'Client inconnu'}</p>
-                        <p className="text-sm text-slate-600">{doc.leads?.email || '—'}</p>
-                        <p className="text-sm text-slate-600">{doc.leads?.telephone || '—'}</p>
+                        <p className="font-medium text-slate-900">{doc.client_nom || doc.leads?.nom || 'Client inconnu'}</p>
+                        <p className="text-sm text-slate-600">{doc.client_email || doc.leads?.email || '—'}</p>
+                        <p className="text-sm text-slate-600">{doc.client_telephone || doc.leads?.telephone || '—'}</p>
+                      </div>
+                      
+                      {/* Montant et devise */}
+                      <div className="mb-3">
+                        <p className="text-sm font-medium text-slate-900">
+                          Montant: {formatAmount(doc.montant, doc.devise)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Devise: {doc.devise || 'EUR'}
+                        </p>
                       </div>
                       
                       {/* Date et fichier */}

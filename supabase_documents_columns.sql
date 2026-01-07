@@ -1,0 +1,11 @@
+-- Script SQL pour ajouter les nouvelles colonnes à la table documents
+-- Exécuter ce script dans l'éditeur SQL de Supabase
+
+ALTER TABLE documents 
+ADD COLUMN IF NOT EXISTS titre TEXT,
+ADD COLUMN IF NOT EXISTS contenu_html TEXT,
+ADD COLUMN IF NOT EXISTS montant NUMERIC,
+ADD COLUMN IF NOT EXISTS devise TEXT,
+ADD COLUMN IF NOT EXISTS client_nom TEXT,
+ADD COLUMN IF NOT EXISTS client_email TEXT,
+ADD COLUMN IF NOT EXISTS client_telephone TEXT;
