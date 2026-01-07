@@ -463,7 +463,7 @@ export default function Dashboard() {
                               href={`https://wa.me/${lead.telephone?.replace(/\D/g,'')}`} 
                               target="_blank" 
                               className="text-green-600 hover:text-green-800 p-1"
-                              title="WhatsApp"
+                              title="Envoyer un message WhatsApp"
                               onClick={(e) => e.stopPropagation()}
                             >
                               💬
@@ -471,27 +471,27 @@ export default function Dashboard() {
                             <a 
                               href={`tel:${lead.telephone}`} 
                               className="text-blue-600 hover:text-blue-800 p-1"
-                              title="Appeler"
+                              title="Appeler le client"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              �
+                              📞
                             </a>
                             <a 
                               href={`mailto:${lead.email}`}
                               className="text-orange-600 hover:text-orange-800 p-1"
-                              title="Email"
+                              title="Envoyer un email"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              �
+                              📧
                             </a>
                             <button 
                               className="text-purple-600 hover:text-purple-800 p-1"
-                              title="RDV"
+                              title="Planifier un RDV"
                               onClick={(e) => {
                                 e.stopPropagation();
                               }}
                             >
-                              �
+                              📅
                             </button>
                           </div>
                         </td>
