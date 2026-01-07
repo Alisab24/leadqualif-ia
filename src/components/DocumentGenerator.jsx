@@ -7,6 +7,8 @@ import 'jspdf-autotable';
 export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated, compact = false, agencyType = 'immobilier' }) {
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
+  const [generatedDocument, setGeneratedDocument] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Templates de documents selon type d'agence
   const getDocumentTypes = () => {
@@ -214,11 +216,34 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
         doc.text(profileToUse.legalMention, 105, pageHeight - 5, { align: 'center' });
       }
       
-      // Télécharger le PDF
-      doc.save(`${docType.label}_${lead.nom.replace(/\s+/g, '_')}.pdf`);
+      // Convertir le PDF en Blob pour la preview
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Créer l'objet document pour la preview
+      const documentData = {
+        id: Date.now(),
+        type: docType.label,
+        typeKey: docType.id,
+        pdfUrl: pdfUrl,
+        pdfBlob: pdfBlob,
+        fileName: `${docType.label}_${lead.nom.replace(/\s+/g, '_')}.pdf`,
+        agencyData: profileToUse,
+        clientData: {
+          nom: lead.nom,
+          email: lead.email,
+          telephone: lead.telephone,
+          budget: lead.budget,
+          type_bien: lead.type_bien
+        },
+        generatedAt: new Date().toISOString()
+      };
+      
+      setGeneratedDocument(documentData);
+      setShowPreview(true);
       
       // Créer l'entrée dans la base de données
-      const { data: documentData, error: insertError } = await supabase
+      const { data: dbDocumentData, error: insertError } = await supabase
         .from('documents')
         .insert({
           lead_id: lead.id,
@@ -244,7 +269,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
           client_email: lead.email,
           client_telephone: lead.telephone,
           statut: 'généré',
-          fichier_url: `${docType.label}_${lead.nom.replace(/\s+/g, '_')}.pdf`,
+          fichier_url: documentData.fileName,
           contenu: JSON.stringify({
             template: docType.id,
             category: docType.category,
@@ -266,7 +291,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       if (insertError) {
         console.error('Erreur insertion document:', insertError);
       } else {
-        console.log('Document créé avec ID:', documentData.id);
+        console.log('Document créé avec ID:', dbDocumentData.id);
       }
       
       // Mettre à jour le statut du lead selon le type de document
@@ -278,7 +303,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
           type: docType.label,
           leadId: lead.id,
           timestamp: new Date(),
-          documentId: documentData?.id
+          documentId: dbDocumentData?.id
         });
       }
       
@@ -318,6 +343,37 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
     } catch (error) {
       console.error('Erreur mise à jour statut:', error);
     }
+  };
+
+  // Fonction pour télécharger le document
+  const downloadDocument = () => {
+    if (generatedDocument?.pdfBlob) {
+      const link = document.createElement('a');
+      link.href = generatedDocument.pdfUrl;
+      link.download = generatedDocument.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // Fonction pour imprimer le document
+  const printDocument = () => {
+    if (generatedDocument?.pdfBlob) {
+      const printWindow = window.open(generatedDocument.pdfUrl, '_blank');
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
+  // Fonction pour fermer la preview
+  const closePreview = () => {
+    setShowPreview(false);
+    if (generatedDocument?.pdfUrl) {
+      URL.revokeObjectURL(generatedDocument.pdfUrl);
+    }
+    setGeneratedDocument(null);
   };
 
   if (compact) {
@@ -369,6 +425,72 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
         <div className="text-center py-4">
           <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
           <p className="text-sm text-slate-600">Génération en cours...</p>
+        </div>
+      )}
+      
+      {/* Preview Modal */}
+      {showPreview && generatedDocument && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-lg">📄</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">{generatedDocument.type}</h3>
+                  <p className="text-sm text-slate-600">
+                    {generatedDocument.clientData?.nom} • {new Date(generatedDocument.generatedAt).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={closePreview}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={generatedDocument.pdfUrl}
+                className="w-full h-full border-0"
+                title={`Aperçu ${generatedDocument.type}`}
+              />
+            </div>
+            
+            {/* Actions */}
+            <div className="flex items-center justify-between p-6 border-t border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-slate-600">
+                  <span className="font-medium">Agence:</span> {generatedDocument.agencyData?.name || 'Non spécifiée'}
+                </div>
+                <div className="text-sm text-slate-600">
+                  <span className="font-medium">Devise:</span> {generatedDocument.agencyData?.devise || 'EUR'}
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={downloadDocument}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  <span>⬇</span>
+                  Télécharger
+                </button>
+                <button
+                  onClick={printDocument}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                >
+                  <span>🖨</span>
+                  Imprimer
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
