@@ -22,6 +22,56 @@ export default function Dashboard() {
 
   const statuts = ['À traiter', 'Contacté', 'Offre en cours', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
+  // Composant ActionBtn pour les actions rapides
+  function ActionBtn({ icon, label, color, onClick }) {
+    const colors = {
+      green: "bg-green-50 text-green-700 hover:bg-green-100",
+      blue: "bg-blue-50 text-blue-700 hover:bg-blue-100",
+      purple: "bg-purple-50 text-purple-700 hover:bg-purple-100",
+      orange: "bg-orange-50 text-orange-700 hover:bg-orange-100",
+    };
+
+    return (
+      <button 
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center p-3 rounded-lg text-xs font-semibold hover:scale-[1.03] transition-all ${colors[color]}`}
+      >
+        <span className="text-xl mb-1">{icon}</span>
+        {label}
+      </button>
+    );
+  }
+
+  // Composant InfoRow pour les informations client
+  function InfoRow({ icon, label, value, highlight, badge }) {
+    return (
+      <div className="flex items-center justify-between py-2">
+        <div className="flex items-center gap-3 text-slate-600">
+          <span className="text-base">{icon}</span>
+          <span className="text-sm">{label}</span>
+        </div>
+
+        {badge ? (
+          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+            value === 'À traiter' ? 'bg-gray-100 text-gray-800' :
+            value === 'Contacté' ? 'bg-blue-100 text-blue-800' :
+            value === 'Offre en cours' ? 'bg-yellow-100 text-yellow-800' :
+            value === 'RDV fixé' ? 'bg-orange-100 text-orange-800' :
+            value === 'Négociation' ? 'bg-purple-100 text-purple-800' :
+            value === 'Gagné' ? 'bg-green-100 text-green-800' :
+            'bg-red-100 text-red-800'
+          }`}>
+            {value}
+          </span>
+        ) : (
+          <span className={`font-semibold text-sm ${highlight ? "text-green-600" : "text-slate-800"}`}>
+            {value}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   // Logique de scroll simple et stable type Bitrix24
   const checkScrollOverflow = () => {
     const container = scrollContainerRef.current;
@@ -458,181 +508,107 @@ export default function Dashboard() {
 
         {selectedLead && (
           <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm">
-            <div className="w-full max-w-2xl bg-white h-full shadow-2xl p-8 overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">{selectedLead.nom}</h2>
-                <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">✕</button>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mb-8">
-                <a href={`https://wa.me/${selectedLead.telephone?.replace(/\D/g,'')}`} target="_blank" className="flex flex-col items-center p-3 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 border border-green-200">
-                  <span className="text-2xl">💬</span><span className="font-bold text-xs mt-1">WhatsApp</span>
-                </a>
-                <a href={`tel:${selectedLead.telephone}`} className="flex flex-col items-center p-3 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 border border-blue-200">
-                  <span className="text-2xl">📞</span><span className="font-bold text-xs mt-1">Appeler</span>
-                </a>
-                <a href="#" className="flex flex-col items-center p-3 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 border border-purple-200">
-                  <span className="text-2xl">📅</span><span className="font-bold text-xs mt-1">RDV</span>
-                </a>
-              </div>
+            <div className="w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-slate-900">{selectedLead.nom}</h2>
+                  <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                    ✕
+                  </button>
+                </div>
 
-              {/* Actions pro - UI enrichie */}
-              <div className="grid grid-cols-3 gap-3 mb-8">
-                <a 
-                  href={`mailto:${selectedLead.email || ''}?subject=Suivi de votre projet immobilier&body=Bonjour ${selectedLead.nom || ''},%0D%0A%0D%0AJe vous contacte concernant votre projet immobilier.%0D%0A%0D%0AN'hésitez pas à me faire savoir vos disponibilités pour en discuter.%0D%0A%0D%0ACordialement,%0D%0A[Votre nom]`}
-                  className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${
-                    selectedLead.email 
-                      ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200' 
-                      : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-2xl">✉️</span>
-                  <span className="font-bold text-xs mt-1">Email</span>
-                </a>
-                
-                <button 
-                  onClick={() => {
-                    // TODO: Ouvrir panneau documents
-                    console.log('Documents button clicked');
-                  }}
-                  className="flex flex-col items-center p-3 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 border border-indigo-200"
-                >
-                  <span className="text-2xl">📄</span>
-                  <span className="font-bold text-xs mt-1">Documents</span>
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    // TODO: Afficher suggestion IA
-                    console.log('IA suggestion button clicked');
-                  }}
-                  className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${
-                    selectedLead.score_ia || selectedLead.ia_score
-                      ? 'bg-pink-50 text-pink-700 hover:bg-pink-100 border-pink-200' 
-                      : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-2xl">🧠</span>
-                  <span className="font-bold text-xs mt-1">Suggestion IA</span>
-                </button>
-              </div>
-              
-              <div className="border-t pt-6">
-                <h3 className="font-bold text-lg mb-4">Informations</h3>
-                <div className="space-y-3">
-                  <div><strong>Email:</strong> {selectedLead.email}</div>
-                  <div><strong>Téléphone:</strong> {selectedLead.telephone}</div>
-                  <div><strong>Budget:</strong> {(selectedLead.budget || 0).toLocaleString()} €</div>
-                  <div><strong>Statut:</strong> {selectedLead.statut}</div>
-                  <div><strong>Type de bien:</strong> {selectedLead.type_bien || 'Non spécifié'}</div>
+                {/* Zone 1 - Actions rapides */}
+                <div className="grid grid-cols-4 gap-2 mb-6">
+                  <ActionBtn 
+                    icon="💬" 
+                    label="WhatsApp" 
+                    color="green" 
+                    onClick={() => window.open(`https://wa.me/${selectedLead.telephone?.replace(/\D/g,'')}`, '_blank')}
+                  />
+                  <ActionBtn 
+                    icon="📞" 
+                    label="Appeler" 
+                    color="blue" 
+                    onClick={() => window.open(`tel:${selectedLead.telephone}`, '_blank')}
+                  />
+                  <ActionBtn 
+                    icon="📅" 
+                    label="RDV" 
+                    color="purple" 
+                    onClick={() => {}}
+                  />
+                  <ActionBtn 
+                    icon="✉️" 
+                    label="Email" 
+                    color="orange" 
+                    onClick={() => window.open(`mailto:${selectedLead.email}`, '_blank')}
+                  />
+                </div>
+
+                {/* Zone 2 - Informations client */}
+                <div className="bg-slate-50 rounded-xl p-4 space-y-1">
+                  <InfoRow icon="📧" label="Email" value={selectedLead.email || '—'} />
+                  <InfoRow icon="📱" label="Téléphone" value={selectedLead.telephone || '—'} />
+                  <InfoRow icon="💰" label="Budget" value={`${(selectedLead.budget || 0).toLocaleString('fr-FR')} €`} highlight />
+                  <InfoRow icon="📌" label="Statut" value={selectedLead.statut} badge />
+                  <InfoRow icon="🏠" label="Type de bien" value={selectedLead.type_bien || 'Non défini'} />
+                  {selectedLead.score_ia && (
+                    <InfoRow icon="🧠" label="Score IA" value={`${selectedLead.score_ia}/100`} highlight />
+                  )}
+                  {selectedLead.source && (
+                    <InfoRow icon="🌐" label="Source" value={selectedLead.source} />
+                  )}
                 </div>
               </div>
 
-              {/* Timeline d'historique du lead */}
-              <div className="border-t pt-6">
-                <h3 className="font-bold text-lg mb-4">📜 Historique du lead</h3>
+              {/* Zone 3 - Actions avancées */}
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900">Actions avancées</h3>
+                </div>
                 
-                {(() => {
-                  // Données déjà disponibles dans le lead
-                  const events = [];
-                  
-                  // Création du lead
-                  if (selectedLead.created_at) {
-                    events.push({
-                      icon: '👤',
-                      label: 'Lead créé',
-                      detail: `Nouveau lead : ${selectedLead.nom}`,
-                      date: selectedLead.created_at,
-                      color: 'bg-blue-100 text-blue-800 border-blue-200'
-                    });
-                  }
-                  
-                  // Suggestion IA
-                  if (selectedLead.score_ia || selectedLead.ia_score) {
-                    events.push({
-                      icon: '🧠',
-                      label: 'IA',
-                      detail: `Lead chaud (score ${selectedLead.score_ia || selectedLead.ia_score})`,
-                      date: selectedLead.created_at,
-                      color: 'bg-purple-100 text-purple-800 border-purple-200'
-                    });
-                  }
-                  
-                  // Changement de statut
-                  if (selectedLead.statut) {
-                    events.push({
-                      icon: '📊',
-                      label: 'Statut',
-                      detail: `Statut actuel : ${selectedLead.statut}`,
-                      date: selectedLead.updated_at || selectedLead.created_at,
-                      color: 'bg-green-100 text-green-800 border-green-200'
-                    });
-                  }
-                  
-                  // RDV (simulation basée sur statut)
-                  if (selectedLead.statut === 'RDV fixé') {
-                    events.push({
-                      icon: '📅',
-                      label: 'RDV fixé',
-                      detail: 'Rendez-vous programmé',
-                      date: selectedLead.updated_at || selectedLead.created_at,
-                      color: 'bg-orange-100 text-orange-800 border-orange-200'
-                    });
-                  }
-                  
-                  // Document généré (simulation)
-                  if (selectedLead.statut === 'Négociation' || selectedLead.statut === 'Gagné') {
-                    events.push({
-                      icon: '📄',
-                      label: 'Devis généré',
-                      detail: 'Document créé et envoyé',
-                      date: selectedLead.updated_at || selectedLead.created_at,
-                      color: 'bg-indigo-100 text-indigo-800 border-indigo-200'
-                    });
-                  }
-                  
-                  // Tri par date
-                  events.sort((a, b) => new Date(b.date) - new Date(a.date));
-                  
-                  if (events.length === 0) {
-                    return (
-                      <div className="text-center py-8 text-gray-500">
-                        <div className="text-3xl mb-2">📜</div>
-                        <p className="text-sm">Aucun historique disponible</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="flex items-center gap-3 p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-indigo-700 font-medium transition-colors">
+                    📄 Documents
+                  </button>
+                  <button className="flex items-center gap-3 p-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 font-medium transition-colors">
+                    🧠 Suggestion IA
+                  </button>
+                  <button className="flex items-center gap-3 p-3 bg-green-50 hover:bg-green-100 rounded-lg text-green-700 font-medium transition-colors">
+                    📋 Historique
+                  </button>
+                  <button className="flex items-center gap-3 p-3 bg-orange-50 hover:bg-orange-100 rounded-lg text-orange-700 font-medium transition-colors">
+                    ✏️ Modifier
+                  </button>
+                </div>
+
+                {/* Timeline */}
+                <div className="mt-6">
+                  <h3 className="font-bold text-slate-900 mb-4">Historique</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-slate-900">Création du lead</div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(selectedLead.created_at).toLocaleDateString('fr-FR')}
+                        </div>
                       </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="space-y-4">
-                      {events.map((event, index) => (
-                        <div key={index} className="flex items-start space-x-3">
-                          {/* Icône */}
-                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border ${event.color}`}>
-                            <span className="text-sm">{event.icon}</span>
-                          </div>
-                          
-                          {/* Contenu */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-gray-900">{event.label}</span>
-                              <span className="text-xs text-gray-500">
-                                {event.date ? 
-                                  new Date(event.date).toLocaleDateString('fr-FR', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                  }) : 
-                                  'Date inconnue'
-                                }
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">{event.detail}</p>
+                    </div>
+                    {selectedLead.updated_at && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-slate-900">Dernière modification</div>
+                          <div className="text-xs text-slate-500">
+                            {new Date(selectedLead.updated_at).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
