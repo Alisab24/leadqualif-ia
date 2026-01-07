@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [initialAnimation, setInitialAnimation] = useState(true);
 
   const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
@@ -78,6 +79,11 @@ export default function Dashboard() {
     
     window.addEventListener('resize', handleResize);
     setTimeout(checkScrollOverflow, 200); // Vérification initiale
+    
+    // Animation initiale unique (1 seconde max)
+    setTimeout(() => {
+      setInitialAnimation(false);
+    }, 800);
     
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -257,10 +263,18 @@ export default function Dashboard() {
                 onMouseDown={() => startContinuousScroll('left')}
                 onMouseUp={stopContinuousScroll}
                 onMouseLeave={stopContinuousScroll}
-                className="absolute left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-                style={{ opacity: isScrolling && showLeftArrow ? 1 : 0.7 }}
+                className={`absolute left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/95 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-xl ${
+                  initialAnimation ? 'animate-pulse' : ''
+                }`}
+                style={{
+                  opacity: isScrolling && showLeftArrow ? 1 : 0.8,
+                  boxShadow: isScrolling && showLeftArrow 
+                    ? '0 0 20px rgba(59, 130, 246, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15)' 
+                    : '0 4px 12px rgba(0, 0, 0, 0.1)',
+                  transform: `translate(-50%, -50%) ${initialAnimation ? 'scale(1.05)' : 'scale(1)'}`
+                }}
               >
-                <span className="text-gray-700 text-lg">◀</span>
+                <span className="text-gray-700 text-lg select-none">◀</span>
               </button>
             )}
             
@@ -270,10 +284,18 @@ export default function Dashboard() {
                 onMouseDown={() => startContinuousScroll('right')}
                 onMouseUp={stopContinuousScroll}
                 onMouseLeave={stopContinuousScroll}
-                className="absolute right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-                style={{ opacity: isScrolling && showRightArrow ? 1 : 0.7 }}
+                className={`absolute right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/95 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-xl ${
+                  initialAnimation ? 'animate-pulse' : ''
+                }`}
+                style={{
+                  opacity: isScrolling && showRightArrow ? 1 : 0.8,
+                  boxShadow: isScrolling && showRightArrow 
+                    ? '0 0 20px rgba(59, 130, 246, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15)' 
+                    : '0 4px 12px rgba(0, 0, 0, 0.1)',
+                  transform: `translate(50%, -50%) ${initialAnimation ? 'scale(1.05)' : 'scale(1)'}`
+                }}
               >
-                <span className="text-gray-700 text-lg">▶</span>
+                <span className="text-gray-700 text-lg select-none">▶</span>
               </button>
             )}
             
