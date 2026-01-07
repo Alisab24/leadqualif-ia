@@ -21,12 +21,34 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
   React.useEffect(() => {
     const fetchAgencyProfile = async () => {
       if (agencyId) {
-        const { data } = await supabase
-          .from('agencies')
+        // Essayer de récupérer depuis les profiles d'abord
+        const { data: profileData } = await supabase
+          .from('profiles')
           .select('*')
-          .eq('id', agencyId)
+          .eq('agency_id', agencyId)
           .single();
-        setAgencyProfile(data);
+        
+        if (profileData) {
+          setAgencyProfile({
+            name: profileData.nom_agence || profileData.nom_legal || 'Agence',
+            address: profileData.adresse_legale || profileData.adresse,
+            phone: profileData.telephone,
+            email: profileData.email,
+            legalName: profileData.nom_legal,
+            legalStatus: profileData.statut_juridique,
+            registrationNumber: profileData.numero_enregistrement,
+            legalMention: profileData.mention_legale,
+            paymentConditions: profileData.conditions_paiement
+          });
+        } else {
+          // Fallback sur la table agencies si elle existe
+          const { data } = await supabase
+            .from('agencies')
+            .select('*')
+            .eq('id', agencyId)
+            .single();
+          setAgencyProfile(data);
+        }
       }
     };
     fetchAgencyProfile();
@@ -36,96 +58,149 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
     setLoading(true);
     
     try {
+      // Vérifier si les informations de l'agence sont complètes
+      if (!agencyProfile?.name || !agencyProfile?.legalName) {
+        alert('⚠️ Veuillez compléter les informations de l\'agence et les informations légales dans les Paramètres avant de générer des documents.');
+        return;
+      }
+      
       // Récupérer l'utilisateur actuel
       const { data: { user } } = await supabase.auth.getUser();
       
       // Générer le PDF
       const doc = new jsPDF();
       
-      // En-tête
-      doc.setFontSize(20);
-      doc.text(`${docType.label.toUpperCase()} - ${lead.nom}`, 20, 30);
+      // En-tête avec logo si disponible
+      if (agencyProfile.logo_url) {
+        try {
+          doc.addImage(agencyProfile.logo_url, 'PNG', 20, 15, 30, 15);
+        } catch (e) {
+          console.log('Logo non chargé, utilisation du texte');
+        }
+      }
       
-      // Informations agence
-      if (agencyProfile) {
-        doc.setFontSize(12);
-        doc.text(`${agencyProfile.name}`, 20, 50);
-        doc.text(`${agencyProfile.address || ''}`, 20, 60);
-        doc.text(`${agencyProfile.phone || ''}`, 20, 70);
-        doc.text(`${agencyProfile.email || ''}`, 20, 80);
+      doc.setFontSize(20);
+      doc.text(`${docType.label.toUpperCase()} - ${lead.nom}`, 20, 50);
+      
+      // Informations agence (complètes)
+      doc.setFontSize(12);
+      let yPos = 65;
+      doc.text(`${agencyProfile.legalName || agencyProfile.name}`, 20, yPos);
+      yPos += 10;
+      if (agencyProfile.legalStatus) {
+        doc.text(`${agencyProfile.legalStatus}`, 20, yPos);
+        yPos += 10;
+      }
+      if (agencyProfile.registrationNumber) {
+        doc.text(`${agencyProfile.registrationNumber}`, 20, yPos);
+        yPos += 10;
+      }
+      if (agencyProfile.address) {
+        doc.text(`${agencyProfile.address}`, 20, yPos);
+        yPos += 10;
+      }
+      if (agencyProfile.phone) {
+        doc.text(`Tél: ${agencyProfile.phone}`, 20, yPos);
+        yPos += 10;
+      }
+      if (agencyProfile.email) {
+        doc.text(`Email: ${agencyProfile.email}`, 20, yPos);
+        yPos += 10;
       }
       
       // Informations client
+      yPos += 10;
       doc.setFontSize(14);
-      doc.text('INFORMATIONS CLIENT', 20, 100);
+      doc.text('INFORMATIONS CLIENT', 20, yPos);
+      yPos += 15;
       doc.setFontSize(11);
-      doc.text(`Nom: ${lead.nom}`, 20, 115);
-      doc.text(`Email: ${lead.email}`, 20, 125);
-      doc.text(`Téléphone: ${lead.telephone}`, 20, 135);
-      doc.text(`Budget: ${(lead.budget || 0).toLocaleString()} €`, 20, 145);
-      doc.text(`Type de bien: ${lead.type_bien || 'Non spécifié'}`, 20, 155);
+      doc.text(`Nom: ${lead.nom}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Email: ${lead.email}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Téléphone: ${lead.telephone}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Budget: ${(lead.budget || 0).toLocaleString()} €`, 20, yPos);
+      yPos += 10;
+      doc.text(`Type de bien: ${lead.type_bien || 'Non spécifié'}`, 20, yPos);
       
       // Contenu spécifique selon type
+      yPos += 15;
       doc.setFontSize(14);
-      doc.text('DÉTAILS DU DOCUMENT', 20, 180);
+      doc.text('DÉTAILS DU DOCUMENT', 20, yPos);
+      yPos += 15;
       
       let content = '';
       switch (docType.id) {
         case 'mandat':
-          content = `Le soussigné ${lead.nom} donne mandat exclusif à ${agencyProfile?.name || 'l\'agence'} pour la vente du bien situé au [adresse]. Durée: 3 mois. Commission: 5% du prix de vente.`;
+          content = `Le soussigné ${lead.nom} donne mandat exclusif à ${agencyProfile.legalName || agencyProfile.name} pour la vente du bien situé au [adresse]. Durée: 3 mois. Commission: 5% du prix de vente.`;
           break;
         case 'devis':
-          content = `Devis pour services immobiliers - ${lead.nom}\nHonoraires: ${((lead.budget || 0) * 0.03).toLocaleString()} € (3%)\nAccompagnement vente: Inclus\nMarketing: Inclus`;
+          content = `Devis pour services immobiliers - ${lead.nom}\nClient: ${lead.nom}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\nHonoraires: ${((lead.budget || 0) * 0.03).toLocaleString()} € (3%)\nAccompagnement vente: Inclus\nMarketing: Inclus`;
           break;
         case 'facture':
-          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nMontant: ${((lead.budget || 0) * 0.03).toLocaleString()} €\nTVA: 20%\nTotal TTC: ${((lead.budget || 0) * 0.036).toLocaleString()} €`;
+          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nMontant HT: ${((lead.budget || 0) * 0.03).toLocaleString()} €\nTVA: 20%\nTotal TTC: ${((lead.budget || 0) * 0.036).toLocaleString()} €\n\n${agencyProfile.paymentConditions || 'Paiement à réception de facture'}`;
           break;
         case 'bon_visite':
-          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${agencyProfile?.name || 'Agence'}`;
+          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${agencyProfile.name || 'Agence'}\nAgence: ${agencyProfile.legalName || agencyProfile.name}`;
           break;
         case 'contrat':
-          content = `CONTRAT DE SERVICES\nClient: ${lead.nom}\nPrestataire: ${agencyProfile?.name || 'Agence'}\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${((lead.budget || 0) * 0.05).toLocaleString()} €`;
+          content = `CONTRAT DE SERVICES\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${((lead.budget || 0) * 0.05).toLocaleString()} €\n\n${agencyProfile.paymentConditions || 'Paiement mensuel'}`;
           break;
         case 'rapport':
-          content = `RAPPORT D'ACTIVITÉ\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nPerformances: [à compléter]\nRecommandations: [à compléter]`;
+          content = `RAPPORT D'ACTIVITÉ\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nPerformances: [à compléter]\nRecommandations: [à compléter]`;
           break;
       }
       
       doc.setFontSize(11);
       const splitText = doc.splitTextToSize(content, 170);
-      doc.text(splitText, 20, 195);
+      doc.text(splitText, 20, yPos);
       
-      // Pied de page
+      // Pied de page avec mentions légales
       const pageHeight = doc.internal.pageSize.height;
       doc.setFontSize(8);
       doc.setTextColor(150);
       doc.text("Généré par LeadQualif IA - CRM Intelligent", 105, pageHeight - 10, { align: 'center' });
       
+      if (agencyProfile.legalMention) {
+        doc.text(agencyProfile.legalMention, 105, pageHeight - 5, { align: 'center' });
+      }
+      
       // Télécharger le PDF
-      doc.save(`${docType.label}_${lead.nom}.pdf`);
+      doc.save(`${docType.label}_${lead.nom.replace(/\s+/g, '_')}.pdf`);
       
       // Créer l'entrée dans la base de données
-      // await DocumentService.createDocument({
-      //   leadId: lead.id,
-      //   agencyId: agencyId,
-      //   type: docType.label,
-      //   title: `${docType.label} - ${lead.nom}`,
-      //   content: {
-      //     template: docType.id,
-      //     category: docType.category,
-      //     generatedAt: new Date().toISOString(),
-      //     agencyData: agencyProfile
-      //   },
-      //   metadata: {
-      //     clientName: lead.nom,
-      //     clientEmail: lead.email,
-      //     clientPhone: lead.telephone,
-      //     budget: lead.budget,
-      //     typeBien: lead.type_bien,
-      //     delai: lead.delai
-      //   },
-      //   userId: user?.id
-      // });
+      const { data: documentData, error: insertError } = await supabase
+        .from('documents')
+        .insert({
+          lead_id: lead.id,
+          agency_id: agencyId,
+          type_document: docType.label.toLowerCase(),
+          statut: 'généré',
+          fichier_url: `${docType.label}_${lead.nom.replace(/\s+/g, '_')}.pdf`,
+          contenu: JSON.stringify({
+            template: docType.id,
+            category: docType.category,
+            generatedAt: new Date().toISOString(),
+            agencyData: agencyProfile,
+            clientData: {
+              nom: lead.nom,
+              email: lead.email,
+              telephone: lead.telephone,
+              budget: lead.budget,
+              type_bien: lead.type_bien
+            }
+          }),
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Erreur insertion document:', insertError);
+      } else {
+        console.log('Document créé avec ID:', documentData.id);
+      }
       
       // Mettre à jour le statut du lead selon le type de document
       await updateLeadStatus(docType.id);
@@ -135,12 +210,14 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
         onDocumentGenerated({
           type: docType.label,
           leadId: lead.id,
-          timestamp: new Date()
+          timestamp: new Date(),
+          documentId: documentData?.id
         });
       }
       
     } catch (error) {
       console.error('Erreur génération document:', error);
+      alert('Erreur lors de la génération du document: ' + error.message);
     } finally {
       setLoading(false);
     }
