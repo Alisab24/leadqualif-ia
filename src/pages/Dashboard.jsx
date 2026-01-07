@@ -2,6 +2,8 @@
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
 import DocumentManager from '../components/DocumentManager';
+import DocumentHistory from '../components/DocumentHistory';
+import DocumentTimeline from '../components/DocumentTimeline';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -12,10 +14,17 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
   const [calendlyLink, setCalendlyLink] = useState(null);
   const [agencyId, setAgencyId] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Pour forcer le rafraîchissement
   const [viewMode, setViewMode] = useState('kanban');
 
   const scrollContainerRef = useRef(null);
   const scrollInterval = useRef(null);
+
+  const handleDocumentGenerated = (document) => {
+    // Forcer le rafraîchissement de l'historique et de la timeline
+    setRefreshTrigger(prev => prev + 1);
+    console.log('Document généré, rafraîchissement déclenché:', document);
+  };
 
   const startScroll = (direction) => {
     stopScroll();
@@ -257,7 +266,17 @@ export default function Dashboard() {
               </div>
               <div className="border-t pt-6">
                 <h3 className="font-bold text-lg mb-4">Documents</h3>
-                <DocumentManager lead={selectedLead} agencyId={session?.user?.id} />
+                <DocumentManager 
+                  lead={selectedLead} 
+                  agencyId={session?.user?.id} 
+                  onDocumentGenerated={handleDocumentGenerated}
+                />
+              </div>
+              <div className="border-t pt-6 mt-6">
+                <DocumentHistory leadId={selectedLead.id} refreshTrigger={refreshTrigger} />
+              </div>
+              <div className="border-t pt-6 mt-6">
+                <DocumentTimeline leadId={selectedLead.id} refreshTrigger={refreshTrigger} />
               </div>
             </div>
           </div>

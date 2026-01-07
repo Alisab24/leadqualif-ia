@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-export default function DocumentManager({ lead, agencyId }) {
+export default function DocumentManager({ lead, agencyId, onDocumentGenerated }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userAgencyId, setUserAgencyId] = useState(null);
@@ -94,6 +94,11 @@ export default function DocumentManager({ lead, agencyId }) {
         // Rafraîchir la liste des documents
         fetchDocuments();
         console.log('Document créé avec succès:', data);
+        
+        // Notifier le parent pour rafraîchir l'historique et la timeline
+        if (onDocumentGenerated) {
+          onDocumentGenerated(data);
+        }
       }
     } catch (error) {
       console.error('Erreur lors de la génération du PDF:', error);
