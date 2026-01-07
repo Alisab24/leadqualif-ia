@@ -87,10 +87,26 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
     setLoading(true);
     
     try {
-      // Vérifier si les informations de l'agence sont complètes
+      // Vérification non bloquante avec valeurs par défaut
+      let profileToUse = agencyProfile;
+      
       if (!agencyProfile?.name || !agencyProfile?.legalName) {
-        alert('⚠️ Veuillez compléter les informations de l\'agence et les informations légales dans les Paramètres avant de générer des documents.');
-        return;
+        console.warn('⚠️ Informations agence incomplètes - utilisation des valeurs par défaut');
+        
+        // Valeurs par défaut pour garantir la génération
+        profileToUse = {
+          name: agencyProfile?.nom_agence || 'Agence',
+          legalName: agencyProfile?.nom_legal || '—',
+          address: agencyProfile?.adresse || '—',
+          phone: agencyProfile?.telephone || '—',
+          email: agencyProfile?.email || '—',
+          legalStatus: agencyProfile?.statut_juridique || 'À compléter',
+          registrationNumber: agencyProfile?.numero_enregistrement || '—',
+          legalMention: agencyProfile?.mention_legale || '—',
+          paymentConditions: agencyProfile?.conditions_paiement || '—',
+          devise: agencyProfile?.devise || 'EUR',
+          symbole_devise: agencyProfile?.symbole_devise || '€'
+        };
       }
       
       // Récupérer l'utilisateur actuel
@@ -100,9 +116,9 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       const doc = new jsPDF();
       
       // En-tête avec logo si disponible
-      if (agencyProfile.logo_url) {
+      if (profileToUse?.logo_url) {
         try {
-          doc.addImage(agencyProfile.logo_url, 'PNG', 20, 15, 30, 15);
+          doc.addImage(profileToUse.logo_url, 'PNG', 20, 15, 30, 15);
         } catch (e) {
           console.log('Logo non chargé, utilisation du texte');
         }
@@ -114,26 +130,26 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       // Informations agence (complètes)
       doc.setFontSize(12);
       let yPos = 65;
-      doc.text(`${agencyProfile.legalName || agencyProfile.name}`, 20, yPos);
+      doc.text(`${profileToUse.legalName || profileToUse.name}`, 20, yPos);
       yPos += 10;
-      if (agencyProfile.legalStatus) {
-        doc.text(`${agencyProfile.legalStatus}`, 20, yPos);
+      if (profileToUse.legalStatus) {
+        doc.text(`${profileToUse.legalStatus}`, 20, yPos);
         yPos += 10;
       }
-      if (agencyProfile.registrationNumber) {
-        doc.text(`${agencyProfile.registrationNumber}`, 20, yPos);
+      if (profileToUse.registrationNumber) {
+        doc.text(`${profileToUse.registrationNumber}`, 20, yPos);
         yPos += 10;
       }
-      if (agencyProfile.address) {
-        doc.text(`${agencyProfile.address}`, 20, yPos);
+      if (profileToUse.address) {
+        doc.text(`${profileToUse.address}`, 20, yPos);
         yPos += 10;
       }
-      if (agencyProfile.phone) {
-        doc.text(`Tél: ${agencyProfile.phone}`, 20, yPos);
+      if (profileToUse.phone) {
+        doc.text(`Tél: ${profileToUse.phone}`, 20, yPos);
         yPos += 10;
       }
-      if (agencyProfile.email) {
-        doc.text(`Email: ${agencyProfile.email}`, 20, yPos);
+      if (profileToUse.email) {
+        doc.text(`Email: ${profileToUse.email}`, 20, yPos);
         yPos += 10;
       }
       
@@ -162,25 +178,25 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       let content = '';
       switch (docType.id) {
         case 'mandat':
-          content = `Le soussigné ${lead.nom} donne mandat exclusif à ${agencyProfile.legalName || agencyProfile.name} pour la vente du bien situé au [adresse]. Durée: 3 mois. Commission: 5% du prix de vente.`;
+          content = `Le soussigné ${lead.nom} donne mandat exclusif à ${profileToUse.legalName || profileToUse.name} pour la vente du bien situé au [adresse]. Durée: 3 mois. Commission: 5% du prix de vente.`;
           break;
         case 'devis':
-          content = `Devis pour services ${agencyType === 'immobilier' ? 'immobiliers' : 'marketing'} - ${lead.nom}\nClient: ${lead.nom}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\nHonoraires: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'})\n${agencyType === 'immobilier' ? 'Accompagnement vente: Inclus\nMarketing: Inclus' : 'Services: Marketing digital, gestion réseaux sociaux\nCréation contenu: Inclus'}`;
+          content = `Devis pour services ${agencyType === 'immobilier' ? 'immobiliers' : 'marketing'} - ${lead.nom}\nClient: ${lead.nom}\nAgence: ${profileToUse.legalName || profileToUse.name}\nHonoraires: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'})\n${agencyType === 'immobilier' ? 'Accompagnement vente: Inclus\nMarketing: Inclus' : 'Services: Marketing digital, gestion réseaux sociaux\nCréation contenu: Inclus'}`;
           break;
         case 'compromis':
-          content = `COMPROMIS DE VENTE\nVendeur: [Nom du vendeur]\nAcheteur: ${lead.nom}\nBien: [adresse du bien]\nPrix: ${formatBudget(lead.budget || 0)}\nDate: ${new Date().toLocaleDateString()}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nConditions: \n- Accompte 10% à la signature\n- Solde à la levée des clauses suspensives\n- Délai de rétractation: 10 jours`;
+          content = `COMPROMIS DE VENTE\nVendeur: [Nom du vendeur]\nAcheteur: ${lead.nom}\nBien: [adresse du bien]\nPrix: ${formatBudget(lead.budget || 0)}\nDate: ${new Date().toLocaleDateString()}\nAgence: ${profileToUse.legalName || profileToUse.name}\n\nConditions: \n- Accompte 10% à la signature\n- Solde à la levée des clauses suspensives\n- Délai de rétractation: 10 jours`;
           break;
         case 'facture':
-          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nMontant HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA: 20%\nTotal TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\n${agencyProfile.paymentConditions || 'Paiement à réception de facture'}`;
+          content = `FACTURE N°${Date.now()}\nClient: ${lead.nom}\nPrestataire: ${profileToUse.legalName || profileToUse.name}\n${profileToUse.registrationNumber || ''}\n${profileToUse.address || ''}\n\nMontant HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA: 20%\nTotal TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\n${profileToUse.paymentConditions || 'Paiement à réception de facture'}`;
           break;
         case 'bon_visite':
-          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${agencyProfile.name || 'Agence'}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nHoraires: [à définir]\nContact: ${agencyProfile.phone || ''}`;
+          content = `BON DE VISITE\nClient: ${lead.nom}\nBien: [adresse du bien]\nDate: ${new Date().toLocaleDateString()}\nAgent: ${profileToUse.name || 'Agence'}\nAgence: ${profileToUse.legalName || profileToUse.name}\n\nHoraires: [à définir]\nContact: ${profileToUse.phone || ''}`;
           break;
         case 'contrat':
-          content = `CONTRAT DE PRESTATION\nClient: ${lead.nom}\nPrestataire: ${agencyProfile.legalName || agencyProfile.name}\n${agencyProfile.registrationNumber || ''}\n${agencyProfile.address || ''}\n\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${formatBudget((lead.budget || 0) * 0.05)}\n\n${agencyProfile.paymentConditions || 'Paiement mensuel'}`;
+          content = `CONTRAT DE PRESTATION\nClient: ${lead.nom}\nPrestataire: ${profileToUse.legalName || profileToUse.name}\n${profileToUse.registrationNumber || ''}\n${profileToUse.address || ''}\n\nServices: Marketing digital, gestion réseaux sociaux\nDurée: 6 mois\nMontant: ${formatBudget((lead.budget || 0) * 0.05)}\n\n${profileToUse.paymentConditions || 'Paiement mensuel'}`;
           break;
         case 'rapport':
-          content = `RAPPORT DE PERFORMANCE\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nAgence: ${agencyProfile.legalName || agencyProfile.name}\n\nPerformances:\n- Taux d'engagement: [à compléter]\n- Croissance abonnés: [à compléter]\n- Taux de conversion: [à compléter]\n\nRecommandations: [à compléter]`;
+          content = `RAPPORT DE PERFORMANCE\nClient: ${lead.nom}\nPériode: ${new Date().toLocaleDateString()}\nAgence: ${profileToUse.legalName || profileToUse.name}\n\nPerformances:\n- Taux d'engagement: [à compléter]\n- Croissance abonnés: [à compléter]\n- Taux de conversion: [à compléter]\n\nRecommandations: [à compléter]`;
           break;
       }
       
@@ -194,8 +210,8 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       doc.setTextColor(150);
       doc.text("Généré par LeadQualif IA - CRM Intelligent", 105, pageHeight - 10, { align: 'center' });
       
-      if (agencyProfile.legalMention) {
-        doc.text(agencyProfile.legalMention, 105, pageHeight - 5, { align: 'center' });
+      if (profileToUse.legalMention) {
+        doc.text(profileToUse.legalMention, 105, pageHeight - 5, { align: 'center' });
       }
       
       // Télécharger le PDF
@@ -213,7 +229,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
             template: docType.id,
             category: docType.category,
             generatedAt: new Date().toISOString(),
-            agencyData: agencyProfile,
+            agencyData: profileToUse,
             clientData: {
               nom: lead.nom,
               email: lead.email,
@@ -223,7 +239,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
             }
           }),
           montant: lead.budget || 0,
-          devise: agencyProfile?.devise || 'EUR',
+          devise: profileToUse?.devise || 'EUR',
           client_nom: lead.nom,
           client_email: lead.email,
           client_telephone: lead.telephone,
@@ -233,7 +249,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
             template: docType.id,
             category: docType.category,
             generatedAt: new Date().toISOString(),
-            agencyData: agencyProfile,
+            agencyData: profileToUse,
             clientData: {
               nom: lead.nom,
               email: lead.email,
