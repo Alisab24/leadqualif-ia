@@ -114,6 +114,14 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       // Récupérer l'utilisateur actuel
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Initialiser l'objet document jsPDF
+      const doc = new jsPDF();
+      
+      // Validation de l'objet document
+      if (!doc) {
+        throw new Error('Impossible d\'initialiser le document PDF');
+      }
+      
       // Configuration du document
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
@@ -316,7 +324,18 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       
       // Convertir le PDF en Blob pour la preview
       const pdfBlob = doc.output('blob');
+      
+      // Validation du blob PDF
+      if (!pdfBlob) {
+        throw new Error('Impossible de générer le blob PDF');
+      }
+      
       const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Validation de l'URL
+      if (!pdfUrl) {
+        throw new Error('Impossible de créer l\'URL du PDF');
+      }
       
       // Créer l'objet document pour la preview
       const documentData = {
@@ -445,23 +464,53 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
 
   // Fonction pour télécharger le document
   const downloadDocument = () => {
-    if (generatedDocument?.pdfBlob) {
-      const link = document.createElement('a');
-      link.href = generatedDocument.pdfUrl;
-      link.download = generatedDocument.fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    if (!generatedDocument) {
+      console.error('Aucun document généré disponible');
+      return;
     }
+    
+    if (!generatedDocument.pdfBlob) {
+      console.error('Le blob PDF n\'est pas disponible');
+      return;
+    }
+    
+    if (!generatedDocument.pdfUrl) {
+      console.error('L\'URL du document n\'est pas disponible');
+      return;
+    }
+    
+    const link = document.createElement('a');
+    link.href = generatedDocument.pdfUrl;
+    link.download = generatedDocument.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Fonction pour imprimer le document
   const printDocument = () => {
-    if (generatedDocument?.pdfBlob) {
-      const printWindow = window.open(generatedDocument.pdfUrl, '_blank');
+    if (!generatedDocument) {
+      console.error('Aucun document généré disponible');
+      return;
+    }
+    
+    if (!generatedDocument.pdfBlob) {
+      console.error('Le blob PDF n\'est pas disponible');
+      return;
+    }
+    
+    if (!generatedDocument.pdfUrl) {
+      console.error('L\'URL du document n\'est pas disponible');
+      return;
+    }
+    
+    const printWindow = window.open(generatedDocument.pdfUrl, '_blank');
+    if (printWindow) {
       printWindow.onload = () => {
         printWindow.print();
       };
+    } else {
+      console.error('Impossible d\'ouvrir la fenêtre d\'impression');
     }
   };
 
