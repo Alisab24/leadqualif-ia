@@ -85,6 +85,75 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
     fetchAgencyProfile();
   }, [agencyId]);
 
+  // Fonction pour formater les montants avec espaces et symbole
+  const formatAmount = (amount) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
+
+  // Fonction pour formater les montants sans symbole (pour tableaux)
+  const formatAmountPlain = (amount) => {
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
+
+  // Fonction pour créer un tableau financier type Stripe
+  const createFinancialTable = (doc, items, totals, startY, margin, pageWidth) => {
+    let currentY = startY;
+    const tableWidth = pageWidth - 2 * margin;
+    const colWidths = [tableWidth * 0.5, tableWidth * 0.2, tableWidth * 0.3];
+    
+    // En-tête tableau
+    doc.setFillColor(248, 250, 252);
+    doc.rect(margin, currentY - 8, tableWidth, 25, 'F');
+    
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(107, 114, 128);
+    doc.text('Description', margin + 5, currentY + 5);
+    doc.text('Quantité', margin + colWidths[0] + 5, currentY + 5);
+    doc.text('Montant', margin + colWidths[0] + colWidths[1] + 5, currentY + 5);
+    
+    currentY += 20;
+    
+    // Lignes de données
+    items.forEach((item, index) => {
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.description, margin + 5, currentY + (index * 20));
+      doc.text(item.quantity || '1', margin + colWidths[0] + 5, currentY + (index * 20));
+      doc.text(formatAmountPlain(item.amount), margin + colWidths[0] + colWidths[1] + 5, currentY + (index * 20));
+    });
+    
+    currentY += items.length * 20 + 10;
+    
+    // Ligne de séparation
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(1);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    
+    currentY += 10;
+    
+    // Totaux
+    totals.forEach((total, index) => {
+      const isBold = total.label.includes('TOTAL') || total.label.includes('TTC');
+      doc.setFont(undefined, isBold ? 'bold' : 'normal');
+      doc.setFontSize(isBold ? 12 : 11);
+      doc.setTextColor(isBold ? 0 : 107, 114, 128);
+      
+      doc.text(total.label, margin + 5, currentY + (index * 15));
+      doc.text(formatAmountPlain(total.amount), pageWidth - margin - 5, currentY + (index * 15), { align: 'right' });
+    });
+    
+    return currentY + (totals.length * 15) + 20;
+  };
+
   const generateDocument = async (docType) => {
     setLoading(true);
     
@@ -218,7 +287,7 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
         { label: 'Email', value: lead.email || 'Non spécifié' },
         { label: 'Téléphone', value: lead.telephone || 'Non spécifié' },
         { label: 'Projet', value: lead.type_bien || 'Projet non spécifié' },
-        { label: 'Budget', value: formatBudget(lead.budget || 0) }
+        { label: 'Budget', value: formatAmount(lead.budget || 0) }
       ];
       
       clientInfo.forEach((info, index) => {
