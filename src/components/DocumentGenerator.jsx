@@ -132,7 +132,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     
     // En-tête tableau
     doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(107, 114, 128);
     doc.text('Description', margin + 8, currentY + 5);
     doc.text('Quantité', margin + colWidths[0] + 15, currentY + 5);
@@ -149,7 +149,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         doc.line(margin, currentY + (index * 20) - 5, pageWidth - margin, currentY + (index * 20) - 5);
       }
       
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       doc.text(item.description, margin + 8, currentY + (index * 20) + 5);
       doc.text(item.quantity || '1', margin + colWidths[0] + 15, currentY + (index * 20) + 5);
@@ -170,9 +170,15 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       const isBold = total.label.includes('TOTAL') || total.label.includes('TTC');
       const isTotalTTC = total.label.includes('TOTAL TTC');
       
-      doc.setFont(undefined, isBold ? 'bold' : 'normal');
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
       doc.setFontSize(isBold ? 12 : 11);
-      doc.setTextColor(isBold ? (isTotalTTC ? [59, 130, 246] : 0) : 107, 114, 128);
+      if (isTotalTTC) {
+        doc.setTextColor(59, 130, 246);
+      } else if (isBold) {
+        doc.setTextColor(0, 0, 0);
+      } else {
+        doc.setTextColor(107, 114, 128);
+      }
       
       // Mettre en évidence le TOTAL TTC
       if (isTotalTTC) {
@@ -275,11 +281,11 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       const accentColor = [34, 197, 94]; // green-500
       
       // Header document avec fond moderne
-      doc.setFillColor(...textLight);
+      doc.setFillColor(248, 250, 252);
       doc.rect(0, 0, pageWidth, 90, 'F');
       
       // Ligne décorative
-      doc.setFillColor(...primaryColor);
+      doc.setFillColor(59, 130, 246);
       doc.rect(0, 88, pageWidth, 2, 'F');
       
       // Logo agence
@@ -293,13 +299,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       
       // Informations agence dans header (alignées à droite)
       doc.setFontSize(22);
-      doc.setTextColor(...primaryColor);
-      doc.setFont(undefined, 'bold');
+      doc.setTextColor(59, 130, 246);
+      doc.setFont('helvetica', 'bold');
       doc.text(profileToUse?.name || 'Agence', pageWidth - margin - 100, 30, { align: 'right' });
       
       doc.setFontSize(11);
-      doc.setTextColor(...textGray);
-      doc.setFont(undefined, 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'normal');
       if (profileToUse?.address) {
         doc.text(profileToUse.address, pageWidth - margin - 100, 40, { align: 'right' });
       }
@@ -314,26 +320,26 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       currentY = 110;
       doc.setFontSize(28);
       doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(docType.label.toUpperCase(), margin, currentY);
       
       // Badge de statut
-      doc.setFillColor(...accentColor);
-      doc.circle(pageWidth - margin - 30, currentY - 8, 8, 'F');
+      doc.setFillColor(34, 197, 94);
+      doc.ellipse(pageWidth - margin - 30, currentY - 8, 8, 8, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(10);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('✓', pageWidth - margin - 30, currentY - 5, { align: 'center' });
       
       doc.setFontSize(12);
-      doc.setTextColor(...textGray);
-      doc.setFont(undefined, 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'normal');
       const documentNumber = `DOC-${Date.now().toString().slice(-6)}`;
       doc.text(`Document N°: ${documentNumber}`, margin, currentY + 12);
       doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, margin, currentY + 20);
       
       // Ligne de séparation moderne
-      doc.setDrawColor(...textGray);
+      doc.setDrawColor(107, 114, 128);
       doc.setLineWidth(0.8);
       doc.line(margin, currentY + 30, pageWidth - margin, currentY + 30);
       
@@ -341,17 +347,17 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       currentY = currentY + 50;
       doc.setFontSize(16);
       doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('INFORMATIONS CLIENT', margin, currentY);
       
       currentY += 15;
       doc.setFontSize(12);
-      doc.setTextColor(...textGray);
-      doc.setFont(undefined, 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'normal');
       
       // Carte client avec fond
-      doc.setFillColor(...textLight);
-      doc.roundedRect(margin - 5, currentY - 10, pageWidth - 2 * margin + 10, 45, 5, 5, 'F');
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin - 5, currentY - 10, pageWidth - 2 * margin + 10, 45, 'F');
       
       const clientInfo = [
         { label: 'Nom', value: lead.nom || 'Non spécifié' },
@@ -365,16 +371,16 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         const xPos = index < 2 ? margin : pageWidth - margin - 80;
         const yPos = index < 2 ? currentY + (index * 12) : currentY + ((index - 2) * 12);
         
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text(`${info.label}:`, xPos, yPos);
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.text(info.value, xPos + 35, yPos);
       });
       
       currentY += 55;
       
       // Ligne de séparation
-      doc.setDrawColor(...textGray);
+      doc.setDrawColor(107, 114, 128);
       doc.setLineWidth(0.8);
       doc.line(margin, currentY, pageWidth - margin, currentY);
       
@@ -382,13 +388,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       currentY += 20;
       doc.setFontSize(16);
       doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('DÉTAILS DU DOCUMENT', margin, currentY);
       
       currentY += 20;
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       
       // Contenu structuré selon type avec sections claires
       let content = '';
@@ -504,7 +510,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         
         doc.setFontSize(16);
         doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text('RÉCAPITULATIF FINANCIER', margin, currentY);
         
         currentY += 25;
@@ -513,14 +519,14 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       
       // Footer professionnel
       const footerY = pageHeight - 60;
-      doc.setDrawColor(...textGray);
+      doc.setDrawColor(107, 114, 128);
       doc.setLineWidth(0.8);
       doc.line(margin, footerY, pageWidth - margin, footerY);
       
       // Mentions légales
       doc.setFontSize(9);
-      doc.setTextColor(...textGray);
-      doc.setFont(undefined, 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'normal');
       if (profileToUse?.legalMention) {
         const splitLegal = doc.splitTextToSize(profileToUse.legalMention, pageWidth - 2 * margin);
         splitLegal.forEach((line, index) => {
@@ -531,14 +537,14 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       // Zone signature
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Signature:', margin, pageHeight - 20);
-      doc.setDrawColor(...textGray);
+      doc.setDrawColor(107, 114, 128);
       doc.setLineWidth(1);
       doc.line(margin + 40, pageHeight - 20, margin + 120, pageHeight - 20);
       
       // Date signature
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text(`Fait à ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin - 80, pageHeight - 20);
       
       // Convertir le PDF en Blob pour la preview

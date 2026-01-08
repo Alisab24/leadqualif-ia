@@ -65,7 +65,7 @@ export default function Layout() {
               N
             </div>
             <span className="ml-3 font-bold text-lg tracking-wide opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute left-20">
-              LeadQualif
+              LQ
             </span>
           </div>
 
