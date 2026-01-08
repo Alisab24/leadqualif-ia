@@ -4,11 +4,21 @@ import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated, compact = false, agencyType = 'immobilier' }) {
+export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
   const [generatedDocument, setGeneratedDocument] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [pendingDocType, setPendingDocType] = useState(null);
+  const [priceSettings, setPriceSettings] = useState({
+    bienPrice: lead.budget || 0,
+    commissionType: 'percentage', // 'percentage' ou 'fixed'
+    commissionValue: agencyType === 'immobilier' ? 5 : 5,
+    honoraires: 0,
+    tva: 20,
+    frais: 0
+  });
 
   // Templates de documents selon type d'agence
   const getDocumentTypes = () => {
@@ -155,6 +165,17 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
   };
 
   const generateDocument = async (docType) => {
+    // Pour les documents financiers, ouvrir la modale de prix
+    if (docType.id === 'devis' || docType.id === 'facture') {
+      setPendingDocType(docType);
+      setShowPriceModal(true);
+      return;
+    }
+    
+    await generateDocumentDirectly(docType);
+  };
+
+  const generateDocumentDirectly = async (docType) => {
     setLoading(true);
     
     try {
@@ -321,24 +342,90 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       
       // Contenu structuré selon type avec sections claires
       let content = '';
+      let financialData = null;
+      
       switch (docType.id) {
         case 'mandat':
           content = `OBJET DU MANDAT\n\nLe soussigné ${lead.nom} ci-dessous désigné donne mandat exclusif à ${profileToUse?.name || 'Agence'} pour la vente du bien situé au [adresse complète du bien].\n\nARTICLE 1 - DURÉE DU MANDAT\nLe présent mandat est conclu pour une durée de 3 (trois) mois à compter de la date de signature.\n\nARTICLE 2 - COMMISSION\nUne commission de 5% du prix de vente HT sera due par le vendeur au moment de la signature de l'acte de vente.\n\nARTICLE 3 - ENGAGEMENTS DES PARTIES\nLe vendeur s'engage à ne pas confier de mandat à une autre agence pendant la durée du présent mandat. L'agence s'engage à assurer la promotion active du bien et à organiser les visites selon la disponibilité du vendeur.\n\nARTICLE 4 - RÉSILIATION\nLe mandat peut être résilié par anticipation moyennant un préavis de 15 jours.`;
           break;
         case 'devis':
-          content = `DEVIS N°${documentNumber}\n\nINFORMATIONS\nClient: ${lead.nom}\nAgence: ${profileToUse?.name || 'Agence'}\nDate: ${new Date().toLocaleDateString('fr-FR')}\nValidité: 1 mois\n\nPRESTATIONS PROPOSÉES\n${agencyType === 'immobilier' ? '• Accompagnement complet dans la vente de votre bien\n• Estimation professionnelle et valorisation\n• Services de photographie et visites virtuelles\n• Publication sur les principales plateformes immobilières\n• Gestion complète des candidatures et négociations\n• Assistance administrative jusqu\'à la signature finale' : '• Stratégie marketing digitale personnalisée\n• Gestion professionnelle des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires ciblées sur Instagram/Facebook\n• Analyse détaillée des performances mensuelles\n• Reporting personnalisé et recommandations stratégiques'}\n\nMONTANT DES HONORAIRES\n${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'} du budget projet)\n\nCONDITIONS DE PAIEMENT\n${profileToUse?.paymentConditions || '50% à la signature, 50% à la livraison des prestations'}`;
+          content = `DEVIS N°${documentNumber}\n\nINFORMATIONS\nClient: ${lead.nom}\nAgence: ${profileToUse?.name || 'Agence'}\nDate: ${new Date().toLocaleDateString('fr-FR')}\nValidité: 1 mois\n\nPRESTATIONS PROPOSÉES\n${agencyType === 'immobilier' ? '• Accompagnement complet dans la vente de votre bien\n• Estimation professionnelle et valorisation\n• Services de photographie et visites virtuelles\n• Publication sur les principales plateformes immobilières\n• Gestion complète des candidatures et négociations\n• Assistance administrative jusqu\'à la signature finale' : '• Stratégie marketing digitale personnalisée\n• Gestion professionnelle des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires ciblées sur Instagram/Facebook\n• Analyse détaillée des performances mensuelles\n• Reporting personnalisé et recommandations stratégiques'}`;
+          
+          // Données financières pour le tableau
+          const commissionAmount = priceSettings.commissionType === 'percentage' 
+            ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
+            : priceSettings.commissionValue;
+          
+          const baseAmount = commissionAmount + priceSettings.honoraires + priceSettings.frais;
+          
+          financialData = {
+            items: [
+              {
+                description: agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Stratégie marketing digitale',
+                quantity: '1',
+                amount: commissionAmount
+              },
+              ...(priceSettings.honoraires > 0 ? [{
+                description: 'Honoraires supplémentaires',
+                quantity: '1',
+                amount: priceSettings.honoraires
+              }] : []),
+              ...(priceSettings.frais > 0 ? [{
+                description: 'Frais annexes',
+                quantity: '1',
+                amount: priceSettings.frais
+              }] : [])
+            ],
+            totals: [
+              { label: 'Montant HT', amount: baseAmount },
+              { label: `TVA (${priceSettings.tva}%)`, amount: baseAmount * (priceSettings.tva / 100) },
+              { label: 'TOTAL TTC', amount: baseAmount * (1 + priceSettings.tva / 100) }
+            ]
+          };
           break;
         case 'compromis':
-          content = `COMPROMIS DE VENTE\n\nPARTIES CONCERNÉES\nVendeur: [Nom et adresse du vendeur]\nAcheteur: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nPrix de vente: ${formatBudget(lead.budget || 0)}\n\nCLAUSES SUSPENSIVES\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nCONDITIONS FINANCIÈRES\nAccomppte: ${formatBudget((lead.budget || 0) * 0.10)} (10% du prix de vente)\nSolde: ${formatBudget((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDÉLAIS\nDélai de rétractation: 10 jours à compter de la signature\nDate prévisionnelle de signature définitive: [à déterminer]`;
+          content = `COMPROMIS DE VENTE\n\nPARTIES CONCERNÉES\nVendeur: [Nom et adresse du vendeur]\nAcheteur: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nPrix de vente: ${formatAmount(lead.budget || 0)}\n\nCLAUSES SUSPENSIVES\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nCONDITIONS FINANCIÈRES\nAccomppte: ${formatAmount((lead.budget || 0) * 0.10)} (10% du prix de vente)\nSolde: ${formatAmount((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDÉLAIS\nDélai de rétractation: 10 jours à compter de la signature\nDate prévisionnelle de signature définitive: [à déterminer]`;
           break;
         case 'facture':
-          content = `FACTURE N°${documentNumber}\n\nINFORMATIONS CLIENT\n${lead.nom}\n${lead.email}\n${lead.telephone}\n\nINFORMATIONS PRESTATAIRE\n${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}\n\nRÉCAPITULATIF FINANCIER\nMontant HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA (20%): ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.006 : 0.01))}\nTotal TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\nCONDITIONS DE PAIEMENT\n${profileToUse?.paymentConditions || 'Paiement à réception de facture'}\nÉchéance: 30 jours`;
+          content = `FACTURE N°${documentNumber}\n\nINFORMATIONS CLIENT\n${lead.nom}\n${lead.email}\n${lead.telephone}\n\nINFORMATIONS PRESTATAIRE\n${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}`;
+          
+          // Données financières pour le tableau
+          const commissionAmountFacture = priceSettings.commissionType === 'percentage' 
+            ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
+            : priceSettings.commissionValue;
+          
+          const baseAmountFacture = commissionAmountFacture + priceSettings.honoraires + priceSettings.frais;
+          
+          financialData = {
+            items: [
+              {
+                description: agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital',
+                quantity: '1',
+                amount: commissionAmountFacture
+              },
+              ...(priceSettings.honoraires > 0 ? [{
+                description: 'Honoraires supplémentaires',
+                quantity: '1',
+                amount: priceSettings.honoraires
+              }] : []),
+              ...(priceSettings.frais > 0 ? [{
+                description: 'Frais annexes',
+                quantity: '1',
+                amount: priceSettings.frais
+              }] : [])
+            ],
+            totals: [
+              { label: 'Montant HT', amount: baseAmountFacture },
+              { label: `TVA (${priceSettings.tva}%)`, amount: baseAmountFacture * (priceSettings.tva / 100) },
+              { label: 'TOTAL TTC', amount: baseAmountFacture * (1 + priceSettings.tva / 100) }
+            ]
+          };
           break;
         case 'bon_visite':
           content = `BON DE VISITE\n\nINFORMATIONS VISITE\nClient: ${lead.nom}\nTéléphone: ${lead.telephone}\nEmail: ${lead.email}\n\nBIEN VISITÉ\nAdresse: [adresse complète du bien]\nDate de visite: ${new Date().toLocaleDateString('fr-FR')}\nHeure: [à définir]\n\nAGENT PRÉSENT\nAgence: ${profileToUse?.name || 'Agence'}\nContact: ${profileToUse?.phone || ''}\n\nOBSERVATIONS\n[Notes et remarques sur la visite, état du bien, points d'attention]\n\nPROCHAINES ÉTAPES\n• Retour du client sous 48h\n• Proposition d'offre (si intérêt)\n• Prise de contact avec le vendeur\n• Préparation du compromis de vente (si accord)`;
           break;
         case 'contrat':
-          content = `CONTRAT DE PRESTATION DE SERVICES\n\nPARTIES\nClient: ${lead.nom}\nPrestataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET DU CONTRAT\nPrestations de marketing digital et communication\n\nDURÉE\nLe présent contrat est conclu pour une durée de 6 mois à compter de la date de signature.\n\nPRESTATIONS INCLUSES\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT\n${formatBudget((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION\nPréavis de 30 jours par courriel recommandé`;
+          content = `CONTRAT DE PRESTATION DE SERVICES\n\nPARTIES\nClient: ${lead.nom}\nPrestataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET DU CONTRAT\nPrestations de marketing digital et communication\n\nDURÉE\nLe présent contrat est conclu pour une durée de 6 mois à compter de la date de signature.\n\nPRESTATIONS INCLUSES\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT\n${formatAmount((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION\nPréavis de 30 jours par courriel recommandé`;
           break;
         case 'rapport':
           content = `RAPPORT DE PERFORMANCE\n\nINFORMATIONS\nClient: ${lead.nom}\nPériode d'analyse: ${new Date().toLocaleDateString('fr-FR')}\nAgence: ${profileToUse?.name || 'Agence'}\n\nINDICATEURS CLÉS DE PERFORMANCE\n\nTAUX D'ENGAGEMENT: [à compléter]%\nCROISSANCE DES ABONNÉS: [à compléter]\nTAUX DE CONVERSION: [à compléter]%\nPORTÉE MOYENNE: [à compléter]\n\nPERFORMANCES PAR PLATEFORME\n\nInstagram: [à compléter abonnés, taux engagement]\nFacebook: [à compléter abonnés, taux engagement]\nLinkedIn: [à compléter abonnés, taux engagement]\n\nRECOMMANDATIONS STRATÉGIQUES\n• Optimisation du contenu existant\n• Nouvelles campagnes publicitaires\n• Analyse concurrentielle approfondie\n\nPROCHAINES ACTIONS\n• Mise en place des recommandations\n• Nouvelles campagnes ciblées\n• Suivi hebdomadaire des performances`;
@@ -360,6 +447,19 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
         doc.text(line, margin, currentY);
         currentY += 7;
       });
+      
+      // Ajouter le tableau financier pour devis et factures
+      if (financialData && (docType.id === 'devis' || docType.id === 'facture')) {
+        currentY += 20;
+        
+        doc.setFontSize(16);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.text('RÉCAPITULATIF FINANCIER', margin, currentY);
+        
+        currentY += 25;
+        currentY = createFinancialTable(doc, financialData.items, financialData.totals, currentY, margin, pageWidth);
+      }
       
       // Footer professionnel
       const footerY = pageHeight - 60;
@@ -723,6 +823,199 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
                   <span className="sm:hidden">Print</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de configuration des prix */}
+      {showPriceModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex justify-between items-center z-10">
+              <h2 className="text-lg font-bold text-slate-900">⚙️ Configuration des prix</h2>
+              <button 
+                onClick={() => setShowPriceModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-full text-slate-400"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Prix du bien (€)
+                </label>
+                <input
+                  type="number"
+                  value={priceSettings.bienPrice}
+                  onChange={(e) => setPriceSettings(prev => ({ ...prev, bienPrice: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: 250000"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Type de commission
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPriceSettings(prev => ({ ...prev, commissionType: 'percentage' }))}
+                    className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors ${
+                      priceSettings.commissionType === 'percentage'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-slate-300 bg-white text-slate-700'
+                    }`}
+                  >
+                    Pourcentage (%)
+                  </button>
+                  <button
+                    onClick={() => setPriceSettings(prev => ({ ...prev, commissionType: 'fixed' }))}
+                    className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors ${
+                      priceSettings.commissionType === 'fixed'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-slate-300 bg-white text-slate-700'
+                    }`}
+                  >
+                    Fixe (€)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {priceSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission (€)'}
+                </label>
+                <input
+                  type="number"
+                  value={priceSettings.commissionValue}
+                  onChange={(e) => setPriceSettings(prev => ({ ...prev, commissionValue: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder={priceSettings.commissionType === 'percentage' ? 'Ex: 5' : 'Ex: 10000'}
+                  min="0"
+                  step={priceSettings.commissionType === 'percentage' ? '0.1' : '100'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Honoraires supplémentaires (€)
+                </label>
+                <input
+                  type="number"
+                  value={priceSettings.honoraires}
+                  onChange={(e) => setPriceSettings(prev => ({ ...prev, honoraires: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: 500"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Frais annexes (€)
+                </label>
+                <input
+                  type="number"
+                  value={priceSettings.frais}
+                  onChange={(e) => setPriceSettings(prev => ({ ...prev, frais: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: 200"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  TVA (%)
+                </label>
+                <select
+                  value={priceSettings.tva}
+                  onChange={(e) => setPriceSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="0">0%</option>
+                  <option value="5.5">5.5%</option>
+                  <option value="10">10%</option>
+                  <option value="20">20%</option>
+                </select>
+              </div>
+
+              {/* Récapitulatif */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                <h3 className="font-semibold text-slate-900 mb-2">📊 Récapitulatif</h3>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Commission:</span>
+                  <span className="font-medium">
+                    {formatAmount(priceSettings.commissionType === 'percentage' 
+                      ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
+                      : priceSettings.commissionValue)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Honoraires:</span>
+                  <span className="font-medium">{formatAmount(priceSettings.honoraires)}</span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Frais:</span>
+                  <span className="font-medium">{formatAmount(priceSettings.frais)}</span>
+                </div>
+                
+                <div className="border-t border-slate-300 pt-2 mt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Total HT:</span>
+                    <span className="font-medium">
+                      {formatAmount((priceSettings.commissionType === 'percentage' 
+                        ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
+                        : priceSettings.commissionValue) + priceSettings.honoraires + priceSettings.frais)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">TVA ({priceSettings.tva}%):</span>
+                    <span className="font-medium">
+                      {formatAmount(((priceSettings.commissionType === 'percentage' 
+                        ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
+                        : priceSettings.commissionValue) + priceSettings.honoraires + priceSettings.frais) * (priceSettings.tva / 100))}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between text-base font-bold text-blue-600">
+                    <span>Total TTC:</span>
+                    <span>
+                      {formatAmount(((priceSettings.commissionType === 'percentage' 
+                        ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
+                        : priceSettings.commissionValue) + priceSettings.honoraires + priceSettings.frais) * (1 + priceSettings.tva / 100))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-4 border-t border-slate-200">
+              <button
+                onClick={() => setShowPriceModal(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  setShowPriceModal(false);
+                  if (pendingDocType) {
+                    generateDocumentDirectly(pendingDocType);
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                📄 Générer le document
+              </button>
             </div>
           </div>
         </div>
