@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
+import LeadForm from '../components/LeadForm';
 import DocumentGenerator from '../components/DocumentGenerator';
 
 export default function Dashboard() {
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
   const [agencyType, setAgencyType] = useState('immobilier');
+  const [showLeadForm, setShowLeadForm] = useState(false);
 
   // Refs pour le scroll automatique (optionnel)
   const scrollContainerRef = useRef(null);
@@ -272,8 +274,8 @@ export default function Dashboard() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-100 p-1 rounded-lg flex">
+        <div className="flex items-center gap-4">
+          <div className="flex bg-slate-100 rounded-lg p-1">
             <button 
               onClick={() => setViewMode('kanban')} 
               className={`px-3 py-1.5 rounded-md text-sm font-medium ${
@@ -292,9 +294,12 @@ export default function Dashboard() {
             </button>
           </div>
           
-          <Link to="/stats" className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800">
-            📊 Stats
-          </Link>
+          <button
+            onClick={() => setShowLeadForm(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            ➕ Nouveau lead
+          </button>
           
           <Link to="/documents" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             📂 Documents
@@ -303,13 +308,6 @@ export default function Dashboard() {
           <Link to="/settings" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
             ⚙️ Settings
           </Link>
-          
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            🚪 Déconnexion
-          </button>
         </div>
       </header>
 
@@ -690,6 +688,31 @@ export default function Dashboard() {
                   }}
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modale Nouveau Lead */}
+        {showLeadForm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+            <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex justify-between items-center z-10">
+                <h2 className="text-xl font-bold text-slate-900">➕ Nouveau Lead</h2>
+                <button 
+                  onClick={() => setShowLeadForm(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full text-slate-400"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <LeadForm 
+                onClose={() => setShowLeadForm(false)}
+                onSuccess={() => {
+                  setShowLeadForm(false);
+                  fetchLeads(); // Rafraîchir la liste des leads
+                }}
+              />
             </div>
           </div>
         )}
