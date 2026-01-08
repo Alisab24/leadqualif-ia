@@ -119,99 +119,93 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const createFinancialTable = (doc, items, totals, startY, margin, pageWidth) => {
     let currentY = startY;
     const tableWidth = pageWidth - 2 * margin;
-    const colWidths = [tableWidth * 0.55, tableWidth * 0.15, tableWidth * 0.3];
-    const rowHeight = 22;
+    const colWidths = [tableWidth * 0.6, tableWidth * 0.15, tableWidth * 0.25];
+    const rowHeight = 20;
     
-    // Dessiner le cadre complet du tableau
+    // En-tête tableau avec fond subtil
+    doc.setFillColor(249, 250, 251);
+    doc.rect(margin, currentY, tableWidth, rowHeight, 'F');
+    
+    // Bordure supérieure uniquement
     doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(1);
-    doc.rect(margin, currentY, tableWidth, (items.length + 1) * rowHeight + totals.length * 20 + 8, 'S');
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    doc.line(margin, currentY + rowHeight, pageWidth - margin, currentY + rowHeight);
     
-    // En-tête tableau avec fond gris clair
-    doc.setFillColor(248, 250, 252);
-    doc.rect(margin + 1, currentY + 1, tableWidth - 2, rowHeight - 1, 'F');
-    
-    // Bordures verticales pour les colonnes
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margin + colWidths[0], currentY, margin + colWidths[0], currentY + (items.length + 1) * rowHeight + totals.length * 20 + 8);
-    doc.line(margin + colWidths[0] + colWidths[1], currentY, margin + colWidths[0] + colWidths[1], currentY + (items.length + 1) * rowHeight + totals.length * 20 + 8);
-    
-    // Texte en-tête tableau
-    doc.setFontSize(12);
+    // Texte en-tête
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(71, 84, 103);
-    doc.text('Description', margin + 12, currentY + 15);
-    doc.text('Quantité', margin + colWidths[0] + 8, currentY + 15);
-    doc.text('Montant (€)', margin + colWidths[0] + colWidths[1] + 8, currentY + 15);
+    doc.setTextColor(107, 114, 128);
+    doc.text('Description', margin + 8, currentY + 13);
+    doc.text('Qté', margin + colWidths[0] + 5, currentY + 13);
+    doc.text('Montant (€)', margin + colWidths[0] + colWidths[1] + 5, currentY + 13);
     
     currentY += rowHeight;
     
     // Lignes de données
     items.forEach((item, index) => {
-      // Bordure horizontale entre les lignes
-      doc.setDrawColor(241, 245, 249);
-      doc.setLineWidth(0.5);
-      doc.line(margin + 1, currentY, pageWidth - margin - 1, currentY);
+      // Ligne de séparation très subtile
+      if (index < items.length - 1) {
+        doc.setDrawColor(241, 245, 249);
+        doc.setLineWidth(0.3);
+        doc.line(margin, currentY + rowHeight, pageWidth - margin, currentY + rowHeight);
+      }
       
       // Texte des données
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
+      doc.setFontSize(10);
       doc.setTextColor(31, 41, 55);
       
       // Description (tronquer si trop long)
       let description = item.description;
-      if (description.length > 40) {
-        description = description.substring(0, 37) + '...';
+      if (description.length > 45) {
+        description = description.substring(0, 42) + '...';
       }
-      doc.text(description, margin + 12, currentY + 14);
+      doc.text(description, margin + 8, currentY + 13);
       
       // Quantité
-      doc.text(item.quantity || '1', margin + colWidths[0] + 8, currentY + 14);
+      doc.text(item.quantity || '1', margin + colWidths[0] + 5, currentY + 13);
       
       // Montant (aligné à droite)
       const amountText = formatAmountPlain(item.amount);
-      doc.text(amountText, pageWidth - margin - 12, currentY + 14, { align: 'right' });
+      doc.text(amountText, pageWidth - margin - 8, currentY + 13, { align: 'right' });
       
       currentY += rowHeight;
     });
     
-    // Ligne de séparation avant les totaux
+    // Ligne de séparation avant totaux
     doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(1);
-    doc.line(margin + 1, currentY, pageWidth - margin - 1, currentY);
+    doc.setLineWidth(0.8);
+    doc.line(margin, currentY + 5, pageWidth - margin, currentY + 5);
     
-    currentY += 8;
+    currentY += 12;
     
-    // Totaux avec mise en forme hiérarchique
+    // Totaux simplifiés
     totals.forEach((total, index) => {
-      const isBold = total.label.includes('TOTAL') || total.label.includes('TTC');
       const isTotalTTC = total.label.includes('TOTAL TTC');
+      const isBold = total.label.includes('TOTAL');
       
-      // Fond spécial pour TOTAL TTC
+      // Style selon type de total
       if (isTotalTTC) {
-        doc.setFillColor(59, 130, 246, 0.05);
-        doc.rect(margin + 1, currentY, tableWidth - 2, 20, 'F');
-        doc.setDrawColor(59, 130, 246);
-        doc.setLineWidth(1);
-        doc.rect(margin + 1, currentY, tableWidth - 2, 20, 'S');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
         doc.setTextColor(59, 130, 246);
       } else if (isBold) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
         doc.setTextColor(31, 41, 55);
       } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
         doc.setTextColor(107, 114, 128);
       }
       
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-      doc.setFontSize(isBold ? 13 : 11);
-      
-      // Libellé du total
-      doc.text(total.label, margin + 12, currentY + 13);
-      
-      // Montant du total (aligné à droite)
+      // Libellé et montant
+      doc.text(total.label, margin + 8, currentY + 12);
       const totalAmountText = `${formatAmountPlain(total.amount)} €`;
-      doc.text(totalAmountText, pageWidth - margin - 12, currentY + 13, { align: 'right' });
+      doc.text(totalAmountText, pageWidth - margin - 8, currentY + 12, { align: 'right' });
       
-      currentY += 20;
+      currentY += 16;
     });
     
     return currentY;
@@ -538,35 +532,35 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         currentY = createFinancialTable(doc, financialData.items, financialData.totals, currentY, margin, pageWidth);
       }
       
-      // Footer professionnel
-      const footerY = pageHeight - 60;
-      doc.setDrawColor(107, 114, 128);
-      doc.setLineWidth(0.8);
+      // Footer professionnel simplifié
+      const footerY = pageHeight - 50;
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
       doc.line(margin, footerY, pageWidth - margin, footerY);
       
-      // Mentions légales
-      doc.setFontSize(9);
-      doc.setTextColor(107, 114, 128);
+      // Mentions légales compactes
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
       doc.setFont('helvetica', 'normal');
       if (profileToUse?.legalMention) {
         const splitLegal = doc.splitTextToSize(profileToUse.legalMention, pageWidth - 2 * margin);
-        splitLegal.forEach((line, index) => {
-          doc.text(line, margin, footerY + 15 + (index * 6));
+        splitLegal.slice(0, 2).forEach((line, index) => {
+          doc.text(line, margin, footerY + 12 + (index * 5));
         });
       }
       
-      // Zone signature
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Signature:', margin, pageHeight - 20);
-      doc.setDrawColor(107, 114, 128);
-      doc.setLineWidth(1);
-      doc.line(margin + 40, pageHeight - 20, margin + 120, pageHeight - 20);
-      
-      // Date signature
+      // Zone signature compacte
+      doc.setFontSize(10);
+      doc.setTextColor(107, 114, 128);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Fait à ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin - 80, pageHeight - 20);
+      doc.text('Signature', margin, pageHeight - 25);
+      
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(margin + 35, pageHeight - 25, margin + 100, pageHeight - 25);
+      
+      // Date signature compacte
+      doc.text(`Fait le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin - 60, pageHeight - 25);
       
       // Convertir le PDF en Blob pour la preview
       const pdfBlob = doc.output('blob');
