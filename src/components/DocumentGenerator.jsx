@@ -42,23 +42,6 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
   const documentTypes = getDocumentTypes();
 
-  // Fonction pour formater le budget selon la devise de l'agence
-  const formatBudget = (amount) => {
-    if (!agencyProfile) return `${amount.toLocaleString()} €`;
-    
-    const { devise, symbole_devise, format_devise } = agencyProfile;
-    
-    switch (devise) {
-      case 'XOF':
-        return `${amount.toLocaleString()} ${symbole_devise}`;
-      case 'CAD':
-        return `${symbole_devise}${amount.toLocaleString()}`;
-      case 'EUR':
-      default:
-        return `${amount.toLocaleString()} ${symbole_devise}`;
-    }
-  };
-
   React.useEffect(() => {
     const fetchAgencyProfile = async () => {
       if (agencyId) {
@@ -97,19 +80,27 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
   // Fonction pour formater les montants avec espaces et symbole
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('fr-FR', {
+    if (amount === null || amount === undefined || amount === 0) {
+      return '0 €';
+    }
+    
+    const formatted = new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount || 0);
+      maximumFractionDigits: 0,
+      useGrouping: true
+    }).format(amount);
+    
+    return formatted;
   };
 
   // Fonction pour formater les montants sans symbole (pour tableaux)
   const formatAmountPlain = (amount) => {
     return new Intl.NumberFormat('fr-FR', {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
+      useGrouping: true
     }).format(amount || 0);
   };
 
@@ -119,46 +110,70 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     const tableWidth = pageWidth - 2 * margin;
     const colWidths = [tableWidth * 0.5, tableWidth * 0.2, tableWidth * 0.3];
     
-    // En-tête tableau
+    // En-tête tableau avec fond gris clair
     doc.setFillColor(248, 250, 252);
     doc.rect(margin, currentY - 8, tableWidth, 25, 'F');
     
+    // Bordure du tableau
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(1);
+    doc.rect(margin, currentY - 8, tableWidth, 25, 'S');
+    
+    // En-tête tableau
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(107, 114, 128);
-    doc.text('Description', margin + 5, currentY + 5);
-    doc.text('Quantité', margin + colWidths[0] + 5, currentY + 5);
-    doc.text('Montant', margin + colWidths[0] + colWidths[1] + 5, currentY + 5);
+    doc.text('Description', margin + 8, currentY + 5);
+    doc.text('Quantité', margin + colWidths[0] + 15, currentY + 5);
+    doc.text('Montant (€)', margin + colWidths[0] + colWidths[1] + 15, currentY + 5);
     
     currentY += 20;
     
     // Lignes de données
     items.forEach((item, index) => {
+      // Ligne de séparation entre les items
+      if (index > 0) {
+        doc.setDrawColor(241, 245, 249);
+        doc.setLineWidth(0.5);
+        doc.line(margin, currentY + (index * 20) - 5, pageWidth - margin, currentY + (index * 20) - 5);
+      }
+      
       doc.setFont(undefined, 'normal');
       doc.setTextColor(0, 0, 0);
-      doc.text(item.description, margin + 5, currentY + (index * 20));
-      doc.text(item.quantity || '1', margin + colWidths[0] + 5, currentY + (index * 20));
-      doc.text(formatAmountPlain(item.amount), margin + colWidths[0] + colWidths[1] + 5, currentY + (index * 20));
+      doc.text(item.description, margin + 8, currentY + (index * 20) + 5);
+      doc.text(item.quantity || '1', margin + colWidths[0] + 15, currentY + (index * 20) + 5);
+      doc.text(formatAmountPlain(item.amount), margin + colWidths[0] + colWidths[1] + 15, currentY + (index * 20) + 5);
     });
     
-    currentY += items.length * 20 + 10;
+    currentY += items.length * 20 + 15;
     
-    // Ligne de séparation
+    // Ligne de séparation avant les totaux
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(1);
     doc.line(margin, currentY, pageWidth - margin, currentY);
     
-    currentY += 10;
+    currentY += 15;
     
-    // Totaux
+    // Totaux avec mise en forme hiérarchique
     totals.forEach((total, index) => {
       const isBold = total.label.includes('TOTAL') || total.label.includes('TTC');
+      const isTotalTTC = total.label.includes('TOTAL TTC');
+      
       doc.setFont(undefined, isBold ? 'bold' : 'normal');
       doc.setFontSize(isBold ? 12 : 11);
-      doc.setTextColor(isBold ? 0 : 107, 114, 128);
+      doc.setTextColor(isBold ? (isTotalTTC ? [59, 130, 246] : 0) : 107, 114, 128);
       
-      doc.text(total.label, margin + 5, currentY + (index * 15));
-      doc.text(formatAmountPlain(total.amount), pageWidth - margin - 5, currentY + (index * 15), { align: 'right' });
+      // Mettre en évidence le TOTAL TTC
+      if (isTotalTTC) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, currentY + (index * 15) - 8, tableWidth, 20, 'F');
+        doc.setDrawColor(59, 130, 246);
+        doc.setLineWidth(1);
+        doc.rect(margin, currentY + (index * 15) - 8, tableWidth, 20, 'S');
+      }
+      
+      doc.text(total.label, margin + 8, currentY + (index * 15) + 2);
+      doc.text(`${formatAmountPlain(total.amount)} €`, pageWidth - margin - 8, currentY + (index * 15) + 2, { align: 'right' });
     });
     
     return currentY + (totals.length * 15) + 20;
