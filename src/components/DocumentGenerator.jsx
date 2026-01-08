@@ -9,15 +9,26 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const [agencyProfile, setAgencyProfile] = useState(null);
   const [generatedDocument, setGeneratedDocument] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPreGenerationModal, setShowPreGenerationModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [pendingDocType, setPendingDocType] = useState(null);
-  const [priceSettings, setPriceSettings] = useState({
+
+  // États pour la modale de pré-génération
+  const [documentSettings, setDocumentSettings] = useState({
+    // Champs IMMO
     bienPrice: lead.budget || 0,
-    commissionType: 'percentage', // 'percentage' ou 'fixed'
+    commissionType: 'percentage',
     commissionValue: agencyType === 'immobilier' ? 5 : 5,
-    honoraires: 0,
     tva: 20,
-    frais: 0
+    honoraires: 0,
+    frais: 0,
+    conditionsPaiement: '50% à la signature, 50% à la livraison',
+    
+    // Champs SMMA
+    designationPrestation: agencyType === 'smma' ? 'Stratégie marketing digitale complète' : '',
+    prixHT: agencyType === 'smma' ? (lead.budget || 0) * 0.05 : 0,
+    periodicite: 'one-shot',
+    conditionsPaiementSMMA: 'Paiement à réception de facture'
   });
 
   // Templates de documents selon type d'agence
@@ -179,11 +190,35 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     return currentY + (totals.length * 15) + 20;
   };
 
+  // Fonctions de calcul pour les montants en temps réel
+  const calculateCommission = () => {
+    if (documentSettings.commissionType === 'percentage') {
+      return documentSettings.bienPrice * (documentSettings.commissionValue / 100);
+    }
+    return documentSettings.commissionValue;
+  };
+
+  const calculateTotalHT = () => {
+    if (agencyType === 'immobilier') {
+      return calculateCommission() + documentSettings.honoraires + documentSettings.frais;
+    } else {
+      return documentSettings.prixHT;
+    }
+  };
+
+  const calculateTVA = () => {
+    return calculateTotalHT() * (documentSettings.tva / 100);
+  };
+
+  const calculateTotalTTC = () => {
+    return calculateTotalHT() * (1 + documentSettings.tva / 100);
+  };
+
   const generateDocument = async (docType) => {
-    // Pour les documents financiers, ouvrir la modale de prix
+    // Pour les documents financiers, ouvrir la modale de pré-génération
     if (docType.id === 'devis' || docType.id === 'facture') {
       setPendingDocType(docType);
-      setShowPriceModal(true);
+      setShowPreGenerationModal(true);
       return;
     }
     
@@ -367,11 +402,11 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           content = `DEVIS N°${documentNumber}\n\nINFORMATIONS\nClient: ${lead.nom}\nAgence: ${profileToUse?.name || 'Agence'}\nDate: ${new Date().toLocaleDateString('fr-FR')}\nValidité: 1 mois\n\nPRESTATIONS PROPOSÉES\n${agencyType === 'immobilier' ? '• Accompagnement complet dans la vente de votre bien\n• Estimation professionnelle et valorisation\n• Services de photographie et visites virtuelles\n• Publication sur les principales plateformes immobilières\n• Gestion complète des candidatures et négociations\n• Assistance administrative jusqu\'à la signature finale' : '• Stratégie marketing digitale personnalisée\n• Gestion professionnelle des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires ciblées sur Instagram/Facebook\n• Analyse détaillée des performances mensuelles\n• Reporting personnalisé et recommandations stratégiques'}`;
           
           // Données financières pour le tableau
-          const commissionAmount = priceSettings.commissionType === 'percentage' 
-            ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
-            : priceSettings.commissionValue;
+          const commissionAmount = documentSettings.commissionType === 'percentage' 
+            ? documentSettings.bienPrice * (documentSettings.commissionValue / 100)
+            : documentSettings.commissionValue;
           
-          const baseAmount = commissionAmount + priceSettings.honoraires + priceSettings.frais;
+          const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
           
           financialData = {
             items: [
@@ -380,21 +415,21 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                 quantity: '1',
                 amount: commissionAmount
               },
-              ...(priceSettings.honoraires > 0 ? [{
+              ...(documentSettings.honoraires > 0 ? [{
                 description: 'Honoraires supplémentaires',
                 quantity: '1',
-                amount: priceSettings.honoraires
+                amount: documentSettings.honoraires
               }] : []),
-              ...(priceSettings.frais > 0 ? [{
+              ...(documentSettings.frais > 0 ? [{
                 description: 'Frais annexes',
                 quantity: '1',
-                amount: priceSettings.frais
+                amount: documentSettings.frais
               }] : [])
             ],
             totals: [
               { label: 'Montant HT', amount: baseAmount },
-              { label: `TVA (${priceSettings.tva}%)`, amount: baseAmount * (priceSettings.tva / 100) },
-              { label: 'TOTAL TTC', amount: baseAmount * (1 + priceSettings.tva / 100) }
+              { label: `TVA (${documentSettings.tva}%)`, amount: baseAmount * (documentSettings.tva / 100) },
+              { label: 'TOTAL TTC', amount: baseAmount * (1 + documentSettings.tva / 100) }
             ]
           };
           break;
@@ -405,11 +440,11 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           content = `FACTURE N°${documentNumber}\n\nINFORMATIONS CLIENT\n${lead.nom}\n${lead.email}\n${lead.telephone}\n\nINFORMATIONS PRESTATAIRE\n${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}`;
           
           // Données financières pour le tableau
-          const commissionAmountFacture = priceSettings.commissionType === 'percentage' 
-            ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
-            : priceSettings.commissionValue;
+          const commissionAmountFacture = documentSettings.commissionType === 'percentage' 
+            ? documentSettings.bienPrice * (documentSettings.commissionValue / 100)
+            : documentSettings.commissionValue;
           
-          const baseAmountFacture = commissionAmountFacture + priceSettings.honoraires + priceSettings.frais;
+          const baseAmountFacture = commissionAmountFacture + documentSettings.honoraires + documentSettings.frais;
           
           financialData = {
             items: [
@@ -418,21 +453,21 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                 quantity: '1',
                 amount: commissionAmountFacture
               },
-              ...(priceSettings.honoraires > 0 ? [{
+              ...(documentSettings.honoraires > 0 ? [{
                 description: 'Honoraires supplémentaires',
                 quantity: '1',
-                amount: priceSettings.honoraires
+                amount: documentSettings.honoraires
               }] : []),
-              ...(priceSettings.frais > 0 ? [{
+              ...(documentSettings.frais > 0 ? [{
                 description: 'Frais annexes',
                 quantity: '1',
-                amount: priceSettings.frais
+                amount: documentSettings.frais
               }] : [])
             ],
             totals: [
               { label: 'Montant HT', amount: baseAmountFacture },
-              { label: `TVA (${priceSettings.tva}%)`, amount: baseAmountFacture * (priceSettings.tva / 100) },
-              { label: 'TOTAL TTC', amount: baseAmountFacture * (1 + priceSettings.tva / 100) }
+              { label: `TVA (${documentSettings.tva}%)`, amount: baseAmountFacture * (documentSettings.tva / 100) },
+              { label: 'TOTAL TTC', amount: baseAmountFacture * (1 + documentSettings.tva / 100) }
             ]
           };
           break;
@@ -843,193 +878,308 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         </div>
       )}
 
-      {/* Modale de configuration des prix */}
-      {showPriceModal && (
+      {/* Modale de pré-génération professionnelle */}
+      {showPreGenerationModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex justify-between items-center z-10">
-              <h2 className="text-lg font-bold text-slate-900">⚙️ Configuration des prix</h2>
+          <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center z-10">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {agencyType === 'immobilier' ? '🏠 Configuration Document Immobilier' : '📱 Configuration Document SMMA'}
+                </h2>
+                <p className="text-sm text-slate-600 mt-1">
+                  {pendingDocType?.label} • {lead.nom}
+                </p>
+              </div>
               <button 
-                onClick={() => setShowPriceModal(false)}
+                onClick={() => setShowPreGenerationModal(false)}
                 className="p-2 hover:bg-slate-100 rounded-full text-slate-400"
               >
                 ✕
               </button>
             </div>
             
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Prix du bien (€)
-                </label>
-                <input
-                  type="number"
-                  value={priceSettings.bienPrice}
-                  onChange={(e) => setPriceSettings(prev => ({ ...prev, bienPrice: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ex: 250000"
-                  min="0"
-                />
-              </div>
+            <div className="p-6 space-y-6">
+              {agencyType === 'immobilier' ? (
+                /* ===== CHAMPS IMMO ===== */
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Prix du bien (€) *
+                      </label>
+                      <input
+                        type="number"
+                        value={documentSettings.bienPrice}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, bienPrice: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                        placeholder="Ex: 250000"
+                        min="0"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Type de commission
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPriceSettings(prev => ({ ...prev, commissionType: 'percentage' }))}
-                    className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors ${
-                      priceSettings.commissionType === 'percentage'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-300 bg-white text-slate-700'
-                    }`}
-                  >
-                    Pourcentage (%)
-                  </button>
-                  <button
-                    onClick={() => setPriceSettings(prev => ({ ...prev, commissionType: 'fixed' }))}
-                    className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors ${
-                      priceSettings.commissionType === 'fixed'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-300 bg-white text-slate-700'
-                    }`}
-                  >
-                    Fixe (€)
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {priceSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission (€)'}
-                </label>
-                <input
-                  type="number"
-                  value={priceSettings.commissionValue}
-                  onChange={(e) => setPriceSettings(prev => ({ ...prev, commissionValue: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder={priceSettings.commissionType === 'percentage' ? 'Ex: 5' : 'Ex: 10000'}
-                  min="0"
-                  step={priceSettings.commissionType === 'percentage' ? '0.1' : '100'}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Honoraires supplémentaires (€)
-                </label>
-                <input
-                  type="number"
-                  value={priceSettings.honoraires}
-                  onChange={(e) => setPriceSettings(prev => ({ ...prev, honoraires: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ex: 500"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Frais annexes (€)
-                </label>
-                <input
-                  type="number"
-                  value={priceSettings.frais}
-                  onChange={(e) => setPriceSettings(prev => ({ ...prev, frais: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ex: 200"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  TVA (%)
-                </label>
-                <select
-                  value={priceSettings.tva}
-                  onChange={(e) => setPriceSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="0">0%</option>
-                  <option value="5.5">5.5%</option>
-                  <option value="10">10%</option>
-                  <option value="20">20%</option>
-                </select>
-              </div>
-
-              {/* Récapitulatif */}
-              <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-                <h3 className="font-semibold text-slate-900 mb-2">📊 Récapitulatif</h3>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Commission:</span>
-                  <span className="font-medium">
-                    {formatAmount(priceSettings.commissionType === 'percentage' 
-                      ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
-                      : priceSettings.commissionValue)}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Honoraires:</span>
-                  <span className="font-medium">{formatAmount(priceSettings.honoraires)}</span>
-                </div>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Frais:</span>
-                  <span className="font-medium">{formatAmount(priceSettings.frais)}</span>
-                </div>
-                
-                <div className="border-t border-slate-300 pt-2 mt-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Total HT:</span>
-                    <span className="font-medium">
-                      {formatAmount((priceSettings.commissionType === 'percentage' 
-                        ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
-                        : priceSettings.commissionValue) + priceSettings.honoraires + priceSettings.frais)}
-                    </span>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Type de commission *
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'percentage' }))}
+                          className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                            documentSettings.commissionType === 'percentage'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-slate-300 bg-white text-slate-700'
+                          }`}
+                        >
+                          Pourcentage (%)
+                        </button>
+                        <button
+                          onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'fixed' }))}
+                          className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                            documentSettings.commissionType === 'fixed'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-slate-300 bg-white text-slate-700'
+                          }`}
+                        >
+                          Montant fixe (€)
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">TVA ({priceSettings.tva}%):</span>
-                    <span className="font-medium">
-                      {formatAmount(((priceSettings.commissionType === 'percentage' 
-                        ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
-                        : priceSettings.commissionValue) + priceSettings.honoraires + priceSettings.frais) * (priceSettings.tva / 100))}
-                    </span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        {documentSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission (€)'} *
+                      </label>
+                      <input
+                        type="number"
+                        value={documentSettings.commissionValue}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, commissionValue: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={documentSettings.commissionType === 'percentage' ? 'Ex: 5' : 'Ex: 10000'}
+                        min="0"
+                        step={documentSettings.commissionType === 'percentage' ? '0.1' : '100'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Taux de TVA (%)
+                      </label>
+                      <select
+                        value={documentSettings.tva}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="0">0%</option>
+                        <option value="5.5">5.5%</option>
+                        <option value="10">10%</option>
+                        <option value="20">20%</option>
+                      </select>
+                    </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Honoraires supplémentaires (€)
+                      </label>
+                      <input
+                        type="number"
+                        value={documentSettings.honoraires}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, honoraires: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ex: 500"
+                        min="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Frais annexes (€)
+                      </label>
+                      <input
+                        type="number"
+                        value={documentSettings.frais}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, frais: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ex: 200"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Conditions de paiement
+                    </label>
+                    <textarea
+                      value={documentSettings.conditionsPaiement}
+                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, conditionsPaiement: e.target.value }))}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                      rows={3}
+                      placeholder="Ex: 50% à la signature, 50% à la livraison"
+                    />
+                  </div>
+                </>
+              ) : (
+                /* ===== CHAMPS SMMA ===== */
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Désignation de la prestation *
+                    </label>
+                    <input
+                      type="text"
+                      value={documentSettings.designationPrestation}
+                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, designationPrestation: e.target.value }))}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Ex: Stratégie marketing digitale complète"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Prix HT (€) *
+                      </label>
+                      <input
+                        type="number"
+                        value={documentSettings.prixHT}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, prixHT: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ex: 2000"
+                        min="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Taux de TVA (%)
+                      </label>
+                      <select
+                        value={documentSettings.tva}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="0">0%</option>
+                        <option value="5.5">5.5%</option>
+                        <option value="10">10%</option>
+                        <option value="20">20%</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Périodicité *
+                      </label>
+                      <select
+                        value={documentSettings.periodicite}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, periodicite: e.target.value }))}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="one-shot">One-shot</option>
+                        <option value="mensuel">Mensuel</option>
+                        <option value="trimestriel">Trimestriel</option>
+                        <option value="annuel">Annuel</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Conditions de paiement
+                    </label>
+                    <textarea
+                      value={documentSettings.conditionsPaiementSMMA}
+                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, conditionsPaiementSMMA: e.target.value }))}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                      rows={3}
+                      placeholder="Ex: Paiement à réception de facture"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* ===== RÉCAPITULATIF FINANCIER ===== */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  📊 Récapitulatif financier
+                </h3>
+                
+                <div className="space-y-3">
+                  {agencyType === 'immobilier' ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Commission:</span>
+                        <span className="font-medium text-slate-900">
+                          {formatAmount(calculateCommission())}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Honoraires:</span>
+                        <span className="font-medium text-slate-900">{formatAmount(documentSettings.honoraires)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Frais annexes:</span>
+                        <span className="font-medium text-slate-900">{formatAmount(documentSettings.frais)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Prestation:</span>
+                      <span className="font-medium text-slate-900">{documentSettings.designationPrestation}</span>
+                    </div>
+                  )}
                   
-                  <div className="flex justify-between text-base font-bold text-blue-600">
-                    <span>Total TTC:</span>
-                    <span>
-                      {formatAmount(((priceSettings.commissionType === 'percentage' 
-                        ? priceSettings.bienPrice * (priceSettings.commissionValue / 100)
-                        : priceSettings.commissionValue) + priceSettings.honoraires + priceSettings.frais) * (1 + priceSettings.tva / 100))}
-                    </span>
+                  <div className="border-t border-blue-200 pt-3 mt-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Total HT:</span>
+                      <span className="font-medium text-slate-900">
+                        {formatAmount(calculateTotalHT())}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">TVA ({documentSettings.tva}%):</span>
+                      <span className="font-medium text-slate-900">
+                        {formatAmount(calculateTVA())}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between text-lg font-bold text-blue-600 bg-blue-100 px-4 py-2 rounded-lg">
+                      <span>Total TTC:</span>
+                      <span>
+                        {formatAmount(calculateTotalTTC())}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 p-4 border-t border-slate-200">
+            {/* Actions */}
+            <div className="flex gap-4 p-6 border-t border-slate-200 bg-slate-50">
               <button
-                onClick={() => setShowPriceModal(false)}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                onClick={() => setShowPreGenerationModal(false)}
+                className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
               >
                 Annuler
               </button>
               <button
                 onClick={() => {
-                  setShowPriceModal(false);
+                  setShowPreGenerationModal(false);
                   if (pendingDocType) {
                     generateDocumentDirectly(pendingDocType);
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg"
               >
-                📄 Générer le document
+                📄 Générer le {pendingDocType?.label}
               </button>
             </div>
           </div>
