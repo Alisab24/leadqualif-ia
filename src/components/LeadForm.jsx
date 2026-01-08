@@ -4,6 +4,7 @@ import { aiService } from '../services/ai'
 
 const LeadForm = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
+    lead_role: '', // client ou propriétaire - OBLIGATOIRE
     nom: '',
     email: '',
     telephone: '',
@@ -11,7 +12,16 @@ const LeadForm = ({ onClose, onSuccess }) => {
     type_de_bien: '',
     delai_achat: '',
     message: '',
-    source: 'site_web'
+    source: 'site_web',
+    // Champs spécifiques propriétaire
+    adresse_bien: '',
+    surface: '',
+    nb_pieces: '',
+    prix_vente: '',
+    date_disponibilite: '',
+    // Champs spécifiques client
+    localisation_souhaitee: '',
+    criteres_specifiques: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -75,6 +85,13 @@ const LeadForm = ({ onClose, onSuccess }) => {
     setError(null)
     setQualificationResult(null)
     setLoading(true)
+
+    // Validation du champ lead_role obligatoire
+    if (!formData.lead_role) {
+      setError('Veuillez sélectionner le type de contact (Client acheteur ou Propriétaire/bailleur)')
+      setLoading(false)
+      return
+    }
 
     try {
       // Étape 1 : Qualification du lead
@@ -141,6 +158,47 @@ const LeadForm = ({ onClose, onSuccess }) => {
             </div>
           )}
 
+          {/* ÉTAPE 1: Rôle du lead - OBLIGATOIRE */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <label className="block text-sm font-bold text-blue-900 mb-3">
+              Type de contact * <span className="text-xs font-normal">(choix obligatoire)</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, lead_role: 'client' }))}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  formData.lead_role === 'client'
+                    ? 'border-blue-500 bg-blue-100 text-blue-900'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+                }`}
+              >
+                <div className="text-2xl mb-2">🏠</div>
+                <div className="font-semibold">Client acheteur</div>
+                <div className="text-xs mt-1">Recherche un bien à acheter/ louer</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, lead_role: 'proprietaire' }))}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  formData.lead_role === 'proprietaire'
+                    ? 'border-green-500 bg-green-100 text-green-900'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-green-300'
+                }`}
+              >
+                <div className="text-2xl mb-2">🔑</div>
+                <div className="font-semibold">Propriétaire / Bailleur</div>
+                <div className="text-xs mt-1">Vend ou loue un bien</div>
+              </button>
+            </div>
+            {formData.lead_role && (
+              <div className="mt-3 text-sm text-blue-700">
+                ✅ Rôle sélectionné : <strong>{formData.lead_role === 'client' ? 'Client acheteur/locataire' : 'Propriétaire/bailleur'}</strong>
+              </div>
+            )}
+          </div>
+
+          {/* Champs communs */}
           <div>
             <label htmlFor="nom" className="block text-sm font-medium text-gray-700 mb-1">
               Nom complet *
@@ -210,21 +268,196 @@ const LeadForm = ({ onClose, onSuccess }) => {
             </select>
           </div>
 
-          <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
-              Budget (€)
-            </label>
-            <input
-              type="number"
-              id="budget"
-              name="budget"
-              value={formData.budget}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="Ex: 250000"
-              min="0"
-            />
-          </div>
+          {/* Champs spécifiques selon le rôle */}
+          {formData.lead_role === 'client' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-blue-900">🏠 Informations de recherche</h3>
+              
+              <div>
+                <label htmlFor="localisation_souhaitee" className="block text-sm font-medium text-blue-700 mb-1">
+                  Localisation souhaitée *
+                </label>
+                <input
+                  type="text"
+                  id="localisation_souhaitee"
+                  name="localisation_souhaitee"
+                  value={formData.localisation_souhaitee}
+                  onChange={handleChange}
+                  required={formData.lead_role === 'client'}
+                  className="input-field"
+                  placeholder="Paris 15ème, Lyon, etc."
+                />
+              </div>
+
+              <div>
+                <label htmlFor="budget" className="block text-sm font-medium text-blue-700 mb-1">
+                  Budget maximum (€) *
+                </label>
+                <input
+                  type="number"
+                  id="budget"
+                  name="budget"
+                  value={formData.budget}
+                  onChange={handleChange}
+                  required={formData.lead_role === 'client'}
+                  className="input-field"
+                  placeholder="Ex: 250000"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="criteres_specifiques" className="block text-sm font-medium text-blue-700 mb-1">
+                  Critères spécifiques
+                </label>
+                <textarea
+                  id="criteres_specifiques"
+                  name="criteres_specifiques"
+                  value={formData.criteres_specifiques}
+                  onChange={handleChange}
+                  rows={3}
+                  className="input-field resize-none"
+                  placeholder="Nombre de pièces, étage, ascenseur, parking, etc."
+                />
+              </div>
+            </div>
+          )}
+
+          {formData.lead_role === 'proprietaire' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-green-900">🔑 Informations du bien</h3>
+              
+              <div>
+                <label htmlFor="adresse_bien" className="block text-sm font-medium text-green-700 mb-1">
+                  Adresse du bien *
+                </label>
+                <input
+                  type="text"
+                  id="adresse_bien"
+                  name="adresse_bien"
+                  value={formData.adresse_bien}
+                  onChange={handleChange}
+                  required={formData.lead_role === 'proprietaire'}
+                  className="input-field"
+                  placeholder="15 Rue de la Paix, 75001 Paris"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="surface" className="block text-sm font-medium text-green-700 mb-1">
+                    Surface (m²) *
+                  </label>
+                  <input
+                    type="number"
+                    id="surface"
+                    name="surface"
+                    value={formData.surface}
+                    onChange={handleChange}
+                    required={formData.lead_role === 'proprietaire'}
+                    className="input-field"
+                    placeholder="75"
+                    min="0"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="nb_pieces" className="block text-sm font-medium text-green-700 mb-1">
+                    Nombre de pièces *
+                  </label>
+                  <select
+                    id="nb_pieces"
+                    name="nb_pieces"
+                    value={formData.nb_pieces}
+                    onChange={handleChange}
+                    required={formData.lead_role === 'proprietaire'}
+                    className="input-field"
+                  >
+                    <option value="">Sélectionner</option>
+                    <option value="1">1 pièce</option>
+                    <option value="2">2 pièces</option>
+                    <option value="3">3 pièces</option>
+                    <option value="4">4 pièces</option>
+                    <option value="5">5 pièces</option>
+                    <option value="6+">6 pièces et plus</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="prix_vente" className="block text-sm font-medium text-green-700 mb-1">
+                    Prix de vente (€) *
+                  </label>
+                  <input
+                    type="number"
+                    id="prix_vente"
+                    name="prix_vente"
+                    value={formData.prix_vente}
+                    onChange={handleChange}
+                    required={formData.lead_role === 'proprietaire'}
+                    className="input-field"
+                    placeholder="350000"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="date_disponibilite" className="block text-sm font-medium text-green-700 mb-1">
+                  Date de disponibilité *
+                </label>
+                <select
+                  id="date_disponibilite"
+                  name="date_disponibilite"
+                  value={formData.date_disponibilite}
+                  onChange={handleChange}
+                  required={formData.lead_role === 'proprietaire'}
+                  className="input-field"
+                >
+                  <option value="">Sélectionner</option>
+                  <option value="immediat">Immédiat</option>
+                  <option value="1_mois">Dans 1 mois</option>
+                  <option value="3_mois">Dans 3 mois</option>
+                  <option value="6_mois">Dans 6 mois</option>
+                  <option value="plus_6_mois">Plus de 6 mois</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Masquer les champs standards si rôle défini */}
+          {formData.lead_role === 'proprietaire' ? (
+            <div>
+              <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
+                Budget souhaité par le propriétaire (€)
+              </label>
+              <input
+                type="number"
+                id="budget"
+                name="budget"
+                value={formData.budget}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Budget de référence (optionnel)"
+                min="0"
+              />
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
+                Budget (€)
+              </label>
+              <input
+                type="number"
+                id="budget"
+                name="budget"
+                value={formData.budget}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Ex: 250000"
+                min="0"
+              />
+            </div>
+          )}
 
           <div>
             <label htmlFor="type_de_bien" className="block text-sm font-medium text-gray-700 mb-1">
