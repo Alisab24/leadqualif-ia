@@ -114,170 +114,205 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       // Récupérer l'utilisateur actuel
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Générer le PDF
-      const doc = new jsPDF();
-      
       // Configuration du document
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
-      const margin = 20;
+      const margin = 25; // Marges plus larges
       let currentY = margin;
       
-      // Couleurs professionnelles
+      // Couleurs professionnelles type Stripe
       const primaryColor = [59, 130, 246]; // blue-500
       const textGray = [107, 114, 128]; // gray-500
-      const textLight = [243, 244, 246]; // gray-100
+      const textLight = [248, 250, 252]; // gray-50
+      const accentColor = [34, 197, 94]; // green-500
       
-      // Header document
+      // Header document avec fond moderne
       doc.setFillColor(...textLight);
-      doc.rect(0, 0, pageWidth, 80, 'F');
+      doc.rect(0, 0, pageWidth, 90, 'F');
+      
+      // Ligne décorative
+      doc.setFillColor(...primaryColor);
+      doc.rect(0, 88, pageWidth, 2, 'F');
       
       // Logo agence
       if (profileToUse?.logo_url) {
         try {
-          doc.addImage(profileToUse.logo_url, 'PNG', margin, 15, 40, 20);
+          doc.addImage(profileToUse.logo_url, 'PNG', margin, 20, 45, 25);
         } catch (e) {
           console.log('Logo non chargé, utilisation du texte');
         }
       }
       
-      // Informations agence dans header
-      doc.setFontSize(20);
+      // Informations agence dans header (alignées à droite)
+      doc.setFontSize(22);
       doc.setTextColor(...primaryColor);
       doc.setFont(undefined, 'bold');
-      doc.text(profileToUse?.name || 'Agence', pageWidth - margin - 80, 25, { align: 'right' });
+      doc.text(profileToUse?.name || 'Agence', pageWidth - margin - 100, 30, { align: 'right' });
       
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.setTextColor(...textGray);
       doc.setFont(undefined, 'normal');
       if (profileToUse?.address) {
-        doc.text(profileToUse.address, pageWidth - margin - 80, 35, { align: 'right' });
+        doc.text(profileToUse.address, pageWidth - margin - 100, 40, { align: 'right' });
       }
       if (profileToUse?.email) {
-        doc.text(profileToUse.email, pageWidth - margin - 80, 42, { align: 'right' });
+        doc.text(profileToUse.email, pageWidth - margin - 100, 47, { align: 'right' });
       }
       if (profileToUse?.phone) {
-        doc.text(profileToUse.phone, pageWidth - margin - 80, 49, { align: 'right' });
+        doc.text(profileToUse.phone, pageWidth - margin - 100, 54, { align: 'right' });
       }
       
-      // Type et numéro du document
-      currentY = 100;
-      doc.setFontSize(24);
+      // Type et numéro du document avec design moderne
+      currentY = 110;
+      doc.setFontSize(28);
       doc.setTextColor(0, 0, 0);
       doc.setFont(undefined, 'bold');
       doc.text(docType.label.toUpperCase(), margin, currentY);
+      
+      // Badge de statut
+      doc.setFillColor(...accentColor);
+      doc.circle(pageWidth - margin - 30, currentY - 8, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text('✓', pageWidth - margin - 30, currentY - 5, { align: 'center' });
       
       doc.setFontSize(12);
       doc.setTextColor(...textGray);
       doc.setFont(undefined, 'normal');
       const documentNumber = `DOC-${Date.now().toString().slice(-6)}`;
-      doc.text(`N°: ${documentNumber}`, margin, currentY + 10);
-      doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, margin, currentY + 17);
+      doc.text(`Document N°: ${documentNumber}`, margin, currentY + 12);
+      doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, margin, currentY + 20);
       
-      // Ligne de séparation
+      // Ligne de séparation moderne
       doc.setDrawColor(...textGray);
-      doc.setLineWidth(0.5);
-      doc.line(margin, currentY + 25, pageWidth - margin, currentY + 25);
+      doc.setLineWidth(0.8);
+      doc.line(margin, currentY + 30, pageWidth - margin, currentY + 30);
       
-      // Bloc client
-      currentY = currentY + 40;
-      doc.setFontSize(14);
+      // Bloc client avec design aéré
+      currentY = currentY + 50;
+      doc.setFontSize(16);
       doc.setTextColor(0, 0, 0);
       doc.setFont(undefined, 'bold');
-      doc.text('CLIENT', margin, currentY);
+      doc.text('INFORMATIONS CLIENT', margin, currentY);
       
-      currentY += 10;
-      doc.setFontSize(11);
+      currentY += 15;
+      doc.setFontSize(12);
       doc.setTextColor(...textGray);
       doc.setFont(undefined, 'normal');
       
+      // Carte client avec fond
+      doc.setFillColor(...textLight);
+      doc.roundedRect(margin - 5, currentY - 10, pageWidth - 2 * margin + 10, 45, 5, 5, 'F');
+      
       const clientInfo = [
-        lead.nom || 'Non spécifié',
-        lead.email || 'Non spécifié',
-        lead.telephone || 'Non spécifié',
-        lead.type_bien || 'Projet non spécifié',
-        `Budget: ${formatBudget(lead.budget || 0)}`
+        { label: 'Nom', value: lead.nom || 'Non spécifié' },
+        { label: 'Email', value: lead.email || 'Non spécifié' },
+        { label: 'Téléphone', value: lead.telephone || 'Non spécifié' },
+        { label: 'Projet', value: lead.type_bien || 'Projet non spécifié' },
+        { label: 'Budget', value: formatBudget(lead.budget || 0) }
       ];
       
-      clientInfo.forEach(info => {
-        doc.text(info, margin, currentY);
-        currentY += 7;
+      clientInfo.forEach((info, index) => {
+        const xPos = index < 2 ? margin : pageWidth - margin - 80;
+        const yPos = index < 2 ? currentY + (index * 12) : currentY + ((index - 2) * 12);
+        
+        doc.setFont(undefined, 'bold');
+        doc.text(`${info.label}:`, xPos, yPos);
+        doc.setFont(undefined, 'normal');
+        doc.text(info.value, xPos + 35, yPos);
       });
+      
+      currentY += 55;
       
       // Ligne de séparation
       doc.setDrawColor(...textGray);
-      doc.setLineWidth(0.5);
-      doc.line(margin, currentY + 5, pageWidth - margin, currentY + 5);
+      doc.setLineWidth(0.8);
+      doc.line(margin, currentY, pageWidth - margin, currentY);
       
-      // Corps du document
-      currentY += 15;
-      doc.setFontSize(14);
+      // Corps du document avec sections claires
+      currentY += 20;
+      doc.setFontSize(16);
       doc.setTextColor(0, 0, 0);
       doc.setFont(undefined, 'bold');
-      doc.text('DÉTAILS', margin, currentY);
+      doc.text('DÉTAILS DU DOCUMENT', margin, currentY);
       
-      currentY += 15;
-      doc.setFontSize(11);
+      currentY += 20;
+      doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
       doc.setFont(undefined, 'normal');
       
-      // Contenu structuré selon type
+      // Contenu structuré selon type avec sections claires
       let content = '';
       switch (docType.id) {
         case 'mandat':
-          content = `OBJET: MANDAT EXCLUSIF DE VENTE\n\nLe soussigné ${lead.nom} donne mandat exclusif à ${profileToUse?.name || 'Agence'} pour la vente du bien situé au [adresse du bien].\n\nDURÉE: 3 mois à compter de la date de signature.\n\nCOMMISSION: 5% du prix de vente HT, payable par le vendeur au moment de la signature de l'acte de vente.\n\nENGAGEMENTS:\n- Le vendeur s'engage à ne pas confier de mandat à une autre agence\n- L'agence s'engage à assurer la promotion du bien\n- Les visites seront organisées selon la disponibilité du vendeur`;
+          content = `OBJET DU MANDAT\n\nLe soussigné ${lead.nom} ci-dessous désigné donne mandat exclusif à ${profileToUse?.name || 'Agence'} pour la vente du bien situé au [adresse complète du bien].\n\nARTICLE 1 - DURÉE DU MANDAT\nLe présent mandat est conclu pour une durée de 3 (trois) mois à compter de la date de signature.\n\nARTICLE 2 - COMMISSION\nUne commission de 5% du prix de vente HT sera due par le vendeur au moment de la signature de l'acte de vente.\n\nARTICLE 3 - ENGAGEMENTS DES PARTIES\nLe vendeur s'engage à ne pas confier de mandat à une autre agence pendant la durée du présent mandat. L'agence s'engage à assurer la promotion active du bien et à organiser les visites selon la disponibilité du vendeur.\n\nARTICLE 4 - RÉSILIATION\nLe mandat peut être résilié par anticipation moyennant un préavis de 15 jours.`;
           break;
         case 'devis':
-          content = `DEVIS N°${documentNumber}\n\nCLIENT: ${lead.nom}\nAGENCE: ${profileToUse?.name || 'Agence'}\nDATE: ${new Date().toLocaleDateString('fr-FR')}\n\nPRESTATIONS PROPOSÉES:\n${agencyType === 'immobilier' ? '• Accompagnement complet à la vente\n• Estimation et valorisation du bien\n• Marketing professionnel (photos, visites virtuelles)\n• Publication sur les plateformes immobilières\n• Gestion des candidatures et négociations\n• Assistance jusqu\'à la signature' : '• Stratégie marketing digitale personnalisée\n• Gestion des réseaux sociaux\n• Création de contenu professionnel\n• Campagnes publicitaires ciblées\n• Analyse des performances\n• Reporting mensuel'}\n\nMONTANT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'} du budget projet)\n\nVALIDITÉ: 1 mois à compter de la date d\'émission`;
+          content = `DEVIS N°${documentNumber}\n\nINFORMATIONS\nClient: ${lead.nom}\nAgence: ${profileToUse?.name || 'Agence'}\nDate: ${new Date().toLocaleDateString('fr-FR')}\nValidité: 1 mois\n\nPRESTATIONS PROPOSÉES\n${agencyType === 'immobilier' ? '• Accompagnement complet dans la vente de votre bien\n• Estimation professionnelle et valorisation\n• Services de photographie et visites virtuelles\n• Publication sur les principales plateformes immobilières\n• Gestion complète des candidatures et négociations\n• Assistance administrative jusqu\'à la signature finale' : '• Stratégie marketing digitale personnalisée\n• Gestion professionnelle des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires ciblées sur Instagram/Facebook\n• Analyse détaillée des performances mensuelles\n• Reporting personnalisé et recommandations stratégiques'}\n\nMONTANT DES HONORAIRES\n${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))} (${agencyType === 'immobilier' ? '3%' : '5%'} du budget projet)\n\nCONDITIONS DE PAIEMENT\n${profileToUse?.paymentConditions || '50% à la signature, 50% à la livraison des prestations'}`;
           break;
         case 'compromis':
-          content = `COMPROMIS DE VENTE\n\nVendeur: [Nom du vendeur]\nAcheteur: ${lead.nom}\nBien: [adresse complète du bien]\nPrix de vente: ${formatBudget(lead.budget || 0)}\nDate de signature: ${new Date().toLocaleDateString('fr-FR')}\n\nCLAUSES SUSPENSIVES:\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nDÉLAI DE RÉTRACTATION: 10 jours à compter de la signature\n\nACCOMPTE: ${formatBudget((lead.budget || 0) * 0.10)} (10% du prix de vente)\n\nSOLDE: ${formatBudget((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDATE PRÉVISIONNELLE DE SIGNATURE DÉFINITIVE: [à déterminer]`;
+          content = `COMPROMIS DE VENTE\n\nPARTIES CONCERNÉES\nVendeur: [Nom et adresse du vendeur]\nAcheteur: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nPrix de vente: ${formatBudget(lead.budget || 0)}\n\nCLAUSES SUSPENSIVES\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nCONDITIONS FINANCIÈRES\nAccomppte: ${formatBudget((lead.budget || 0) * 0.10)} (10% du prix de vente)\nSolde: ${formatBudget((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDÉLAIS\nDélai de rétractation: 10 jours à compter de la signature\nDate prévisionnelle de signature définitive: [à déterminer]`;
           break;
         case 'facture':
-          content = `FACTURE N°${documentNumber}\n\nCLIENT: ${lead.nom}\n${lead.email}\n${lead.telephone}\n\nPRESTATAIRE: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS:\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}\n\nMONTANT HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA (20%): ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.006 : 0.01))}\nTOTAL TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\n${profileToUse?.paymentConditions || 'Paiement à réception de facture'}\nÉchéance: 30 jours`;
+          content = `FACTURE N°${documentNumber}\n\nINFORMATIONS CLIENT\n${lead.nom}\n${lead.email}\n${lead.telephone}\n\nINFORMATIONS PRESTATAIRE\n${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}\n\nRÉCAPITULATIF FINANCIER\nMontant HT: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.03 : 0.05))}\nTVA (20%): ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.006 : 0.01))}\nTotal TTC: ${formatBudget((lead.budget || 0) * (agencyType === 'immobilier' ? 0.036 : 0.06))}\n\nCONDITIONS DE PAIEMENT\n${profileToUse?.paymentConditions || 'Paiement à réception de facture'}\nÉchéance: 30 jours`;
           break;
         case 'bon_visite':
-          content = `BON DE VISITE\n\nCLIENT: ${lead.nom}\nTÉLÉPHONE: ${lead.telephone}\nEMAIL: ${lead.email}\n\nBIEN VISITÉ: [adresse du bien]\nDATE DE VISITE: ${new Date().toLocaleDateString('fr-FR')}\nHEURE: [à définir]\n\nAGENT PRÉSENT: ${profileToUse?.name || 'Agence'}\nCONTACT: ${profileToUse?.phone || ''}\n\nOBSERVATIONS:\n[Notes et remarques sur la visite]\n\nPROCHAINES ÉTAPES:\n• Retour client sous 48h\n• Proposition d'offre (si intérêt)\n• Prise de contact vendeur\n• Préparation compromis (si accord)`;
+          content = `BON DE VISITE\n\nINFORMATIONS VISITE\nClient: ${lead.nom}\nTéléphone: ${lead.telephone}\nEmail: ${lead.email}\n\nBIEN VISITÉ\nAdresse: [adresse complète du bien]\nDate de visite: ${new Date().toLocaleDateString('fr-FR')}\nHeure: [à définir]\n\nAGENT PRÉSENT\nAgence: ${profileToUse?.name || 'Agence'}\nContact: ${profileToUse?.phone || ''}\n\nOBSERVATIONS\n[Notes et remarques sur la visite, état du bien, points d'attention]\n\nPROCHAINES ÉTAPES\n• Retour du client sous 48h\n• Proposition d'offre (si intérêt)\n• Prise de contact avec le vendeur\n• Préparation du compromis de vente (si accord)`;
           break;
         case 'contrat':
-          content = `CONTRAT DE PRESTATION DE SERVICES\n\nCLIENT: ${lead.nom}\nPRESTATAIRE: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET: Prestations de marketing digital\n\nDURÉE: 6 mois à compter de la date de signature\n\nPRESTATIONS INCLUSES:\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (10 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT: ${formatBudget((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION:\nPréavis de 30 jours par courriel recommandé`;
+          content = `CONTRAT DE PRESTATION DE SERVICES\n\nPARTIES\nClient: ${lead.nom}\nPrestataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET DU CONTRAT\nPrestations de marketing digital et communication\n\nDURÉE\nLe présent contrat est conclu pour une durée de 6 mois à compter de la date de signature.\n\nPRESTATIONS INCLUSES\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT\n${formatBudget((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION\nPréavis de 30 jours par courriel recommandé`;
           break;
         case 'rapport':
-          content = `RAPPORT DE PERFORMANCE\n\nCLIENT: ${lead.nom}\nPÉRIODE: ${new Date().toLocaleDateString('fr-FR')}\nAGENCE: ${profileToUse?.name || 'Agence'}\n\nINDICATEURS CLÉS:\n\nTAUX D'ENGAGEMENT: [à compléter]%\nCROISSANCE DES ABONNÉS: [à compléter]\nTAUX DE CONVERSION: [à compléter]%\nPORTÉE MOYENNE: [à compléter]\n\nPERFORMANCES PAR PLATEFORME:\n\nInstagram: [à compléter]\nFacebook: [à compléter]\nLinkedIn: [à compléter]\n\nRECOMMANDATIONS:\n• [Recommandation 1]\n• [Recommandation 2]\n• [Recommandation 3]\n\nPROCHAINES ACTIONS:\n• Optimisation contenu\n• Nouvelles campagnes\n• Analyse concurrentielle`;
+          content = `RAPPORT DE PERFORMANCE\n\nINFORMATIONS\nClient: ${lead.nom}\nPériode d'analyse: ${new Date().toLocaleDateString('fr-FR')}\nAgence: ${profileToUse?.name || 'Agence'}\n\nINDICATEURS CLÉS DE PERFORMANCE\n\nTAUX D'ENGAGEMENT: [à compléter]%\nCROISSANCE DES ABONNÉS: [à compléter]\nTAUX DE CONVERSION: [à compléter]%\nPORTÉE MOYENNE: [à compléter]\n\nPERFORMANCES PAR PLATEFORME\n\nInstagram: [à compléter abonnés, taux engagement]\nFacebook: [à compléter abonnés, taux engagement]\nLinkedIn: [à compléter abonnés, taux engagement]\n\nRECOMMANDATIONS STRATÉGIQUES\n• Optimisation du contenu existant\n• Nouvelles campagnes publicitaires\n• Analyse concurrentielle approfondie\n\nPROCHAINES ACTIONS\n• Mise en place des recommandations\n• Nouvelles campagnes ciblées\n• Suivi hebdomadaire des performances`;
           break;
       }
       
       // Découper le contenu en lignes pour éviter le débordement
       const splitContent = doc.splitTextToSize(content, pageWidth - 2 * margin);
       splitContent.forEach(line => {
-        if (currentY > pageHeight - 60) {
+        if (currentY > pageHeight - 80) {
           doc.addPage();
           currentY = margin;
+          
+          // Header sur pages supplémentaires
+          doc.setFontSize(10);
+          doc.setTextColor(...textGray);
+          doc.text(`${docType.label} - Page ${doc.internal.getNumberOfPages()}`, pageWidth - margin, margin, { align: 'right' });
         }
         doc.text(line, margin, currentY);
-        currentY += 6;
+        currentY += 7;
       });
       
-      // Footer
-      const footerY = pageHeight - 40;
+      // Footer professionnel
+      const footerY = pageHeight - 60;
       doc.setDrawColor(...textGray);
-      doc.setLineWidth(0.5);
+      doc.setLineWidth(0.8);
       doc.line(margin, footerY, pageWidth - margin, footerY);
       
       // Mentions légales
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setTextColor(...textGray);
       doc.setFont(undefined, 'normal');
       if (profileToUse?.legalMention) {
         const splitLegal = doc.splitTextToSize(profileToUse.legalMention, pageWidth - 2 * margin);
         splitLegal.forEach((line, index) => {
-          doc.text(line, margin, footerY + 10 + (index * 5));
+          doc.text(line, margin, footerY + 15 + (index * 6));
         });
       }
       
-      // Signature
-      doc.text('Signature:', margin, pageHeight - 15);
-      doc.line(margin + 35, pageHeight - 15, margin + 100, pageHeight - 15);
+      // Zone signature
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text('Signature:', margin, pageHeight - 20);
+      doc.setDrawColor(...textGray);
+      doc.setLineWidth(1);
+      doc.line(margin + 40, pageHeight - 20, margin + 120, pageHeight - 20);
+      
+      // Date signature
+      doc.setFont(undefined, 'normal');
+      doc.text(`Fait à ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin - 80, pageHeight - 20);
       
       // Convertir le PDF en Blob pour la preview
       const pdfBlob = doc.output('blob');
@@ -493,37 +528,38 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
       
       {/* Preview Modal */}
       {showPreview && generatedDocument && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 md:p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full h-full max-h-[98vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-200 bg-slate-50 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span className="text-lg">📄</span>
+            <div className="flex items-center justify-between p-3 md:p-4 border-b border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-sm md:text-lg">📄</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">{generatedDocument.type}</h3>
-                  <p className="text-sm text-slate-600">
+                  <h3 className="font-bold text-slate-900 text-sm md:text-base">{generatedDocument.type}</h3>
+                  <p className="text-xs md:text-sm text-slate-600">
                     {generatedDocument.clientData?.nom} • {new Date(generatedDocument.generatedAt).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
               </div>
               <button 
                 onClick={closePreview}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-1.5 md:p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 ✕
               </button>
             </div>
             
-            {/* Content - Preview responsive */}
-            <div className="flex-1 overflow-auto bg-slate-100 p-4">
-              <div className="flex justify-center">
+            {/* Content - Preview responsive A4 */}
+            <div className="flex-1 overflow-auto bg-slate-100 p-2 md:p-4">
+              <div className="flex justify-center min-h-full">
                 <div className="bg-white shadow-lg" style={{ 
                   width: '100%', 
                   maxWidth: '842px', // A4 width in pixels at 96 DPI
+                  minWidth: '210mm', // A4 minimum width
                   height: 'auto',
-                  transform: 'scale(0.9)',
+                  transform: 'scale(1)',
                   transformOrigin: 'top center'
                 }}>
                   <iframe
@@ -531,7 +567,8 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
                     className="w-full border-0"
                     style={{ 
                       height: '1189px', // A4 height in pixels at 96 DPI
-                      minHeight: '600px'
+                      minHeight: '297mm', // A4 minimum height
+                      width: '210mm' // A4 exact width
                     }}
                     title={`Aperçu ${generatedDocument.type}`}
                   />
@@ -540,8 +577,8 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
             </div>
             
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 md:p-6 border-t border-slate-200 bg-slate-50 shrink-0">
-              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-sm text-slate-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4 p-3 md:p-4 border-t border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs md:text-sm text-slate-600">
                 <div>
                   <span className="font-medium">Agence:</span> {generatedDocument.agencyData?.name || 'Non spécifiée'}
                 </div>
@@ -550,20 +587,22 @@ export default function DocumentGenerator({ lead, agencyId, onDocumentGenerated,
                 </div>
               </div>
               
-              <div className="flex gap-3 w-full sm:w-auto">
+              <div className="flex gap-2 md:gap-3 w-full sm:w-auto">
                 <button
                   onClick={downloadDocument}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
                 >
                   <span>⬇</span>
-                  Télécharger
+                  <span className="hidden sm:inline">Télécharger</span>
+                  <span className="sm:hidden">PDF</span>
                 </button>
                 <button
                   onClick={printDocument}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
                 >
                   <span>🖨</span>
-                  Imprimer
+                  <span className="hidden sm:inline">Imprimer</span>
+                  <span className="sm:hidden">Print</span>
                 </button>
               </div>
             </div>
