@@ -15,6 +15,20 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const [pendingDocType, setPendingDocType] = useState(null);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [htmlDocument, setHtmlDocument] = useState(null);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [metadataSettings, setMetadataSettings] = useState({
+    // Champs IMMO
+    notes: '',
+    reference: '',
+    dateEcheance: '',
+    lieuSignature: '',
+    
+    // Champs SMMA
+    periodeFacturation: '',
+    modeReglement: '',
+    contactFacturation: '',
+    prestationDetails: ''
+  });
 
   // États pour la modale de pré-génération
   const [documentSettings, setDocumentSettings] = useState({
@@ -246,8 +260,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       return;
     }
     
-    // Pour les autres documents, générer directement en HTML
-    await generateHtmlDocument(docType);
+    // Pour les autres documents, afficher le popup de métadonnées
+    setPendingDocType(docType);
+    setShowMetadataModal(true);
   };
 
   const generateHtmlDocument = async (docType) => {
@@ -258,6 +273,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       let documentData = {
         type: docType,
         settings: documentSettings,
+        metadata: metadataSettings,
         financialData: null
       };
 
@@ -1262,6 +1278,188 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   }
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg"
+              >
+                📄 Générer le {pendingDocType?.label}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Popup métadonnées optionnel */}
+      {showMetadataModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">
+                Options du {pendingDocType?.label || 'document'}
+              </h2>
+              <button
+                onClick={() => setShowMetadataModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Champs IMMO */}
+              {agencyType === 'immobilier' && (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Notes internes
+                      </label>
+                      <textarea
+                        value={metadataSettings.notes}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, notes: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                        placeholder="Notes internes sur le bien ou le client..."
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Référence dossier
+                      </label>
+                      <input
+                        type="text"
+                        value={metadataSettings.reference}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, reference: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Référence interne du dossier"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date d'échéance
+                      </label>
+                      <input
+                        type="date"
+                        value={metadataSettings.dateEcheance}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, dateEcheance: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Lieu de signature
+                      </label>
+                      <input
+                        type="text"
+                        value={metadataSettings.lieuSignature}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, lieuSignature: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ville ou lieu précis"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Champs SMMA */}
+              {agencyType === 'smma' && (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Période de facturation
+                      </label>
+                      <select
+                        value={metadataSettings.periodeFacturation}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, periodeFacturation: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="mensuel">Mensuel</option>
+                        <option value="trimestriel">Trimestriel</option>
+                        <option value="semestriel">Semestriel</option>
+                        <option value="annuel">Annuel</option>
+                        <option value="ponctuel">Ponctuel</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Mode de règlement
+                      </label>
+                      <select
+                        value={metadataSettings.modeReglement}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, modeReglement: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="virement">Virement bancaire</option>
+                        <option value="carte">Carte bancaire</option>
+                        <option value="cheque">Chèque</option>
+                        <option value="paypal">PayPal</option>
+                        <option value="stripe">Stripe</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Contact facturation
+                      </label>
+                      <input
+                        type="text"
+                        value={metadataSettings.contactFacturation}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, contactFacturation: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Service comptabilité ou contact facturation"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Détails de la prestation
+                      </label>
+                      <textarea
+                        value={metadataSettings.prestationDetails}
+                        onChange={(e) => setMetadataSettings(prev => ({ ...prev, prestationDetails: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                        placeholder="Description détaillée des services fournis..."
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Champ commun */}
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="pre-rempli"
+                    checked={metadataSettings.notes || metadataSettings.reference || metadataSettings.dateEcheance || metadataSettings.lieuSignature}
+                    onChange={(e) => setMetadataSettings(prev => ({ ...prev, preRempli: e.target.checked }))}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="pré-rempli" className="ml-2 text-sm text-gray-700">
+                    Pré-remplir les données si elles existent déjà
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowMetadataModal(false)}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  setShowMetadataModal(false);
+                  generateHtmlDocument(pendingDocType);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg"
               >
                 📄 Générer le {pendingDocType?.label}
               </button>

@@ -124,6 +124,75 @@ const DocumentPreview = ({
     );
   };
 
+  const renderMetadataSection = () => {
+    if (!document?.metadata) return null;
+    
+    return (
+      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <h3 className="text-sm font-semibold text-yellow-800 mb-3">INFORMATIONS COMPLÉMENTAIRES</h3>
+        
+        {document.metadata.notes && (
+          <div className="mb-3">
+            <p className="text-xs text-yellow-700 font-medium mb-1">Notes:</p>
+            <p className="text-sm text-yellow-900">{document.metadata.notes}</p>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          {document.metadata.reference && (
+            <div>
+              <span className="font-medium text-yellow-700">Réf:</span>
+              <span className="text-yellow-900 ml-2">{document.metadata.reference}</span>
+            </div>
+          )}
+          
+          {document.metadata.dateEcheance && (
+            <div>
+              <span className="font-medium text-yellow-700">Échéance:</span>
+              <span className="text-yellow-900 ml-2">{new Date(document.metadata.dateEcheance).toLocaleDateString('fr-FR')}</span>
+            </div>
+          )}
+          
+          {document.metadata.lieuSignature && (
+            <div>
+              <span className="font-medium text-yellow-700">Lieu:</span>
+              <span className="text-yellow-900 ml-2">{document.metadata.lieuSignature}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Champs SMMA */}
+        {document.metadata.periodeFacturation && (
+          <div className="mt-3 pt-3 border-t border-yellow-300">
+            <p className="text-xs text-yellow-700 font-medium mb-1">Période facturation:</p>
+            <p className="text-sm text-yellow-900">{document.metadata.periodeFacturation}</p>
+          </div>
+        )}
+        
+        {document.metadata.modeReglement && (
+          <div className="mt-3 pt-3 border-t border-yellow-300">
+            <p className="text-xs text-yellow-700 font-medium mb-1">Mode règlement:</p>
+            <p className="text-sm text-yellow-900">{document.metadata.modeReglement}</p>
+          </div>
+        )}
+        
+        {document.metadata.contactFacturation && (
+          <div className="mt-3 pt-3 border-t border-yellow-300">
+            <p className="text-xs text-yellow-700 font-medium mb-1">Contact facturation:</p>
+            <p className="text-sm text-yellow-900">{document.metadata.contactFacturation}</p>
+          </div>
+        )}
+        
+        {document.metadata.prestationDetails && (
+          <div className="mt-3 pt-3 border-t border-yellow-300">
+            <p className="text-xs text-yellow-700 font-medium mb-1">Détails prestation:</p>
+            <p className="text-sm text-yellow-900">{document.metadata.prestationDetails}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (!document) return null;
 
   return (
@@ -250,6 +319,9 @@ const DocumentPreview = ({
 
           {/* Contenu principal */}
           <div className="p-8">
+            {/* Section métadonnées optionnelles */}
+            {renderMetadataSection()}
+            
             {documentType?.id === 'devis' && document.financialData && (
               <>
                 <h2 className="text-xl font-bold text-gray-900 mb-6">DEVIS</h2>
