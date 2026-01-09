@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DocumentPreview from './DocumentPreview';
 import DocumentPdfLayout from './DocumentPdfLayout';
+import { DocumentCounterService } from '../services/documentCounterService';
 import '../styles/document-print.css';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
@@ -461,15 +462,33 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       if (validation.warnings.length > 0) {
         console.warn('⚠️ Champs incomplets (non bloquant) :', validation.warnings);
       }
+
+      // 🎯 GÉNÉRATION DU NUMÉRO LÉGAL
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      const documentNumber = await DocumentCounterService.generateDocumentNumber(
+        docType.id, 
+        user.id
+      );
+
+      console.log('📄 Numéro de document généré:', documentNumber.formatted);
       
       // Préparer les données du document
       let documentData = {
         type: docType,
+        number: documentNumber.formatted, // 🎯 Numéro légal
         settings: documentSettings,
         metadata: {
           ...metadataSettings,
           amountInWords: metadataSettings.showAmountInWords ? 
-            getAmountInWords(documentSettings.bienPrice) : 
+            DocumentCounterService.formatAmountInWords(
+              documentSettings.bienPrice, 
+              agencyProfile.devise || 'EUR',
+              metadataSettings.showAmountInWords
+            ) : 
             null
         },
         financialData: null

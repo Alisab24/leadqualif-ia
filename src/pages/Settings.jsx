@@ -33,6 +33,9 @@ export default function Settings() {
     mention_legale: '',
     conditions_paiement: '',
     
+    // 🎯 Option Premium - Montant en lettres
+    show_amount_in_words: false,
+    
     // Formulaire IA
     form_settings: {
       showBudget: true,
@@ -91,6 +94,9 @@ export default function Settings() {
           adresse_legale: data.adresse_legale || '',
           mention_legale: data.mention_legale || '',
           conditions_paiement: data.conditions_paiement || '',
+          
+          // 🎯 Option Premium - Montant en lettres
+          show_amount_in_words: data.show_amount_in_words || false,
           
           // Formulaire IA
           form_settings: data.form_settings || {
@@ -480,6 +486,36 @@ export default function Settings() {
                   rows={3}
                   className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                 />
+              </div>
+              
+              {/* 🎯 OPTION PREMIUM - MONTANT EN LETTRES */}
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-purple-800 mb-1">💎 Afficher le montant en lettres</h4>
+                    <p className="text-sm text-purple-600 mb-2">
+                      Option premium - Différenciation professionnelle vs Bitrix/Pipedrive
+                    </p>
+                    <ul className="text-xs text-purple-600 space-y-1">
+                      <li>• Affiche "Arrêté la présente facture à la somme de..."</li>
+                      <li>• Conversion intelligente selon devise et pays</li>
+                      <li>• Style italique, aligné à gauche, discret</li>
+                      <li>• Compatible EUR, USD, CAD, FCFA</li>
+                    </ul>
+                  </div>
+                  <div className="flex items-center">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        name="show_amount_in_words"
+                        checked={formData.show_amount_in_words} 
+                        onChange={handleChange}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
               
               {(!formData.nom_legal || !formData.statut_juridique) && (

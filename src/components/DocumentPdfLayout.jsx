@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { DocumentCounterService } from '../services/documentCounterService';
 
 const DocumentPdfLayout = ({ 
   document, 
@@ -11,18 +12,21 @@ const DocumentPdfLayout = ({
 }) => {
   const pdfRef = useRef(null);
 
-  // Générer un numéro de document auto-incrémenté
-  const generateDocumentNumber = async () => {
-    try {
-      // Pour l'instant, générer un numéro basé sur timestamp et agence
-      const agencyId = agencyProfile?.id || 'unknown';
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 1000);
-      return `${agencyId.toUpperCase()}-${timestamp.toString().slice(-6)}-${random}`;
-    } catch (error) {
-      console.error('Erreur génération numéro document:', error);
-      return `DOC-${Date.now().toString().slice(-6)}`;
-    }
+  // 🎯 Utiliser le numéro légal déjà généré dans document.number
+  const getDocumentNumber = () => {
+    return document?.number || 'DOC-TEMP';
+  };
+
+  // 🎯 Générer le nom de fichier PDF professionnel
+  const generatePdfFileName = () => {
+    const documentNumber = getDocumentNumber();
+    const agencyName = agencyProfile?.name || agencyProfile?.legalName || 'AGENCE';
+    
+    return DocumentCounterService.generatePdfFileName(
+      documentNumber, 
+      agencyName, 
+      document?.type?.id
+    );
   };
 
   // Formater les montants correctement
@@ -89,7 +93,13 @@ const DocumentPdfLayout = ({
   const generatePdfFromHtml = () => {
     return new Promise(async (resolve, reject) => {
       try {
-        const docNumber = await generateDocumentNumber();
+        // 🎯 Utiliser le numéro légal déjà généré
+        const docNumber = getDocumentNumber();
+        const pdfFileName = generatePdfFileName();
+        
+        console.log('📄 Génération PDF avec numéro:', docNumber);
+        console.log('📄 Nom du fichier:', pdfFileName);
+        
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
@@ -119,7 +129,7 @@ const DocumentPdfLayout = ({
 
             pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, imgHeight);
 
-            // Ajouter le numéro de document en en-tête si nécessaire
+            // 🎯 Ajouter le numéro de document légal en en-tête
             pdf.setFontSize(8);
             pdf.setTextColor(128, 128, 128);
             pdf.text(`N°: ${docNumber}`, 20, 15);
@@ -136,19 +146,14 @@ const DocumentPdfLayout = ({
     });
   };
 
-  // Télécharger le PDF avec nom formaté
+  // Télécharger le PDF avec nom professionnel
   const downloadPdf = async () => {
     try {
-      const docNumber = await generateDocumentNumber();
       const pdf = await generatePdfFromHtml();
+      const pdfFileName = generatePdfFileName();
       
-      // Nom de fichier formaté selon les spécifications
-      const docType = document?.type?.label || 'Document';
-      const clientName = lead?.nom || 'Client';
-      const cleanClientName = clientName.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `${docType}_${docNumber}_${cleanClientName}.pdf`;
-      
-      pdf.save(filename);
+      console.log('📄 Téléchargement PDF avec nom:', pdfFileName);
+      pdf.save(pdfFileName);
     } catch (error) {
       console.error('Erreur lors du téléchargement PDF:', error);
       alert('Erreur lors du téléchargement PDF');
