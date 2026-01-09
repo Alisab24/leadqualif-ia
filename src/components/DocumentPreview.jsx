@@ -18,7 +18,7 @@ const DocumentPreview = ({
     pageStyle: `
       @page {
         size: A4;
-        margin: 20mm;
+        margin: 15mm;
       }
       @media print {
         body { 
@@ -62,30 +62,30 @@ const DocumentPreview = ({
   };
 
   const getDocumentNumber = () => {
-    return `DOC-${Date.now().toString().slice(-6)}`;
+    return `FAC-${Date.now().toString().slice(-6)}`;
   };
 
   const renderFinancialTable = (items, totals) => {
     return (
-      <div className="financial-table">
-        <table className="w-full">
+      <div className="mb-8">
+        <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-50">
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Description</th>
-              <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Qté</th>
-              <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Montant (€)</th>
+            <tr className="bg-gray-50 border-b-2 border-gray-200">
+              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
+              <th className="text-center py-4 px-6 text-sm font-semibold text-gray-700 w-24">Quantité</th>
+              <th className="text-right py-4 px-6 text-sm font-semibold text-gray-700 w-32">Montant (€)</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item, index) => (
-              <tr key={index} className="border-b border-gray-100">
-                <td className="py-3 px-4 text-sm text-gray-900">
+              <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="py-4 px-6 text-sm text-gray-900 font-medium">
                   {item.description}
                 </td>
-                <td className="py-3 px-4 text-sm text-center text-gray-900">
+                <td className="py-4 px-6 text-sm text-center text-gray-600">
                   {item.quantity || '1'}
                 </td>
-                <td className="py-3 px-4 text-sm text-right font-medium text-gray-900">
+                <td className="py-4 px-6 text-sm text-right font-semibold text-gray-900">
                   {formatAmountPlain(item.amount)}
                 </td>
               </tr>
@@ -97,20 +97,20 @@ const DocumentPreview = ({
               const isBold = total.label.includes('TOTAL');
               
               return (
-                <tr key={index} className={isTotalTTC ? 'bg-blue-50' : ''}>
+                <tr key={index} className={isTotalTTC ? 'bg-blue-50 border-t-2 border-blue-200' : 'border-t border-gray-200'}>
                   <td 
                     colSpan="2" 
-                    className={`py-3 px-4 text-sm ${
-                      isTotalTTC ? 'font-bold text-blue-600' : 
-                      isBold ? 'font-semibold text-gray-900' : 
+                    className={`py-4 px-6 text-sm ${
+                      isTotalTTC ? 'font-bold text-blue-700 text-lg' : 
+                      isBold ? 'font-semibold text-gray-800' : 
                       'text-gray-600'
                     }`}
                   >
                     {total.label}
                   </td>
-                  <td className={`py-3 px-4 text-sm text-right ${
-                    isTotalTTC ? 'font-bold text-blue-600' : 
-                    isBold ? 'font-semibold text-gray-900' : 
+                  <td className={`py-4 px-6 text-sm text-right ${
+                    isTotalTTC ? 'font-bold text-blue-700 text-lg' : 
+                    isBold ? 'font-semibold text-gray-800' : 
                     'text-gray-600'
                   }`}>
                     {formatAmountPlain(total.amount)} €
@@ -129,7 +129,7 @@ const DocumentPreview = ({
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-hidden">
       {/* Header du document preview */}
-      <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+      <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center print:hidden">
         <div className="flex items-center space-x-4">
           <h2 className="text-lg font-semibold text-gray-900">
             {documentType?.label?.toUpperCase() || 'DOCUMENT'}
@@ -165,53 +165,85 @@ const DocumentPreview = ({
 
       {/* Contenu du document */}
       <div className="flex-1 overflow-auto bg-gray-50 p-8">
-        <div ref={componentRef} className="bg-white max-w-4xl mx-auto shadow-lg">
-          {/* Header du document */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-8">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {documentType?.label?.toUpperCase() || 'DOCUMENT'}
-                </h1>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>Document N°: {getDocumentNumber()}</p>
-                  <p>Date: {getCurrentDate()}</p>
+        <div ref={componentRef} className="bg-white max-w-4xl mx-auto shadow-lg print:shadow-none">
+          {/* Entête professionnel */}
+          <div className="p-8 border-b-2 border-gray-200">
+            <div className="flex justify-between items-start mb-6">
+              {/* Logo et infos agence */}
+              <div className="flex items-start space-x-6">
+                {agencyProfile?.logo_url && (
+                  <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                    <img 
+                      src={agencyProfile.logo_url} 
+                      alt="Logo agence" 
+                      className="max-w-full max-h-full object-contain rounded"
+                    />
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                    {agencyProfile?.name || 'Agence'}
+                  </h1>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    {agencyProfile?.address && <p>{agencyProfile.address}</p>}
+                    {agencyProfile?.email && <p>{agencyProfile.email}</p>}
+                    {agencyProfile?.phone && <p>{agencyProfile.phone}</p>}
+                    {agencyProfile?.registrationNumber && (
+                      <p className="text-xs text-gray-500">{agencyProfile.registrationNumber}</p>
+                    )}
+                  </div>
                 </div>
               </div>
               
+              {/* Informations document */}
               <div className="text-right">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-green-500 rounded-full mb-3">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                <div className="text-3xl font-bold text-gray-900 mb-2">
+                  FACTURE
                 </div>
-                <div className="text-sm text-gray-600">Validé</div>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p className="font-semibold">N° {getDocumentNumber()}</p>
+                  <p>Date: {getCurrentDate()}</p>
+                  <p className="text-xs">Échéance: 30 jours</p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Informations agence */}
-          <div className="p-8 border-b border-gray-200">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
-                  {agencyProfile?.name || 'Agence'}
-                </h2>
-                <div className="text-sm text-gray-600 space-y-1">
-                  {agencyProfile?.address && <p>{agencyProfile.address}</p>}
-                  {agencyProfile?.email && <p>{agencyProfile.email}</p>}
-                  {agencyProfile?.phone && <p>{agencyProfile.phone}</p>}
+          {/* Bloc client */}
+          <div className="p-8 bg-gray-50 border-b border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">CLIENT</h2>
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <div className="flex">
+                  <span className="text-sm font-semibold text-gray-700 w-20">Nom:</span>
+                  <span className="text-sm text-gray-900">{lead?.nom || 'Non spécifié'}</span>
                 </div>
+                {lead?.email && (
+                  <div className="flex">
+                    <span className="text-sm font-semibold text-gray-700 w-20">Email:</span>
+                    <span className="text-sm text-gray-900">{lead.email}</span>
+                  </div>
+                )}
+                {lead?.telephone && (
+                  <div className="flex">
+                    <span className="text-sm font-semibold text-gray-700 w-20">Tél:</span>
+                    <span className="text-sm text-gray-900">{lead.telephone}</span>
+                  </div>
+                )}
               </div>
-              
-              <div className="text-right">
-                <div className="text-sm text-gray-600">
-                  <p className="font-semibold">Informations client</p>
-                  <p>{lead?.nom || 'Non spécifié'}</p>
-                  {lead?.email && <p>{lead.email}</p>}
-                  {lead?.telephone && <p>{lead.telephone}</p>}
-                  {lead?.budget && <p>Budget: {formatAmount(lead.budget)}</p>}
-                </div>
+              <div className="space-y-2">
+                {lead?.budget && (
+                  <div className="flex">
+                    <span className="text-sm font-semibold text-gray-700 w-20">Budget:</span>
+                    <span className="text-sm text-gray-900">{formatAmount(lead.budget)}</span>
+                  </div>
+                )}
+                {lead?.type_bien && (
+                  <div className="flex">
+                    <span className="text-sm font-semibold text-gray-700 w-20">Projet:</span>
+                    <span className="text-sm text-gray-900">{lead.type_bien}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -220,13 +252,13 @@ const DocumentPreview = ({
           <div className="p-8">
             {documentType?.id === 'devis' && document.financialData && (
               <>
-                <h2 className="text-xl font-bold text-gray-900 mb-6">DÉTAIL DU DEVIS</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-6">DEVIS</h2>
                 <div className="mb-6">
                   <p className="text-gray-700 mb-4">
                     Nous vous proposons les prestations suivantes pour votre projet immobilier.
                   </p>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-800">
                       <strong>Conditions de paiement:</strong> {document.settings?.conditionsPaiement || '50% à la signature, 50% à la livraison'}
                     </p>
                   </div>
@@ -243,8 +275,8 @@ const DocumentPreview = ({
                   <p className="text-gray-700 mb-4">
                     En règlement de la facture ci-dessous pour les prestations réalisées.
                   </p>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <p className="text-sm text-yellow-800">
                       <strong>Conditions de paiement:</strong> {document.settings?.conditionsPaiement || 'Paiement à réception de facture'}
                     </p>
                   </div>
@@ -258,8 +290,7 @@ const DocumentPreview = ({
               <div className="prose max-w-none">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">MANDAT EXCLUSIF</h2>
                 <div className="text-gray-700 space-y-4">
-                  <p>
-                    Le soussigné <strong>{lead?.nom || 'Client'}</strong> ci-dessous désigné donne 
+                  <p>Le soussigné <strong>{lead?.nom || 'Client'}</strong> ci-dessous désigné donne 
                     mandat exclusif à <strong>{agencyProfile?.name || 'Agence'}</strong> pour la vente 
                     du bien situé au [adresse complète du bien].
                   </p>
@@ -302,7 +333,7 @@ const DocumentPreview = ({
                   </ul>
                   
                   <h3 className="font-semibold text-lg mt-6 mb-3">CONDITIONS FINANCIÈRES</h3>
-                  <p><strong>Accomppte:</strong> {formatAmount((lead?.budget || 0) * 0.10)} (10% du prix de vente)</p>
+                  <p><strong>Acompte:</strong> {formatAmount((lead?.budget || 0) * 0.10)} (10% du prix de vente)</p>
                   <p><strong>Solde:</strong> {formatAmount((lead?.budget || 0) * 0.90)} à la levée des clauses suspensives</p>
                   
                   <h3 className="font-semibold text-lg mt-6 mb-3">DÉLAIS</h3>
