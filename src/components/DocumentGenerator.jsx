@@ -21,6 +21,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [pendingDocType, setPendingDocType] = useState(null);
   
+  // 🎯 État pour la validation préventive (ZÉRO BUG)
+  const [canGenerate, setCanGenerate] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
+  
   // NOUVEAUX STATES POUR LA MODALE DE PREVIEW
   const [openPreview, setOpenPreview] = useState(false);
   const [docData, setDocData] = useState(null);
@@ -159,6 +163,42 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
     fetchAgencyProfile();
   }, [agencyId]);
+
+  // 🎯 VALIDATION PRÉVENTIVE (ZÉRO BUG, ZÉRO FRUSTRATION)
+  useEffect(() => {
+    if (profileLoading) {
+      setCanGenerate(false);
+      setValidationMessage('Chargement du profil...');
+      return;
+    }
+
+    if (!agencyProfile) {
+      setCanGenerate(false);
+      setValidationMessage('Profil agence non disponible');
+      return;
+    }
+
+    // Validation CLÉ : champs obligatoires pour la génération
+    const requiredFields = [
+      { field: agencyProfile.legalName, name: 'nom légal' },
+      { field: agencyProfile.pays, name: 'pays' },
+      { field: agencyProfile.devise, name: 'devise' }
+    ];
+
+    const missingFields = requiredFields.filter(
+      ({ field }) => !field || field === null || field === undefined || field.trim() === ''
+    );
+
+    if (missingFields.length > 0) {
+      setCanGenerate(false);
+      setValidationMessage(`Complétez les informations légales dans Paramètres → Documents (${missingFields.map(f => f.name).join(', ')})`);
+      return;
+    }
+
+    // ✅ Tous les champs OK
+    setCanGenerate(true);
+    setValidationMessage('');
+  }, [agencyProfile, profileLoading]);
 
   // Fonction pour formater les montants avec espaces et symbole
   const formatAmount = (amount) => {
@@ -442,27 +482,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     setLoading(true);
     
     try {
-      // Attendre explicitement la fin du chargement du profil
-      if (profileLoading) {
-        alert('Veuillez patienter pendant le chargement du profil agence...');
-        setLoading(false);
-        return;
-      }
-
-      // Validation souple du profil
-      const validation = validateAgencyProfile(agencyProfile);
+      // 🎯 ZÉRO VALIDATION ICI - tout est déjà validé par canGenerate
+      // 🎯 ZÉRO ALERT() - plus jamais de messages bloquants
       
-      if (!validation.canGenerate) {
-        alert(`Impossible de générer le document. Champs obligatoires manquants :\n${validation.missingFields.join('\n')}`);
-        setLoading(false);
-        return;
-      }
-
-      // Afficher les warnings si présents
-      if (validation.warnings.length > 0) {
-        console.warn('⚠️ Champs incomplets (non bloquant) :', validation.warnings);
-      }
-
       // 🎯 GÉNÉRATION DU NUMÉRO LÉGAL
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -1074,9 +1096,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             <button
               key={docType.id}
               onClick={() => generateDocument(docType)}
-              disabled={loading}
-              className="text-xs bg-blue-50 text-blue-600 p-1.5 rounded hover:bg-blue-100 disabled:opacity-50 flex items-center justify-center gap-1"
-              title={`Générer ${docType.label}`}
+              disabled={loading || !canGenerate}
+              className={`text-xs p-1.5 rounded flex items-center justify-center gap-1 transition-all ${
+                canGenerate 
+                  ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 hover:scale-105' 
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              } ${loading ? 'opacity-50' : ''}`}
+              title={canGenerate ? `Générer ${docType.label}` : validationMessage}
             >
               <span>{docType.icon}</span>
               <span className="hidden sm:inline">{docType.label}</span>
@@ -1499,9 +1525,24 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                     generateHtmlDocument(pendingDocType);
                   }
                 }}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg"
+                disabled={!canGenerate || loading}
+                className={`flex-1 px-6 py-3 rounded-lg transition-all font-medium shadow-lg ${
+                  canGenerate && !loading
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:scale-105'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title={canGenerate ? `Générer le ${pendingDocType?.label}` : validationMessage}
               >
-                📄 Générer le {pendingDocType?.label}
+                {loading ? (
+                  <>
+                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                    Génération...
+                  </>
+                ) : (
+                  <>
+                    📄 Générer le {pendingDocType?.label}
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1691,30 +1732,28 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               </button>
               <button
                 onClick={() => {
-                  if (!profileLoading) {
+                  if (!profileLoading && canGenerate) {
                     setShowMetadataModal(false);
                     generateHtmlDocument(pendingDocType);
                   }
                 }}
-                disabled={profileLoading || loading}
+                disabled={!canGenerate || profileLoading || loading}
                 className={`flex-1 px-6 py-3 font-medium shadow-lg transition-all ${
-                  profileLoading || loading
+                  !canGenerate || profileLoading || loading
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 hover:scale-105'
                 }`}
+                title={canGenerate ? `Générer le ${pendingDocType?.label}` : validationMessage}
               >
-                {profileLoading ? (
-                  <>
-                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                    Chargement profil...
-                  </>
-                ) : loading ? (
+                {loading || profileLoading ? (
                   <>
                     <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                     Génération...
                   </>
                 ) : (
-                  <>📄 Générer le {pendingDocType?.label}</>
+                  <>
+                    📄 Générer le {pendingDocType?.label}
+                  </>
                 )}
               </button>
             </div>
