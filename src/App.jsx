@@ -9,6 +9,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import DocumentsCenter from './pages/DocumentsCenter';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
+import DocumentPreviewPage from './pages/DocumentPreviewPage';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -30,6 +31,9 @@ export default function App() {
           <Route path="/stats" element={<Stats />} />
           <Route path="/app" element={<Navigate to="/dashboard" replace />} />
         </Route>
+        
+        {/* Page de prévisualisation de document (hors layout) */}
+        <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
         
         {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />

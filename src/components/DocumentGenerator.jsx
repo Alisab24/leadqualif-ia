@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 // import DocumentService from '../services/documentService';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DocumentPreview from './DocumentPreview';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
   const [generatedDocument, setGeneratedDocument] = useState(null);
@@ -313,9 +315,18 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         };
       }
 
-      // Définir le document HTML et ouvrir la preview
-      setHtmlDocument(documentData);
-      setShowDocumentPreview(true);
+      // Sauvegarder les données dans localStorage et rediriger vers la page de prévisualisation
+      const documentId = `doc_${Date.now()}`;
+      const documentToSave = {
+        document: documentData,
+        agencyProfile: agencyProfile,
+        lead: lead
+      };
+      
+      localStorage.setItem(`document_${documentId}`, JSON.stringify(documentToSave));
+      
+      // Rediriger vers la page de prévisualisation
+      navigate(`/documents/preview/${documentId}`);
       
     } catch (error) {
       console.error('Erreur lors de la génération du document:', error);

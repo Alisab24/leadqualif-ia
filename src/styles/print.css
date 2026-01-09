@@ -1,0 +1,117 @@
+/* CSS spécifique pour l'impression des documents */
+@media print {
+  /* Masquer tous les éléments du layout SaaS */
+  header,
+  footer,
+  nav,
+  aside,
+  .sidebar,
+  .navbar,
+  .header,
+  .footer,
+  .menu,
+  .navigation,
+  .layout-header,
+  .layout-sidebar,
+  .layout-footer {
+    display: none !important;
+  }
+  
+  /* S'assurer que le body n'a pas de padding/margin */
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  
+  /* Le conteneur principal doit prendre toute la page */
+  .document-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  
+  /* Le contenu du document */
+  .document-content {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  
+  /* Éviter les coupures de page importantes */
+  .no-break {
+    page-break-inside: avoid;
+  }
+  
+  /* Forcer les sections importantes à rester ensemble */
+  .p-8 {
+    page-break-inside: avoid;
+  }
+  
+  /* S'assurer que les tableaux ne sont pas coupés */
+  table {
+    page-break-inside: avoid;
+  }
+  
+  /* Les titres ne doivent pas être seuls en bas de page */
+  h1, h2, h3 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* Configuration de la page */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+  
+  /* Améliorer la qualité d'impression */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* S'assurer que les couleurs de fond sont imprimées */
+  .bg-gray-50,
+  .bg-blue-50,
+  .bg-yellow-50 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* S'assurer que les bordures sont imprimées */
+  .border,
+  .border-t,
+  .border-b,
+  .border-l,
+  .border-r {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Styles pour la prévisualisation à l'écran */
+@media screen {
+  .document-container {
+    max-width: 210mm; /* Largeur A4 */
+    margin: 0 auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .document-content {
+    min-height: 297mm; /* Hauteur A4 */
+  }
+}
+
+/* Pour les écrans plus petits */
+@media (max-width: 768px) {
+  .document-container {
+    margin: 0;
+    box-shadow: none;
+  }
+}
