@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 // import DocumentService from '../services/documentService';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import DocumentPreview from './DocumentPreview';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
   const [loading, setLoading] = useState(false);
@@ -12,6 +13,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const [showPreGenerationModal, setShowPreGenerationModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [pendingDocType, setPendingDocType] = useState(null);
+  const [showDocumentPreview, setShowDocumentPreview] = useState(false);
+  const [htmlDocument, setHtmlDocument] = useState(null);
 
   // États pour la modale de pré-génération
   const [documentSettings, setDocumentSettings] = useState({
@@ -243,7 +246,67 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       return;
     }
     
-    await generateDocumentDirectly(docType);
+    // Pour les autres documents, générer directement en HTML
+    await generateHtmlDocument(docType);
+  };
+
+  const generateHtmlDocument = async (docType) => {
+    setLoading(true);
+    
+    try {
+      // Préparer les données du document
+      let documentData = {
+        type: docType,
+        settings: documentSettings,
+        financialData: null
+      };
+
+      // Préparer les données financières si nécessaire
+      if (docType.id === 'devis' || docType.id === 'facture') {
+        const commissionAmount = documentSettings.commissionType === 'percentage' 
+          ? documentSettings.bienPrice * (documentSettings.commissionValue / 100)
+          : documentSettings.commissionValue;
+        
+        const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
+        const tvaAmount = baseAmount * (documentSettings.tva / 100);
+        const totalTTC = baseAmount + tvaAmount;
+
+        documentData.financialData = {
+          items: [
+            {
+              description: agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital',
+              quantity: '1',
+              amount: commissionAmount
+            },
+            ...(documentSettings.honoraires > 0 ? [{
+              description: 'Honoraires supplémentaires',
+              quantity: '1',
+              amount: documentSettings.honoraires
+            }] : []),
+            ...(documentSettings.frais > 0 ? [{
+              description: 'Frais annexes',
+              quantity: '1',
+              amount: documentSettings.frais
+            }] : [])
+          ],
+          totals: [
+            { label: 'Montant HT', amount: baseAmount },
+            { label: `TVA (${documentSettings.tva}%)`, amount: tvaAmount },
+            { label: 'TOTAL TTC', amount: totalTTC }
+          ]
+        };
+      }
+
+      // Définir le document HTML et ouvrir la preview
+      setHtmlDocument(documentData);
+      setShowDocumentPreview(true);
+      
+    } catch (error) {
+      console.error('Erreur lors de la génération du document:', error);
+      alert('Erreur lors de la génération du document: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const generateDocumentDirectly = async (docType) => {
@@ -1195,7 +1258,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                 onClick={() => {
                   setShowPreGenerationModal(false);
                   if (pendingDocType) {
-                    generateDocumentDirectly(pendingDocType);
+                    generateHtmlDocument(pendingDocType);
                   }
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg"
@@ -1205,6 +1268,20 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Nouvelle Preview HTML */}
+      {showDocumentPreview && htmlDocument && (
+        <DocumentPreview
+          document={htmlDocument}
+          agencyProfile={agencyProfile}
+          lead={lead}
+          documentType={htmlDocument.type}
+          onClose={() => {
+            setShowDocumentPreview(false);
+            setHtmlDocument(null);
+          }}
+        />
       )}
     </div>
   );
