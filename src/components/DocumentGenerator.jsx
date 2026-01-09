@@ -12,6 +12,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   // const navigate = useNavigate(); // PLUS DE NAVIGATION
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState(null);
   const [generatedDocument, setGeneratedDocument] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showPreGenerationModal, setShowPreGenerationModal] = useState(false);
@@ -86,37 +88,111 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
   React.useEffect(() => {
     const fetchAgencyProfile = async () => {
-      if (agencyId) {
-        // Essayer de récupérer depuis les profiles d'abord
-        const { data: profileData } = await supabase
-          .from('profiles')
+      if (!agencyId) {
+        setProfileError('ID agence manquant');
+        setProfileLoading(false);
+        return;
+      }
+
+      try {
+        setProfileLoading(true);
+        setProfileError(null);
+
+        // Source unique : agency_settings
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('agency_settings')
           .select('*')
-          .eq('agency_id', agencyId)
+          .eq('id', agencyId)
           .single();
-        
-        if (profileData) {
-          setAgencyProfile({
-            name: profileData.nom_agence || profileData.nom_legal || 'Agence',
-            address: profileData.adresse_legale || profileData.adresse,
-            phone: profileData.telephone,
-            email: profileData.email,
-            legalName: profileData.nom_legal,
-            legalStatus: profileData.statut_juridique,
-            registrationNumber: profileData.numero_enregistrement,
-            legalMention: profileData.mention_legale,
-            paymentConditions: profileData.conditions_paiement
-          });
-        } else {
-          // Fallback sur la table agencies si elle existe
-          const { data } = await supabase
-            .from('agencies')
+
+        if (settingsError) {
+          console.warn('⚠️ agency_settings non trouvé, tentative avec profiles:', settingsError);
+          
+          // Fallback vers profiles si agency_settings n'existe pas
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
             .select('*')
             .eq('id', agencyId)
             .single();
-          setAgencyProfile(data);
+
+          if (profileError) {
+            throw new Error(`Profil agence non trouvé: ${profileError.message}`);
+          }
+
+          // Transformer les données de profiles vers le format attendu
+          const transformedProfile = {
+            id: profileData.id,
+            name: profileData.nom_agence || profileData.nom_legal || 'Agence',
+            legalName: profileData.nom_legal || profileData.nom_agence || '—',
+            address: profileData.adresse_legale || profileData.adresse || '—',
+            phone: profileData.telephone || '—',
+            email: profileData.email || '—',
+            legalStatus: profileData.statut_juridique || 'À compléter',
+            registrationNumber: profileData.numero_enregistrement || '—',
+            legalMention: profileData.mention_legale || '—',
+            paymentConditions: profileData.conditions_paiement || '—',
+            devise: profileData.devise || 'EUR',
+            symbole_devise: profileData.symbole_devise || '€',
+            logo_url: profileData.logo_url,
+            siret: profileData.siret,
+            tva: profileData.tva,
+            pays: profileData.pays || 'France',
+            source: 'profiles' // Pour le debug
+          };
+
+          setAgencyProfile(transformedProfile);
+        } else {
+          // Utiliser agency_settings directement
+          const profile = {
+            id: settingsData.id,
+            name: settingsData.nom_agence || settingsData.nom_legal || 'Agence',
+            legalName: settingsData.nom_legal || settingsData.nom_agence || '—',
+            address: settingsData.adresse_legale || settingsData.adresse || '—',
+            phone: settingsData.telephone || '—',
+            email: settingsData.email || '—',
+            legalStatus: settingsData.statut_juridique || 'À compléter',
+            registrationNumber: settingsData.numero_enregistrement || '—',
+            legalMention: settingsData.mention_legale || '—',
+            paymentConditions: settingsData.conditions_paiement || '—',
+            devise: settingsData.devise || 'EUR',
+            symbole_devise: settingsData.symbole_devise || '€',
+            logo_url: settingsData.logo_url,
+            siret: settingsData.siret,
+            tva: settingsData.tva,
+            pays: settingsData.pays || 'France',
+            source: 'agency_settings' // Pour le debug
+          };
+
+          setAgencyProfile(profile);
         }
+      } catch (error) {
+        console.error('❌ Erreur chargement profil agence:', error);
+        setProfileError(error.message);
+        
+        // Créer un profil par défaut pour éviter les blocages
+        const defaultProfile = {
+          id: agencyId,
+          name: 'Agence',
+          legalName: '—',
+          address: '—',
+          phone: '—',
+          email: '—',
+          legalStatus: 'À compléter',
+          registrationNumber: '—',
+          legalMention: '—',
+          paymentConditions: '—',
+          devise: 'EUR',
+          symbole_devise: '€',
+          pays: 'France',
+          source: 'default'
+        };
+        
+        setAgencyProfile(defaultProfile);
+      } finally {
+        setProfileLoading(false);
       }
     };
+
     fetchAgencyProfile();
   }, [agencyId]);
 
@@ -329,15 +405,75 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     return result;
   };
 
+  // Fonction de validation souple du profil agence
+  const validateAgencyProfile = (profile) => {
+    if (!profile) {
+      return {
+        isValid: false,
+        missingFields: ['Profil agence non chargé'],
+        canGenerate: false
+      };
+    }
+
+    const missingFields = [];
+    const warnings = [];
+
+    // Champs BLOQUANTS uniquement
+    if (!profile.legalName || profile.legalName === '—') {
+      missingFields.push('Nom légal');
+    }
+    if (!profile.pays || profile.pays === '—') {
+      missingFields.push('Pays');
+    }
+    if (!profile.devise || profile.devise === '—') {
+      missingFields.push('Devise');
+    }
+
+    // Champs WARNING (non bloquants)
+    if (!profile.name || profile.name === '—') {
+      warnings.push('Nom de l\'agence');
+    }
+    if (!profile.address || profile.address === '—') {
+      warnings.push('Adresse');
+    }
+    if (!profile.phone || profile.phone === '—') {
+      warnings.push('Téléphone');
+    }
+    if (!profile.email || profile.email === '—') {
+      warnings.push('Email');
+    }
+
+    return {
+      isValid: missingFields.length === 0,
+      missingFields,
+      warnings,
+      canGenerate: missingFields.length === 0
+    };
+  };
+
   const generateHtmlDocument = async (docType) => {
     setLoading(true);
     
     try {
-      // Vérifier la session
-      if (!agencyProfile) {
-        alert('Erreur: Profil agence non disponible. Veuillez recharger la page.');
+      // Attendre explicitement la fin du chargement du profil
+      if (profileLoading) {
+        alert('Veuillez patienter pendant le chargement du profil agence...');
         setLoading(false);
         return;
+      }
+
+      // Validation souple du profil
+      const validation = validateAgencyProfile(agencyProfile);
+      
+      if (!validation.canGenerate) {
+        alert(`Impossible de générer le document. Champs obligatoires manquants :\n${validation.missingFields.join('\n')}`);
+        setLoading(false);
+        return;
+      }
+
+      // Afficher les warnings si présents
+      if (validation.warnings.length > 0) {
+        console.warn('⚠️ Champs incomplets (non bloquant) :', validation.warnings);
       }
       
       // Préparer les données du document
@@ -1550,12 +1686,31 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               </button>
               <button
                 onClick={() => {
-                  setShowMetadataModal(false);
-                  generateHtmlDocument(pendingDocType);
+                  if (!profileLoading) {
+                    setShowMetadataModal(false);
+                    generateHtmlDocument(pendingDocType);
+                  }
                 }}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg"
+                disabled={profileLoading || loading}
+                className={`flex-1 px-6 py-3 font-medium shadow-lg transition-all ${
+                  profileLoading || loading
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700'
+                }`}
               >
-                📄 Générer le {pendingDocType?.label}
+                {profileLoading ? (
+                  <>
+                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                    Chargement profil...
+                  </>
+                ) : loading ? (
+                  <>
+                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                    Génération...
+                  </>
+                ) : (
+                  <>📄 Générer le {pendingDocType?.label}</>
+                )}
               </button>
             </div>
           </div>
