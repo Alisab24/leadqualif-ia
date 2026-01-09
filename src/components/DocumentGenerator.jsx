@@ -26,11 +26,6 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   
   // État pour le composant PDF dédié
   const [pdfActions, setPdfActions] = useState(null);
-
-  // Log pour débogage
-  useEffect(() => {
-    console.log('pdfActions mis à jour:', pdfActions);
-  }, [pdfActions]);
   const [metadataSettings, setMetadataSettings] = useState({
     // Champs IMMO
     notes: '',
@@ -1697,14 +1692,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               <button
                 type="button"
                 onClick={() => {
-                  console.log('Bouton Imprimer cliqué, pdfActions:', pdfActions);
                   // Imprimer avec le composant PDF dédié
                   if (pdfActions && pdfActions.print) {
-                    console.log('Appel de pdfActions.print()');
                     pdfActions.print();
-                  } else {
-                    console.error('pdfActions.print non disponible');
-                    alert('Fonction d\'impression non disponible. Veuillez réessayer.');
                   }
                 }}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -1714,14 +1704,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               <button
                 type="button"
                 onClick={() => {
-                  console.log('Bouton Télécharger cliqué, pdfActions:', pdfActions);
                   // Télécharger PDF avec le composant PDF dédié
                   if (pdfActions && pdfActions.download) {
-                    console.log('Appel de pdfActions.download()');
                     pdfActions.download();
-                  } else {
-                    console.error('pdfActions.download non disponible');
-                    alert('Fonction de téléchargement non disponible. Veuillez réessayer.');
                   }
                 }}
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"

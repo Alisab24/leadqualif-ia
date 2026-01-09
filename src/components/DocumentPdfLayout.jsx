@@ -280,13 +280,11 @@ const DocumentPdfLayout = ({
 
   // Exposer les fonctions au parent
   useEffect(() => {
-    console.log('DocumentPdfLayout - useEffect appelé');
     if (onPdfGenerated) {
       const actions = {
         print: printPdf,
         download: downloadPdf
       };
-      console.log('DocumentPdfLayout - Actions exposées:', actions);
       onPdfGenerated(actions);
     }
   }, [onPdfGenerated]);
