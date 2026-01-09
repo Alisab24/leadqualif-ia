@@ -7,7 +7,7 @@ import 'jspdf-autotable';
 import DocumentPreview from './DocumentPreview';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // PLUS DE NAVIGATION
   const [loading, setLoading] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
   const [generatedDocument, setGeneratedDocument] = useState(null);
@@ -15,6 +15,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const [showPreGenerationModal, setShowPreGenerationModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [pendingDocType, setPendingDocType] = useState(null);
+  
+  // NOUVEAUX STATES POUR LA MODALE DE PREVIEW
+  const [openPreview, setOpenPreview] = useState(false);
+  const [docData, setDocData] = useState(null);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [htmlDocument, setHtmlDocument] = useState(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
@@ -315,29 +319,14 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         };
       }
 
-      // Sauvegarder les données dans localStorage et rediriger vers la page unifiée
-      const documentId = `doc_${Date.now()}`;
-      const documentToSave = {
+      // PLUS DE SAUVEGARDE LOCALSTORAGE NI NAVIGATION
+      // Afficher directement dans la modal de preview
+      setDocData({
         document: documentData,
         agencyProfile: agencyProfile,
         lead: lead
-      };
-      
-      console.log('Sauvegarde du document avec ID:', documentId);
-      console.log('Données à sauvegarder:', documentToSave);
-      
-      localStorage.setItem(`document_${documentId}`, JSON.stringify(documentToSave));
-      
-      // Vérifier que les données sont bien sauvegardées
-      const savedData = localStorage.getItem(`document_${documentId}`);
-      console.log('Vérification sauvegarde:', savedData ? 'OK' : 'ÉCHEC');
-      
-      // Rediriger vers la page unifiée selon le type de document
-      const documentType = docType.id === 'devis' ? 'devis' : 'facture';
-      const redirectUrl = `/documents/${documentType}/${documentId}`;
-      
-      console.log('Redirection vers:', redirectUrl);
-      navigate(redirectUrl);
+      });
+      setOpenPreview(true);
       
     } catch (error) {
       console.error('Erreur lors de la génération du document:', error);
@@ -1490,18 +1479,248 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         </div>
       )}
       
-      {/* Nouvelle Preview HTML */}
-      {showDocumentPreview && htmlDocument && (
-        <DocumentPreview
-          document={htmlDocument}
-          agencyProfile={agencyProfile}
-          lead={lead}
-          documentType={htmlDocument.type}
-          onClose={() => {
-            setShowDocumentPreview(false);
-            setHtmlDocument(null);
-          }}
-        />
+      {/* Modal de Preview Locale */}
+      {openPreview && docData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">
+                {docData.document.type?.label?.toUpperCase() || 'DOCUMENT'}
+              </h2>
+              <button
+                onClick={() => setOpenPreview(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {/* Contenu du document */}
+              <div className="bg-white border border-gray-200 rounded-lg p-8" style={{ minHeight: '600px' }}>
+                {/* Header */}
+                <div className="flex justify-between items-start mb-8">
+                  <div className="flex items-start space-x-6">
+                    {docData.agencyProfile?.logo_url && (
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                        <img 
+                          src={docData.agencyProfile.logo_url} 
+                          alt="Logo agence" 
+                          className="max-w-full max-h-full object-contain rounded"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
+                        {docData.agencyProfile?.name || 'Agence'}
+                      </h3>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        {docData.agencyProfile?.address && <p>{docData.agencyProfile.address}</p>}
+                        {docData.agencyProfile?.email && <p>{docData.agencyProfile.email}</p>}
+                        {docData.agencyProfile?.phone && <p>{docData.agencyProfile.phone}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-gray-900 mb-3">
+                      {docData.document.type?.label?.toUpperCase() || 'DOCUMENT'}
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p className="font-semibold">N° {Date.now().toString().slice(-6)}</p>
+                      <p>Date: {new Date().toLocaleDateString('fr-FR')}</p>
+                      <p>Devise: EUR</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Client */}
+                <div className="mb-8 p-6 bg-gray-50 rounded-lg">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">CLIENT</h4>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <div className="flex">
+                        <span className="text-sm font-semibold text-gray-700 w-20">Nom:</span>
+                        <span className="text-sm text-gray-900">{docData.lead?.nom || 'Non spécifié'}</span>
+                      </div>
+                      {docData.lead?.email && (
+                        <div className="flex">
+                          <span className="text-sm font-semibold text-gray-700 w-20">Email:</span>
+                          <span className="text-sm text-gray-900">{docData.lead.email}</span>
+                        </div>
+                      )}
+                      {docData.lead?.telephone && (
+                        <div className="flex">
+                          <span className="text-sm font-semibold text-gray-700 w-20">Tél:</span>
+                          <span className="text-sm text-gray-900">{docData.lead.telephone}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex">
+                        <span className="text-sm font-semibold text-gray-700 w-24">Projet:</span>
+                        <span className="text-sm text-gray-900">{docData.lead?.type_bien || 'Non spécifié'}</span>
+                      </div>
+                      {docData.lead?.budget && (
+                        <div className="flex">
+                          <span className="text-sm font-semibold text-gray-700 w-24">Budget:</span>
+                          <span className="text-sm text-gray-900">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(docData.lead.budget)}</span>
+                        </div>
+                      )}
+                      <div className="flex">
+                        <span className="text-sm font-semibold text-gray-700 w-24">Source:</span>
+                        <span className="text-sm text-gray-900">Formulaire IA</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tableau financier */}
+                {docData.document.financialData && (
+                  <div className="mb-8">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b-2 border-gray-200">
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
+                          <th className="text-center py-4 px-6 text-sm font-semibold text-gray-700 w-24">Qté</th>
+                          <th className="text-right py-4 px-6 text-sm font-semibold text-gray-700 w-32">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {docData.document.financialData.items.map((item, index) => (
+                          <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-4 px-6 text-sm text-gray-900 font-medium">
+                              {item.description}
+                            </td>
+                            <td className="py-4 px-6 text-sm text-center text-gray-600">
+                              {item.quantity || '1'}
+                            </td>
+                            <td className="py-4 px-6 text-sm text-right font-semibold text-gray-900">
+                              {new Intl.NumberFormat('fr-FR').format(item.amount)} €
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        {docData.document.financialData.totals.map((total, index) => {
+                          const isTotalTTC = total.label.includes('TOTAL TTC');
+                          const isBold = total.label.includes('TOTAL');
+                          
+                          return (
+                            <tr key={index} className={isTotalTTC ? 'bg-blue-50 border-t-2 border-blue-200' : 'border-t border-gray-200'}>
+                              <td 
+                                colSpan="2" 
+                                className={`py-4 px-6 text-sm ${
+                                  isTotalTTC ? 'font-bold text-blue-700 text-lg' : 
+                                  isBold ? 'font-semibold text-gray-800' : 
+                                  'text-gray-600'
+                                }`}
+                              >
+                                {total.label}
+                              </td>
+                              <td className={`py-4 px-6 text-sm text-right ${
+                                isTotalTTC ? 'font-bold text-blue-700 text-lg' : 
+                                isBold ? 'font-semibold text-gray-800' : 
+                                'text-gray-600'
+                              }`}>
+                                {new Intl.NumberFormat('fr-FR').format(total.amount)} €
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+
+                {/* Métadonnées */}
+                {docData.document.metadata && (
+                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-3">INFORMATIONS COMPLÉMENTAIRES</h4>
+                    {docData.document.metadata.notes && (
+                      <div className="mb-3">
+                        <p className="text-xs text-yellow-700 font-medium mb-1">Notes:</p>
+                        <p className="text-sm text-yellow-900">{docData.document.metadata.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Signature */}
+                <div className="mt-12">
+                  <div className="flex justify-between items-end">
+                    <div className="w-1/2">
+                      <div className="mb-2">
+                        <p className="text-sm font-semibold text-gray-700">Signature agence</p>
+                        <div className="border-b-2 border-gray-400 w-64 h-12"></div>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {docData.agencyProfile?.name || 'Agence'}
+                      </p>
+                    </div>
+                    <div className="w-1/2">
+                      <div className="mb-2">
+                        <p className="text-sm font-semibold text-gray-700">Signature client</p>
+                        <div className="border-b-2 border-gray-400 w-64 h-12"></div>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {docData.lead?.nom || 'Client'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-8 text-center">
+                    <p className="text-sm text-gray-600">
+                      Fait à Paris, le {new Date().toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setOpenPreview(false)}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Fermer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Imprimer directement
+                  window.print();
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                🖨️ Imprimer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Télécharger PDF avec jsPDF
+                  try {
+                    const doc = new jsPDF();
+                    const content = document.querySelector('.bg-white.border.border-gray-200.rounded-lg.p-8');
+                    if (content) {
+                      doc.html(content, {
+                        callback: function (doc) {
+                          doc.save(`${docData.document.type?.label || 'document'}_${Date.now()}.pdf`);
+                        }
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Erreur lors de la génération PDF:', error);
+                    alert('Erreur lors de la génération du PDF');
+                  }
+                }}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                ⬇️ Télécharger PDF
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
