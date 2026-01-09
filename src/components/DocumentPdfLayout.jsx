@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const DocumentPdfLayout = ({ 
   document, 
@@ -8,38 +9,11 @@ const DocumentPdfLayout = ({
   onPdfGenerated,
   onPrintReady 
 }) => {
-  const pdfRef = useRef(null);
-
   // Format A4 constants
   const A4_WIDTH_MM = 210;
   const A4_HEIGHT_MM = 297;
   const PADDING_MM = 20;
   const CONTENT_WIDTH_MM = A4_WIDTH_MM - (2 * PADDING_MM);
-
-  // Conversion mm to pixels (96 DPI)
-  const mmToPx = (mm) => (mm * 96) / 25.4;
-
-  // Styles A4 stricts
-  const a4Styles = {
-    width: `${mmToPx(A4_WIDTH_MM)}px`,
-    minHeight: `${mmToPx(A4_HEIGHT_MM)}px`,
-    padding: `${mmToPx(PADDING_MM)}px`,
-    backgroundColor: 'white',
-    fontFamily: 'Arial, sans-serif',
-    fontSize: '12px',
-    lineHeight: '1.4',
-    color: '#000000',
-    boxSizing: 'border-box',
-    position: 'relative',
-    overflow: 'hidden'
-  };
-
-  // Styles pour éviter les sauts de page
-  const noBreakStyles = {
-    pageBreakInside: 'avoid',
-    pageBreakBefore: 'auto',
-    pageBreakAfter: 'auto'
-  };
 
   // Formater les montants
   const formatAmount = (amount) => {
@@ -56,8 +30,8 @@ const DocumentPdfLayout = ({
     return itemCount > 5 || hasLongNotes;
   };
 
-  // Générer le PDF
-  const generatePdf = () => {
+  // Générer le contenu PDF avec jsPDF natif
+  const generatePdfContent = () => {
     return new Promise((resolve, reject) => {
       try {
         const pdf = new jsPDF({
@@ -69,43 +43,207 @@ const DocumentPdfLayout = ({
         // Ajouter la première page
         pdf.addPage();
 
-        // Contenu de la première page
-        const content = pdfRef.current;
-        if (!content) {
-          reject(new Error('Contenu PDF non trouvé'));
-          return;
+        let yPosition = PADDING_MM;
+
+        // Header
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(document?.type?.label?.toUpperCase() || 'DOCUMENT', A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`N° ${Date.now().toString().slice(-6)}`, A4_WIDTH_MM - PADDING_MM, yPosition + 7, { align: 'right' });
+        pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, A4_WIDTH_MM - PADDING_MM, yPosition + 14, { align: 'right' });
+        pdf.text('Devise: EUR', A4_WIDTH_MM - PADDING_MM, yPosition + 21, { align: 'right' });
+
+        // Logo et infos agence
+        if (agencyProfile?.logo_url) {
+          // Pour l'instant, on met le nom de l'agence
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(agencyProfile?.name || 'Agence', PADDING_MM, yPosition);
+          yPosition += 10;
         }
 
-        // Utiliser html2canvas pour capturer le contenu
-        import('html2canvas').then(html2canvas => {
-          html2canvas.default(content, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff'
-          }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = CONTENT_WIDTH_MM;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        if (agencyProfile?.address) {
+          pdf.text(agencyProfile.address, PADDING_MM, yPosition);
+          yPosition += 5;
+        }
+        if (agencyProfile?.email) {
+          pdf.text(agencyProfile.email, PADDING_MM, yPosition);
+          yPosition += 5;
+        }
+        if (agencyProfile?.phone) {
+          pdf.text(agencyProfile.phone, PADDING_MM, yPosition);
+          yPosition += 5;
+        }
 
-            pdf.addImage(imgData, 'PNG', PADDING_MM, PADDING_MM, imgWidth, imgHeight);
+        yPosition += 15;
 
-            // Si page 2 nécessaire
-            if (needsPage2()) {
+        // Client
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('CLIENT', PADDING_MM, yPosition);
+        yPosition += 10;
+
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Nom: ${lead?.nom || 'Non spécifié'}`, PADDING_MM, yPosition);
+        yPosition += 5;
+        if (lead?.email) {
+          pdf.text(`Email: ${lead.email}`, PADDING_MM, yPosition);
+          yPosition += 5;
+        }
+        if (lead?.telephone) {
+          pdf.text(`Tél: ${lead.telephone}`, PADDING_MM, yPosition);
+          yPosition += 5;
+        }
+        pdf.text(`Projet: ${lead?.type_bien || 'Non spécifié'}`, PADDING_MM, yPosition);
+        yPosition += 5;
+        if (lead?.budget) {
+          pdf.text(`Budget: ${formatAmount(lead.budget)}`, PADDING_MM, yPosition);
+          yPosition += 5;
+        }
+        pdf.text('Source: Formulaire IA', PADDING_MM, yPosition);
+        yPosition += 15;
+
+        // Tableau financier
+        if (document?.financialData) {
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('DÉTAILS FINANCIERS', PADDING_MM, yPosition);
+          yPosition += 10;
+
+          // En-têtes du tableau
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Description', PADDING_MM, yPosition);
+          pdf.text('Qté', PADDING_MM + 100, yPosition);
+          pdf.text('Total', A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
+          yPosition += 7;
+
+          // Ligne de séparation
+          pdf.setDrawColor(200, 200, 200);
+          pdf.line(PADDING_MM, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
+          yPosition += 5;
+
+          // Items
+          pdf.setFont('helvetica', 'normal');
+          document.financialData.items.forEach((item, index) => {
+            if (yPosition > A4_HEIGHT_MM - 60) {
               pdf.addPage();
-              // Ajouter le contenu de la page 2 ici
-              pdf.setFontSize(12);
-              pdf.text('Page 2 - Annexes', PADDING_MM, PADDING_MM + 10);
+              yPosition = PADDING_MM;
             }
 
-            // Callback pour le PDF généré
-            if (onPdfGenerated) {
-              onPdfGenerated(pdf);
+            pdf.text(item.description, PADDING_MM, yPosition);
+            pdf.text(item.quantity || '1', PADDING_MM + 100, yPosition);
+            pdf.text(formatAmount(item.amount), A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
+            yPosition += 7;
+          });
+
+          // Ligne de séparation pour les totaux
+          pdf.setDrawColor(200, 200, 200);
+          pdf.line(PADDING_MM, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
+          yPosition += 5;
+
+          // Totaux
+          document.financialData.totals.forEach((total, index) => {
+            const isTotalTTC = total.label.includes('TOTAL TTC');
+            
+            if (isTotalTTC) {
+              pdf.setDrawColor(59, 130, 246);
+              pdf.line(PADDING_MM, yPosition - 2, A4_WIDTH_MM - PADDING_MM, yPosition - 2);
+              pdf.setDrawColor(0, 0, 0);
             }
 
-            resolve(pdf);
-          }).catch(reject);
-        }).catch(reject);
+            pdf.setFont('helvetica', isTotalTTC ? 'bold' : 'normal');
+            pdf.setFontSize(isTotalTTC ? 12 : 10);
+            pdf.setTextColor(isTotalTTC ? 29 : 0, isTotalTTC ? 78 : 0, isTotalTTC ? 216 : 0);
+            
+            pdf.text(total.label, PADDING_MM, yPosition);
+            pdf.text(formatAmount(total.amount), A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
+            
+            pdf.setTextColor(0, 0, 0);
+            yPosition += 8;
+          });
+
+          yPosition += 10;
+        }
+
+        // Métadonnées
+        if (document?.metadata?.notes) {
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text('Notes:', PADDING_MM, yPosition);
+          yPosition += 5;
+          
+          // Gérer les notes longues
+          const notes = document.metadata.notes;
+          const lines = pdf.splitTextToSize(notes, CONTENT_WIDTH_MM);
+          lines.forEach(line => {
+            if (yPosition > A4_HEIGHT_MM - 40) {
+              pdf.addPage();
+              yPosition = PADDING_MM;
+            }
+            pdf.text(line, PADDING_MM, yPosition);
+            yPosition += 5;
+          });
+          yPosition += 10;
+        }
+
+        // Signature
+        const totalsOnSamePage = !needsPage2();
+        
+        if (totalsOnSamePage && yPosition < A4_HEIGHT_MM - 60) {
+          yPosition = A4_HEIGHT_MM - 50;
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          
+          // Lignes de signature
+          pdf.setDrawColor(0, 0, 0);
+          pdf.line(PADDING_MM, yPosition, PADDING_MM + 60, yPosition);
+          pdf.text('Signature agence', PADDING_MM, yPosition + 5);
+          pdf.text(agencyProfile?.name || 'Agence', PADDING_MM, yPosition + 10);
+          
+          pdf.line(A4_WIDTH_MM - PADDING_MM - 60, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
+          pdf.text('Signature client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 5);
+          pdf.text(lead?.nom || 'Client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 10);
+          
+          pdf.text(`Fait à Paris, le ${new Date().toLocaleDateString('fr-FR')}`, A4_WIDTH_MM / 2, yPosition + 20, { align: 'center' });
+        }
+
+        // Page 2 si nécessaire
+        if (needsPage2()) {
+          pdf.addPage();
+          yPosition = PADDING_MM;
+          
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('ANNEXE', PADDING_MM, yPosition);
+          yPosition += 20;
+          
+          // Signature sur page 2
+          yPosition = A4_HEIGHT_MM - 50;
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          
+          pdf.setDrawColor(0, 0, 0);
+          pdf.line(PADDING_MM, yPosition, PADDING_MM + 60, yPosition);
+          pdf.text('Signature agence', PADDING_MM, yPosition + 5);
+          pdf.text(agencyProfile?.name || 'Agence', PADDING_MM, yPosition + 10);
+          
+          pdf.line(A4_WIDTH_MM - PADDING_MM - 60, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
+          pdf.text('Signature client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 5);
+          pdf.text(lead?.nom || 'Client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 10);
+          
+          pdf.text(`Fait à Paris, le ${new Date().toLocaleDateString('fr-FR')}`, A4_WIDTH_MM / 2, yPosition + 20, { align: 'center' });
+        }
+
+        resolve(pdf);
       } catch (error) {
         reject(error);
       }
@@ -115,7 +253,7 @@ const DocumentPdfLayout = ({
   // Imprimer le PDF
   const printPdf = async () => {
     try {
-      const pdf = await generatePdf();
+      const pdf = await generatePdfContent();
       pdf.autoPrint();
       window.open(pdf.output('bloburl'), '_blank');
       
@@ -124,274 +262,37 @@ const DocumentPdfLayout = ({
       }
     } catch (error) {
       console.error('Erreur lors de l\'impression PDF:', error);
+      alert('Erreur lors de l\'impression PDF');
     }
   };
 
   // Télécharger le PDF
   const downloadPdf = async () => {
     try {
-      const pdf = await generatePdf();
+      const pdf = await generatePdfContent();
       const filename = `${document?.type?.label || 'document'}_${Date.now()}.pdf`;
       pdf.save(filename);
     } catch (error) {
       console.error('Erreur lors du téléchargement PDF:', error);
+      alert('Erreur lors du téléchargement PDF');
     }
   };
 
   // Exposer les fonctions au parent
   useEffect(() => {
+    console.log('DocumentPdfLayout - useEffect appelé');
     if (onPdfGenerated) {
-      onPdfGenerated({
+      const actions = {
         print: printPdf,
         download: downloadPdf
-      });
+      };
+      console.log('DocumentPdfLayout - Actions exposées:', actions);
+      onPdfGenerated(actions);
     }
-  }, []);
+  }, [onPdfGenerated]);
 
-  // Calculer si les totaux doivent être sur la même page
-  const totalsOnSamePage = !needsPage2();
-
-  return (
-    <div style={{ display: 'none' }}>
-      {/* Page 1 */}
-      <div 
-        ref={pdfRef}
-        style={{
-          ...a4Styles,
-          marginBottom: needsPage2() ? '20px' : '0'
-        }}
-      >
-        {/* Header */}
-        <div style={{ ...noBreakStyles, marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
-              {agencyProfile?.logo_url && (
-                <div style={{ 
-                  width: '60px', 
-                  height: '60px', 
-                  border: '1px solid #ddd',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <img 
-                    src={agencyProfile.logo_url} 
-                    alt="Logo agence" 
-                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                  />
-                </div>
-              )}
-              <div>
-                <h2 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 'bold' }}>
-                  {agencyProfile?.name || 'Agence'}
-                </h2>
-                <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.3' }}>
-                  {agencyProfile?.address && <div>{agencyProfile.address}</div>}
-                  {agencyProfile?.email && <div>{agencyProfile.email}</div>}
-                  {agencyProfile?.phone && <div>{agencyProfile.phone}</div>}
-                </div>
-              </div>
-            </div>
-            
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>
-                {document?.type?.label?.toUpperCase() || 'DOCUMENT'}
-              </div>
-              <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.3' }}>
-                <div style={{ fontWeight: '600' }}>N° {Date.now().toString().slice(-6)}</div>
-                <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
-                <div>Devise: EUR</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Client */}
-        <div style={{ ...noBreakStyles, marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', border: '1px solid #e0e0e0' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 'bold' }}>CLIENT</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            <div>
-              <div style={{ marginBottom: '5px', fontSize: '11px' }}>
-                <span style={{ fontWeight: '600', display: 'inline-block', width: '50px' }}>Nom:</span>
-                <span>{lead?.nom || 'Non spécifié'}</span>
-              </div>
-              {lead?.email && (
-                <div style={{ marginBottom: '5px', fontSize: '11px' }}>
-                  <span style={{ fontWeight: '600', display: 'inline-block', width: '50px' }}>Email:</span>
-                  <span>{lead.email}</span>
-                </div>
-              )}
-              {lead?.telephone && (
-                <div style={{ marginBottom: '5px', fontSize: '11px' }}>
-                  <span style={{ fontWeight: '600', display: 'inline-block', width: '50px' }}>Tél:</span>
-                  <span>{lead.telephone}</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <div style={{ marginBottom: '5px', fontSize: '11px' }}>
-                <span style={{ fontWeight: '600', display: 'inline-block', width: '60px' }}>Projet:</span>
-                <span>{lead?.type_bien || 'Non spécifié'}</span>
-              </div>
-              {lead?.budget && (
-                <div style={{ marginBottom: '5px', fontSize: '11px' }}>
-                  <span style={{ fontWeight: '600', display: 'inline-block', width: '60px' }}>Budget:</span>
-                  <span>{formatAmount(lead.budget)}</span>
-                </div>
-              )}
-              <div style={{ marginBottom: '5px', fontSize: '11px' }}>
-                <span style={{ fontWeight: '600', display: 'inline-block', width: '60px' }}>Source:</span>
-                <span>Formulaire IA</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tableau financier */}
-        {document?.financialData && (
-          <div style={{ ...noBreakStyles, marginBottom: '20px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #ddd' }}>
-                  <th style={{ padding: '10px', textAlign: 'left', fontWeight: '600' }}>Description</th>
-                  <th style={{ padding: '10px', textAlign: 'center', fontWeight: '600', width: '60px' }}>Qté</th>
-                  <th style={{ padding: '10px', textAlign: 'right', fontWeight: '600', width: '80px' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {document.financialData.items.map((item, index) => (
-                  <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '10px', fontWeight: '500' }}>{item.description}</td>
-                    <td style={{ padding: '10px', textAlign: 'center', color: '#666' }}>
-                      {item.quantity || '1'}
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600' }}>
-                      {formatAmount(item.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                {document.financialData.totals.map((total, index) => {
-                  const isTotalTTC = total.label.includes('TOTAL TTC');
-                  const isBold = total.label.includes('TOTAL');
-                  
-                  return (
-                    <tr key={index} style={{
-                      borderTop: isTotalTTC ? '2px solid #3b82f6' : '1px solid #ddd',
-                      backgroundColor: isTotalTTC ? '#f0f9ff' : 'transparent'
-                    }}>
-                      <td 
-                        colSpan="2" 
-                        style={{ 
-                          padding: '10px',
-                          fontWeight: isTotalTTC ? 'bold' : isBold ? '600' : 'normal',
-                          fontSize: isTotalTTC ? '14px' : '11px',
-                          color: isTotalTTC ? '#1d4ed8' : '#000'
-                        }}
-                      >
-                        {total.label}
-                      </td>
-                      <td style={{ 
-                        padding: '10px',
-                        textAlign: 'right',
-                        fontWeight: isTotalTTC ? 'bold' : isBold ? '600' : 'normal',
-                        fontSize: isTotalTTC ? '14px' : '11px',
-                        color: isTotalTTC ? '#1d4ed8' : '#000'
-                      }}>
-                        {formatAmount(total.amount)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tfoot>
-            </table>
-          </div>
-        )}
-
-        {/* Métadonnées */}
-        {document?.metadata && (
-          <div style={{ ...noBreakStyles, marginBottom: '20px', padding: '10px', backgroundColor: '#fffbeb', border: '1px solid #fbbf24' }}>
-            {document.metadata.notes && (
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '600', color: '#92400e', marginBottom: '5px' }}>
-                  Notes:
-                </div>
-                <div style={{ fontSize: '11px', color: '#78350f' }}>
-                  {document.metadata.notes}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Signature */}
-        {totalsOnSamePage && (
-          <div style={{ ...noBreakStyles, marginTop: '30px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <div style={{ width: '45%' }}>
-                <div style={{ marginBottom: '5px', fontSize: '11px', fontWeight: '600' }}>
-                  Signature agence
-                </div>
-                <div style={{ borderBottom: '2px solid #000', width: '100%', height: '30px', marginBottom: '5px' }}></div>
-                <div style={{ fontSize: '11px', color: '#666' }}>
-                  {agencyProfile?.name || 'Agence'}
-                </div>
-              </div>
-              <div style={{ width: '45%' }}>
-                <div style={{ marginBottom: '5px', fontSize: '11px', fontWeight: '600' }}>
-                  Signature client
-                </div>
-                <div style={{ borderBottom: '2px solid #000', width: '100%', height: '30px', marginBottom: '5px' }}></div>
-                <div style={{ fontSize: '11px', color: '#666' }}>
-                  {lead?.nom || 'Client'}
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: '#666' }}>
-              Fait à Paris, le {new Date().toLocaleDateString('fr-FR')}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Page 2 (si nécessaire) */}
-      {needsPage2() && (
-        <div style={a4Styles}>
-          <div style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'center', marginBottom: '20px' }}>
-            ANNEXE
-          </div>
-          
-          {/* Signature sur page 2 si nécessaire */}
-          <div style={{ ...noBreakStyles, marginTop: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <div style={{ width: '45%' }}>
-                <div style={{ marginBottom: '5px', fontSize: '11px', fontWeight: '600' }}>
-                  Signature agence
-                </div>
-                <div style={{ borderBottom: '2px solid #000', width: '100%', height: '30px', marginBottom: '5px' }}></div>
-                <div style={{ fontSize: '11px', color: '#666' }}>
-                  {agencyProfile?.name || 'Agence'}
-                </div>
-              </div>
-              <div style={{ width: '45%' }}>
-                <div style={{ marginBottom: '5px', fontSize: '11px', fontWeight: '600' }}>
-                  Signature client
-                </div>
-                <div style={{ borderBottom: '2px solid #000', width: '100%', height: '30px', marginBottom: '5px' }}></div>
-                <div style={{ fontSize: '11px', color: '#666' }}>
-                  {lead?.nom || 'Client'}
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: '#666' }}>
-              Fait à Paris, le {new Date().toLocaleDateString('fr-FR')}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  // Le composant ne rend rien (invisible)
+  return null;
 };
 
 export default DocumentPdfLayout;
