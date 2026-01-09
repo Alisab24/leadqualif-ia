@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DocumentPreview from './DocumentPreview';
+import DocumentPdfLayout from './DocumentPdfLayout';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
   // const navigate = useNavigate(); // PLUS DE NAVIGATION
@@ -22,6 +23,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [htmlDocument, setHtmlDocument] = useState(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  
+  // État pour le composant PDF dédié
+  const [pdfActions, setPdfActions] = useState(null);
   const [metadataSettings, setMetadataSettings] = useState({
     // Champs IMMO
     notes: '',
@@ -1688,8 +1692,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               <button
                 type="button"
                 onClick={() => {
-                  // Imprimer directement
-                  window.print();
+                  // Imprimer avec le composant PDF dédié
+                  if (pdfActions && pdfActions.print) {
+                    pdfActions.print();
+                  }
                 }}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
@@ -1698,20 +1704,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               <button
                 type="button"
                 onClick={() => {
-                  // Télécharger PDF avec jsPDF
-                  try {
-                    const doc = new jsPDF();
-                    const content = document.querySelector('.bg-white.border.border-gray-200.rounded-lg.p-8');
-                    if (content) {
-                      doc.html(content, {
-                        callback: function (doc) {
-                          doc.save(`${docData.document.type?.label || 'document'}_${Date.now()}.pdf`);
-                        }
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Erreur lors de la génération PDF:', error);
-                    alert('Erreur lors de la génération du PDF');
+                  // Télécharger PDF avec le composant PDF dédié
+                  if (pdfActions && pdfActions.download) {
+                    pdfActions.download();
                   }
                 }}
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
@@ -1722,6 +1717,16 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           </div>
         </div>
       )}
+      
+      {/* Composant PDF dédié (jamais affiché à l'écran) */}
+      <DocumentPdfLayout
+        document={docData?.document}
+        agencyProfile={docData?.agencyProfile}
+        lead={docData?.lead}
+        onPdfGenerated={(actions) => {
+          setPdfActions(actions);
+        }}
+      />
     </div>
   );
 }
