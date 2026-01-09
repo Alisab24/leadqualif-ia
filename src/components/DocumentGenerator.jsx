@@ -38,7 +38,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     periodeFacturation: '',
     modeReglement: '',
     contactFacturation: '',
-    prestationDetails: ''
+    prestationDetails: '',
+    
+    // Option montant en lettres
+    showAmountInWords: false
   });
 
   // États pour la modale de pré-génération
@@ -276,15 +279,77 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     setShowMetadataModal(true);
   };
 
+  // Convertir le montant en lettres
+  const getAmountInWords = (amount) => {
+    if (!amount) return '';
+    
+    // Implémentation simple pour les montants en euros
+    const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+    const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+    const tens = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+    
+    const euros = Math.floor(amount);
+    const centimes = Math.round((amount - euros) * 100);
+    
+    let result = '';
+    
+    if (euros === 0) {
+      result = 'zéro';
+    } else if (euros < 10) {
+      result = units[euros];
+    } else if (euros < 20) {
+      result = teens[euros - 10];
+    } else if (euros < 100) {
+      const ten = Math.floor(euros / 10);
+      const unit = euros % 10;
+      result = tens[ten];
+      if (unit > 0) {
+        result += '-' + units[unit];
+      }
+    } else {
+      // Simplification pour les centaines
+      const hundred = Math.floor(euros / 100);
+      const remainder = euros % 100;
+      if (hundred === 1) {
+        result = 'cent';
+      } else {
+        result = units[hundred] + ' cent';
+      }
+      if (remainder > 0) {
+        result += ' ' + getAmountInWords(remainder);
+      }
+    }
+    
+    result += ' euro' + (euros > 1 ? 's' : '');
+    
+    if (centimes > 0) {
+      result += ' et ' + centimes + ' centime' + (centimes > 1 ? 's' : '');
+    }
+    
+    return result;
+  };
+
   const generateHtmlDocument = async (docType) => {
     setLoading(true);
     
     try {
+      // Vérifier la session
+      if (!agencyProfile) {
+        alert('Erreur: Profil agence non disponible. Veuillez recharger la page.');
+        setLoading(false);
+        return;
+      }
+      
       // Préparer les données du document
       let documentData = {
         type: docType,
         settings: documentSettings,
-        metadata: metadataSettings,
+        metadata: {
+          ...metadataSettings,
+          amountInWords: metadataSettings.showAmountInWords ? 
+            getAmountInWords(documentSettings.bienPrice) : 
+            null
+        },
         financialData: null
       };
 
@@ -1460,6 +1525,19 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                     Pré-remplir les données si elles existent déjà
                   </label>
                 </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="show-amount-words"
+                    checked={metadataSettings.showAmountInWords}
+                    onChange={(e) => setMetadataSettings(prev => ({ ...prev, showAmountInWords: e.target.checked }))}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="show-amount-words" className="ml-2 text-sm text-gray-700">
+                    Afficher le montant total en lettres
+                  </label>
+                </div>
               </div>
             </div>
             
@@ -1635,6 +1713,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                     {docData.document.metadata.notes && (
                       <div className="metadata-content">
                         {docData.document.metadata.notes}
+                      </div>
+                    )}
+                    
+                    {/* Option montant en lettres */}
+                    {docData.document.metadata.showAmountInWords && docData.document.financialData?.totals && (
+                      <div className="metadata-content" style={{ marginTop: '10px', fontStyle: 'italic' }}>
+                        <strong>Arrêté la présente somme à :</strong> {docData.document.metadata.amountInWords}
                       </div>
                     )}
                   </div>
