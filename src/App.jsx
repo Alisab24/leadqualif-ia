@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Imports Pages
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
@@ -20,7 +21,8 @@ export default function App() {
     <Router>
       <Routes>
         {/* Public */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/estimation" element={<Estimation />} />
         <Route path="/estimation/:agencyId" element={<Estimation />} />
 

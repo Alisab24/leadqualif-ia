@@ -10,7 +10,7 @@ export default function Home() {
           ✨ LeadQualif IA
         </div>
         <div className="flex gap-4">
-          <Link to="/app" className="text-slate-600 hover:text-blue-600 font-medium px-4 py-2">Connexion</Link>
+          <Link to="/login" className="text-slate-600 hover:text-blue-600 font-medium px-4 py-2">Connexion</Link>
           <Link to="/estimation" className="bg-blue-600 text-white px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition">
             Essai Gratuit
           </Link>
