@@ -13,44 +13,350 @@ const DocumentPreviewPage = () => {
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
-    onBeforePrint: () => setIsPrinting(true),
-    onAfterPrint: () => setIsPrinting(false),
-    pageStyle: `
-      @page {
-        size: A4;
-        margin: 15mm;
-      }
-      @media print {
-        body { 
-          print-color-adjust: exact;
-          -webkit-print-color-adjust: exact;
-        }
-        /* Masquer tout le layout SaaS */
-        header, footer, nav, aside, .sidebar, .navbar, .header, .footer {
-          display: none !important;
-        }
-        /* S'assurer que le document prend toute la page */
-        .document-container {
-          width: 100% !important;
-          max-width: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          box-shadow: none !important;
-        }
-        /* Éviter les coupures de page */
-        .no-break {
-          page-break-inside: avoid;
-        }
-        /* Forcer le document sur une seule page si possible */
-        .document-content {
-          page-break-inside: avoid;
-          overflow: visible !important;
+  // Fonction d'impression manuelle pour garantir l'impression instantanée
+  const handlePrint = () => {
+    setIsPrinting(true);
+    
+    try {
+      // Vérifications approfondies que la page n'est pas dans un modal
+      const modalSelectors = [
+        '.fixed.inset-0',
+        '.modal',
+        '.overlay',
+        '[role="dialog"]',
+        '.fixed.z-50'
+      ];
+      
+      let isInModal = false;
+      let modalElement = null;
+      
+      for (const selector of modalSelectors) {
+        modalElement = document.querySelector(selector);
+        if (modalElement && modalElement.contains(componentRef.current)) {
+          isInModal = true;
+          break;
         }
       }
-    `
-  });
+      
+      // Vérification supplémentaire : si le body a overflow hidden
+      const bodyOverflow = window.getComputedStyle(document.body).overflow;
+      if (bodyOverflow === 'hidden' || bodyOverflow === 'clip') {
+        console.warn('Le body a overflow hidden, probablement dans un modal');
+        isInModal = true;
+      }
+      
+      // Vérification : si le document n'est pas le premier élément visible
+      const documentRect = componentRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      if (documentRect.width < viewportWidth * 0.8 || documentRect.height < viewportHeight * 0.8) {
+        console.warn('Le document semble être dans un conteneur plus petit que la fenêtre');
+        isInModal = true;
+      }
+      
+      if (isInModal) {
+        console.warn('Le document est dans un modal, utilisation du fallback iframe');
+        // Fallback : extraire le contenu et l'imprimer dans une nouvelle fenêtre
+        printWithIframe();
+        return;
+      }
+      
+      // Focus sur la fenêtre actuelle
+      window.focus();
+      
+      // S'assurer que la page est bien visible
+      if (document.hidden) {
+        console.warn('La page est cachée, tentative de focus');
+        window.focus();
+      }
+      
+      // Timeout pour s'assurer que le focus est bien appliqué
+      setTimeout(() => {
+        try {
+          // Tenter l'impression directe
+          console.log('Tentative d\'impression directe');
+          window.print();
+          
+          // Timeout pour réinitialiser l'état d'impression
+          setTimeout(() => {
+            setIsPrinting(false);
+            console.log('Impression directe terminée');
+          }, 1000);
+          
+        } catch (error) {
+          console.error('Erreur lors de l\'impression directe:', error);
+          // Fallback : utiliser iframe
+          printWithIframe();
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'impression:', error);
+      // Fallback : utiliser iframe
+      printWithIframe();
+    }
+  };
+
+  // Fallback avec iframe pour les navigateurs récalcitrants
+  const printWithIframe = () => {
+    try {
+      console.log('Création de l\'iframe pour l\'impression');
+      
+      // Créer un iframe caché
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '-9999px';
+      iframe.style.width = '210mm'; // Largeur A4
+      iframe.style.height = '297mm'; // Hauteur A4
+      iframe.style.border = 'none';
+      iframe.style.visibility = 'hidden';
+      iframe.id = 'print-iframe';
+      
+      document.body.appendChild(iframe);
+      
+      // Attendre que l'iframe soit ajouté au DOM
+      setTimeout(() => {
+        try {
+          // Écrire le contenu du document dans l'iframe
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          const documentContent = componentRef.current.innerHTML;
+          
+          // Récupérer tous les styles de la page actuelle
+          const allStyles = Array.from(document.styleSheets)
+            .map(styleSheet => {
+              try {
+                return Array.from(styleSheet.cssRules)
+                  .map(rule => rule.cssText)
+                  .join('\n');
+              } catch (e) {
+                return '';
+              }
+            })
+            .join('\n');
+          
+          // Ajouter le CSS d'impression et les styles de la page
+          iframeDoc.open();
+          iframeDoc.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Document à imprimer</title>
+                <style>
+                  ${allStyles}
+                  
+                  /* Styles d'impression spécifiques */
+                  @page {
+                    size: A4;
+                    margin: 15mm;
+                  }
+                  body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                    background: white !important;
+                  }
+                  .document-container {
+                    width: 100%;
+                    max-width: none;
+                    margin: 0;
+                    padding: 2rem;
+                    box-shadow: none;
+                    background: white !important;
+                  }
+                  .document-content {
+                    width: 100%;
+                    max-width: none;
+                    margin: 0;
+                    padding: 0;
+                    overflow: visible;
+                  }
+                  table {
+                    page-break-inside: avoid;
+                    width: 100%;
+                    border-collapse: collapse;
+                  }
+                  .no-break {
+                    page-break-inside: avoid;
+                  }
+                  .p-8 {
+                    page-break-inside: avoid;
+                  }
+                  h1, h2, h3 {
+                    page-break-after: avoid;
+                    page-break-inside: avoid;
+                  }
+                  @media print {
+                    body { 
+                      print-color-adjust: exact;
+                      -webkit-print-color-adjust: exact;
+                    }
+                    .bg-gray-50,
+                    .bg-blue-50,
+                    .bg-yellow-50 {
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                    }
+                    .border,
+                    .border-t,
+                    .border-b,
+                    .border-l,
+                    .border-r {
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                    }
+                  }
+                </style>
+              </head>
+              <body>
+                ${documentContent}
+                <script>
+                  // S'assurer que l'impression se déclenche après le chargement
+                  window.onload = function() {
+                    setTimeout(function() {
+                      console.log('Impression depuis iframe');
+                      window.focus();
+                      window.print();
+                    }, 300);
+                  };
+                </script>
+              </body>
+            </html>
+          `);
+          iframeDoc.close();
+          
+          // Attendre que le contenu soit rendu
+          setTimeout(() => {
+            try {
+              // Imprimer depuis l'iframe
+              console.log('Tentative d\'impression depuis iframe');
+              iframe.contentWindow.focus();
+              
+              // Vérifier si le navigateur supporte print() dans iframe
+              if (typeof iframe.contentWindow.print === 'function') {
+                iframe.contentWindow.print();
+              } else {
+                // Fallback : ouvrir dans une nouvelle fenêtre
+                console.warn('print() non supporté dans iframe, fallback vers nouvelle fenêtre');
+                document.body.removeChild(iframe);
+                printWithNewWindow();
+                return;
+              }
+              
+              // Nettoyer l'iframe après impression
+              setTimeout(() => {
+                try {
+                  if (document.body.contains(iframe)) {
+                    document.body.removeChild(iframe);
+                  }
+                } catch (e) {
+                  console.warn('Erreur lors du nettoyage de l\'iframe:', e);
+                }
+                setIsPrinting(false);
+                console.log('Impression iframe terminée');
+              }, 3000);
+              
+            } catch (printError) {
+              console.error('Erreur lors de l\'impression depuis iframe:', printError);
+              try {
+                if (document.body.contains(iframe)) {
+                  document.body.removeChild(iframe);
+                }
+              } catch (e) {
+                console.warn('Erreur lors du nettoyage de l\'iframe:', e);
+              }
+              setIsPrinting(false);
+              
+              // Dernier fallback : ouvrir dans une nouvelle fenêtre
+              printWithNewWindow();
+            }
+          }, 800);
+          
+        } catch (contentError) {
+          console.error('Erreur lors de l\'écriture dans l\'iframe:', contentError);
+          try {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          } catch (e) {
+            console.warn('Erreur lors du nettoyage de l\'iframe:', e);
+          }
+          setIsPrinting(false);
+          printWithNewWindow();
+        }
+      }, 100);
+      
+    } catch (iframeError) {
+      console.error('Erreur lors de la création de l\'iframe:', iframeError);
+      setIsPrinting(false);
+      printWithNewWindow();
+    }
+  };
+
+  // Dernier fallback : nouvelle fenêtre
+  const printWithNewWindow = () => {
+    try {
+      const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      const documentContent = componentRef.current.innerHTML;
+      
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Document à imprimer</title>
+            <style>
+              @page {
+                size: A4;
+                margin: 15mm;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+              }
+              .document-container {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 2rem;
+                box-shadow: none;
+              }
+              table {
+                page-break-inside: avoid;
+                width: 100%;
+                border-collapse: collapse;
+              }
+              .no-break {
+                page-break-inside: avoid;
+              }
+            </style>
+          </head>
+          <body>
+            ${documentContent}
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  window.close();
+                }, 500);
+              }
+            </script>
+          </body>
+        </html>
+      `);
+      
+      printWindow.document.close();
+      setIsPrinting(false);
+      
+    } catch (newWindowError) {
+      console.error('Erreur lors de l\'ouverture de la nouvelle fenêtre:', newWindowError);
+      setIsPrinting(false);
+      alert('Impossible d\'ouvrir la fenêtre d\'impression. Veuillez utiliser Ctrl+P (ou Cmd+P sur Mac).');
+    }
+  };
 
   const formatAmount = (amount) => {
     if (amount === null || amount === undefined || amount === 0) {
