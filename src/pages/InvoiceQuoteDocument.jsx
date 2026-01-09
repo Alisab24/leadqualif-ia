@@ -683,9 +683,16 @@ const InvoiceQuoteDocument = () => {
     // Charger les données du document depuis localStorage ou API
     const loadDocument = () => {
       try {
+        console.log('Tentative de chargement du document:', id);
+        console.log('Clé localStorage:', `document_${id}`);
+        
         const storedData = localStorage.getItem(`document_${id}`);
+        console.log('Données trouvées dans localStorage:', storedData ? 'OUI' : 'NON');
+        
         if (storedData) {
           const data = JSON.parse(storedData);
+          console.log('Données parsées:', data);
+          
           setDocument(data.document);
           setAgencyProfile(data.agencyProfile);
           setLead(data.lead);
@@ -694,12 +701,20 @@ const InvoiceQuoteDocument = () => {
           const hasManyItems = data.document?.financialData?.items?.length > 5;
           const hasLongNotes = data.document?.metadata?.notes?.length > 200;
           setShowPage2(hasManyItems || hasLongNotes);
+          
+          console.log('Document chargé avec succès');
         } else {
-          // Si pas de données, rediriger vers le dashboard
+          console.warn('Aucune donnée trouvée dans localStorage pour:', id);
+          console.log('Contenu actuel de localStorage:', Object.keys(localStorage));
+          
+          // Si pas de données, rediriger vers le dashboard avec un message
+          alert('Document non trouvé. Veuillez générer un nouveau document.');
           navigate('/dashboard');
         }
       } catch (error) {
         console.error('Erreur lors du chargement du document:', error);
+        console.error('Détails de l\'erreur:', error.message);
+        alert('Erreur lors du chargement du document. Veuillez réessayer.');
         navigate('/dashboard');
       } finally {
         setLoading(false);

@@ -33,11 +33,11 @@ export default function App() {
           <Route path="/app" element={<Navigate to="/dashboard" replace />} />
         </Route>
         
-        {/* Page de prévisualisation de document (hors layout) */}
-        <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
-        
-        {/* Pages unifiées Devis/Facture (hors layout) */}
-        <Route path="/documents/:type(devis|facture)/:id" element={<InvoiceQuoteDocument />} />
+        {/* Pages de documents (protégées mais hors layout) */}
+        <Route element={<PrivateRoute />}>
+          <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
+          <Route path="/documents/:type(devis|facture)/:id" element={<InvoiceQuoteDocument />} />
+        </Route>
         
         {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
