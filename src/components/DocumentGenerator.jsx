@@ -98,43 +98,50 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         setProfileLoading(true);
         setProfileError(null);
 
-        // Source unique : agency_settings UNIQUEMENT avec agency_id
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('agency_settings')
+        // Source unique : profiles avec user_id (aligné avec Settings.jsx)
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          throw new Error('Utilisateur non authentifié');
+        }
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
           .select('*')
-          .eq('agency_id', agencyId)
+          .eq('user_id', user.id)
           .single();
 
-        if (settingsError) {
-          console.error('❌ agency_settings non trouvé pour agency_id:', agencyId, settingsError);
+        if (profileError) {
+          console.error('❌ profiles non trouvé pour user_id:', user.id, profileError);
           throw new Error(`Paramètres agence non trouvés. Veuillez compléter les paramètres agence.`);
         }
 
-        // Utiliser agency_settings directement
+        // Utiliser profiles directement (aligné avec Settings.jsx)
         const profile = {
-          id: settingsData.id,
-          name: settingsData.nom_commercial || settingsData.nom_legal || 'Agence',
-          legalName: settingsData.nom_legal || null, // PAS de valeur par défaut factice
-          address: settingsData.adresse_legale || null,
-          phone: settingsData.telephone || null,
-          email: settingsData.email || null,
-          legalStatus: settingsData.statut_juridique || null,
-          registrationNumber: settingsData.numero_enregistrement || null,
-          legalMention: settingsData.mention_legale || null,
-          paymentConditions: settingsData.conditions_paiement || null,
-          devise: settingsData.devise || null,
-          symbole_devise: settingsData.symbole_devise || null,
-          logo_url: settingsData.logo_url || null,
-          siret: settingsData.siret || null,
-          tva: settingsData.tva || null,
-          pays: settingsData.pays || null,
-          source: 'agency_settings'
+          id: profileData.id,
+          name: profileData.nom_agence || profileData.nom_commercial || profileData.nom_legal || 'Agence',
+          legalName: profileData.nom_legal || null, // PAS de valeur par défaut factice
+          address: profileData.adresse_legale || profileData.adresse || null,
+          phone: profileData.telephone || null,
+          email: profileData.email || null,
+          legalStatus: profileData.statut_juridique || null,
+          registrationNumber: profileData.numero_enregistrement || null,
+          legalMention: profileData.mention_legale || null,
+          paymentConditions: profileData.conditions_paiement || null,
+          devise: profileData.devise || null,
+          symbole_devise: profileData.symbole_devise || null,
+          logo_url: profileData.logo_url || null,
+          siret: profileData.siret || null,
+          tva: profileData.tva || null,
+          pays: profileData.pays || null,
+          source: 'profiles'
         };
 
         // DEBUG TEMPORAIRE : Loguer les données brutes et mappées
-        console.log("🔍 AGENCY SETTINGS DATA USED FOR DOC", settingsData);
+        console.log("🔍 PROFILES DATA USED FOR DOC", profileData);
+        console.log("🔍 user_id:", user.id);
         console.log("🔍 nom_legal resolved =", profile.legalName);
-        console.log("🔍 nom_commercial =", settingsData.nom_commercial);
+        console.log("🔍 nom_agence =", profileData.nom_agence);
         console.log("🔍 Final profile object:", profile);
 
         setAgencyProfile(profile);
@@ -142,7 +149,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         console.error('❌ Erreur chargement profil agence:', error);
         setProfileError(error.message);
         
-        // PAS de profil par défaut - bloquer si agency_settings n'existe pas
+        // PAS de profil par défaut - bloquer si profiles n'existe pas
         setAgencyProfile(null);
       } finally {
         setProfileLoading(false);
@@ -361,7 +368,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     return result;
   };
 
-  // Fonction de validation UNIQUEMENT sur agency_settings
+  // Fonction de validation UNIQUEMENT sur profiles
   const validateAgencyProfile = (profile) => {
     if (!profile) {
       return {
@@ -377,8 +384,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     // DEBUG TEMPORAIRE : Loguer le profil reçu
     console.log("🔍 PROFILE RECEIVED FOR VALIDATION:", profile);
 
-    // Validation UNIQUEMENT sur agency_settings.nom_legal
-    console.log("🔍 LEGAL NAME VALIDATION (AGENCY_SETTINGS ONLY):", {
+    // Validation UNIQUEMENT sur profiles.nom_legal
+    console.log("🔍 LEGAL NAME VALIDATION (PROFILES ONLY):", {
       legalName: profile.legalName,
       isNull: profile.legalName === null,
       isUndefined: profile.legalName === undefined,
@@ -401,7 +408,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
     // Champs WARNING (non bloquants)
     if (profile.name === null || profile.name === undefined || profile.name?.trim() === '') {
-      warnings.push('Nom commercial (paramètres agence)');
+      warnings.push('Nom de l\'agence (paramètres agence)');
     }
     if (profile.address === null || profile.address === undefined || profile.address?.trim() === '') {
       warnings.push('Adresse légale (paramètres agence)');
@@ -426,7 +433,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       }
     };
 
-    console.log("🔍 VALIDATION RESULT (AGENCY_SETTINGS ONLY):", result);
+    console.log("🔍 VALIDATION RESULT (PROFILES ONLY):", result);
     return result;
   };
 
