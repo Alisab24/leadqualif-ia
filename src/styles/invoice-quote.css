@@ -1,0 +1,478 @@
+/* CSS spécifique pour la structure finale des devis et factures */
+
+/* Page break pour l'impression */
+.page-break-after {
+  page-break-after: always;
+}
+
+.page-break-before {
+  page-break-before: always;
+}
+
+.no-break {
+  page-break-inside: avoid;
+}
+
+/* Styles pour la structure finale */
+.invoice-quote-document {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+/* 1️⃣ HEADER - Compact, premium, Stripe-like */
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.invoice-header .agency-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.invoice-header .agency-logo {
+  width: 4rem;
+  height: 4rem;
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d5db;
+}
+
+.invoice-header .agency-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 0.5rem;
+}
+
+.invoice-header .agency-details h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.invoice-header .agency-details p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.25rem 0;
+}
+
+.invoice-header .document-info {
+  text-align: right;
+}
+
+.invoice-header .document-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.025em;
+}
+
+.invoice-header .document-meta {
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.invoice-header .document-meta p {
+  margin: 0.25rem 0;
+}
+
+.invoice-header .document-meta .font-semibold {
+  font-weight: 600;
+  color: #374151;
+}
+
+/* 2️⃣ BLOC CLIENT - Lisible, 2 colonnes */
+.client-block {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.client-block h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.client-block .client-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.client-block .client-column > * {
+  margin-bottom: 0.5rem;
+}
+
+.client-block .client-row {
+  display: flex;
+  margin-bottom: 0.5rem;
+}
+
+.client-block .client-row .label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-right: 0.5rem;
+}
+
+.client-block .client-row .value {
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+/* 3️⃣ TABLEAU CENTRAL - Cœur du document */
+.central-table {
+  margin-bottom: 2rem;
+}
+
+.central-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.central-table thead {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.central-table th {
+  text-align: left;
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.central-table th.text-center {
+  text-align: center;
+}
+
+.central-table th.text-right {
+  text-align: right;
+}
+
+.central-table td {
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.central-table td.text-center {
+  text-align: center;
+}
+
+.central-table td.text-right {
+  text-align: right;
+}
+
+.central-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.central-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.central-table .description {
+  font-weight: 500;
+  color: #111827;
+}
+
+.central-table .quantity {
+  color: #6b7280;
+}
+
+.central-table .unit-price {
+  color: #6b7280;
+}
+
+.central-table .line-total {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* 4️⃣ ZONE TOTAUX - Très lisible */
+.totals-zone {
+  margin-bottom: 2rem;
+}
+
+.totals-zone .totals-container {
+  width: 24rem;
+  margin-left: auto;
+}
+
+.totals-zone .totals-table {
+  width: 100%;
+}
+
+.totals-zone .totals-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.totals-zone .totals-table .label {
+  color: #6b7280;
+}
+
+.totals-zone .totals-table .amount {
+  text-align: right;
+  font-weight: 600;
+  color: #111827;
+}
+
+.totals-zone .totals-table .total-ttc-row {
+  background: #eff6ff;
+  border-top: 2px solid #3b82f6;
+}
+
+.totals-zone .totals-table .total-ttc-row .label {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.totals-zone .totals-table .total-ttc-row .amount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.totals-zone .amount-in-words {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.totals-zone .amount-in-words .label {
+  font-size: 0.875rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.totals-zone .amount-in-words .amount-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* 5️⃣ CONDITIONS & MENTIONS - Compact */
+.conditions-mentions {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+}
+
+.conditions-mentions .conditions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.conditions-mentions h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.conditions-mentions p {
+  color: #6b7280;
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+
+/* 6️⃣ SIGNATURE - Sur la même page */
+.signature-block {
+  margin-top: 3rem;
+}
+
+.signature-block .signature-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 2rem;
+}
+
+.signature-block .signature-column {
+  width: 50%;
+}
+
+.signature-block .signature-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.signature-block .signature-line {
+  border-bottom: 2px solid #9ca3af;
+  width: 16rem;
+  height: 3rem;
+}
+
+.signature-block .signature-name {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.signature-block .location-date {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* 9️⃣ PAGE 2 - Exception */
+.page-2 {
+  page-break-before: always;
+}
+
+.page-2 .page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.page-2 .page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.page-2 .annex-content {
+  max-width: none;
+}
+
+.page-2 .annex-section {
+  margin-bottom: 2rem;
+}
+
+.page-2 .annex-section h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.page-2 .annex-section p {
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .invoice-header {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .invoice-header .agency-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .client-block .client-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .conditions-mentions .conditions-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .signature-block .signature-grid {
+    flex-direction: column;
+    gap: 2rem;
+  }
+  
+  .signature-block .signature-column {
+    width: 100%;
+  }
+  
+  .totals-zone .totals-container {
+    width: 100%;
+  }
+  
+  .central-table th,
+  .central-table td {
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .invoice-quote-document {
+    background: white;
+    color: #000;
+  }
+  
+  .invoice-header {
+    border-bottom: 2px solid #000;
+  }
+  
+  .client-block,
+  .conditions-mentions {
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+  }
+  
+  .central-table thead {
+    background: #f5f5f5;
+    border-bottom: 2px solid #000;
+  }
+  
+  .central-table tbody tr {
+    border-bottom: 1px solid #ccc;
+  }
+  
+  .totals-zone .totals-table .total-ttc-row {
+    background: #f0f0f0;
+    border-top: 2px solid #000;
+  }
+  
+  .signature-block .signature-line {
+    border-bottom: 2px solid #000;
+  }
+  
+  /* S'assurer que tout tient sur une page si possible */
+  .invoice-header,
+  .client-block,
+  .central-table,
+  .totals-zone,
+  .conditions-mentions,
+  .signature-block {
+    page-break-inside: avoid;
+  }
+  
+  /* Page 2 */
+  .page-2 {
+    page-break-before: always;
+  }
+}

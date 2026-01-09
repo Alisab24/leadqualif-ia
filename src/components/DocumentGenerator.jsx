@@ -315,7 +315,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         };
       }
 
-      // Sauvegarder les données dans localStorage et rediriger vers la page de prévisualisation
+      // Sauvegarder les données dans localStorage et rediriger vers la page unifiée
       const documentId = `doc_${Date.now()}`;
       const documentToSave = {
         document: documentData,
@@ -325,8 +325,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       
       localStorage.setItem(`document_${documentId}`, JSON.stringify(documentToSave));
       
-      // Rediriger vers la page de prévisualisation
-      navigate(`/documents/preview/${documentId}`);
+      // Rediriger vers la page unifiée selon le type de document
+      const documentType = docType.id === 'devis' ? 'devis' : 'facture';
+      navigate(`/documents/${documentType}/${documentId}`);
       
     } catch (error) {
       console.error('Erreur lors de la génération du document:', error);

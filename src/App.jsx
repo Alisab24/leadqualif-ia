@@ -10,6 +10,7 @@ import DocumentsCenter from './pages/DocumentsCenter';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import DocumentPreviewPage from './pages/DocumentPreviewPage';
+import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -34,6 +35,9 @@ export default function App() {
         
         {/* Page de prévisualisation de document (hors layout) */}
         <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
+        
+        {/* Pages unifiées Devis/Facture (hors layout) */}
+        <Route path="/documents/:type(devis|facture)/:id" element={<InvoiceQuoteDocument />} />
         
         {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
