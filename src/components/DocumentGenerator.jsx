@@ -122,8 +122,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           // Transformer les données de profiles vers le format attendu
           const transformedProfile = {
             id: profileData.id,
-            name: profileData.nom_agence || profileData.nom_legal || 'Agence',
-            legalName: profileData.nom_legal || profileData.nom_agence || '—',
+            name: profileData.nom_agence || profileData.company_name || 'Agence',
+            legalName: profileData.nom_legal || profileData.company_name || profileData.nom_agence || '—',
             address: profileData.adresse_legale || profileData.adresse || '—',
             phone: profileData.telephone || '—',
             email: profileData.email || '—',
@@ -140,13 +140,20 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             source: 'profiles' // Pour le debug
           };
 
+          // DEBUG TEMPORAIRE : Loguer les données brutes et mappées
+          console.log("🔍 PROFILES DATA USED FOR DOC", profileData);
+          console.log("🔍 nom_legal resolved (profiles) =", transformedProfile.legalName);
+          console.log("🔍 nom_agence (profiles) =", profileData.nom_agence);
+          console.log("🔍 company_name (profiles) =", profileData.company_name);
+          console.log("🔍 Final profile object (profiles):", transformedProfile);
+
           setAgencyProfile(transformedProfile);
         } else {
           // Utiliser agency_settings directement
           const profile = {
             id: settingsData.id,
-            name: settingsData.nom_agence || settingsData.nom_legal || 'Agence',
-            legalName: settingsData.nom_legal || settingsData.nom_agence || '—',
+            name: settingsData.nom_agence || settingsData.company_name || 'Agence',
+            legalName: settingsData.nom_legal || settingsData.company_name || settingsData.nom_agence || '—',
             address: settingsData.adresse_legale || settingsData.adresse || '—',
             phone: settingsData.telephone || '—',
             email: settingsData.email || '—',
@@ -162,6 +169,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             pays: settingsData.pays || 'France',
             source: 'agency_settings' // Pour le debug
           };
+
+          // DEBUG TEMPORAIRE : Loguer les données brutes et mappées
+          console.log("🔍 AGENCY DATA USED FOR DOC", settingsData);
+          console.log("🔍 nom_legal resolved =", profile.legalName);
+          console.log("🔍 nom_agence =", settingsData.nom_agence);
+          console.log("🔍 company_name =", settingsData.company_name);
+          console.log("🔍 Final profile object:", profile);
 
           setAgencyProfile(profile);
         }
@@ -418,37 +432,65 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     const missingFields = [];
     const warnings = [];
 
-    // Champs BLOQUANTS uniquement
-    if (!profile.legalName || profile.legalName === '—') {
+    // DEBUG TEMPORAIRE : Loguer le profil reçu
+    console.log("🔍 PROFILE RECEIVED FOR VALIDATION:", profile);
+
+    // Mapping explicite du nom légal avec fallbacks multiples
+    const nomLegal = profile.legalName || profile.nom_legal || profile.company_name || profile.nom_agence;
+    
+    console.log("🔍 NOM_LEGAL MAPPING:", {
+      legalName: profile.legalName,
+      nom_legal: profile.nom_legal,
+      company_name: profile.company_name,
+      nom_agence: profile.nom_agence,
+      final: nomLegal
+    });
+
+    // Validation intelligente du nom légal
+    if (!nomLegal || nomLegal === '—' || nomLegal.trim() === '') {
       missingFields.push('Nom légal');
     }
-    if (!profile.pays || profile.pays === '—') {
+
+    // Validation des autres champs bloquants
+    const pays = profile.pays || profile.country;
+    if (!pays || pays === '—' || pays.trim() === '') {
       missingFields.push('Pays');
     }
-    if (!profile.devise || profile.devise === '—') {
+
+    const devise = profile.devise || profile.currency;
+    if (!devise || devise === '—' || devise.trim() === '') {
       missingFields.push('Devise');
     }
 
     // Champs WARNING (non bloquants)
-    if (!profile.name || profile.name === '—') {
+    if (!profile.name || profile.name === '—' || profile.name.trim() === '') {
       warnings.push('Nom de l\'agence');
     }
-    if (!profile.address || profile.address === '—') {
+    if (!profile.address || profile.address === '—' || profile.address.trim() === '') {
       warnings.push('Adresse');
     }
-    if (!profile.phone || profile.phone === '—') {
+    if (!profile.phone || profile.phone === '—' || profile.phone.trim() === '') {
       warnings.push('Téléphone');
     }
-    if (!profile.email || profile.email === '—') {
+    if (!profile.email || profile.email === '—' || profile.email.trim() === '') {
       warnings.push('Email');
     }
 
-    return {
+    const result = {
       isValid: missingFields.length === 0,
       missingFields,
       warnings,
-      canGenerate: missingFields.length === 0
+      canGenerate: missingFields.length === 0,
+      debugInfo: {
+        nomLegal,
+        pays,
+        devise,
+        source: profile.source
+      }
     };
+
+    console.log("🔍 VALIDATION RESULT:", result);
+    return result;
   };
 
   const generateHtmlDocument = async (docType) => {
