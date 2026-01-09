@@ -122,9 +122,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           // Transformer les données de profiles vers le format attendu
           const transformedProfile = {
             id: profileData.id,
-            name: profileData.nom_agence || profileData.company_name || 'Agence',
-            legalName: profileData.nom_legal || profileData.company_name || profileData.nom_agence || '—',
-            address: profileData.adresse_legale || profileData.adresse || '—',
+            name: profileData.nom_commercial || profileData.nom_legal || 'Agence',
+            legalName: profileData.nom_legal || '—',
+            address: profileData.adresse_legale || '—',
             phone: profileData.telephone || '—',
             email: profileData.email || '—',
             legalStatus: profileData.statut_juridique || 'À compléter',
@@ -143,8 +143,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           // DEBUG TEMPORAIRE : Loguer les données brutes et mappées
           console.log("🔍 PROFILES DATA USED FOR DOC", profileData);
           console.log("🔍 nom_legal resolved (profiles) =", transformedProfile.legalName);
-          console.log("🔍 nom_agence (profiles) =", profileData.nom_agence);
-          console.log("🔍 company_name (profiles) =", profileData.company_name);
+          console.log("🔍 nom_commercial (profiles) =", profileData.nom_commercial);
           console.log("🔍 Final profile object (profiles):", transformedProfile);
 
           setAgencyProfile(transformedProfile);
@@ -152,9 +151,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           // Utiliser agency_settings directement
           const profile = {
             id: settingsData.id,
-            name: settingsData.nom_agence || settingsData.company_name || 'Agence',
-            legalName: settingsData.nom_legal || settingsData.company_name || settingsData.nom_agence || '—',
-            address: settingsData.adresse_legale || settingsData.adresse || '—',
+            name: settingsData.nom_commercial || settingsData.nom_legal || 'Agence',
+            legalName: settingsData.nom_legal || '—',
+            address: settingsData.adresse_legale || '—',
             phone: settingsData.telephone || '—',
             email: settingsData.email || '—',
             legalStatus: settingsData.statut_juridique || 'À compléter',
@@ -171,10 +170,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           };
 
           // DEBUG TEMPORAIRE : Loguer les données brutes et mappées
-          console.log("🔍 AGENCY DATA USED FOR DOC", settingsData);
+          console.log("🔍 AGENCY SETTINGS DATA USED FOR DOC", settingsData);
           console.log("🔍 nom_legal resolved =", profile.legalName);
-          console.log("🔍 nom_agence =", settingsData.nom_agence);
-          console.log("🔍 company_name =", settingsData.company_name);
+          console.log("🔍 nom_commercial =", settingsData.nom_commercial);
           console.log("🔍 Final profile object:", profile);
 
           setAgencyProfile(profile);
@@ -435,30 +433,25 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     // DEBUG TEMPORAIRE : Loguer le profil reçu
     console.log("🔍 PROFILE RECEIVED FOR VALIDATION:", profile);
 
-    // Mapping explicite du nom légal avec fallbacks multiples
-    const nomLegal = profile.legalName || profile.nom_legal || profile.company_name || profile.nom_agence;
-    
-    console.log("🔍 NOM_LEGAL MAPPING:", {
+    // Validation directe du nom légal (déjà mappé)
+    console.log("🔍 LEGAL NAME VALIDATION:", {
       legalName: profile.legalName,
-      nom_legal: profile.nom_legal,
-      company_name: profile.company_name,
-      nom_agence: profile.nom_agence,
-      final: nomLegal
+      isEmpty: !profile.legalName,
+      isDash: profile.legalName === '—',
+      isBlank: profile.legalName?.trim() === ''
     });
 
     // Validation intelligente du nom légal
-    if (!nomLegal || nomLegal === '—' || nomLegal.trim() === '') {
+    if (!profile.legalName || profile.legalName === '—' || profile.legalName.trim() === '') {
       missingFields.push('Nom légal');
     }
 
     // Validation des autres champs bloquants
-    const pays = profile.pays || profile.country;
-    if (!pays || pays === '—' || pays.trim() === '') {
+    if (!profile.pays || profile.pays === '—' || profile.pays.trim() === '') {
       missingFields.push('Pays');
     }
 
-    const devise = profile.devise || profile.currency;
-    if (!devise || devise === '—' || devise.trim() === '') {
+    if (!profile.devise || profile.devise === '—' || profile.devise.trim() === '') {
       missingFields.push('Devise');
     }
 
@@ -482,9 +475,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       warnings,
       canGenerate: missingFields.length === 0,
       debugInfo: {
-        nomLegal,
-        pays,
-        devise,
+        legalName: profile.legalName,
+        pays: profile.pays,
+        devise: profile.devise,
         source: profile.source
       }
     };
