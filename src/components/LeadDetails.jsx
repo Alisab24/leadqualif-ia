@@ -22,25 +22,42 @@ const LeadDetails = () => {
   const loadLead = async () => {
     try {
       setLoading(true)
+      setError(null)
+      
+      console.log('🔍 Chargement du lead ID:', id)
+      
       const { data: leadData, error } = await supabase
         .from('leads')
         .select('*')
         .eq('id', id)
         .single()
       
-      if (error) throw error
+      console.log('📊 Données brutes reçues:', { leadData, error })
       
+      if (error) {
+        console.error('❌ Erreur Supabase:', error)
+        throw error
+      }
+      
+      if (!leadData) {
+        console.error('❌ Lead non trouvé dans la base')
+        throw new Error('Lead non trouvé')
+      }
+      
+      console.log('✅ Lead chargé avec succès:', leadData)
       setLead(leadData)
       
       // Générer le résumé IA si pas déjà présent
       if (!leadData.resume_ia && leadData) {
+        console.log('🤖 Génération du résumé IA...')
         generateAISummary(leadData)
       } else if (leadData.resume_ia) {
+        console.log('📝 Résumé IA déjà présent:', leadData.resume_ia)
         setSummary(leadData.resume_ia)
       }
     } catch (err) {
-      console.error('Erreur lors du chargement du lead:', err)
-      setError('Impossible de charger les détails du lead')
+      console.error('💥 Erreur lors du chargement du lead:', err)
+      setError(err.message || 'Impossible de charger les détails du lead')
     } finally {
       setLoading(false)
     }
@@ -73,21 +90,51 @@ const LeadDetails = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <svg className="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <div className="text-center">
+          <svg className="animate-spin h-8 w-8 text-primary-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-600">Chargement du lead...</p>
+        </div>
       </div>
     )
   }
 
-  if (error || !lead) {
+  if (error) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="card">
           <div className="text-center py-12">
-            <p className="text-red-600 mb-4">{error || 'Lead introuvable'}</p>
-            <button onClick={() => navigate('/')} className="btn-primary">
+            <div className="text-red-600 mb-4">
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-lg font-semibold mb-2">Erreur de chargement</p>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button onClick={() => navigate('/')} className="btn-primary mt-4">
+              Retour au dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!lead) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="card">
+          <div className="text-center py-12">
+            <div className="text-gray-500 mb-4">
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-lg font-semibold mb-2">Lead non trouvé</p>
+              <p className="text-sm">Le lead demandé n'existe pas ou a été supprimé</p>
+            </div>
+            <button onClick={() => navigate('/')} className="btn-primary mt-4">
               Retour au dashboard
             </button>
           </div>
@@ -98,6 +145,26 @@ const LeadDetails = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
+      {/* 🐛 DEBUG TEMPORAIRE */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="font-bold text-yellow-800 mb-2">🐛 DEBUG TEMPORAIRE</h3>
+          <div className="text-sm space-y-1">
+            <p><strong>ID du lead:</strong> {id}</p>
+            <p><strong>Loading:</strong> {loading ? 'OUI' : 'NON'}</p>
+            <p><strong>Error:</strong> {error || 'AUCUNE'}</p>
+            <p><strong>Lead existe:</strong> {lead ? 'OUI' : 'NON'}</p>
+            {lead && (
+              <>
+                <p><strong>Nom:</strong> {lead.nom || 'VIDE'}</p>
+                <p><strong>Email:</strong> {lead.email || 'VIDE'}</p>
+                <p><strong>Téléphone:</strong> {lead.telephone || 'VIDE'}</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <button

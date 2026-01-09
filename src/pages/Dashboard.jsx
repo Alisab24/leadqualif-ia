@@ -368,9 +368,20 @@ export default function Dashboard() {
                              <button 
                                onClick={(e) => {
                                  e.stopPropagation();
+                                 navigate(`/lead/${lead.id}`);
+                               }} 
+                               className="w-6 h-6 bg-green-50 hover:bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm"
+                               title="Voir les détails"
+                             >
+                               👁
+                             </button>
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
                                  updateStatus(lead.id, statuts[idx+1]);
                                }} 
                                className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
+                               title="Changer de statut"
                              >
                                →
                              </button>
@@ -380,6 +391,7 @@ export default function Dashboard() {
                                  updateStatus(lead.id, statuts[idx-1]);
                                }} 
                                className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
+                               title="Changer de statut"
                              >
                                ←
                              </button>
@@ -489,6 +501,16 @@ export default function Dashboard() {
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center justify-center space-x-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/lead/${lead.id}`);
+                              }}
+                              className="text-green-600 hover:text-green-800 p-1"
+                              title="Voir les détails"
+                            >
+                              👁
+                            </button>
                             <a 
                               href={`https://wa.me/${lead.telephone?.replace(/\D/g,'')}`} 
                               target="_blank" 

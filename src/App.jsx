@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import DocumentPreviewPage from './pages/DocumentPreviewPage';
 import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
+import LeadDetails from './components/LeadDetails';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -26,6 +27,7 @@ export default function App() {
         {/* Private */}
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/lead/:id" element={<LeadDetails />} />
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/documents-center" element={<DocumentsCenter />} />
           <Route path="/settings" element={<Settings />} />
