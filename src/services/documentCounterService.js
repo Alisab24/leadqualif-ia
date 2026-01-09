@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../supabaseClient';
 
 /**
  * Service pour la gestion des compteurs de documents

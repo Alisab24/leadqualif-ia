@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { leadsService } from '../services/supabase'
+import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 import { formatDate, formatPhone, formatCurrency, getScoreColor, getUrgencyColor, getInterestLevelColor, getInterestLevelIcon, getInterestLevelDescription } from '../utils/format'
 
@@ -22,7 +22,14 @@ const LeadDetails = () => {
   const loadLead = async () => {
     try {
       setLoading(true)
-      const leadData = await leadsService.getLeadById(id)
+      const { data: leadData, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', id)
+        .single()
+      
+      if (error) throw error
+      
       setLead(leadData)
       
       // Générer le résumé IA si pas déjà présent
@@ -46,7 +53,12 @@ const LeadDetails = () => {
       setSummary(aiSummary)
       
       // Sauvegarder le résumé dans la base de données
-      await leadsService.updateLead(id, { resume_ia: aiSummary })
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ resume_ia: aiSummary })
+        .eq('id', id)
+      
+      if (updateError) throw updateError
     } catch (err) {
       console.error('Erreur lors de la génération du résumé:', err)
     } finally {

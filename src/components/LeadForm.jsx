@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { leadsService } from '../services/supabase'
+import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 
 const LeadForm = ({ onClose, onSuccess }) => {
@@ -119,7 +119,13 @@ const LeadForm = ({ onClose, onSuccess }) => {
         evaluation_complete: evaluation
       }
 
-      const newLead = await leadsService.createLead(leadData)
+      const { data: newLead, error } = await supabase
+        .from('leads')
+        .insert([leadData])
+        .select()
+        .single()
+      
+      if (error) throw error
       
       if (onSuccess) {
         onSuccess(newLead)
