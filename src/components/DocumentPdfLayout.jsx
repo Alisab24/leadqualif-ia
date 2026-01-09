@@ -9,29 +9,20 @@ const DocumentPdfLayout = ({
   onPdfGenerated,
   onPrintReady 
 }) => {
-  // Format A4 constants
-  const A4_WIDTH_MM = 210;
-  const A4_HEIGHT_MM = 297;
-  const PADDING_MM = 20;
-  const CONTENT_WIDTH_MM = A4_WIDTH_MM - (2 * PADDING_MM);
+  const pdfRef = useRef(null);
 
-  // Formater les montants
+  // Formater les montants correctement
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR'
+    return new Intl.NumberFormat('fr-FR', { 
+      style: 'currency', 
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount || 0);
   };
 
-  // Vérifier si page 2 est nécessaire
-  const needsPage2 = () => {
-    const itemCount = document?.financialData?.items?.length || 0;
-    const hasLongNotes = document?.metadata?.notes?.length > 200;
-    return itemCount > 5 || hasLongNotes;
-  };
-
-  // Générer le contenu PDF avec jsPDF natif
-  const generatePdfContent = () => {
+  // Générer le PDF à partir du HTML
+  const generatePdfFromHtml = () => {
     return new Promise((resolve, reject) => {
       try {
         const pdf = new jsPDF({
@@ -40,236 +31,194 @@ const DocumentPdfLayout = ({
           format: 'a4'
         });
 
-        // Ajouter la première page
-        pdf.addPage();
+        // Contenu HTML à convertir
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 170mm;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+              <div>
+                <h2 style="margin: 0; font-size: 18px; font-weight: bold;">${agencyProfile?.name || 'Agence'}</h2>
+                <div style="font-size: 11px; color: #666;">
+                  ${agencyProfile?.address || ''}
+                  ${agencyProfile?.email || ''}
+                  ${agencyProfile?.phone || ''}
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
+                  ${document?.type?.label?.toUpperCase() || 'DOCUMENT'}
+                </div>
+                <div style="font-size: 11px; color: #666;">
+                  <div style="font-weight: 600;">N° ${Date.now().toString().slice(-6)}</div>
+                  <div>Date: ${new Date().toLocaleDateString('fr-FR')}</div>
+                  <div>Devise: EUR</div>
+                </div>
+              </div>
+            </div>
 
-        let yPosition = PADDING_MM;
+            <!-- Client -->
+            <div style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border: 1px solid #e0e0e0;">
+              <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">CLIENT</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 11px;">
+                <div>
+                  <div style="margin-bottom: 5px;">
+                    <span style="font-weight: 600; display: inline-block; width: 50px;">Nom:</span>
+                    <span>${lead?.nom || 'Non spécifié'}</span>
+                  </div>
+                  ${lead?.email ? `
+                    <div style="margin-bottom: 5px;">
+                      <span style="font-weight: 600; display: inline-block; width: 50px;">Email:</span>
+                      <span>${lead.email}</span>
+                    </div>
+                  ` : ''}
+                  ${lead?.telephone ? `
+                    <div style="margin-bottom: 5px;">
+                      <span style="font-weight: 600; display: inline-block; width: 50px;">Tél:</span>
+                      <span>${lead.telephone}</span>
+                    </div>
+                  ` : ''}
+                </div>
+                <div>
+                  <div style="margin-bottom: 5px;">
+                    <span style="font-weight: 600; display: inline-block; width: 60px;">Projet:</span>
+                    <span>${lead?.type_bien || 'Non spécifié'}</span>
+                  </div>
+                  ${lead?.budget ? `
+                    <div style="margin-bottom: 5px;">
+                      <span style="font-weight: 600; display: inline-block; width: 60px;">Budget:</span>
+                      <span>${formatAmount(lead.budget)}</span>
+                    </div>
+                  ` : ''}
+                  <div style="margin-bottom: 5px;">
+                    <span style="font-weight: 600; display: inline-block; width: 60px;">Source:</span>
+                    <span>Formulaire IA</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        // Header
-        pdf.setFontSize(16);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(document?.type?.label?.toUpperCase() || 'DOCUMENT', A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
-        
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`N° ${Date.now().toString().slice(-6)}`, A4_WIDTH_MM - PADDING_MM, yPosition + 7, { align: 'right' });
-        pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, A4_WIDTH_MM - PADDING_MM, yPosition + 14, { align: 'right' });
-        pdf.text('Devise: EUR', A4_WIDTH_MM - PADDING_MM, yPosition + 21, { align: 'right' });
+            <!-- Tableau financier -->
+            ${document?.financialData ? `
+              <div style="margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                  <thead>
+                    <tr style="background-color: #f5f5f5; border-bottom: 2px solid #ddd;">
+                      <th style="padding: 10px; text-align: left; font-weight: 600;">Description</th>
+                      <th style="padding: 10px; text-align: center; font-weight: 600; width: 60px;">Qté</th>
+                      <th style="padding: 10px; text-align: right; font-weight: 600; width: 80px;">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${document.financialData.items.map(item => `
+                      <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: 500;">${item.description}</td>
+                        <td style="padding: 10px; text-align: center; color: #666;">${item.quantity || '1'}</td>
+                        <td style="padding: 10px; text-align: right; font-weight: 600;">${formatAmount(item.amount)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                  <tfoot>
+                    ${document.financialData.totals.map(total => {
+                      const isTotalTTC = total.label.includes('TOTAL TTC');
+                      const isBold = total.label.includes('TOTAL');
+                      return `
+                        <tr style="${isTotalTTC ? 'border-top: 2px solid #3b82f6; background-color: #f0f9ff;' : 'border-top: 1px solid #ddd;'}">
+                          <td colspan="2" style="padding: 10px; font-weight: ${isTotalTTC ? 'bold' : isBold ? '600' : 'normal'}; font-size: ${isTotalTTC ? '14px' : '11px'}; color: ${isTotalTTC ? '#1d4ed8' : '#000'};">
+                            ${total.label}
+                          </td>
+                          <td style="padding: 10px; text-align: right; font-weight: ${isTotalTTC ? 'bold' : isBold ? '600' : 'normal'}; font-size: ${isTotalTTC ? '14px' : '11px'}; color: ${isTotalTTC ? '#1d4ed8' : '#000'};">
+                            ${formatAmount(total.amount)}
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tfoot>
+                </table>
+              </div>
+            ` : ''}
 
-        // Logo et infos agence
-        if (agencyProfile?.logo_url) {
-          // Pour l'instant, on met le nom de l'agence
-          pdf.setFontSize(14);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(agencyProfile?.name || 'Agence', PADDING_MM, yPosition);
-          yPosition += 10;
-        }
+            <!-- Métadonnées -->
+            ${document?.metadata?.notes ? `
+              <div style="margin-bottom: 20px; padding: 10px; background-color: #fffbeb; border: 1px solid #fbbf24;">
+                <div style="font-size: 10px; font-weight: 600; color: #92400e; margin-bottom: 5px;">
+                  Notes:
+                </div>
+                <div style="font-size: 11px; color: #78350f;">
+                  ${document.metadata.notes}
+                </div>
+              </div>
+            ` : ''}
 
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        if (agencyProfile?.address) {
-          pdf.text(agencyProfile.address, PADDING_MM, yPosition);
-          yPosition += 5;
-        }
-        if (agencyProfile?.email) {
-          pdf.text(agencyProfile.email, PADDING_MM, yPosition);
-          yPosition += 5;
-        }
-        if (agencyProfile?.phone) {
-          pdf.text(agencyProfile.phone, PADDING_MM, yPosition);
-          yPosition += 5;
-        }
+            <!-- Signature -->
+            <div style="margin-top: 30px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div style="width: 45%;">
+                  <div style="margin-bottom: 5px; font-size: 11px; font-weight: 600;">
+                    Signature agence
+                  </div>
+                  <div style="border-bottom: 2px solid #000; width: 100%; height: 30px; margin-bottom: 5px;"></div>
+                  <div style="font-size: 11px; color: #666;">
+                    ${agencyProfile?.name || 'Agence'}
+                  </div>
+                </div>
+                <div style="width: 45%;">
+                  <div style="margin-bottom: 5px; font-size: 11px; font-weight: 600;">
+                    Signature client
+                  </div>
+                  <div style="border-bottom: 2px solid #000; width: 100%; height: 30px; margin-bottom: 5px;"></div>
+                  <div style="font-size: 11px; color: #666;">
+                    ${lead?.nom || 'Client'}
+                  </div>
+                </div>
+              </div>
+              <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #666;">
+                Fait à Paris, le ${new Date().toLocaleDateString('fr-FR')}
+              </div>
+            </div>
+          </div>
+        `;
 
-        yPosition += 15;
+        // Utiliser html2canvas pour capturer le HTML
+        import('html2canvas').then(html2canvas => {
+          // Créer un élément temporaire pour le HTML
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = htmlContent;
+          tempDiv.style.position = 'absolute';
+          tempDiv.style.left = '-9999px';
+          tempDiv.style.width = '210mm';
+          document.body.appendChild(tempDiv);
 
-        // Client
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('CLIENT', PADDING_MM, yPosition);
-        yPosition += 10;
+          html2canvas.default(tempDiv, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff'
+          }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 170; // 170mm pour le contenu
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Nom: ${lead?.nom || 'Non spécifié'}`, PADDING_MM, yPosition);
-        yPosition += 5;
-        if (lead?.email) {
-          pdf.text(`Email: ${lead.email}`, PADDING_MM, yPosition);
-          yPosition += 5;
-        }
-        if (lead?.telephone) {
-          pdf.text(`Tél: ${lead.telephone}`, PADDING_MM, yPosition);
-          yPosition += 5;
-        }
-        pdf.text(`Projet: ${lead?.type_bien || 'Non spécifié'}`, PADDING_MM, yPosition);
-        yPosition += 5;
-        if (lead?.budget) {
-          pdf.text(`Budget: ${formatAmount(lead.budget)}`, PADDING_MM, yPosition);
-          yPosition += 5;
-        }
-        pdf.text('Source: Formulaire IA', PADDING_MM, yPosition);
-        yPosition += 15;
+            pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, imgHeight);
 
-        // Tableau financier
-        if (document?.financialData) {
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('DÉTAILS FINANCIERS', PADDING_MM, yPosition);
-          yPosition += 10;
+            // Nettoyer l'élément temporaire
+            document.body.removeChild(tempDiv);
 
-          // En-têtes du tableau
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Description', PADDING_MM, yPosition);
-          pdf.text('Qté', PADDING_MM + 100, yPosition);
-          pdf.text('Total', A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
-          yPosition += 7;
-
-          // Ligne de séparation
-          pdf.setDrawColor(200, 200, 200);
-          pdf.line(PADDING_MM, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
-          yPosition += 5;
-
-          // Items
-          pdf.setFont('helvetica', 'normal');
-          document.financialData.items.forEach((item, index) => {
-            if (yPosition > A4_HEIGHT_MM - 60) {
-              pdf.addPage();
-              yPosition = PADDING_MM;
-            }
-
-            pdf.text(item.description, PADDING_MM, yPosition);
-            pdf.text(item.quantity || '1', PADDING_MM + 100, yPosition);
-            pdf.text(formatAmount(item.amount), A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
-            yPosition += 7;
+            resolve(pdf);
+          }).catch(error => {
+            document.body.removeChild(tempDiv);
+            reject(error);
           });
-
-          // Ligne de séparation pour les totaux
-          pdf.setDrawColor(200, 200, 200);
-          pdf.line(PADDING_MM, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
-          yPosition += 5;
-
-          // Totaux
-          document.financialData.totals.forEach((total, index) => {
-            const isTotalTTC = total.label.includes('TOTAL TTC');
-            
-            if (isTotalTTC) {
-              pdf.setDrawColor(59, 130, 246);
-              pdf.line(PADDING_MM, yPosition - 2, A4_WIDTH_MM - PADDING_MM, yPosition - 2);
-              pdf.setDrawColor(0, 0, 0);
-            }
-
-            pdf.setFont('helvetica', isTotalTTC ? 'bold' : 'normal');
-            pdf.setFontSize(isTotalTTC ? 12 : 10);
-            pdf.setTextColor(isTotalTTC ? 29 : 0, isTotalTTC ? 78 : 0, isTotalTTC ? 216 : 0);
-            
-            pdf.text(total.label, PADDING_MM, yPosition);
-            pdf.text(formatAmount(total.amount), A4_WIDTH_MM - PADDING_MM, yPosition, { align: 'right' });
-            
-            pdf.setTextColor(0, 0, 0);
-            yPosition += 8;
-          });
-
-          yPosition += 10;
-        }
-
-        // Métadonnées
-        if (document?.metadata?.notes) {
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text('Notes:', PADDING_MM, yPosition);
-          yPosition += 5;
-          
-          // Gérer les notes longues
-          const notes = document.metadata.notes;
-          const lines = pdf.splitTextToSize(notes, CONTENT_WIDTH_MM);
-          lines.forEach(line => {
-            if (yPosition > A4_HEIGHT_MM - 40) {
-              pdf.addPage();
-              yPosition = PADDING_MM;
-            }
-            pdf.text(line, PADDING_MM, yPosition);
-            yPosition += 5;
-          });
-          yPosition += 10;
-        }
-
-        // Signature
-        const totalsOnSamePage = !needsPage2();
-        
-        if (totalsOnSamePage && yPosition < A4_HEIGHT_MM - 60) {
-          yPosition = A4_HEIGHT_MM - 50;
-          
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'normal');
-          
-          // Lignes de signature
-          pdf.setDrawColor(0, 0, 0);
-          pdf.line(PADDING_MM, yPosition, PADDING_MM + 60, yPosition);
-          pdf.text('Signature agence', PADDING_MM, yPosition + 5);
-          pdf.text(agencyProfile?.name || 'Agence', PADDING_MM, yPosition + 10);
-          
-          pdf.line(A4_WIDTH_MM - PADDING_MM - 60, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
-          pdf.text('Signature client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 5);
-          pdf.text(lead?.nom || 'Client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 10);
-          
-          pdf.text(`Fait à Paris, le ${new Date().toLocaleDateString('fr-FR')}`, A4_WIDTH_MM / 2, yPosition + 20, { align: 'center' });
-        }
-
-        // Page 2 si nécessaire
-        if (needsPage2()) {
-          pdf.addPage();
-          yPosition = PADDING_MM;
-          
-          pdf.setFontSize(16);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('ANNEXE', PADDING_MM, yPosition);
-          yPosition += 20;
-          
-          // Signature sur page 2
-          yPosition = A4_HEIGHT_MM - 50;
-          
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'normal');
-          
-          pdf.setDrawColor(0, 0, 0);
-          pdf.line(PADDING_MM, yPosition, PADDING_MM + 60, yPosition);
-          pdf.text('Signature agence', PADDING_MM, yPosition + 5);
-          pdf.text(agencyProfile?.name || 'Agence', PADDING_MM, yPosition + 10);
-          
-          pdf.line(A4_WIDTH_MM - PADDING_MM - 60, yPosition, A4_WIDTH_MM - PADDING_MM, yPosition);
-          pdf.text('Signature client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 5);
-          pdf.text(lead?.nom || 'Client', A4_WIDTH_MM - PADDING_MM - 60, yPosition + 10);
-          
-          pdf.text(`Fait à Paris, le ${new Date().toLocaleDateString('fr-FR')}`, A4_WIDTH_MM / 2, yPosition + 20, { align: 'center' });
-        }
-
-        resolve(pdf);
+        }).catch(reject);
       } catch (error) {
         reject(error);
       }
     });
   };
 
-  // Imprimer le PDF
-  const printPdf = async () => {
-    try {
-      const pdf = await generatePdfContent();
-      pdf.autoPrint();
-      window.open(pdf.output('bloburl'), '_blank');
-      
-      if (onPrintReady) {
-        onPrintReady();
-      }
-    } catch (error) {
-      console.error('Erreur lors de l\'impression PDF:', error);
-      alert('Erreur lors de l\'impression PDF');
-    }
-  };
-
   // Télécharger le PDF
   const downloadPdf = async () => {
     try {
-      const pdf = await generatePdfContent();
+      const pdf = await generatePdfFromHtml();
       const filename = `${document?.type?.label || 'document'}_${Date.now()}.pdf`;
       pdf.save(filename);
     } catch (error) {
@@ -282,7 +231,6 @@ const DocumentPdfLayout = ({
   useEffect(() => {
     if (onPdfGenerated) {
       const actions = {
-        print: printPdf,
         download: downloadPdf
       };
       onPdfGenerated(actions);

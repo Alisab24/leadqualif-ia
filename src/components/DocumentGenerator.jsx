@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DocumentPreview from './DocumentPreview';
 import DocumentPdfLayout from './DocumentPdfLayout';
+import '../styles/document-print.css';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
   // const navigate = useNavigate(); // PLUS DE NAVIGATION
@@ -1501,79 +1502,64 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             
             <div className="p-6">
               {/* Contenu du document */}
-              <div className="bg-white border border-gray-200 rounded-lg p-8" style={{ minHeight: '600px' }}>
+              <div className="document-preview-content">
                 {/* Header */}
-                <div className="flex justify-between items-start mb-8">
-                  <div className="flex items-start space-x-6">
-                    {docData.agencyProfile?.logo_url && (
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
-                        <img 
-                          src={docData.agencyProfile.logo_url} 
-                          alt="Logo agence" 
-                          className="max-w-full max-h-full object-contain rounded"
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">
-                        {docData.agencyProfile?.name || 'Agence'}
-                      </h3>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        {docData.agencyProfile?.address && <p>{docData.agencyProfile.address}</p>}
-                        {docData.agencyProfile?.email && <p>{docData.agencyProfile.email}</p>}
-                        {docData.agencyProfile?.phone && <p>{docData.agencyProfile.phone}</p>}
-                      </div>
+                <div className="header-section">
+                  <div className="agency-info">
+                    <h2>{docData.agencyProfile?.name || 'Agence'}</h2>
+                    <div className="agency-details">
+                      {docData.agencyProfile?.address && <p>{docData.agencyProfile.address}</p>}
+                      {docData.agencyProfile?.email && <p>{docData.agencyProfile.email}</p>}
+                      {docData.agencyProfile?.phone && <p>{docData.agencyProfile.phone}</p>}
                     </div>
                   </div>
                   
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-gray-900 mb-3">
-                      {docData.document.type?.label?.toUpperCase() || 'DOCUMENT'}
-                    </div>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p className="font-semibold">N° {Date.now().toString().slice(-6)}</p>
-                      <p>Date: {new Date().toLocaleDateString('fr-FR')}</p>
-                      <p>Devise: EUR</p>
+                  <div className="document-info">
+                    <div className="document-title">{docData.document?.type?.label?.toUpperCase() || 'DOCUMENT'}</div>
+                    <div className="document-meta">
+                      <div style={{ fontWeight: '600' }}>N° {Date.now().toString().slice(-6)}</div>
+                      <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
+                      <div>Devise: EUR</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Client */}
-                <div className="mb-8 p-6 bg-gray-50 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">CLIENT</h4>
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                      <div className="flex">
-                        <span className="text-sm font-semibold text-gray-700 w-20">Nom:</span>
-                        <span className="text-sm text-gray-900">{docData.lead?.nom || 'Non spécifié'}</span>
+                <div className="client-section">
+                  <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>CLIENT</h3>
+                  <div className="client-grid">
+                    <div>
+                      <div className="client-item">
+                        <span className="client-label">Nom:</span>
+                        <span className="client-value">{docData.lead?.nom || 'Non spécifié'}</span>
                       </div>
                       {docData.lead?.email && (
-                        <div className="flex">
-                          <span className="text-sm font-semibold text-gray-700 w-20">Email:</span>
-                          <span className="text-sm text-gray-900">{docData.lead.email}</span>
+                        <div className="client-item">
+                          <span className="client-label">Email:</span>
+                          <span className="client-value">{docData.lead.email}</span>
                         </div>
                       )}
                       {docData.lead?.telephone && (
-                        <div className="flex">
-                          <span className="text-sm font-semibold text-gray-700 w-20">Tél:</span>
-                          <span className="text-sm text-gray-900">{docData.lead.telephone}</span>
+                        <div className="client-item">
+                          <span className="client-label">Tél:</span>
+                          <span className="client-value">{docData.lead.telephone}</span>
                         </div>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex">
-                        <span className="text-sm font-semibold text-gray-700 w-24">Projet:</span>
-                        <span className="text-sm text-gray-900">{docData.lead?.type_bien || 'Non spécifié'}</span>
+                    <div>
+                      <div className="client-item">
+                        <span className="client-label">Projet:</span>
+                        <span className="client-value">{docData.lead?.type_bien || 'Non spécifié'}</span>
                       </div>
                       {docData.lead?.budget && (
-                        <div className="flex">
-                          <span className="text-sm font-semibold text-gray-700 w-24">Budget:</span>
-                          <span className="text-sm text-gray-900">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(docData.lead.budget)}</span>
+                        <div className="client-item">
+                          <span className="client-label">Budget:</span>
+                          <span className="client-value">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(docData.lead.budget)}</span>
                         </div>
                       )}
-                      <div className="flex">
-                        <span className="text-sm font-semibold text-gray-700 w-24">Source:</span>
-                        <span className="text-sm text-gray-900">Formulaire IA</span>
+                      <div className="client-item">
+                        <span className="client-label">Source:</span>
+                        <span className="client-value">Formulaire IA</span>
                       </div>
                     </div>
                   </div>
@@ -1581,26 +1567,29 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
                 {/* Tableau financier */}
                 {docData.document.financialData && (
-                  <div className="mb-8">
-                    <table className="w-full border-collapse">
+                  <div>
+                    <table className="financial-table">
                       <thead>
-                        <tr className="bg-gray-50 border-b-2 border-gray-200">
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
-                          <th className="text-center py-4 px-6 text-sm font-semibold text-gray-700 w-24">Qté</th>
-                          <th className="text-right py-4 px-6 text-sm font-semibold text-gray-700 w-32">Total</th>
+                        <tr>
+                          <th>Description</th>
+                          <th style={{ textAlign: 'center', width: '60px' }}>Qté</th>
+                          <th style={{ textAlign: 'right', width: '120px' }}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
                         {docData.document.financialData.items.map((item, index) => (
-                          <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 px-6 text-sm text-gray-900 font-medium">
-                              {item.description}
-                            </td>
-                            <td className="py-4 px-6 text-sm text-center text-gray-600">
+                          <tr key={index}>
+                            <td>{item.description}</td>
+                            <td style={{ textAlign: 'center', color: '#6b7280' }}>
                               {item.quantity || '1'}
                             </td>
-                            <td className="py-4 px-6 text-sm text-right font-semibold text-gray-900">
-                              {new Intl.NumberFormat('fr-FR').format(item.amount)} €
+                            <td className="amount">
+                              {new Intl.NumberFormat('fr-FR', { 
+                                style: 'currency', 
+                                currency: 'EUR',
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              }).format(item.amount)}
                             </td>
                           </tr>
                         ))}
@@ -1611,23 +1600,25 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                           const isBold = total.label.includes('TOTAL');
                           
                           return (
-                            <tr key={index} className={isTotalTTC ? 'bg-blue-50 border-t-2 border-blue-200' : 'border-t border-gray-200'}>
-                              <td 
-                                colSpan="2" 
-                                className={`py-4 px-6 text-sm ${
-                                  isTotalTTC ? 'font-bold text-blue-700 text-lg' : 
-                                  isBold ? 'font-semibold text-gray-800' : 
-                                  'text-gray-600'
-                                }`}
-                              >
+                            <tr key={index} className={isTotalTTC ? 'total-ttc' : ''}>
+                              <td colSpan="2" style={{
+                                fontWeight: isTotalTTC ? 'bold' : isBold ? '600' : 'normal',
+                                fontSize: isTotalTTC ? '14px' : '11px',
+                                color: isTotalTTC ? '#1d4ed8' : '#374151'
+                              }}>
                                 {total.label}
                               </td>
-                              <td className={`py-4 px-6 text-sm text-right ${
-                                isTotalTTC ? 'font-bold text-blue-700 text-lg' : 
-                                isBold ? 'font-semibold text-gray-800' : 
-                                'text-gray-600'
-                              }`}>
-                                {new Intl.NumberFormat('fr-FR').format(total.amount)} €
+                              <td className="amount" style={{
+                                fontWeight: isTotalTTC ? 'bold' : isBold ? '600' : 'normal',
+                                fontSize: isTotalTTC ? '14px' : '11px',
+                                color: isTotalTTC ? '#1d4ed8' : '#374151'
+                              }}>
+                                {new Intl.NumberFormat('fr-FR', { 
+                                  style: 'currency', 
+                                  currency: 'EUR',
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                }).format(total.amount)}
                               </td>
                             </tr>
                           );
@@ -1639,44 +1630,32 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
                 {/* Métadonnées */}
                 {docData.document.metadata && (
-                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <h4 className="text-sm font-semibold text-yellow-800 mb-3">INFORMATIONS COMPLÉMENTAIRES</h4>
+                  <div className="metadata-section">
+                    <h4 className="metadata-title">INFORMATIONS COMPLÉMENTAIRES</h4>
                     {docData.document.metadata.notes && (
-                      <div className="mb-3">
-                        <p className="text-xs text-yellow-700 font-medium mb-1">Notes:</p>
-                        <p className="text-sm text-yellow-900">{docData.document.metadata.notes}</p>
+                      <div className="metadata-content">
+                        {docData.document.metadata.notes}
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* Signature */}
-                <div className="mt-12">
-                  <div className="flex justify-between items-end">
-                    <div className="w-1/2">
-                      <div className="mb-2">
-                        <p className="text-sm font-semibold text-gray-700">Signature agence</p>
-                        <div className="border-b-2 border-gray-400 w-64 h-12"></div>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {docData.agencyProfile?.name || 'Agence'}
-                      </p>
-                    </div>
-                    <div className="w-1/2">
-                      <div className="mb-2">
-                        <p className="text-sm font-semibold text-gray-700">Signature client</p>
-                        <div className="border-b-2 border-gray-400 w-64 h-12"></div>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {docData.lead?.nom || 'Client'}
-                      </p>
-                    </div>
+                <div className="signature-section">
+                  <div className="signature-block">
+                    <div className="signature-label">Signature agence</div>
+                    <div className="signature-line"></div>
+                    <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
                   </div>
-                  <div className="mt-8 text-center">
-                    <p className="text-sm text-gray-600">
-                      Fait à Paris, le {new Date().toLocaleDateString('fr-FR')}
-                    </p>
+                  <div className="signature-block">
+                    <div className="signature-label">Signature client</div>
+                    <div className="signature-line"></div>
+                    <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
                   </div>
+                </div>
+                
+                <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: '#6b7280' }}>
+                  Fait à Paris, le {new Date().toLocaleDateString('fr-FR')}
                 </div>
               </div>
             </div>
@@ -1692,10 +1671,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               <button
                 type="button"
                 onClick={() => {
-                  // Imprimer avec le composant PDF dédié
-                  if (pdfActions && pdfActions.print) {
-                    pdfActions.print();
-                  }
+                  // Imprimer le HTML preview avec window.print()
+                  window.print();
                 }}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
