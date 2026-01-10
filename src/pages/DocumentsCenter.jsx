@@ -4,38 +4,21 @@ import { supabase } from '../supabaseClient';
 export default function DocumentsCenter() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [agencyId, setAgencyId] = useState(null);
 
   useEffect(() => {
-    fetchAgencyId();
+    fetchDocuments();
   }, []);
-
-  useEffect(() => {
-    if (agencyId) fetchDocuments();
-  }, [agencyId]);
-
-  const fetchAgencyId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('agency_id')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (profile?.agency_id) {
-          setAgencyId(profile.agency_id);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur récupération agency_id:', error);
-    }
-  };
 
   const fetchDocuments = async () => {
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('❌ Utilisateur non authentifié');
+        setDocuments([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('documents')
         .select(`
@@ -50,11 +33,12 @@ export default function DocumentsCenter() {
             type_bien
           )
         `)
-        .eq('agency_id', agencyId)
+        .eq('user_id', user.id)  // 🎯 CORRECTION : user_id au lieu de agency_id
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setDocuments(data || []);
+      console.log('📚 Documents chargés:', data?.length || 0);
     } catch (error) {
       console.error('Erreur chargement documents:', error);
       setDocuments([]);
