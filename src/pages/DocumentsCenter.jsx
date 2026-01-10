@@ -22,16 +22,31 @@ export default function DocumentsCenter() {
         return;
       }
 
-      console.log("🔍 RECHERCHE DOCUMENTS POUR user_id:", user.id);
+      // 🎯 RÉCUPÉRER L'ORGANISATION ID DEPUIS LE PROFIL
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const organizationId = profileData?.agency_id;
+
+      if (!organizationId) {
+        console.error('❌ Organization ID non trouvé dans le profil');
+        setDocuments([]);
+        return;
+      }
+
+      console.log("🔍 RECHERCHE DOCUMENTS POUR organization_id:", organizationId);
       if (filteredLeadId) {
         console.log("🔍 FILTRÉ PAR LEAD ID:", filteredLeadId);
       }
 
-      // 🎯 SIMPLIFIER : D'abord récupérer les documents sans jointure
+      // 🎯 UTILISER organization_id (architecture correcte)
       let query = supabase
         .from('documents')
         .select('*')
-        .eq('user_id', user.id);  // 🎯 user_id (champ existant)
+        .eq('organization_id', organizationId);  // 🎯 organization_id
 
       // 🎯 AJOUTER FILTRE PAR LEAD SI PRÉSENT
       if (filteredLeadId) {

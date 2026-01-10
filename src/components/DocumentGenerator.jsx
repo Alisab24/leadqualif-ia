@@ -599,10 +599,24 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           console.log("  - client_email:", lead.email);
           
           // 🎯 INSÉRER AVEC TOUS LES CHAMPS REQUIS
+          // 🎯 RÉCUPÉRER L'ORGANISATION ID DEPUIS LE PROFIL
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('agency_id')
+            .eq('user_id', user.id)
+            .single();
+
+          const organizationId = profileData?.agency_id;
+
+          if (!organizationId) {
+            console.error('❌ Organization ID non trouvé dans le profil');
+            return;
+          }
+
           const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
-              user_id: user.id,  // 🎯 user_id (champ existant)
+              organization_id: organizationId,  // 🎯 organization_id (architecture correcte)
               lead_id: lead.id,
               type: docType.id,
               reference: documentData.number,

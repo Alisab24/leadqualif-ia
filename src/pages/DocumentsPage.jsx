@@ -36,11 +36,25 @@ export default function DocumentsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 🎯 CORRECTION : Utiliser user_id au lieu de agency_user_id
+      // 🎯 RÉCUPÉRER L'ORGANISATION ID DEPUIS LE PROFIL
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const organizationId = profileData?.agency_id;
+
+      if (!organizationId) {
+        console.error('❌ Organization ID non trouvé dans le profil');
+        return;
+      }
+
+      // 🎯 UTILISER organization_id (architecture correcte)
       const { data } = await supabase
         .from('documents')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('organization_id', organizationId)  // 🎯 organization_id
         .order('created_at', {ascending: false});
       
       if (data) {
