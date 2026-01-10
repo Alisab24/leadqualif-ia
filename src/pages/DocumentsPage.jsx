@@ -3,40 +3,14 @@ import { supabase } from '../supabaseClient';
 
 export default function DocumentsPage() {
   const [docs, setDocs] = useState([]);
-  const [agencyId, setAgencyId] = useState(null);
   const [agencyType, setAgencyType] = useState('immobilier');
   const [filter, setFilter] = useState('tous');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAgencyId();
+    fetchDocs();
+    fetchAgencyType();
   }, []);
-
-  useEffect(() => {
-    if (agencyId) {
-      fetchDocs();
-      fetchAgencyType();
-    }
-  }, [agencyId]);
-
-  const fetchAgencyId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('agency_id')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (profile?.agency_id) {
-          setAgencyId(profile.agency_id);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur récupération agency_id:', error);
-    }
-  };
 
   const fetchAgencyType = async () => {
     try {
@@ -59,13 +33,36 @@ export default function DocumentsPage() {
 
   const fetchDocs = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 🎯 CORRECTION : Utiliser agency_user_id au lieu de agency_id
       const { data } = await supabase
         .from('documents')
-        .select('*, leads(nom, email, telephone)')
-        .eq('agency_id', agencyId)
+        .select('*')
+        .eq('agency_user_id', user.id)
         .order('created_at', {ascending: false});
       
-      if (data) setDocs(data);
+      if (data) {
+        // 🎯 RÉCUPÉRER LES LEADS SÉPARÉMENT
+        const leadIds = [...new Set(data.map(doc => doc.lead_id))];
+        if (leadIds.length > 0) {
+          const { data: leads } = await supabase
+            .from('leads')
+            .select('id, nom, email, telephone')
+            .in('id', leadIds);
+          
+          // 🎯 COMBINER LES DONNÉES
+          const docsWithLeads = data.map(doc => ({
+            ...doc,
+            leads: leads.find(lead => lead.id === doc.lead_id) || null
+          }));
+          
+          setDocs(docsWithLeads);
+        } else {
+          setDocs(data);
+        }
+      }
     } catch (error) {
       console.error('Erreur chargement documents:', error);
     } finally {
@@ -215,7 +212,7 @@ export default function DocumentsPage() {
                       {/* Montant et devise */}
                       <div className="mb-3">
                         <p className="text-sm font-medium text-slate-900">
-                          Montant: {formatAmount(doc.montant, doc.devise)}
+                          Montant: {formatAmount(doc.total_ttc || doc.montant, doc.devise)}
                         </p>
                         <p className="text-xs text-slate-500">
                           Devise: {doc.devise || 'EUR'}
