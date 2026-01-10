@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 export default function DocumentsCenter() {
@@ -286,6 +286,12 @@ export default function DocumentsCenter() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
+                        <Link
+                          to={`/documents/view/${doc.id}`}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          Voir document
+                        </Link>
                         <button
                           onClick={() => window.open(`/dashboard?lead=${doc.lead_id}`, '_blank')}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium"

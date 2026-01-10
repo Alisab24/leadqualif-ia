@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import DocumentPreviewPage from './pages/DocumentPreviewPage';
 import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
+import DocumentViewer from './components/DocumentViewer';
 import LeadDetails from './components/LeadDetails';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
@@ -43,6 +44,7 @@ export default function App() {
           <Route element={<PrivateRoute />}>
             <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
             <Route path="/documents/:type(devis|facture)/:id" element={<InvoiceQuoteDocument />} />
+            <Route path="/documents/view/:id" element={<DocumentViewer />} />
           </Route>
           
           {/* 404 */}

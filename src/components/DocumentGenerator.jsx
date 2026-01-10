@@ -567,38 +567,18 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         };
       }
 
-      // PLUS DE SAUVEGARDE LOCALSTORAGE NI NAVIGATION
-      // Afficher directement dans la modal de preview
-      console.log("🎯 DocumentGenerator - documentData.number =", documentData.number);
-      console.log("🎯 DocumentGenerator - docData complet =", {document: documentData, agencyProfile, lead});
-      
-      // 🎯 INSÉRER DANS LA TABLE documents
+      // 🎯 GÉNÉRER LE HTML DU DOCUMENT (STRIPE-LIKE)
+      const documentHtml = generateDocumentHtml({
+        document: documentData,
+        agencyProfile: agencyProfile,
+        lead: lead,
+        docType: docType
+      });
+
+      // 🎯 INSÉRER DANS LA TABLE documents (ARCHITECTURE PERSISTÉE)
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // 🎯 CALCULER totalTTC AVANT L'INSERTION
-          const commissionAmount = documentSettings.commissionType === 'percentage' 
-            ? (documentSettings.commissionValue / 100) * documentSettings.bienPrice
-            : documentSettings.commissionValue;
-          
-          const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
-          const tvaAmount = baseAmount * (documentSettings.tva / 100);
-          const totalTTC = baseAmount + tvaAmount;
-          
-          // 🎯 DEBUG : Loguer toutes les données avant insertion
-          console.log("🔍 DONNÉES D'INSERTION DOCUMENT:");
-          console.log("  - user_id:", user.id);
-          console.log("  - lead_id:", lead.id);
-          console.log("  - type:", docType.id);
-          console.log("  - reference:", documentData.number);
-          console.log("  - titre:", `${docType.label} - ${lead.nom}`);
-          console.log("  - statut:", 'généré');
-          console.log("  - total_ttc:", totalTTC);
-          console.log("  - devise:", agencyProfile.devise || 'EUR');
-          console.log("  - client_nom:", lead.nom);
-          console.log("  - client_email:", lead.email);
-          
-          // 🎯 INSÉRER AVEC TOUS LES CHAMPS REQUIS
           // 🎯 RÉCUPÉRER L'AGENCY ID DEPUIS LE PROFIL
           const { data: profileData } = await supabase
             .from('profiles')
@@ -613,6 +593,16 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             return;
           }
 
+          // 🎯 CALCULER LES MONTANTS
+          const commissionAmount = documentSettings.commissionType === 'percentage' 
+            ? (documentSettings.commissionValue / 100) * documentSettings.bienPrice
+            : documentSettings.commissionValue;
+          
+          const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
+          const tvaAmount = baseAmount * (documentSettings.tva / 100);
+          const totalTTC = baseAmount + tvaAmount;
+          
+          // 🎯 INSÉRER AVEC HTML PERSISTÉ (COMME STRIPE)
           const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
@@ -622,7 +612,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               reference: documentData.number,
               titre: `${docType.label} - ${lead.nom}`,
               statut: 'generated',  // 🎯 "generated" en anglais comme demandé
-              preview_html: (docData && docData.document) ? docData.document.html : null,  // 🎯 preview_html sécurisé
+              preview_html: documentHtml,  // 🎯 HTML PERSISTÉ (STRIPE-LIKE)
               total_ttc: totalTTC,
               total_ht: baseAmount,  // 🎯 montant HT
               tva_amount: tvaAmount,  // 🎯 montant TVA
@@ -670,6 +660,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         console.error('❌ Détails erreur générale:', error);
       }
       
+      // 🎯 PRÉPARER L'AFFICHAGE DEPUIS LA BASE (PAS D'ÉTAT TEMPORAIRE)
       setDocData({
         document: documentData,
         agencyProfile: agencyProfile,
