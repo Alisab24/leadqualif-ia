@@ -19,6 +19,8 @@ export default function DocumentsCenter() {
         return;
       }
 
+      console.log("🔍 RECHERCHE DOCUMENTS POUR user_id:", user.id);
+
       const { data, error } = await supabase
         .from('documents')
         .select(`
@@ -36,9 +38,16 @@ export default function DocumentsCenter() {
         .eq('user_id', user.id)  // 🎯 CORRECTION : user_id au lieu de agency_id
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur requête documents:', error);
+        console.error('❌ Détails erreur:', error.details);
+        console.error('❌ Code erreur:', error.code);
+        throw error;
+      }
+      
+      console.log('📚 Documents trouvés:', data?.length || 0);
+      console.log('📚 Détails documents:', data);
       setDocuments(data || []);
-      console.log('📚 Documents chargés:', data?.length || 0);
     } catch (error) {
       console.error('Erreur chargement documents:', error);
       setDocuments([]);

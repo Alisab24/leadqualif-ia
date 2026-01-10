@@ -576,8 +576,21 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // 🎯 DEBUG : Loguer toutes les données avant insertion
+          console.log("🔍 DONNÉES D'INSERTION DOCUMENT:");
+          console.log("  - user_id:", user.id);
+          console.log("  - lead_id:", lead.id);
+          console.log("  - type:", docType.id);
+          console.log("  - reference:", documentData.number);
+          console.log("  - titre:", `${docType.label} - ${lead.nom}`);
+          console.log("  - statut:", 'généré');
+          console.log("  - total_ttc:", totalTTC);
+          console.log("  - devise:", agencyProfile.devise || 'EUR');
+          console.log("  - client_nom:", lead.nom);
+          console.log("  - client_email:", lead.email);
+          
           // 🎯 INSÉRER AVEC TOUS LES CHAMPS REQUIS
-          const { error: insertError } = await supabase
+          const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
               user_id: user.id,
@@ -591,12 +604,16 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               client_nom: lead.nom,
               client_email: lead.email,
               created_at: new Date().toISOString()
-            });
+            })
+            .select(); // 🎯 Récupérer les données insérées
           
           if (insertError) {
             console.error('❌ Erreur insertion document:', insertError);
+            console.error('❌ Détails erreur:', insertError.details);
+            console.error('❌ Code erreur:', insertError.code);
           } else {
             console.log('✅ Document inséré dans la table documents');
+            console.log('✅ Données insérées:', insertedData);
             
             // 🎯 AJOUTER DANS LA TIMELINE DU LEAD
             try {
@@ -613,6 +630,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               
               if (timelineError) {
                 console.error('❌ Erreur timeline:', timelineError);
+                console.error('❌ Détails erreur timeline:', timelineError.details);
               } else {
                 console.log('✅ Timeline mise à jour');
               }
@@ -623,6 +641,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         }
       } catch (error) {
         console.error('❌ Erreur historique document:', error);
+        console.error('❌ Détails erreur générale:', error);
       }
       
       setDocData({
