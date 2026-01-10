@@ -47,6 +47,10 @@ const InvoiceQuoteDocument = () => {
   };
 
   const getDocumentNumber = () => {
+    // 🎯 LOG CRITIQUE : Voir le contenu de document
+    console.log("📋 document complet =", document);
+    console.log("📋 document.document_number =", document?.document_number);
+    
     // Si le document a été enregistré, afficher le numéro généré
     if (document?.document_number) {
       return document.document_number;
