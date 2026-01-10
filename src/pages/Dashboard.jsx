@@ -26,6 +26,47 @@ export default function Dashboard() {
 
   const statuts = ['À traiter', 'Contacté', 'Offre en cours', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
+  // Fonction pour gérer les rendez-vous
+  const handleRendezVous = (lead) => {
+    // Récupérer les paramètres de l'agence (simulé pour l'instant)
+    const agencySettings = {
+      calendlyUrl: null, // TODO: Récupérer depuis les paramètres agence
+      useCalendly: false
+    };
+
+    // Préparer les données pour le calendrier
+    const eventTitle = `Rendez-vous - ${lead.nom}`;
+    const eventDescription = `
+Lead: ${lead.nom}
+Email: ${lead.email}
+Téléphone: ${lead.telephone}
+Type de bien: ${lead.type_bien || 'Non spécifié'}
+Budget: ${lead.budget || 'Non spécifié'}€
+---
+Pris par: ${session?.user?.user_metadata?.nom_complet || 'Agent'}
+    `.trim();
+
+    const eventDate = new Date();
+    eventDate.setDate(eventDate.getDate() + 1); // Demain par défaut
+    const eventEndTime = new Date(eventDate);
+    eventEndTime.setHours(eventEndTime.getHours() + 1); // +1 heure
+
+    // Formatter les dates pour Google Calendar
+    const formatDate = (date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    if (agencySettings.useCalendly && agencySettings.calendlyUrl) {
+      // Utiliser Calendly si configuré
+      const calendlyUrl = `${agencySettings.calendlyUrl}?name=${encodeURIComponent(lead.nom)}&email=${encodeURIComponent(lead.email)}&phone=${encodeURIComponent(lead.telephone)}`;
+      window.open(calendlyUrl, '_blank');
+    } else {
+      // Utiliser Google Calendar par défaut
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&details=${encodeURIComponent(eventDescription)}&dates=${formatDate(eventDate)}/${formatDate(eventEndTime)}`;
+      window.open(googleCalendarUrl, '_blank');
+    }
+  };
+
   // Composant ActionBtn pour les actions rapides
   function ActionBtn({ icon, label, color, onClick }) {
     const colors = {
@@ -394,6 +435,16 @@ export default function Dashboard() {
                                title="Changer de statut"
                              >
                                ←
+                             </button>
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleRendezVous(lead);
+                               }} 
+                               className="w-6 h-6 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm"
+                               title="Prendre rendez-vous"
+                             >
+                               📅
                              </button>
                           </div>
                         </div>
