@@ -522,6 +522,14 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         const tvaAmount = baseAmount * (documentSettings.tva / 100);
         const totalTTC = baseAmount + tvaAmount;
 
+        // 🎯 UTILISER LE MONTANT TOTAL TTC POUR LES MONTANTS EN LETTRES
+        const amountForWords = totalTTC;
+        const documentTypeLabel = docType.id === 'devis' ? 'devis' : 'facture';
+
+        documentData.metadata.amountInWords = metadataSettings.showAmountInWords ? 
+          `Arrêté la présente ${documentTypeLabel} à la somme de ${DocumentCounterService.formatAmountInWords(amountForWords)}` : 
+          null;
+
         documentData.financialData = {
           items: [
             {
