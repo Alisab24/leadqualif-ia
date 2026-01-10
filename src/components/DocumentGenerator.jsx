@@ -1945,32 +1945,22 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               >
                 🖨️ Imprimer
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // Télécharger PDF avec le composant PDF dédié
-                  if (pdfActions && pdfActions.download) {
-                    pdfActions.download();
-                  }
-                }}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                ⬇️ Télécharger PDF
-              </button>
-            </div>
+              </div>
           </div>
         </div>
       )}
       
       {/* Composant PDF dédié (jamais affiché à l'écran) */}
-      <DocumentPdfLayout
-        document={docData?.document}
-        agencyProfile={docData?.agencyProfile}
-        lead={docData?.lead}
-        onPdfGenerated={(actions) => {
-          setPdfActions(actions);
-        }}
-      />
+      {docData?.document && (
+        <DocumentPdfLayout
+          document={docData.document}
+          agencyProfile={docData.agencyProfile}
+          lead={docData.lead}
+          onPdfGenerated={(actions) => {
+            setPdfActions(actions);
+          }}
+        />
+      )}
     </div>
   );
 }
