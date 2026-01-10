@@ -17,6 +17,7 @@ const InvoiceQuoteDocument = () => {
   const [loading, setLoading] = useState(true);
   const [showPage2, setShowPage2] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAmountInWords, setShowAmountInWords] = useState(true); // Paramètre utilisateur
 
   // Fonction d'impression avec nom de fichier personnalisé
   const handlePrint = useReactToPrint({
@@ -292,8 +293,8 @@ const InvoiceQuoteDocument = () => {
             <span>{formatAmount(total)}</span>
           </div>
           
-          {/* Montant en lettres */}
-          {document?.amount_in_words && (
+          {/* Montant en lettres - avec paramètre utilisateur */}
+          {showAmountInWords && document?.amount_in_words && (
             <div className="amount-in-words">
               <p className="text-sm text-gray-600 italic">
                 {document.amount_in_words}
@@ -411,6 +412,19 @@ const InvoiceQuoteDocument = () => {
                 <span>{isSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
               </button>
             )}
+
+            {/* Panneau de paramètres */}
+            <div className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg">
+              <label className="flex items-center space-x-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showAmountInWords}
+                  onChange={(e) => setShowAmountInWords(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span>Montant en lettres</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
