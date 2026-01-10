@@ -12,9 +12,14 @@ const DocumentPdfLayout = ({
 }) => {
   const pdfRef = useRef(null);
 
-  // 🎯 Utiliser le numéro légal déjà généré dans document.document_number
+  // 🎯 Utiliser le numéro légal déjà généré dans document.number
   const getDocumentNumber = () => {
-    return document?.document_number || document?.number || 'DOC-TEMP';
+    // 🎯 LOG CRITIQUE : Voir le contenu de l'objet document
+    console.log("📋 DocumentPdfLayout - document complet =", document);
+    console.log("📋 DocumentPdfLayout - document.number =", document?.number);
+    console.log("📋 DocumentPdfLayout - document.document_number =", document?.document_number);
+    
+    return document?.number || document?.document_number || 'DOC-TEMP';
   };
 
   // 🎯 Générer le nom de fichier PDF professionnel
