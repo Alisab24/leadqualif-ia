@@ -1897,21 +1897,12 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
                 {/* Métadonnées */}
                 {docData.document.metadata && (
-                  <div className="metadata-section">
-                    <h4 className="metadata-title">INFORMATIONS COMPLÉMENTAIRES</h4>
-                    {docData.document.metadata.notes && (
-                      <div className="metadata-content">
-                        {docData.document.metadata.notes}
+                  {/* Montant en lettres - version finale */}
+                    {docData.document.metadata.amountInWords && (
+                      <div className="metadata-content" style={{ marginTop: '10px', fontStyle: 'italic', textAlign: 'center', fontSize: '14px' }}>
+                        <strong>{docData.document.metadata.amountInWords}</strong>
                       </div>
                     )}
-                    
-                    {/* Option montant en lettres */}
-                    {docData.document.metadata.showAmountInWords && docData.document.financialData?.totals && (
-                      <div className="metadata-content" style={{ marginTop: '10px', fontStyle: 'italic' }}>
-                        <strong>Arrêté la présente somme à :</strong> {docData.document.metadata.amountInWords}
-                      </div>
-                    )}
-                  </div>
                 )}
 
                 {/* Signature */}
