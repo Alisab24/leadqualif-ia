@@ -554,6 +554,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
       // PLUS DE SAUVEGARDE LOCALSTORAGE NI NAVIGATION
       // Afficher directement dans la modal de preview
+      console.log("🎯 DocumentGenerator - documentData.number =", documentData.number);
+      console.log("🎯 DocumentGenerator - docData complet =", {document: documentData, agencyProfile, lead});
+      
       setDocData({
         document: documentData,
         agencyProfile: agencyProfile,
