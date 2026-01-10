@@ -48,7 +48,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     prestationDetails: '',
     
     // Option montant en lettres
-    showAmountInWords: false
+    showAmountInWords: true
   });
 
   // États pour la modale de pré-génération
@@ -1780,7 +1780,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   <div className="document-info">
                     <div className="document-title">{docData.document?.type?.label?.toUpperCase() || 'DOCUMENT'}</div>
                     <div className="document-meta">
-                      <div style={{ fontWeight: '600' }}>N° {Date.now().toString().slice(-6)}</div>
+                      <div style={{ fontWeight: '600' }}>N° {docData.document?.number || 'En attente'}</div>
                       <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
                       <div>Devise: EUR</div>
                     </div>
