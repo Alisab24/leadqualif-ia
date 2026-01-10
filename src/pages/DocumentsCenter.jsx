@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 export default function DocumentsCenter() {
+  const [searchParams] = useSearchParams();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [filteredLeadId, setFilteredLeadId] = useState(searchParams.get('lead'));
 
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, [filteredLeadId]);
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -19,13 +22,23 @@ export default function DocumentsCenter() {
         return;
       }
 
-      console.log("🔍 RECHERCHE DOCUMENTS POUR user_id:", user.id);
+      console.log("🔍 RECHERCHE DOCUMENTS POUR agency_user_id:", user.id);
+      if (filteredLeadId) {
+        console.log("🔍 FILTRÉ PAR LEAD ID:", filteredLeadId);
+      }
 
       // 🎯 SIMPLIFIER : D'abord récupérer les documents sans jointure
-      const { data: documents, error: documentsError } = await supabase
+      let query = supabase
         .from('documents')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('agency_user_id', user.id);  // 🎯 agency_user_id au lieu de user_id
+
+      // 🎯 AJOUTER FILTRE PAR LEAD SI PRÉSENT
+      if (filteredLeadId) {
+        query = query.eq('lead_id', filteredLeadId);
+      }
+
+      const { data: documents, error: documentsError } = await query
         .order('created_at', { ascending: false });
 
       if (documentsError) {
@@ -129,8 +142,25 @@ export default function DocumentsCenter() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Centre de Documents</h1>
-          <p className="text-slate-600">Vue d'ensemble de tous les documents générés pour votre agence</p>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">Centre de Documents</h1>
+              <p className="text-slate-600">
+                {filteredLeadId 
+                  ? `Documents du lead #${filteredLeadId}` 
+                  : 'Vue d\'ensemble de tous les documents générés pour votre agence'
+                }
+              </p>
+            </div>
+            {filteredLeadId && (
+              <button
+                onClick={() => setFilteredLeadId(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                ← Voir tous les documents
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Statistiques rapides */}

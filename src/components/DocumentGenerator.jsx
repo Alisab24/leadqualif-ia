@@ -602,13 +602,16 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
-              user_id: user.id,
+              agency_user_id: user.id,  // 🎯 agency_user_id comme demandé
               lead_id: lead.id,
               type: docType.id,
               reference: documentData.number,
               titre: `${docType.label} - ${lead.nom}`,
-              statut: 'généré',
+              statut: 'generated',  // 🎯 "generated" en anglais comme demandé
+              preview_html: docData.document.html || null,  // 🎯 preview_html
               total_ttc: totalTTC,
+              total_ht: baseAmount,  // 🎯 montant HT
+              tva_amount: tvaAmount,  // 🎯 montant TVA
               devise: agencyProfile.devise || 'EUR',
               client_nom: lead.nom,
               client_email: lead.email,
