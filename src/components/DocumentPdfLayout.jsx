@@ -20,12 +20,11 @@ const DocumentPdfLayout = ({
   // 🎯 Générer le nom de fichier PDF professionnel
   const generatePdfFileName = () => {
     const documentNumber = getDocumentNumber();
-    const agencyName = agencyProfile?.name || agencyProfile?.legalName || 'AGENCE';
+    const documentType = document?.type?.id || 'facture';
     
     return DocumentCounterService.generatePdfFileName(
       documentNumber, 
-      agencyName, 
-      document?.type?.id
+      documentType
     );
   };
 
@@ -168,7 +167,7 @@ const DocumentPdfLayout = ({
       };
       onPdfGenerated(actions);
     }
-  }, [onPdfGenerated]);
+  }, []); // ✅ DÉPENDANCES VIDES - exécuté une seule fois
 
   // Le composant ne rend rien (invisible)
   return null;
