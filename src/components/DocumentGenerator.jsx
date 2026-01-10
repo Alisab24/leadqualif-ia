@@ -576,6 +576,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // 🎯 INSÉRER AVEC TOUS LES CHAMPS REQUIS
           const { error: insertError } = await supabase
             .from('documents')
             .insert({
@@ -583,8 +584,12 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               lead_id: lead.id,
               type: docType.id,
               reference: documentData.number,
+              titre: `${docType.label} - ${lead.nom}`,
               statut: 'généré',
               total_ttc: totalTTC,
+              devise: agencyProfile.devise || 'EUR',
+              client_nom: lead.nom,
+              client_email: lead.email,
               created_at: new Date().toISOString()
             });
           
@@ -592,6 +597,28 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             console.error('❌ Erreur insertion document:', insertError);
           } else {
             console.log('✅ Document inséré dans la table documents');
+            
+            // 🎯 AJOUTER DANS LA TIMELINE DU LEAD
+            try {
+              const { error: timelineError } = await supabase
+                .from('timeline')
+                .insert({
+                  lead_id: lead.id,
+                  type: 'document_status_updated',
+                  titre: `📄 ${docType.label} générée`,
+                  description: `${docType.label} ${documentData.number} généré pour un montant de ${totalTTC} ${agencyProfile.devise || 'EUR'}`,
+                  statut: 'complété',
+                  created_at: new Date().toISOString()
+                });
+              
+              if (timelineError) {
+                console.error('❌ Erreur timeline:', timelineError);
+              } else {
+                console.log('✅ Timeline mise à jour');
+              }
+            } catch (timelineErr) {
+              console.error('❌ Erreur timeline:', timelineErr);
+            }
           }
         }
       } catch (error) {
