@@ -92,12 +92,12 @@ const InvoiceQuoteDocument = () => {
         agencyProfile.user_id
       );
       
-      console.log(`✅ Numéro généré: ${documentNumber.formatted}`);
+      console.log(`✅ Numéro généré: ${documentNumber}`);
       
       // 2. Préparer les données du document
       const updatedDocument = {
         ...document,
-        document_number: documentNumber.formatted,
+        document_number: documentNumber,
         document_type: type,
         organization_id: agencyProfile.user_id,
         created_at: new Date().toISOString(),
@@ -129,8 +129,8 @@ const InvoiceQuoteDocument = () => {
       // 5. Nettoyer localStorage
       localStorage.removeItem(`document_${id}`);
       
-      console.log(`✅ Document enregistré avec succès: ${documentNumber.formatted}`);
-      alert(`Document enregistré avec succès !\nNuméro : ${documentNumber.formatted}`);
+      console.log(`✅ Document enregistré avec succès: ${documentNumber}`);
+      alert(`Document enregistré avec succès !\nNuméro : ${documentNumber}`);
       
     } catch (error) {
       console.error('❌ Erreur enregistrement document:', error);

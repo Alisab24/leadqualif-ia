@@ -12,34 +12,25 @@ export class DocumentCounterService {
    */
   static async generateDocumentNumber(type, userId) {
     try {
-      console.log(`🔢 Génération numéro pour: type=${type}, user=${userId}`);
+      console.log(`🔢 Génération numéro pour: type=${type}, org=${userId}`);
       
-      // Appeler la fonction RPC PostgreSQL (transactionnelle et atomique)
-      const { data: documentNumber, error: rpcError } = await supabase
-        .rpc('generate_document_number', {
-          p_user_id: userId,
-          p_type: type,
-          p_year: new Date().getFullYear()
-        });
+      // ✅ CORRECTION : Appel RPC avec la BONNE signature
+      const { data, error } = await supabase.rpc(
+        'generate_document_number',
+        {
+          p_organization_id: userId,
+          p_type: type === 'facture' ? 'FAC' : 'DEV'
+        }
+      );
 
-      if (rpcError) {
-        console.error('❌ Erreur RPC generate_document_number:', rpcError);
-        throw new Error(`Erreur génération numéro: ${rpcError.message}`);
+      if (error || !data) {
+        console.error('❌ Erreur RPC generate_document_number:', error);
+        throw new Error('Impossible de générer le numéro du document');
       }
 
-      if (!documentNumber) {
-        console.error('❌ La fonction RPC a retourné null');
-        throw new Error('La fonction de numérotation a échoué');
-      }
-
-      console.log(`✅ Numéro généré avec succès: ${documentNumber}`);
+      console.log(`✅ Numéro généré avec succès: ${data}`);
       
-      return {
-        formatted: documentNumber,
-        type: type,
-        year: new Date().getFullYear(),
-        number: parseInt(documentNumber.split('-')[2])
-      };
+      return data;
 
     } catch (error) {
       console.error('❌ Erreur génération numéro document:', error);
