@@ -21,33 +21,49 @@ export default function DocumentsCenter() {
 
       console.log("🔍 RECHERCHE DOCUMENTS POUR user_id:", user.id);
 
-      const { data, error } = await supabase
+      // 🎯 SIMPLIFIER : D'abord récupérer les documents sans jointure
+      const { data: documents, error: documentsError } = await supabase
         .from('documents')
-        .select(`
-          *,
-          leads!inner(
-            id,
-            nom,
-            email,
-            telephone,
-            statut,
-            budget,
-            type_bien
-          )
-        `)
-        .eq('user_id', user.id)  // 🎯 CORRECTION : user_id au lieu de agency_id
+        .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Erreur requête documents:', error);
-        console.error('❌ Détails erreur:', error.details);
-        console.error('❌ Code erreur:', error.code);
-        throw error;
+      if (documentsError) {
+        console.error('❌ Erreur requête documents:', documentsError);
+        console.error('❌ Détails erreur:', documentsError.details);
+        console.error('❌ Code erreur:', documentsError.code);
+        throw documentsError;
       }
       
-      console.log('📚 Documents trouvés:', data?.length || 0);
-      console.log('📚 Détails documents:', data);
-      setDocuments(data || []);
+      console.log('📚 Documents trouvés:', documents?.length || 0);
+      
+      // 🎯 ENSUITE RÉCUPÉRER LES LEADS SÉPARÉMENT
+      if (documents && documents.length > 0) {
+        const leadIds = [...new Set(documents.map(doc => doc.lead_id))];
+        console.log('🔍 Lead IDs à récupérer:', leadIds);
+        
+        const { data: leads, error: leadsError } = await supabase
+          .from('leads')
+          .select('id, nom, email, telephone, statut, budget, type_bien')
+          .in('id', leadIds);
+          
+        if (leadsError) {
+          console.error('❌ Erreur récupération leads:', leadsError);
+        } else {
+          console.log('👥 Leads trouvés:', leads?.length || 0);
+          
+          // 🎯 COMBINER LES DONNÉES
+          const documentsWithLeads = documents.map(doc => ({
+            ...doc,
+            leads: leads.find(lead => lead.id === doc.lead_id) || null
+          }));
+          
+          console.log('📚 Documents avec leads:', documentsWithLeads);
+          setDocuments(documentsWithLeads);
+        }
+      } else {
+        setDocuments([]);
+      }
     } catch (error) {
       console.error('Erreur chargement documents:', error);
       setDocuments([]);

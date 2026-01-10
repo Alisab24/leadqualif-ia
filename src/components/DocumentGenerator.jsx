@@ -576,6 +576,15 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // 🎯 CALCULER totalTTC AVANT L'INSERTION
+          const commissionAmount = documentSettings.commissionType === 'percentage' 
+            ? (documentSettings.commissionValue / 100) * documentSettings.bienPrice
+            : documentSettings.commissionValue;
+          
+          const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
+          const tvaAmount = baseAmount * (documentSettings.tva / 100);
+          const totalTTC = baseAmount + tvaAmount;
+          
           // 🎯 DEBUG : Loguer toutes les données avant insertion
           console.log("🔍 DONNÉES D'INSERTION DOCUMENT:");
           console.log("  - user_id:", user.id);
