@@ -1027,27 +1027,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
   // Fonction pour télécharger le document
   const downloadDocument = () => {
-    if (!generatedDocument) {
-      console.error('Aucun document généré disponible');
-      return;
-    }
-    
-    if (!generatedDocument.pdfBlob) {
-      console.error('Le blob PDF n\'est pas disponible');
-      return;
-    }
-    
-    if (!generatedDocument.pdfUrl) {
-      console.error('L\'URL du document n\'est pas disponible');
-      return;
-    }
-    
-    const link = document.createElement('a');
-    link.href = generatedDocument.pdfUrl;
-    link.download = generatedDocument.fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // ❌ BOUTON TÉLÉCHARGER DÉSACTIVÉ : FONCTIONNALITÉ NON FONCTIONNELLE
+    console.log('🚫 Bouton Télécharger désactivé - fonctionnalité non disponible');
+    alert('Fonctionnalité de téléchargement désactivée. Utilisez "Imprimer" pour générer le PDF.');
+    return;
   };
 
   // Fonction pour imprimer le document
