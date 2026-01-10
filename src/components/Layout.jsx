@@ -74,6 +74,7 @@ export default function Layout() {
             <NavItem to="/dashboard" icon="📊" label="Tableau de bord" />
             <NavItem to="/stats" icon="📈" label="Statistiques" />
             <NavItem to="/documents" icon="📂" label="Mes Documents" />
+            <NavItem to="/documents-center" icon="📚" label="Centre de Documents" />
             <div className="my-2 border-t border-white/5 mx-4"></div>
             <NavItem to="/settings" icon="⚙️" label="Paramètres" />
           </nav>
