@@ -496,12 +496,12 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         user.id
       );
 
-      console.log('📄 Numéro de document généré:', documentNumber.formatted);
+      console.log('📄 Numéro de document généré:', documentNumber);
       
       // Préparer les données du document
       let documentData = {
         type: docType,
-        number: documentNumber.formatted, // 🎯 Numéro légal
+        number: documentNumber, // 🎯 Numéro légal (string direct)
         settings: documentSettings,
         metadata: {
           ...metadataSettings,

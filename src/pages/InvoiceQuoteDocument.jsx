@@ -67,6 +67,17 @@ const InvoiceQuoteDocument = () => {
 
   // Fonction pour enregistrer le document avec numéro unique
   const handleSaveDocument = async () => {
+    // 🛡️ PROTECTION ANTI-DOUBLE APPEL
+    if (isSaving) {
+      console.log("⏳ Enregistrement déjà en cours...");
+      return;
+    }
+    
+    if (document?.document_number) {
+      console.log("⚠️ Document déjà enregistré, numéro:", document.document_number);
+      return;
+    }
+    
     if (!agencyProfile?.user_id) {
       alert('Erreur : utilisateur non identifié');
       return;
@@ -86,15 +97,16 @@ const InvoiceQuoteDocument = () => {
         agencyProfile.user_id
       );
       
-      // 1. Générer le numéro unique via RPC
+      // 1. GÉNÉRATION UNIQUE - UN SEUL APPEL
       const documentNumber = await DocumentCounterService.generateDocumentNumber(
         type === 'devis' ? 'devis' : 'facture',
         agencyProfile.user_id
       );
       
-      console.log(`✅ Numéro généré: ${documentNumber}`);
+      // 2. STOCKAGE LOCAL - RÉUTILISATION UNIQUE
+      console.log(`📄 Numéro de document généré: ${documentNumber}`);
       
-      // 2. Préparer les données du document
+      // 3. PRÉPARATION DES DONNÉES
       const updatedDocument = {
         ...document,
         document_number: documentNumber,
