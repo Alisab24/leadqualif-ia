@@ -15,37 +15,40 @@ import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
 import LeadDetails from './components/LeadDetails';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/estimation" element={<Estimation />} />
-        <Route path="/estimation/:agencyId" element={<Estimation />} />
+    <ErrorBoundary>
+      <Router>
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/estimation" element={<Estimation />} />
+          <Route path="/estimation/:agencyId" element={<Estimation />} />
 
-        {/* Private */}
-        <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/lead/:id" element={<LeadDetails />} />
-          <Route path="/documents" element={<DocumentsPage />} />
-          <Route path="/documents-center" element={<DocumentsCenter />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="/app" element={<Navigate to="/dashboard" replace />} />
-        </Route>
-        
-        {/* Pages de documents (protégées mais hors layout) */}
-        <Route element={<PrivateRoute />}>
-          <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
-          <Route path="/documents/:type(devis|facture)/:id" element={<InvoiceQuoteDocument />} />
-        </Route>
-        
-        {/* 404 */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+          {/* Private */}
+          <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/lead/:id" element={<LeadDetails />} />
+            <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/documents-center" element={<DocumentsCenter />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/stats" element={<Stats />} />
+            <Route path="/app" element={<Navigate to="/dashboard" replace />} />
+          </Route>
+          
+          {/* Pages de documents (protégées mais hors layout) */}
+          <Route element={<PrivateRoute />}>
+            <Route path="/documents/preview/:id" element={<DocumentPreviewPage />} />
+            <Route path="/documents/:type(devis|facture)/:id" element={<InvoiceQuoteDocument />} />
+          </Route>
+          
+          {/* 404 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
