@@ -572,6 +572,32 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       console.log("🎯 DocumentGenerator - documentData.number =", documentData.number);
       console.log("🎯 DocumentGenerator - docData complet =", {document: documentData, agencyProfile, lead});
       
+      // 🎯 INSÉRER DANS LA TABLE documents
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: insertError } = await supabase
+            .from('documents')
+            .insert({
+              user_id: user.id,
+              lead_id: lead.id,
+              type: docType.id,
+              reference: documentData.number,
+              statut: 'généré',
+              total_ttc: totalTTC,
+              created_at: new Date().toISOString()
+            });
+          
+          if (insertError) {
+            console.error('❌ Erreur insertion document:', insertError);
+          } else {
+            console.log('✅ Document inséré dans la table documents');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erreur historique document:', error);
+      }
+      
       setDocData({
         document: documentData,
         agencyProfile: agencyProfile,
