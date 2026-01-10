@@ -1909,11 +1909,11 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                 {/* Métadonnées */}
                 {docData.document.metadata && (
                   {/* Montant en lettres - version finale */}
-                    {docData.document.metadata.amountInWords && (
-                      <div className="metadata-content" style={{ marginTop: '10px', fontStyle: 'italic', textAlign: 'center', fontSize: '14px' }}>
-                        <strong>{docData.document.metadata.amountInWords}</strong>
-                      </div>
-                    )}
+                  {docData.document.metadata.amountInWords && (
+                    <div className="metadata-content" style={{ marginTop: '10px', fontStyle: 'italic', textAlign: 'center', fontSize: '14px' }}>
+                      <strong>{docData.document.metadata.amountInWords}</strong>
+                    </div>
+                  )}
                 )}
 
                 {/* Signature */}
