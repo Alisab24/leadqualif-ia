@@ -147,6 +147,17 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         console.log("🔍 user_id:", user.id);
         console.log("🔍 nom_legal resolved =", profile.legalName);
         console.log("🔍 nom_agence =", profileData.nom_agence);
+        console.log("🔍 TOUS LES CHAMPS DISPONIBLES:", Object.keys(profileData));
+        console.log("🔍 CHAMPS LÉGAUX OBLIGATOIRES:", {
+          nom_legal: profileData.nom_legal,
+          statut_juridique: profileData.statut_juridique,
+          adresse_legale: profileData.adresse_legale,
+          numero_enregistrement: profileData.numero_enregistrement,
+          mention_legale: profileData.mention_legale,
+          conditions_paiement: profileData.conditions_paiement,
+          devise: profileData.devise,
+          symbole_devise: profileData.symbole_devise
+        });
         console.log("🔍 Final profile object:", profile);
 
         setAgencyProfile(profile);
