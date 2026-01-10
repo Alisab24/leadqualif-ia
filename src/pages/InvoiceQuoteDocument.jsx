@@ -77,6 +77,15 @@ const InvoiceQuoteDocument = () => {
     try {
       console.log(`🔢 Génération numéro pour ${type}...`);
       
+      // 🎯 LOG CRITIQUE : Structure complète d'agencyProfile
+      console.log("📋 agencyProfile complet =", agencyProfile);
+      
+      // 🎯 LOG CRITIQUE : UUID EXACT envoyé à la RPC
+      console.log(
+        "ORG_ID envoyé à generate_document_number =",
+        agencyProfile.user_id
+      );
+      
       // 1. Générer le numéro unique via RPC
       const documentNumber = await DocumentCounterService.generateDocumentNumber(
         type === 'devis' ? 'devis' : 'facture',
