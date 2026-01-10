@@ -602,7 +602,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
-              agency_user_id: user.id,  // 🎯 agency_user_id comme demandé
+              user_id: user.id,  // 🎯 user_id (champ existant)
               lead_id: lead.id,
               type: docType.id,
               reference: documentData.number,

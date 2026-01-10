@@ -36,11 +36,11 @@ export default function DocumentsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 🎯 CORRECTION : Utiliser agency_user_id au lieu de agency_id
+      // 🎯 CORRECTION : Utiliser user_id au lieu de agency_user_id
       const { data } = await supabase
         .from('documents')
         .select('*')
-        .eq('agency_user_id', user.id)
+        .eq('user_id', user.id)
         .order('created_at', {ascending: false});
       
       if (data) {

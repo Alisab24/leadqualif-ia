@@ -22,7 +22,7 @@ export default function DocumentsCenter() {
         return;
       }
 
-      console.log("🔍 RECHERCHE DOCUMENTS POUR agency_user_id:", user.id);
+      console.log("🔍 RECHERCHE DOCUMENTS POUR user_id:", user.id);
       if (filteredLeadId) {
         console.log("🔍 FILTRÉ PAR LEAD ID:", filteredLeadId);
       }
@@ -31,7 +31,7 @@ export default function DocumentsCenter() {
       let query = supabase
         .from('documents')
         .select('*')
-        .eq('agency_user_id', user.id);  // 🎯 agency_user_id au lieu de user_id
+        .eq('user_id', user.id);  // 🎯 user_id (champ existant)
 
       // 🎯 AJOUTER FILTRE PAR LEAD SI PRÉSENT
       if (filteredLeadId) {
