@@ -7,100 +7,75 @@ import { supabase } from '../supabaseClient';
 
 export class DocumentCounterService {
   /**
-   * Génère un numéro de document unique et séquentiel
-   * Format : FAC-2026-0007 ou DEV-2026-0012
+   * Génère un numéro de document unique et séquentiel via RPC PostgreSQL
+   * Format : FAC-2026-000001 ou DEV-2026-000001
    */
   static async generateDocumentNumber(type, userId) {
     try {
-      const currentYear = new Date().getFullYear();
+      console.log(`🔢 Génération numéro pour: type=${type}, user=${userId}`);
       
-      // 1. Tenter de lire le compteur existant
-      const { data: existingCounter, error: fetchError } = await supabase
-        .from('document_counters')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('type', type)
-        .eq('year', currentYear)
-        .single();
+      // Appeler la fonction RPC PostgreSQL (transactionnelle et atomique)
+      const { data: documentNumber, error: rpcError } = await supabase
+        .rpc('generate_document_number', {
+          p_user_id: userId,
+          p_type: type,
+          p_year: new Date().getFullYear()
+        });
 
-      let newNumber;
-      
-      if (fetchError && fetchError.code === 'PGRST116') {
-        // 2. Si inexistant → créer avec last_number = 1
-        const { data: newCounter, error: insertError } = await supabase
-          .from('document_counters')
-          .insert({
-            user_id: userId,
-            type: type,
-            year: currentYear,
-            last_number: 1
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('❌ Erreur création compteur:', insertError);
-          throw new Error('Impossible de créer le compteur de documents');
-        }
-
-        newNumber = 1;
-        console.log(`📄 Nouveau compteur créé: ${type}-${currentYear}-${newNumber.toString().padStart(4, '0')}`);
-      } else if (fetchError) {
-        console.error('❌ Erreur lecture compteur:', fetchError);
-        throw new Error('Impossible de lire le compteur de documents');
-      } else {
-        // 3. Si existant → incrémenter
-        newNumber = existingCounter.last_number + 1;
-        
-        const { error: updateError } = await supabase
-          .from('document_counters')
-          .update({ last_number: newNumber })
-          .eq('id', existingCounter.id);
-
-        if (updateError) {
-          console.error('❌ Erreur mise à jour compteur:', updateError);
-          throw new Error('Impossible de mettre à jour le compteur');
-        }
-
-        console.log(`📄 Compteur incrémenté: ${type}-${currentYear}-${newNumber.toString().padStart(4, '0')}`);
+      if (rpcError) {
+        console.error('❌ Erreur RPC generate_document_number:', rpcError);
+        throw new Error(`Erreur génération numéro: ${rpcError.message}`);
       }
 
-      // 4. Générer le numéro formaté
-      const prefix = type === 'facture' ? 'FAC' : 'DEV';
-      const formattedNumber = `${prefix}-${currentYear}-${newNumber.toString().padStart(4, '0')}`;
+      if (!documentNumber) {
+        console.error('❌ La fonction RPC a retourné null');
+        throw new Error('La fonction de numérotation a échoué');
+      }
+
+      console.log(`✅ Numéro généré avec succès: ${documentNumber}`);
       
       return {
-        formatted: formattedNumber,
+        formatted: documentNumber,
         type: type,
-        year: currentYear,
-        number: newNumber
+        year: new Date().getFullYear(),
+        number: parseInt(documentNumber.split('-')[2])
       };
 
     } catch (error) {
       console.error('❌ Erreur génération numéro document:', error);
-      throw error;
+      
+      // Messages d'erreur plus clairs pour l'utilisateur
+      if (error.message.includes('user_id est requis')) {
+        throw new Error('Utilisateur non identifié. Veuillez vous reconnecter.');
+      } else if (error.message.includes('Type doit être')) {
+        throw new Error('Type de document invalide.');
+      } else {
+        throw new Error('Impossible de générer le numéro du document. Veuillez réessayer.');
+      }
     }
   }
 
   /**
    * Génère le nom du fichier PDF professionnel
-   * Format : FAC-2026-0007-IMMO-NEXAPRO.pdf
+   * Format : Facture_FAC-2026-000001.pdf ou Devis_DEV-2026-000001.pdf
    */
-  static generatePdfFileName(documentNumber, agencyName, documentType) {
+  static generatePdfFileName(documentNumber, documentType) {
     try {
-      // Nettoyer le nom de l'agence
-      const cleanAgencyName = agencyName
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+      if (!documentNumber) {
+        return 'Document.pdf';
+      }
 
-      const prefix = documentType === 'facture' ? 'FAC' : 'DEV';
+      // Déterminer le préfixe du nom de fichier
+      const prefix = documentType === 'facture' ? 'Facture' : 
+                    documentType === 'devis' ? 'Devis' : 'Document';
       
-      return `${documentNumber}-${cleanAgencyName}.pdf`;
+      // Nettoyer le numéro de document pour le nom de fichier
+      const cleanNumber = documentNumber.replace(/[^A-Z0-9-]/g, '_');
+      
+      return `${prefix}_${cleanNumber}.pdf`;
     } catch (error) {
       console.error('❌ Erreur génération nom fichier PDF:', error);
-      return `${documentNumber}.pdf`;
+      return 'Document.pdf';
     }
   }
 
