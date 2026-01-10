@@ -142,6 +142,10 @@ const InvoiceQuoteDocument = () => {
       // 4. Mettre à jour l'état local
       setDocument(savedDocument);
       
+      // 🎯 LOG CRITIQUE : Vérifier la mise à jour de l'état
+      console.log("🔄 État document mis à jour:", savedDocument);
+      console.log("🔄 document.document_number après MAJ:", savedDocument?.document_number);
+      
       // 5. Nettoyer localStorage
       localStorage.removeItem(`document_${id}`);
       
