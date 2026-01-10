@@ -43,7 +43,7 @@ Téléphone: ${lead.telephone}
 Type de bien: ${lead.type_bien || 'Non spécifié'}
 Budget: ${lead.budget || 'Non spécifié'}€
 ---
-Pris par: ${session?.user?.user_metadata?.nom_complet || 'Agent'}
+Pris par: ${session?.user?.user_metadata?.nom_complet || session?.user?.user_metadata?.name || 'Agent'}
     `.trim();
 
     const eventDate = new Date();
