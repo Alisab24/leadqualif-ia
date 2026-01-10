@@ -1,56 +1,40 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from "../supabaseClient";
 
-/**
- * Service pour la gestion des compteurs de documents
- * Numérotation légale et professionnelle
- */
-
-export class DocumentCounterService {
-  /**
-   * Génère un numéro de document unique et séquentiel via RPC PostgreSQL
-   * Format : FAC-2026-000001 ou DEV-2026-000001
-   */
-  static async generateDocumentNumber(type, userId) {
-    try {
-      console.log(`🔢 Génération numéro pour: type=${type}, org=${userId}`);
-      
-      // ✅ CORRECTION : Appel RPC avec la BONNE signature
-      const { data, error } = await supabase.rpc(
-        'generate_document_number',
-        {
-          p_organization_id: userId,
-          p_type: type === 'facture' ? 'FAC' : 'DEV'
-        }
-      );
-
-      if (error || !data) {
-        console.error('❌ Erreur RPC generate_document_number:', error);
-        throw new Error('Impossible de générer le numéro du document');
-      }
-
-      console.log(`✅ Numéro généré avec succès: ${data}`);
-      
-      return data;
-
-    } catch (error) {
-      console.error('❌ Erreur génération numéro document:', error);
-      
-      // Messages d'erreur plus clairs pour l'utilisateur
-      if (error.message.includes('user_id est requis')) {
-        throw new Error('Utilisateur non identifié. Veuillez vous reconnecter.');
-      } else if (error.message.includes('Type doit être')) {
-        throw new Error('Type de document invalide.');
-      } else {
-        throw new Error('Impossible de générer le numéro du document. Veuillez réessayer.');
-      }
+export const DocumentCounterService = {
+  async generateDocumentNumber(type, organizationId) {
+    if (!organizationId) {
+      throw new Error("Organization ID manquant");
     }
-  }
+
+    // Normalisation du type
+    const docType = type === "facture" ? "FAC" : "DEV";
+
+    console.log("🔢 Appel RPC generate_document_number", {
+      p_organization_id: organizationId,
+      p_type: docType
+    });
+
+    const { data, error } = await supabase.rpc(
+      "generate_document_number",
+      {
+        p_organization_id: organizationId,
+        p_type: docType
+      }
+    );
+
+    if (error || !data) {
+      console.error("❌ Erreur RPC generate_document_number:", error);
+      throw new Error("Impossible de générer le numéro du document");
+    }
+
+    return data; // ex: FAC-2026-000001
+  },
 
   /**
    * Génère le nom du fichier PDF professionnel
    * Format : Facture_FAC-2026-000001.pdf ou Devis_DEV-2026-000001.pdf
    */
-  static generatePdfFileName(documentNumber, documentType) {
+  generatePdfFileName(documentNumber, documentType) {
     try {
       if (!documentNumber) {
         return 'Document.pdf';
@@ -68,12 +52,12 @@ export class DocumentCounterService {
       console.error('❌ Erreur génération nom fichier PDF:', error);
       return 'Document.pdf';
     }
-  }
+  },
 
   /**
    * Convertit un montant en lettres (français)
    */
-  static convertAmountToWords(amount, currency = 'EUR') {
+  convertAmountToWords(amount, currency = 'EUR') {
     try {
       const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix',
                    'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
@@ -139,12 +123,12 @@ export class DocumentCounterService {
       console.error('❌ Erreur conversion montant en lettres:', error);
       return `${amount} ${currency}`;
     }
-  }
+  },
 
   /**
    * Convertit un nombre en lettres (utilitaire interne)
    */
-  static convertNumberToWords(number, units, tens) {
+  convertNumberToWords(number, units, tens) {
     if (number < 20) {
       return units[number];
     } else if (number < 100) {
@@ -157,12 +141,12 @@ export class DocumentCounterService {
       return result;
     }
     return '';
-  }
+  },
 
   /**
    * Formate le texte pour l'affichage du montant en lettres
    */
-  static formatAmountInWords(amount, currency = 'EUR', showAmountInWords = true) {
+  formatAmountInWords(amount, currency = 'EUR', showAmountInWords = true) {
     if (!showAmountInWords) {
       return null;
     }
@@ -175,4 +159,4 @@ export class DocumentCounterService {
       return null;
     }
   }
-}
+};
