@@ -599,30 +599,30 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           console.log("  - client_email:", lead.email);
           
           // 🎯 INSÉRER AVEC TOUS LES CHAMPS REQUIS
-          // 🎯 RÉCUPÉRER L'ORGANISATION ID DEPUIS LE PROFIL
+          // 🎯 RÉCUPÉRER L'AGENCY ID DEPUIS LE PROFIL
           const { data: profileData } = await supabase
             .from('profiles')
             .select('agency_id')
             .eq('user_id', user.id)
             .single();
 
-          const organizationId = profileData?.agency_id;
+          const agencyId = profileData?.agency_id;
 
-          if (!organizationId) {
-            console.error('❌ Organization ID non trouvé dans le profil');
+          if (!agencyId) {
+            console.error('❌ Agency ID non trouvé dans le profil');
             return;
           }
 
           const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
-              organization_id: organizationId,  // 🎯 organization_id (architecture correcte)
+              agency_id: agencyId,  // 🎯 agency_id (champ existant)
               lead_id: lead.id,
               type: docType.id,
               reference: documentData.number,
               titre: `${docType.label} - ${lead.nom}`,
               statut: 'generated',  // 🎯 "generated" en anglais comme demandé
-              preview_html: docData.document.html || null,  // 🎯 preview_html
+              preview_html: (docData && docData.document) ? docData.document.html : null,  // 🎯 preview_html sécurisé
               total_ttc: totalTTC,
               total_ht: baseAmount,  // 🎯 montant HT
               tva_amount: tvaAmount,  // 🎯 montant TVA

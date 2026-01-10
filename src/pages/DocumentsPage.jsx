@@ -36,25 +36,25 @@ export default function DocumentsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 🎯 RÉCUPÉRER L'ORGANISATION ID DEPUIS LE PROFIL
+      // 🎯 RÉCUPÉRER L'AGENCY ID DEPUIS LE PROFIL
       const { data: profileData } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('user_id', user.id)
         .single();
 
-      const organizationId = profileData?.agency_id;
+      const agencyId = profileData?.agency_id;
 
-      if (!organizationId) {
-        console.error('❌ Organization ID non trouvé dans le profil');
+      if (!agencyId) {
+        console.error('❌ Agency ID non trouvé dans le profil');
         return;
       }
 
-      // 🎯 UTILISER organization_id (architecture correcte)
+      // 🎯 UTILISER agency_id (champ existant)
       const { data } = await supabase
         .from('documents')
         .select('*')
-        .eq('organization_id', organizationId)  // 🎯 organization_id
+        .eq('agency_id', agencyId)  // 🎯 agency_id
         .order('created_at', {ascending: false});
       
       if (data) {
