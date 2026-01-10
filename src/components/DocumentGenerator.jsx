@@ -506,7 +506,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         metadata: {
           ...metadataSettings,
           amountInWords: metadataSettings.showAmountInWords ? 
-            `${documentSettings.bienPrice || 0} euros` : 
+            DocumentCounterService.formatAmountInWords(documentSettings.bienPrice || 0) : 
             null
         },
         financialData: null
