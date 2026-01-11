@@ -212,20 +212,30 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   }, [agencyProfile, profileLoading]);
 
   // Fonction pour formater les montants avec espaces et symbole
-  const formatAmount = (amount) => {
+  const formatAmount = (amount, currency = 'EUR') => {
     if (amount === null || amount === undefined || amount === 0) {
       return '0 €';
     }
     
-    const formatted = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-      useGrouping: true
-    }).format(amount);
+    // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
+    // Intl.NumberFormat n'accepte que les codes ISO, pas les symboles
+    const normalizedCurrency = currency === '€' ? 'EUR' : currency;
     
-    return formatted;
+    try {
+      const formatted = new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: normalizedCurrency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+        useGrouping: true
+      }).format(amount);
+      
+      return formatted;
+    } catch (error) {
+      console.warn('⚠️ Erreur formatAmount avec devise:', currency, error);
+      // Fallback en cas d'erreur
+      return `${amount.toLocaleString('fr-FR')} ${currency}`;
+    }
   };
 
   // Fonction pour formater les montants sans symbole (pour tableaux)
@@ -1923,7 +1933,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                       {docData.lead?.budget && (
                         <div className="client-item">
                           <span className="client-label">Budget:</span>
-                          <span className="client-value">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(docData.lead.budget)}</span>
+                          <span className="client-value">{formatAmount(docData.lead.budget, docData.document?.financialData?.devise || 'EUR')}</span>
                         </div>
                       )}
                       <div className="client-item">
@@ -1953,12 +1963,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                               {item.quantity || '1'}
                             </td>
                             <td className="amount">
-                              {new Intl.NumberFormat('fr-FR', { 
-                                style: 'currency', 
-                                currency: 'EUR',
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              }).format(item.amount)}
+                              {formatAmount(item.amount, docData.document?.financialData?.devise || 'EUR')}
                             </td>
                           </tr>
                         ))}
@@ -1982,12 +1987,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                                 fontSize: isTotalTTC ? '14px' : '11px',
                                 color: isTotalTTC ? '#1d4ed8' : '#374151'
                               }}>
-                                {new Intl.NumberFormat('fr-FR', { 
-                                  style: 'currency', 
-                                  currency: 'EUR',
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                }).format(total.amount)}
+                                {formatAmount(total.amount, docData.document?.financialData?.devise || 'EUR')}
                               </td>
                             </tr>
                           );

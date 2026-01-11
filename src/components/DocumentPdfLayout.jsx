@@ -34,13 +34,23 @@ const DocumentPdfLayout = ({
   };
 
   // Formater les montants correctement
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat('fr-FR', { 
-      style: 'currency', 
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount || 0);
+  const formatAmount = (amount, currency = 'EUR') => {
+    // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
+    // Intl.NumberFormat n'accepte que les codes ISO, pas les symboles
+    const normalizedCurrency = currency === '€' ? 'EUR' : currency;
+    
+    try {
+      return new Intl.NumberFormat('fr-FR', { 
+        style: 'currency', 
+        currency: normalizedCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount || 0);
+    } catch (error) {
+      console.warn('⚠️ Erreur formatAmount avec devise:', currency, error);
+      // Fallback en cas d'erreur
+      return `${amount.toLocaleString('fr-FR')} ${currency}`;
+    }
   };
 
   // Convertir le montant en lettres (optionnel)

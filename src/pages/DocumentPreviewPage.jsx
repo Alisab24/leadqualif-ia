@@ -358,20 +358,30 @@ const DocumentPreviewPage = () => {
     }
   };
 
-  const formatAmount = (amount) => {
+  const formatAmount = (amount, currency = 'EUR') => {
     if (amount === null || amount === undefined || amount === 0) {
       return '0 €';
     }
     
-    const formatted = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-      useGrouping: true
-    }).format(amount);
+    // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
+    // Intl.NumberFormat n'accepte que les codes ISO, pas les symboles
+    const normalizedCurrency = currency === '€' ? 'EUR' : currency;
     
-    return formatted;
+    try {
+      const formatted = new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: normalizedCurrency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+        useGrouping: true
+      }).format(amount);
+      
+      return formatted;
+    } catch (error) {
+      console.warn('⚠️ Erreur formatAmount avec devise:', currency, error);
+      // Fallback en cas d'erreur
+      return `${amount.toLocaleString('fr-FR')} ${currency}`;
+    }
   };
 
   const formatAmountPlain = (amount) => {

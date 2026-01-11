@@ -12,13 +12,24 @@ export const formatDate = (dateString) => {
   }).format(date)
 }
 
-export const formatCurrency = (amount) => {
+export const formatCurrency = (amount, currency = 'EUR') => {
   if (!amount || amount === 'Non spécifié') return 'Non spécifié'
   if (typeof amount === 'string') return amount
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(amount)
+  
+  // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
+  // Intl.NumberFormat n'accepte que les codes ISO, pas les symboles
+  const normalizedCurrency = currency === '€' ? 'EUR' : currency;
+  
+  try {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: normalizedCurrency
+    }).format(amount)
+  } catch (error) {
+    console.warn('⚠️ Erreur formatCurrency avec devise:', currency, error);
+    // Fallback en cas d'erreur
+    return `${amount.toLocaleString('fr-FR')} ${currency}`;
+  }
 }
 
 export const formatPhone = (phone) => {

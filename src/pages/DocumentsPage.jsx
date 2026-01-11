@@ -217,10 +217,21 @@ const DocumentsPage = () => {
 
   const formatCurrency = (amount, currency = 'EUR') => {
     if (!amount) return '0,00 €';
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
+    
+    // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
+    // Intl.NumberFormat n'accepte que les codes ISO, pas les symboles
+    const normalizedCurrency = currency === '€' ? 'EUR' : currency;
+    
+    try {
+      return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: normalizedCurrency
+      }).format(amount);
+    } catch (error) {
+      console.warn('⚠️ Erreur formatCurrency avec devise:', currency, error);
+      // Fallback en cas d'erreur
+      return `${amount.toLocaleString('fr-FR')} ${currency}`;
+    }
   };
 
   const getStatusColor = (statut) => {
