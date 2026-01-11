@@ -59,6 +59,7 @@ const DocumentsPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // 🎯 Récupérer le profil pour obtenir l'agency_id
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -76,10 +77,12 @@ const DocumentsPage = () => {
 
     setLoading(true);
     try {
+      // 🎯 AGENCY-CENTRIC: Utiliser agency_id pour les documents
+      // L'agence est l'unité de vérité - Multi-user compatible
       let query = supabase
         .from('documents')
         .select('*', { count: 'exact' })
-        .eq('agency_id', agencyProfile.agency_id);
+        .eq('agency_id', agencyProfile.agency_id); // ✅ JAMAIS user_id
 
       // Filtrage par type
       if (filters.type !== 'tous') {

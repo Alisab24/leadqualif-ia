@@ -22,7 +22,7 @@ export default function DocumentsCenter() {
         return;
       }
 
-      // 🎯 RÉCUPÉRER L'AGENCY ID DEPUIS LE PROFIL
+      // 🎯 Récupérer l'agency_id depuis le profil (user_id → agency_id)
       const { data: profileData } = await supabase
         .from('profiles')
         .select('agency_id')
@@ -37,19 +37,18 @@ export default function DocumentsCenter() {
         return;
       }
 
-      console.log("🔍 RECHERCHE DOCUMENTS POUR agency_id:", agencyId);
-      if (filteredLeadId) {
-        console.log("🔍 FILTRÉ PAR LEAD ID:", filteredLeadId);
-      }
+      console.log("🎯 AGENCY-CENTRIC: Requête documents pour agency_id:", agencyId);
 
-      // 🎯 UTILISER agency_id (champ existant)
+      // 🎯 AGENCY-CENTRIC: Utiliser agency_id pour les documents
+      // L'agence est l'unité de vérité - Multi-user compatible
       let query = supabase
         .from('documents')
         .select('*')
-        .eq('agency_id', agencyId);  // 🎯 agency_id
+        .eq('agency_id', agencyId); // ✅ JAMAIS user_id
 
       // 🎯 AJOUTER FILTRE PAR LEAD SI PRÉSENT
       if (filteredLeadId) {
+        console.log("🔍 FILTRÉ PAR LEAD ID:", filteredLeadId);
         query = query.eq('lead_id', filteredLeadId);
       }
 
@@ -58,42 +57,42 @@ export default function DocumentsCenter() {
 
       if (documentsError) {
         console.error('❌ Erreur requête documents:', documentsError);
-        console.error('❌ Détails erreur:', documentsError.details);
-        console.error('❌ Code erreur:', documentsError.code);
         throw documentsError;
       }
       
       console.log('📚 Documents trouvés:', documents?.length || 0);
       
-      // 🎯 ENSUITE RÉCUPÉRER LES LEADS SÉPARÉMENT
+      // 🎯 Récupérer les leads séparément si nécessaire
       if (documents && documents.length > 0) {
-        const leadIds = [...new Set(documents.map(doc => doc.lead_id))];
-        console.log('🔍 Lead IDs à récupérer:', leadIds);
+        const leadIds = [...new Set(documents.map(doc => doc.lead_id))].filter(Boolean);
         
-        const { data: leads, error: leadsError } = await supabase
-          .from('leads')
-          .select('id, nom, email, telephone, statut, budget, type_bien')
-          .in('id', leadIds);
+        if (leadIds.length > 0) {
+          console.log('🔍 Lead IDs à récupérer:', leadIds);
           
-        if (leadsError) {
-          console.error('❌ Erreur récupération leads:', leadsError);
+          const { data: leads, error: leadsError } = await supabase
+            .from('leads')
+            .select('id, nom, email, telephone, statut, budget, type_bien')
+            .in('id', leadIds);
+            
+          if (leadsError) {
+            console.error('❌ Erreur récupération leads:', leadsError);
+          } else {
+            // Combiner les données
+            const docsWithLeads = documents.map(doc => ({
+              ...doc,
+              lead: leads.find(lead => lead.id === doc.lead_id) || null
+            }));
+            
+            setDocuments(docsWithLeads);
+          }
         } else {
-          console.log('👥 Leads trouvés:', leads?.length || 0);
-          
-          // 🎯 COMBINER LES DONNÉES
-          const documentsWithLeads = documents.map(doc => ({
-            ...doc,
-            leads: leads.find(lead => lead.id === doc.lead_id) || null
-          }));
-          
-          console.log('📚 Documents avec leads:', documentsWithLeads);
-          setDocuments(documentsWithLeads);
+          setDocuments(documents);
         }
       } else {
         setDocuments([]);
       }
     } catch (error) {
-      console.error('Erreur chargement documents:', error);
+      console.error('❌ Erreur fetchDocuments:', error);
       setDocuments([]);
     } finally {
       setLoading(false);
