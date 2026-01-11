@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
-// import DocumentService from '../services/documentService';
+import { DocumentCounterService } from '../services/documentCounterService';
+import { generateDocumentHtml } from '../utils/generateDocumentHtml';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DocumentPreview from './DocumentPreview';
 import DocumentPdfLayout from './DocumentPdfLayout';
-import { DocumentCounterService } from '../services/documentCounterService';
+import { useNavigate } from 'react-router-dom';
 import '../styles/document-print.css';
 
 export default function DocumentGenerator({ lead, agencyId, agencyType, onDocumentGenerated, compact = false }) {
@@ -574,6 +574,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         lead: lead,
         docType: docType
       });
+
+      console.log("🎯 HTML généré et prêt à être persisté:", documentHtml.substring(0, 200) + "...");
 
       // 🎯 INSÉRER DANS LA TABLE documents (ARCHITECTURE PERSISTÉE)
       try {
