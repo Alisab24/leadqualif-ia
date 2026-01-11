@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 import { formatDate, formatPhone, formatCurrency, getScoreColor, getUrgencyColor, getInterestLevelColor, getInterestLevelIcon, getInterestLevelDescription } from '../utils/format'
+import DocumentTemplateGenerator from './DocumentTemplateGenerator'
 
 const LeadDetails = () => {
   const { id } = useParams()
@@ -12,6 +13,7 @@ const LeadDetails = () => {
   const [summary, setSummary] = useState('')
   const [generatingSummary, setGeneratingSummary] = useState(false)
   const [error, setError] = useState(null)
+  const [showTemplateGenerator, setShowTemplateGenerator] = useState(false)
 
   const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com'
 
@@ -178,11 +180,20 @@ const LeadDetails = () => {
         </button>
         <div className="flex gap-3">
           <button
+            onClick={() => setShowTemplateGenerator(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Générer un document
+          </button>
+          <button
             onClick={() => navigate(`/documents-center?lead=${id}`)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Voir documents du lead
           </button>
@@ -404,6 +415,20 @@ const LeadDetails = () => {
           </div>
         </div>
       </div>
+      
+      {/* Générateur de templates */}
+      {showTemplateGenerator && lead && (
+        <DocumentTemplateGenerator
+          lead={lead}
+          agencyId={lead.agency_id}
+          agencyType={lead.type_agence || 'immobilier'}
+          onDocumentGenerated={(document) => {
+            console.log('Document généré:', document);
+            setShowTemplateGenerator(false);
+          }}
+          onClose={() => setShowTemplateGenerator(false)}
+        />
+      )}
     </div>
   )
 }
