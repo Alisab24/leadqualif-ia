@@ -429,7 +429,6 @@ class DevisToFactureService {
         montant_ttc: facture.total_ttc,
         devise: facture.devise,
         agency_id: devis.agency_id,
-        user_id: await this.getCurrentUserId(),
         timestamp: new Date().toISOString(),
         metadata: {
           conversion_date: new Date().toISOString(),

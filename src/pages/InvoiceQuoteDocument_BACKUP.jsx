@@ -117,8 +117,8 @@ const InvoiceQuoteDocument = () => {
 
   // Fonction pour enregistrer le document avec numéro unique
   const handleSaveDocument = async () => {
-    if (!agencyProfile?.user_id) {
-      alert('Erreur : utilisateur non identifié');
+    if (!agencyProfile?.agency_id) {
+      alert('Erreur : agence non identifiée');
       return;
     }
 
@@ -130,7 +130,7 @@ const InvoiceQuoteDocument = () => {
       // 1. Générer le numéro unique via RPC
       const documentNumber = await DocumentCounterService.generateDocumentNumber(
         type === 'devis' ? 'devis' : 'facture',
-        agencyProfile.user_id
+        agencyProfile.agency_id
       );
       
       console.log(`✅ Numéro généré: ${documentNumber.formatted}`);
@@ -140,7 +140,7 @@ const InvoiceQuoteDocument = () => {
         ...document,
         document_number: documentNumber.formatted,
         document_type: type,
-        organization_id: agencyProfile.user_id,
+        organization_id: agencyProfile.agency_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         status: 'saved',

@@ -87,8 +87,8 @@ const InvoiceQuoteDocument = () => {
       return;
     }
     
-    if (!agencyProfile?.user_id) {
-      alert('Erreur : utilisateur non identifié');
+    if (!agencyProfile?.agency_id) {
+      alert('Erreur : agence non identifiée');
       return;
     }
 
@@ -103,13 +103,13 @@ const InvoiceQuoteDocument = () => {
       // 🎯 LOG CRITIQUE : UUID EXACT envoyé à la RPC
       console.log(
         "ORG_ID envoyé à generate_document_number =",
-        agencyProfile.user_id
+        agencyProfile.agency_id
       );
       
       // 1. GÉNÉRATION UNIQUE - UN SEUL APPEL
       const documentNumber = await DocumentCounterService.generateDocumentNumber(
         type === 'devis' ? 'devis' : 'facture',
-        agencyProfile.user_id
+        agencyProfile.agency_id
       );
       
       // 2. STOCKAGE LOCAL - RÉUTILISATION UNIQUE
@@ -120,7 +120,7 @@ const InvoiceQuoteDocument = () => {
         ...document,
         document_number: documentNumber,
         document_type: type,
-        organization_id: agencyProfile.user_id,
+        organization_id: agencyProfile.agency_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         status: 'saved',

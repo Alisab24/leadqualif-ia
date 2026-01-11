@@ -439,7 +439,7 @@ class DocumentOptimizationService {
             improvements_count: analysis.improvements.length,
             analysis_details: analysis
           },
-          created_by: leadData.user_id
+          agency_id: leadData.agency_id
         }]);
 
       if (error) {
