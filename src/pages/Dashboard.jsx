@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import LeadForm from '../components/LeadForm';
 import DocumentGenerator from '../components/DocumentGenerator';
 import DocumentTemplateGenerator from '../components/DocumentTemplateGenerator';
+import UnifiedDocumentGenerator from '../components/UnifiedDocumentGenerator';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ export default function Dashboard() {
   const [agencyType, setAgencyType] = useState('immobilier');
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [showTemplateGenerator, setShowTemplateGenerator] = useState(false);
+  const [showUnifiedGenerator, setShowUnifiedGenerator] = useState(false);
+  const [agencyProfile, setAgencyProfile] = useState(null);
 
   // Refs pour le scroll automatique (optionnel)
   const scrollContainerRef = useRef(null);
@@ -234,7 +237,7 @@ Pris par: ${session?.user?.user_metadata?.nom_complet || session?.user?.user_met
       if (session) {
         fetchLeads();
         fetchStats();
-        fetchAgencyType();
+        fetchAgencyProfile();
       }
     });
   }, []);
@@ -293,6 +296,36 @@ Pris par: ${session?.user?.user_metadata?.nom_complet || session?.user?.user_met
       }
     } catch (error) {
       console.error('Erreur stats:', error);
+    }
+  };
+
+  const fetchAgencyProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.warn('Profil agence non trouvé:', error);
+        setAgencyProfile({
+          type_agence: 'immobilier',
+          agency_id: 'default'
+        });
+      } else {
+        setAgencyProfile(profileData);
+        setAgencyType(profileData.type_agence || 'immobilier');
+      }
+    } catch (error) {
+      console.error('Erreur chargement profil agence:', error);
+      setAgencyProfile({
+        type_agence: 'immobilier',
+        agency_id: 'default'
+      });
     }
   };
 
@@ -765,16 +798,16 @@ Pris par: ${session?.user?.user_metadata?.nom_complet || session?.user?.user_met
                   }}
                 />
                 
-                {/* Nouveau système - Templates professionnels */}
-                <div className="text-xs text-gray-500 font-medium mb-2 mt-4">🎯 Templates Pro (IMMO/SMMA)</div>
+                {/* Nouveau système - Templates Pro unifiés */}
+                <div className="text-xs text-gray-500 font-medium mb-2 mt-4">🎯 Templates Pro SaaS (IMMO/SMMA)</div>
                 <button
-                  onClick={() => setShowTemplateGenerator(true)}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                  onClick={() => setShowUnifiedGenerator(true)}
+                  className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  Templates Pro (Mandats, Contrats...)
+                  Templates SaaS (Architecture robuste)
                 </button>
               </div>
             </div>
@@ -820,6 +853,21 @@ Pris par: ${session?.user?.user_metadata?.nom_complet || session?.user?.user_met
             fetchLeads();
           }}
           onClose={() => setShowTemplateGenerator(false)}
+        />
+      )}
+      
+      {/* Générateur unifié SaaS */}
+      {showUnifiedGenerator && selectedLead && agencyProfile && (
+        <UnifiedDocumentGenerator
+          lead={selectedLead}
+          agencyProfile={agencyProfile}
+          onDocumentGenerated={(document) => {
+            console.log('Document SaaS généré:', document);
+            setShowUnifiedGenerator(false);
+            // Optionnel: rafraîchir les leads
+            fetchLeads();
+          }}
+          onClose={() => setShowUnifiedGenerator(false)}
         />
       )}
     </div>

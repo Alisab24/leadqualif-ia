@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 import { formatDate, formatPhone, formatCurrency, getScoreColor, getUrgencyColor, getInterestLevelColor, getInterestLevelIcon, getInterestLevelDescription } from '../utils/format'
-import DocumentTemplateGenerator from './DocumentTemplateGenerator'
+import UnifiedDocumentGenerator from './UnifiedDocumentGenerator'
 
 const LeadDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [lead, setLead] = useState(null)
+  const [agencyProfile, setAgencyProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState('')
   const [generatingSummary, setGeneratingSummary] = useState(false)
@@ -18,7 +19,9 @@ const LeadDetails = () => {
   const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com'
 
   useEffect(() => {
-    loadLead()
+    if (id) {
+      loadLead()
+    }
   }, [id])
 
   const loadLead = async () => {
@@ -28,18 +31,15 @@ const LeadDetails = () => {
       
       console.log('🔍 Chargement du lead ID:', id)
       
-      const { data: leadData, error } = await supabase
+      // Charger le lead
+      const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .select('*')
         .eq('id', id)
         .single()
       
-      console.log('📊 Données brutes reçues:', { leadData, error })
+      if (leadError) throw leadError
       
-      if (error) {
-        console.error('❌ Erreur Supabase:', error)
-        throw error
-      }
       
       if (!leadData) {
         console.error('❌ Lead non trouvé dans la base')
@@ -48,6 +48,25 @@ const LeadDetails = () => {
       
       console.log('✅ Lead chargé avec succès:', leadData)
       setLead(leadData)
+      
+      // Charger le profil agence
+      if (leadData.agency_id) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('agency_id', leadData.agency_id)
+          .single()
+        
+        if (profileError) {
+          console.warn('Profil agence non trouvé:', profileError)
+          setAgencyProfile({
+            type_agence: leadData.type_agence || 'immobilier',
+            agency_id: leadData.agency_id
+          })
+        } else {
+          setAgencyProfile(profileData)
+        }
+      }
       
       // Générer le résumé IA si pas déjà présent
       if (!leadData.resume_ia && leadData) {
@@ -416,12 +435,11 @@ const LeadDetails = () => {
         </div>
       </div>
       
-      {/* Générateur de templates */}
-      {showTemplateGenerator && lead && (
-        <DocumentTemplateGenerator
+      {/* Générateur de documents unifié */}
+      {showTemplateGenerator && lead && agencyProfile && (
+        <UnifiedDocumentGenerator
           lead={lead}
-          agencyId={lead.agency_id}
-          agencyType={lead.type_agence || 'immobilier'}
+          agencyProfile={agencyProfile}
           onDocumentGenerated={(document) => {
             console.log('Document généré:', document);
             setShowTemplateGenerator(false);
