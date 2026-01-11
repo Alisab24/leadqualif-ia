@@ -214,6 +214,9 @@ export class DocumentGenerationService {
    * Validation des paramètres d'entrée
    */
   static validateParams({ agencyType, documentType, agencyProfile, leadData }) {
+    // 🧠 RÈGLE D'OR (PROCESS D) - Seuls les champs critiques sont bloquants
+    
+    // Champs OBLIGATOIRES pour la génération et les quotas
     if (!agencyType || !AGENCY_CONFIGS[agencyType]) {
       throw new Error(`Type d'agence invalide: ${agencyType}`);
     }
@@ -222,13 +225,32 @@ export class DocumentGenerationService {
       throw new Error('Type de document requis');
     }
     
-    if (!agencyProfile || !agencyProfile.id) {
-      throw new Error('Profil agence invalide');
+    if (!agencyProfile?.agency_id) {
+      throw new Error('agencyProfile.agency_id est requis pour la génération');
     }
     
-    if (!leadData || !leadData.id) {
-      throw new Error('Données lead invalides');
+    if (!agencyProfile?.nom_agence && !agencyProfile?.nom_legal) {
+      throw new Error('agencyProfile.nom_agence ou nom_legal est requis');
     }
+    
+    // 🎯 Champs secondaires manquants = WARNING + FALLBACKS (pas d'erreur bloquante)
+    if (!agencyProfile?.devise) {
+      console.warn('⚠️ Devise manquante, utilisation du fallback: EUR');
+      agencyProfile.devise = 'EUR'; // Fallback automatique
+    }
+    
+    if (!agencyProfile?.mentions_legales) {
+      console.warn('⚠️ Mentions légales manquantes, utilisation du fallback: Document généré via NexaPro');
+      agencyProfile.mentions_legales = 'Document généré via NexaPro'; // Fallback automatique
+    }
+    
+    if (!agencyProfile?.adresse_legale && !agencyProfile?.adresse) {
+      console.warn('⚠️ Adresse manquante, utilisation du fallback: —');
+      agencyProfile.adresse_legale = agencyProfile.adresse_legale || agencyProfile.adresse || '—'; // Fallback automatique
+    }
+    
+    // ✅ Génération toujours possible - quotas toujours comptabilisés
+    console.log('✅ Validation OK - Génération possible avec fallbacks automatiques');
   }
   
   /**

@@ -97,18 +97,45 @@ class DocumentHtmlService {
    * Validation des paramètres d'entrée
    */
   static validateParams({ agencyProfile, documentType }) {
-    if (!agencyProfile || !agencyProfile.type_agence) {
-      throw new Error('agencyProfile.type_agence est requis');
+    // 🧠 RÈGLE D'OR (PROCESS D) - Seuls les champs critiques sont bloquants
+    
+    // Champs OBLIGATOIRES pour la génération et les quotas
+    if (!agencyProfile?.agency_id) {
+      throw new Error('agencyProfile.agency_id est requis pour la génération');
+    }
+    
+    if (!agencyProfile?.nom_agence && !agencyProfile?.nom_legal) {
+      throw new Error('agencyProfile.nom_agence ou nom_legal est requis');
     }
     
     if (!documentType || typeof documentType !== 'string') {
       throw new Error('documentType doit être une chaîne non vide');
     }
     
-    const validTypes = ['devis', 'facture', 'mandat', 'rapport', 'contrat'];
+    // 🎯 Champs secondaires manquants = WARNING + FALLBACKS (pas d'erreur bloquante)
+    if (!agencyProfile?.devise) {
+      console.warn('⚠️ Devise manquante, utilisation du fallback: EUR');
+      agencyProfile.devise = 'EUR'; // Fallback automatique
+    }
+    
+    if (!agencyProfile?.mentions_legales) {
+      console.warn('⚠️ Mentions légales manquantes, utilisation du fallback: Document généré via NexaPro');
+      agencyProfile.mentions_legales = 'Document généré via NexaPro'; // Fallback automatique
+    }
+    
+    if (!agencyProfile?.adresse_legale && !agencyProfile?.adresse) {
+      console.warn('⚠️ Adresse manquante, utilisation du fallback: —');
+      agencyProfile.adresse_legale = agencyProfile.adresse_legale || agencyProfile.adresse || '—'; // Fallback automatique
+    }
+    
+    // Validation du type de document
+    const validTypes = ['devis', 'facture', 'mandat', 'rapport', 'contrat', 'attestation', 'convention'];
     if (!validTypes.includes(documentType)) {
       throw new Error(`documentType invalide: ${documentType}. Types valides: ${validTypes.join(', ')}`);
     }
+    
+    // ✅ Génération toujours possible - quotas toujours comptabilisés
+    console.log('✅ Validation OK - Génération possible avec fallbacks automatiques');
   }
   
   /**
