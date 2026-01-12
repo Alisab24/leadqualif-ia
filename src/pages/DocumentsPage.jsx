@@ -63,7 +63,7 @@ const DocumentsPage = () => {
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('agency_id', agencyProfile.agency_id)
         .single();
 
       setAgencyProfile(profile);
