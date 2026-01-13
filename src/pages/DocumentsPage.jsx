@@ -212,26 +212,74 @@ const DocumentsPage = () => {
     setShowPreviewModal(true);
   };
 
-  const handleDownload = async (document) => {
+  /**
+   * 🛡️ FONCTION DE TÉLÉCHARGEMENT PDF - DOM Natif
+   * Corrige l'erreur "createElement is not a function"
+   * Utilise document.createElement natif au lieu des objets React
+   */
+  const downloadDocument = (document) => {
     try {
-      // Créer un blob à partir du HTML
-      const blob = new Blob([document.preview_html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
+      // 🎯 Vérification des données requises
+      if (!document) {
+        console.error('❌ downloadDocument: document est null ou undefined');
+        alert('❌ Document non disponible pour le téléchargement');
+        return;
+      }
+
+      if (!document.preview_html && !document.content_json) {
+        console.error('❌ downloadDocument: aucun contenu HTML trouvé');
+        alert('❌ Aucun contenu à télécharger');
+        return;
+      }
+
+      // 🎯 Récupérer le contenu HTML
+      const htmlContent = document.preview_html || 
+                        (document.content_json?.html_content) || 
+                        `<html><body><h1>${document.reference || 'Document'}</h1></body></html>`;
+
+      // 🎯 Créer un Blob à partir du HTML
+      const blob = new Blob([htmlContent], { 
+        type: 'text/html;charset=utf-8' 
+      });
+
+      // 🎯 Créer une URL temporaire
+      const url = window.URL.createObjectURL(blob);
+
+      // 🎯 Créer un élément <a> natif (pas React)
+      const link = window.document.createElement('a');
       
-      // Créer un lien temporaire
-      const link = document.createElement('a');
+      // 🎯 Configurer le lien de téléchargement
       link.href = url;
-      link.download = `${document.reference}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      link.download = `${document.reference || 'document'}.html`;
+      link.style.display = 'none'; // Cacher le lien
       
-      // Nettoyer
-      URL.revokeObjectURL(url);
+      // 🎯 Ajouter au DOM, cliquer, puis nettoyer
+      window.document.body.appendChild(link);
+      
+      // 🎯 Déclencher le téléchargement
+      link.click();
+      
+      // 🎯 Nettoyer le DOM
+      window.document.body.removeChild(link);
+      
+      // 🎯 Libérer l'URL (important pour la mémoire)
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ Document téléchargé:', document.reference);
+      
     } catch (error) {
-      console.error('❌ Erreur téléchargement:', error);
-      alert('❌ Erreur lors du téléchargement');
+      console.error('❌ Erreur téléchargement document:', error);
+      alert('❌ Erreur lors du téléchargement du document');
     }
+  };
+
+  /**
+   * 🔄 FONCTION DÉPRÉCIÉE - Maintenue pour compatibilité
+   * @deprecated Utiliser downloadDocument() à la place
+   */
+  const handleDownload = async (document) => {
+    console.warn('⚠️ handleDownload est déprécié, utilisez downloadDocument()');
+    downloadDocument(document);
   };
 
   const formatDate = (dateString) => {
@@ -474,7 +522,7 @@ const DocumentsPage = () => {
 
                             {/* Download */}
                             <button
-                              onClick={() => handleDownload(doc)}
+                              onClick={() => downloadDocument(doc)}
                               className="text-green-600 hover:text-green-900 px-2 py-1 rounded hover:bg-green-50"
                               title="Télécharger"
                             >
