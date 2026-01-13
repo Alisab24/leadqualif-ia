@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import ProfileManager from '../services/profileManager'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 
 export default function Stats() {
@@ -28,14 +29,38 @@ export default function Stats() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: profile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
-      if (!profile?.agency_id) return
+      // 🛡️ PROTECTION ROBUSTE: Utiliser ProfileManager
+      const profileResult = await ProfileManager.getUserProfile(user.id, {
+        createIfMissing: true,  // Créer automatiquement si non trouvé
+        useFallback: true,      // Utiliser fallback si échec
+        required: ['agency_id'], // agency_id est obligatoire
+        verbose: true
+      });
+
+      if (!profileResult.success) {
+        console.error('❌ Impossible de récupérer le profil:', profileResult.error);
+        return;
+      }
+
+      const profile = profileResult.profile;
+      const agencyId = ProfileManager.getSafeAgencyId(profile);
+      
+      if (!agencyId) {
+        console.error('❌ Agency ID non disponible');
+        return;
+      }
+
+      console.log('✅ Profil chargé:', {
+        action: profileResult.action,
+        agencyId,
+        isFallback: ProfileManager.isFallbackProfile(profile)
+      });
 
       // Récupérer tous les leads de l'agence
       const { data: leads } = await supabase
         .from('leads')
         .select('*')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .order('created_at', { ascending: false })
 
       if (!leads) return

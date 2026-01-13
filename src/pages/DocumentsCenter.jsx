@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import ProfileManager from '../services/profileManager';
 
 export default function DocumentsCenter() {
   const [searchParams] = useSearchParams();
@@ -22,22 +23,34 @@ export default function DocumentsCenter() {
         return;
       }
 
-      // 🎯 Récupérer l'agency_id depuis le profil (user_id → agency_id)
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('user_id', user.id)
-        .single();
+      // 🛡️ PROTECTION ROBUSTE: Utiliser ProfileManager
+      const profileResult = await ProfileManager.getUserProfile(user.id, {
+        createIfMissing: true,  // Créer automatiquement si non trouvé
+        useFallback: true,      // Utiliser fallback si échec
+        required: ['agency_id'], // agency_id est obligatoire
+        verbose: true
+      });
 
-      const agencyId = profileData?.agency_id;
-
-      if (!agencyId) {
-        console.error('❌ Agency ID non trouvé dans le profil');
+      if (!profileResult.success) {
+        console.error('❌ Impossible de récupérer le profil:', profileResult.error);
         setDocuments([]);
         return;
       }
 
-      console.log("🎯 AGENCY-CENTRIC: Requête documents pour agency_id:", agencyId);
+      const profile = profileResult.profile;
+      const agencyId = ProfileManager.getSafeAgencyId(profile);
+      
+      if (!agencyId) {
+        console.error('❌ Agency ID non disponible');
+        setDocuments([]);
+        return;
+      }
+
+      console.log('✅ Profil chargé:', {
+        action: profileResult.action,
+        agencyId,
+        isFallback: ProfileManager.isFallbackProfile(profile)
+      });
 
       // 🎯 AGENCY-CENTRIC: Utiliser agency_id pour les documents
       // L'agence est l'unité de vérité - Multi-user compatible

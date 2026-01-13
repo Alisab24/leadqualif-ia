@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import ProfileManager from '../services/profileManager';
 import DevisToFactureService from '../services/devisToFactureService';
 
 const DocumentsPage = () => {
@@ -59,30 +60,56 @@ const DocumentsPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 🎯 Récupérer le profil pour obtenir l'agency_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('agency_id', agencyProfile.agency_id)
-        .single();
+      // 🛡️ PROTECTION ROBUSTE: Utiliser ProfileManager
+      const profileResult = await ProfileManager.getUserProfile(user.id, {
+        createIfMissing: true,  // Créer automatiquement si non trouvé
+        useFallback: true,      // Utiliser fallback si échec
+        required: ['agency_id'], // agency_id est obligatoire
+        verbose: true
+      });
+
+      if (!profileResult.success) {
+        console.error('❌ Impossible de récupérer le profil:', profileResult.error);
+        setAgencyProfile(null);
+        return;
+      }
+
+      const profile = profileResult.profile;
+      console.log('✅ Profil chargé:', {
+        action: profileResult.action,
+        agencyId: ProfileManager.getSafeAgencyId(profile),
+        isFallback: ProfileManager.isFallbackProfile(profile)
+      });
 
       setAgencyProfile(profile);
     } catch (error) {
       console.error('❌ Erreur chargement profil:', error);
+      setAgencyProfile(null);
     }
   };
 
   const fetchDocuments = useCallback(async () => {
-    if (!agencyProfile?.agency_id) return;
+    if (!agencyProfile?.agency_id) {
+      console.warn('⚠️ fetchDocuments: agencyProfile ou agency_id manquant');
+      return;
+    }
 
     setLoading(true);
     try {
+      // 🛡️ PROTECTION: Utiliser getSafeAgencyId pour éviter les erreurs
+      const agencyId = ProfileManager.getSafeAgencyId(agencyProfile);
+      
+      if (!agencyId) {
+        console.error('❌ fetchDocuments: Agency ID non disponible');
+        return;
+      }
+
       // 🎯 AGENCY-CENTRIC: Utiliser agency_id pour les documents
       // L'agence est l'unité de vérité - Multi-user compatible
       let query = supabase
         .from('documents')
         .select('*', { count: 'exact' })
-        .eq('agency_id', agencyProfile.agency_id); // ✅ JAMAIS user_id
+        .eq('agency_id', agencyId); // ✅ JAMAIS user_id
 
       // Filtrage par type
       if (filters.type !== 'tous') {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import ProfileManager from '../services/profileManager'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable' // Import crucial pour les tableaux
 
@@ -31,19 +32,16 @@ export default function Commercial() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         // 1. Récupérer le profil agence
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
+        const profile = await fetchAgencyProfile();
         setAgencyProfile(profile)
 
         // 2. Récupérer les leads pour la liste
-        if (profile?.agency_id) {
+        const agencyId = ProfileManager.getSafeAgencyId(profile);
+        if (agencyId && agencyId !== 'default') {
           const { data: leadsData } = await supabase
             .from('leads')
             .select('id, nom, email, telephone, adresse')
-            .eq('agency_id', profile.agency_id)
+            .eq('agency_id', agencyId)
           setLeads(leadsData || [])
         }
       }
@@ -53,6 +51,38 @@ export default function Commercial() {
       setLoading(false)
     }
   }
+
+  const fetchAgencyProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      // PROTECTION ROBUSTE: Utiliser ProfileManager
+      const profileResult = await ProfileManager.getUserProfile(user.id, {
+        createIfMissing: true,  // Créer automatiquement si non trouvé
+        useFallback: true,      // Utiliser fallback si échec
+        required: ['agency_id'], // agency_id est obligatoire
+        verbose: true
+      });
+
+      if (!profileResult.success) {
+        console.error(' Impossible de récupérer le profil:', profileResult.error);
+        return null;
+      }
+
+      const profile = profileResult.profile;
+      console.log(' Profil chargé:', {
+        action: profileResult.action,
+        agencyId: ProfileManager.getSafeAgencyId(profile),
+        isFallback: ProfileManager.isFallbackProfile(profile)
+      });
+
+      return profile;
+    } catch (error) {
+      console.error(' Erreur chargement profil:', error);
+      return null;
+    }
+  };
 
   // Utilitaire pour charger le logo sans erreur CORS
   const getBase64ImageFromUrl = async (imageUrl) => {
