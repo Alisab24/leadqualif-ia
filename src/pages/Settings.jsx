@@ -288,15 +288,25 @@ export default function Settings() {
           >
             ⚙️ Paramètres CRM avancés
           </button>
-          <button 
-            onClick={() => setActiveTab('visuel')} 
+          <button
+            onClick={() => setActiveTab('visuel')}
             className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'visuel' 
-                ? 'border-b-2 border-blue-600 text-blue-600' 
+              activeTab === 'visuel'
+                ? 'border-b-2 border-blue-600 text-blue-600'
                 : 'text-slate-500'
             }`}
           >
             🎨 Apparence
+          </button>
+          <button
+            onClick={() => setActiveTab('facturation')}
+            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
+              activeTab === 'facturation'
+                ? 'border-b-2 border-green-600 text-green-600'
+                : 'text-slate-500'
+            }`}
+          >
+            💳 Abonnement & Facturation
           </button>
         </div>
 
@@ -766,16 +776,136 @@ export default function Settings() {
             </div>
           )}
 
+          {/* ===== ONGLET ABONNEMENT & FACTURATION ===== */}
+          {activeTab === 'facturation' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 mb-1">💳 Abonnement & Facturation</h2>
+                <p className="text-sm text-slate-500">Gérez votre abonnement LeadQualif et vos informations de paiement</p>
+              </div>
+
+              {/* Plan actuel */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-blue-100 text-sm font-medium">Votre plan actuel</p>
+                    <p className="text-2xl font-bold mt-1">Growth — 149€/mois</p>
+                  </div>
+                  <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">✅ Actif</span>
+                </div>
+                <p className="text-blue-200 text-sm">Prochain renouvellement : à configurer avec Stripe</p>
+              </div>
+
+              {/* Plans disponibles */}
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-3">Changer de plan</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    {
+                      name: 'Starter',
+                      price: '49€',
+                      features: ['Jusqu\'à 100 leads', 'Qualification IA', 'Pipeline Kanban', 'Documents basiques'],
+                      color: 'border-slate-200',
+                      badge: ''
+                    },
+                    {
+                      name: 'Growth',
+                      price: '149€',
+                      features: ['Leads illimités', 'IA avancée', 'CRM complet', 'Documents Pro', 'Stats & Analytics'],
+                      color: 'border-blue-400 ring-2 ring-blue-200',
+                      badge: '⭐ Recommandé'
+                    },
+                    {
+                      name: 'Enterprise',
+                      price: 'Sur devis',
+                      features: ['Multi-agents', 'API dédiée', 'Onboarding prioritaire', 'SLA garanti'],
+                      color: 'border-purple-200',
+                      badge: ''
+                    },
+                  ].map(plan => (
+                    <div key={plan.name} className={`border-2 rounded-xl p-4 ${plan.color} relative`}>
+                      {plan.badge && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-semibold whitespace-nowrap">
+                          {plan.badge}
+                        </span>
+                      )}
+                      <p className="font-bold text-slate-800 text-lg">{plan.name}</p>
+                      <p className="text-2xl font-bold text-blue-600 mt-1">{plan.price}<span className="text-sm text-slate-400 font-normal">/mois</span></p>
+                      <ul className="mt-3 space-y-1">
+                        {plan.features.map(f => (
+                          <li key={f} className="text-xs text-slate-600 flex items-center gap-1.5">
+                            <span className="text-green-500">✓</span>{f}
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => alert('Intégration Stripe à venir — donnez-moi vos clés API Stripe pour connecter le paiement !')}
+                        className="w-full mt-4 py-2 rounded-lg text-sm font-semibold transition border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      >
+                        Choisir ce plan
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Intégration Stripe */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                <h3 className="text-sm font-bold text-slate-700 mb-3">🔌 Connecter Stripe (paiements automatiques)</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Pour activer la facturation automatique, connectez votre compte Stripe.
+                  Vos clients pourront s'abonner et payer directement depuis la page produit.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Stripe Publishable Key</label>
+                    <input
+                      type="text"
+                      placeholder="pk_live_..."
+                      disabled
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Stripe Secret Key</label>
+                    <input
+                      type="password"
+                      placeholder="sk_live_..."
+                      disabled
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+                    ⚠️ Pour activer Stripe, transmettez vos clés API à votre développeur.
+                    Les clés seront stockées de manière sécurisée dans les variables d'environnement Vercel.
+                  </div>
+                </div>
+              </div>
+
+              {/* Historique factures placeholder */}
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 className="text-sm font-bold text-slate-700 mb-3">📄 Historique des factures</h3>
+                <div className="text-center py-8 text-slate-400">
+                  <p className="text-2xl mb-2">📭</p>
+                  <p className="text-sm">Aucune facture disponible</p>
+                  <p className="text-xs mt-1">Les factures apparaîtront ici une fois Stripe connecté</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* BOUTON SAUVEGARDE */}
+          {activeTab !== 'facturation' && (
           <div className="mt-8 pt-4 border-t border-slate-200 flex justify-end">
-            <button 
-              onClick={handleSave} 
+            <button
+              onClick={handleSave}
               disabled={saving}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Sauvegarde...' : 'Enregistrer les modifications'}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,149 +1,187 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import ProfileManager from '../services/profileManager'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line
+} from 'recharts'
+
+const OBJECTIF_MENSUEL = 10000 // € — objectif 10 000€/mois
+
+// Couleurs pour les graphiques
+const COLORS_STATUT = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280', '#f97316']
+const COLORS_QUALIF = ['#ef4444', '#f59e0b', '#10b981']
+
+// Helper qualification
+const getQualif = (lead) => {
+  const score = lead.score || lead.score_ia || 0
+  if (lead.qualification) return lead.qualification
+  if (score >= 70) return 'chaud'
+  if (score >= 40) return 'tiede'
+  return 'froid'
+}
 
 export default function Stats() {
   const [loading, setLoading] = useState(true)
+  const [leads, setLeads] = useState([])
+  const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState({
-    totalCommission: 0,
+    totalLeads: 0,
     leadsThisWeek: 0,
     leadsThisMonth: 0,
     leadsLastMonth: 0,
     conversionRate: 0,
     averageScore: 0,
     hotLeadsPercentage: 0,
+    commissionRealisee: 0,
+    commissionPotentielle: 0,
     monthlyData: [],
-    statusDistribution: []
+    statusDistribution: [],
+    qualificationDistribution: [],
+    topLeads: [],
+    objectifProgress: 0,
   })
-
-  // Couleurs pour les graphiques
-  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280']
 
   useEffect(() => {
     fetchStats()
   }, [])
+
+  const calcCommission = (budget) => {
+    if (!budget || budget <= 0) return 0
+    if (budget < 100000) return 5000
+    return Math.round(budget * 0.05)
+  }
 
   const fetchStats = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // 🛡️ PROTECTION ROBUSTE: Utiliser ProfileManager
       const profileResult = await ProfileManager.getUserProfile(user.id, {
-        createIfMissing: true,  // Créer automatiquement si non trouvé
-        useFallback: true,      // Utiliser fallback si échec
-        required: ['agency_id'], // agency_id est obligatoire
-        verbose: true
-      });
+        createIfMissing: true,
+        useFallback: true,
+        required: ['agency_id'],
+      })
 
-      if (!profileResult.success) {
-        console.error('❌ Impossible de récupérer le profil:', profileResult.error);
-        return;
-      }
+      if (!profileResult.success) return
 
-      const profile = profileResult.profile;
-      const agencyId = ProfileManager.getSafeAgencyId(profile);
-      
-      if (!agencyId) {
-        console.error('❌ Agency ID non disponible');
-        return;
-      }
+      const p = profileResult.profile
+      const agencyId = ProfileManager.getSafeAgencyId(p)
+      if (!agencyId) return
 
-      console.log('✅ Profil chargé:', {
-        action: profileResult.action,
-        agencyId,
-        isFallback: ProfileManager.isFallbackProfile(profile)
-      });
+      setProfile(p)
 
-      // Récupérer tous les leads de l'agence
-      const { data: leads } = await supabase
+      const { data: leadsData } = await supabase
         .from('leads')
         .select('*')
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: false })
 
-      if (!leads) return
+      if (!leadsData) return
+      setLeads(leadsData)
 
-      // Calculer les statistiques
       const now = new Date()
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-      
-      // Stats semaine
-      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()))
+      const startOfWeek = new Date(now)
+      startOfWeek.setDate(now.getDate() - now.getDay())
       startOfWeek.setHours(0, 0, 0, 0)
-      const leadsThisWeek = leads.filter(lead => new Date(lead.created_at) >= startOfWeek).length
 
-      const leadsThisMonth = leads.filter(lead => new Date(lead.created_at) >= thisMonth).length
-      const leadsLastMonth = leads.filter(lead => {
-        const date = new Date(lead.created_at)
-        return date >= lastMonth && date <= endLastMonth
+      const leadsThisWeek = leadsData.filter(l => new Date(l.created_at) >= startOfWeek).length
+      const leadsThisMonth = leadsData.filter(l => new Date(l.created_at) >= thisMonth).length
+      const leadsLastMonth = leadsData.filter(l => {
+        const d = new Date(l.created_at)
+        return d >= lastMonth && d <= endLastMonth
       }).length
 
-      const convertedLeads = leads.filter(lead => lead.statut === 'Vendu').length
-      const conversionRate = leads.length > 0 ? Math.round((convertedLeads / leads.length) * 100) : 0
+      // ✅ CORRECTION: 'Gagné' (pas 'Vendu')
+      const gagneLeads = leadsData.filter(l => l.statut === 'Gagné')
+      const conversionRate = leadsData.length > 0 ? Math.round((gagneLeads.length / leadsData.length) * 100) : 0
 
-      // Stats IA
-      const scores = leads.filter(lead => lead.score).map(lead => lead.score)
+      // Score IA — utilise score OU score_ia
+      const scores = leadsData.map(l => l.score || l.score_ia || 0).filter(s => s > 0)
       const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-      const hotLeads = leads.filter(lead => lead.score >= 70).length
-      const hotLeadsPercentage = leads.length > 0 ? Math.round((hotLeads / leads.length) * 100) : 0
 
-      // Calculer la commission totale
-      const totalCommission = leads.reduce((sum, lead) => {
-        const budget = lead.budget || 0
-        if (budget < 100000) return sum + 5000
-        return sum + Math.round(budget * 0.05)
-      }, 0)
+      const hotLeads = leadsData.filter(l => (l.score || l.score_ia || 0) >= 70).length
+      const hotLeadsPercentage = leadsData.length > 0 ? Math.round((hotLeads / leadsData.length) * 100) : 0
 
-      // Préparer les données mensuelles (6 derniers mois)
+      // Commission réalisée (leads Gagné)
+      const commissionRealisee = gagneLeads.reduce((sum, l) => sum + calcCommission(l.budget), 0)
+
+      // Commission potentielle (tous les leads actifs hors Perdu)
+      const commissionPotentielle = leadsData
+        .filter(l => l.statut !== 'Perdu')
+        .reduce((sum, l) => sum + calcCommission(l.budget), 0)
+
+      // Progression vers objectif mensuel
+      const commissionMoisEnCours = leadsData
+        .filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth)
+        .reduce((sum, l) => sum + calcCommission(l.budget), 0)
+      const objectifProgress = Math.min(100, Math.round((commissionMoisEnCours / OBJECTIF_MENSUEL) * 100))
+
+      // Données mensuelles (6 mois)
       const monthlyData = []
       for (let i = 5; i >= 0; i--) {
-        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-        
-        const monthLeads = leads.filter(lead => {
-          const date = new Date(lead.created_at)
-          return date >= monthDate && date <= monthEnd
+        const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+        const monthLeads = leadsData.filter(l => {
+          const d = new Date(l.created_at)
+          return d >= mStart && d <= mEnd
         })
-
-        const monthCommission = monthLeads.reduce((sum, lead) => {
-          const budget = lead.budget || 0
-          if (budget < 100000) return sum + 5000
-          return sum + Math.round(budget * 0.05)
-        }, 0)
+        const gagneMonth = monthLeads.filter(l => l.statut === 'Gagné')
+        const hotMonth = monthLeads.filter(l => (l.score || l.score_ia || 0) >= 70).length
 
         monthlyData.push({
-          month: monthDate.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+          month: mStart.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
           leads: monthLeads.length,
-          commission: monthCommission
+          gagnes: gagneMonth.length,
+          chauds: hotMonth,
+          commission: gagneMonth.reduce((sum, l) => sum + calcCommission(l.budget), 0),
         })
       }
 
-      // Répartition par statut
+      // Répartition statut
       const statusCount = {}
-      leads.forEach(lead => {
-        const status = lead.statut || 'À traiter'
-        statusCount[status] = (statusCount[status] || 0) + 1
+      leadsData.forEach(l => {
+        const s = l.statut || 'À traiter'
+        statusCount[s] = (statusCount[s] || 0) + 1
       })
+      const statusDistribution = Object.entries(statusCount)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, value]) => ({ name, value }))
 
-      const statusDistribution = Object.entries(statusCount).map(([status, count]) => ({
-        name: status,
-        value: count
-      }))
+      // Répartition qualification IA
+      const qualifCount = { froid: 0, tiede: 0, chaud: 0 }
+      leadsData.forEach(l => { qualifCount[getQualif(l)]++ })
+      const qualificationDistribution = [
+        { name: '🔴 Froid', value: qualifCount.froid },
+        { name: '🟡 Tiède', value: qualifCount.tiede },
+        { name: '🟢 Chaud', value: qualifCount.chaud },
+      ]
+
+      // Top 5 leads par budget
+      const topLeads = [...leadsData]
+        .filter(l => l.budget > 0)
+        .sort((a, b) => (b.budget || 0) - (a.budget || 0))
+        .slice(0, 5)
 
       setStats({
-        totalCommission,
+        totalLeads: leadsData.length,
         leadsThisWeek,
         leadsThisMonth,
         leadsLastMonth,
         conversionRate,
         averageScore,
         hotLeadsPercentage,
+        commissionRealisee,
+        commissionPotentielle,
+        commissionMoisEnCours,
         monthlyData,
-        statusDistribution
+        statusDistribution,
+        qualificationDistribution,
+        topLeads,
+        objectifProgress,
       })
 
     } catch (error) {
@@ -153,18 +191,12 @@ export default function Stats() {
     }
   }
 
-  const calculatePotential = (budget) => {
-    if (!budget) return 0
-    if (budget < 100000) return 5000
-    return Math.round(budget * 0.05)
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Chargement des statistiques...</p>
+          <p className="text-slate-600">Chargement des statistiques…</p>
         </div>
       </div>
     )
@@ -172,191 +204,261 @@ export default function Stats() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-8">
+
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Statistiques Agence</h1>
-          <p className="text-slate-600">Vue d'ensemble de vos performances et de votre activité</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">Statistiques</h1>
+            <p className="text-slate-600 mt-1">Performance de {profile?.nom_agence || 'votre agence'}</p>
+          </div>
+          <button
+            onClick={fetchStats}
+            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 shadow-sm"
+          >
+            🔄 Rafraîchir
+          </button>
         </div>
 
-        {/* Résumé Business - KPI Professionnels */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Leads cette semaine */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Leads cette semaine</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.leadsThisWeek}</p>
-                <p className="text-slate-500 text-sm mt-2">7 derniers jours</p>
-              </div>
-              <div className="bg-blue-100 rounded-full p-3">
-                <span className="text-2xl">📊</span>
-              </div>
+        {/* === OBJECTIF MENSUEL === */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-blue-100 text-sm font-medium">Objectif mensuel</p>
+              <p className="text-3xl font-bold">
+                {(stats.commissionMoisEnCours || 0).toLocaleString()} €
+                <span className="text-blue-200 text-lg font-normal"> / {OBJECTIF_MENSUEL.toLocaleString()} €</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-4xl font-bold">{stats.objectifProgress}%</p>
+              <p className="text-blue-200 text-sm">atteint ce mois</p>
             </div>
           </div>
-
-          {/* Leads ce mois */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Leads ce mois</p>
-                <p className="text-3xl font-bold text-green-600">{stats.leadsThisMonth}</p>
-                <div className="flex items-center mt-2">
-                  {stats.leadsThisMonth > stats.leadsLastMonth ? (
-                    <span className="text-green-600 text-sm font-medium">↑ +{stats.leadsThisMonth - stats.leadsLastMonth}</span>
-                  ) : (
-                    <span className="text-red-600 text-sm font-medium">↓ {stats.leadsLastMonth - stats.leadsThisMonth}</span>
-                  )}
-                  <span className="text-slate-500 text-sm ml-2">vs mois dernier</span>
-                </div>
-              </div>
-              <div className="bg-green-100 rounded-full p-3">
-                <span className="text-2xl">📈</span>
-              </div>
-            </div>
+          <div className="w-full bg-blue-500/40 rounded-full h-3">
+            <div
+              className="bg-white rounded-full h-3 transition-all duration-500"
+              style={{ width: `${stats.objectifProgress}%` }}
+            />
           </div>
-
-          {/* Score moyen IA */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Score moyen IA</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.averageScore}%</p>
-                <p className="text-slate-500 text-sm mt-2">Intention d'achat</p>
-              </div>
-              <div className="bg-purple-100 rounded-full p-3">
-                <span className="text-2xl">🧠</span>
-              </div>
-            </div>
-          </div>
-
-          {/* % Leads chauds */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">% Leads chauds</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.hotLeadsPercentage}%</p>
-                <p className="text-slate-500 text-sm mt-2">Score ≥ 70%</p>
-              </div>
-              <div className="bg-orange-100 rounded-full p-3">
-                <span className="text-2xl">🔥</span>
-              </div>
-            </div>
-          </div>
+          <p className="text-blue-200 text-xs mt-2">
+            Il manque {Math.max(0, OBJECTIF_MENSUEL - (stats.commissionMoisEnCours || 0)).toLocaleString()} € pour atteindre 10 000€/mois
+          </p>
         </div>
 
-        {/* KPI Business Additionnels */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Commission Totale */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Commission Totale Identifiée</p>
-                <p className="text-3xl font-bold text-green-600">
-                  {stats.totalCommission.toLocaleString()} €
-                </p>
-                <p className="text-slate-500 text-sm mt-2">Potentiel business</p>
-              </div>
-              <div className="bg-green-100 rounded-full p-3">
-                <span className="text-2xl">💰</span>
-              </div>
-            </div>
-          </div>
+        {/* KPI Principaux */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KPICard icon="📊" label="Leads cette semaine" value={stats.leadsThisWeek} color="blue" />
+          <KPICard
+            icon="📈"
+            label="Leads ce mois"
+            value={stats.leadsThisMonth}
+            color="green"
+            sub={
+              stats.leadsThisMonth > stats.leadsLastMonth
+                ? `↑ +${stats.leadsThisMonth - stats.leadsLastMonth} vs mois dernier`
+                : `↓ −${stats.leadsLastMonth - stats.leadsThisMonth} vs mois dernier`
+            }
+            subColor={stats.leadsThisMonth >= stats.leadsLastMonth ? 'text-green-500' : 'text-red-500'}
+          />
+          <KPICard icon="🧠" label="Score IA moyen" value={`${stats.averageScore}%`} color="purple" sub="Intention d'achat" />
+          <KPICard icon="🔥" label="Leads chauds" value={`${stats.hotLeadsPercentage}%`} color="orange" sub="Score ≥ 70%" />
+        </div>
 
-          {/* Taux de Transformation */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Taux de Transformation</p>
-                <p className="text-3xl font-bold text-indigo-600">{stats.conversionRate}%</p>
-                <p className="text-slate-500 text-sm mt-2">Leads signés / Leads totaux</p>
-              </div>
-              <div className="bg-indigo-100 rounded-full p-3">
-                <span className="text-2xl">🎯</span>
-              </div>
-            </div>
+        {/* Commission */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <p className="text-sm text-slate-500 font-medium">Commission réalisée</p>
+            <p className="text-3xl font-bold text-green-600 mt-1">{stats.commissionRealisee.toLocaleString()} €</p>
+            <p className="text-xs text-slate-400 mt-1">Leads Gagné × taux commission</p>
           </div>
-
-          {/* Performance IA */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-purple-200">
-            <div className="text-center">
-              <p className="text-sm font-medium text-purple-700 mb-2">Performance IA</p>
-              <div className="flex justify-center items-center space-x-2">
-                <span className="text-2xl">⚡</span>
-                <p className="text-2xl font-bold text-purple-800">{stats.averageScore}%</p>
-              </div>
-              <p className="text-purple-600 text-sm mt-2">Score de qualification moyen</p>
-            </div>
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <p className="text-sm text-slate-500 font-medium">Commission potentielle</p>
+            <p className="text-3xl font-bold text-blue-600 mt-1">{stats.commissionPotentielle.toLocaleString()} €</p>
+            <p className="text-xs text-slate-400 mt-1">Si tous les leads actifs signent</p>
+          </div>
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <p className="text-sm text-slate-500 font-medium">Taux de conversion</p>
+            <p className="text-3xl font-bold text-indigo-600 mt-1">{stats.conversionRate}%</p>
+            <p className="text-xs text-slate-400 mt-1">{leads.filter(l => l.statut === 'Gagné').length} leads gagnés / {stats.totalLeads} total</p>
           </div>
         </div>
 
-        {/* Graphiques Visuels */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Graphique en barres - Leads par mois */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Leads par mois (6 derniers mois)</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats.monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+        {/* Graphiques */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Activité mensuelle */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <h2 className="text-base font-bold text-slate-800 mb-4">Activité mensuelle (6 mois)</h2>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={stats.monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="leads" fill="#3b82f6" name="Leads" />
-                <Bar dataKey="commission" fill="#10b981" name="Commission (€)" />
+                <Bar dataKey="leads" fill="#3b82f6" name="Leads" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="gagnes" fill="#10b981" name="Gagnés" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="chauds" fill="#f59e0b" name="Chauds" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Graphique circulaire - Répartition par statut */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Répartition par Statut</h2>
-            <ResponsiveContainer width="100%" height={300}>
+          {/* Qualification IA */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <h2 className="text-base font-bold text-slate-800 mb-4">Qualification IA des leads</h2>
+            <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie
-                  data={stats.statusDistribution}
+                  data={stats.qualificationDistribution}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
+                  innerRadius={55}
+                  outerRadius={90}
+                  paddingAngle={3}
                   dataKey="value"
+                  label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                  labelLine={false}
                 >
-                  {stats.statusDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {stats.qualificationDistribution.map((_, i) => (
+                    <Cell key={i} fill={COLORS_QUALIF[i]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(v, n) => [`${v} leads`, n]} />
               </PieChart>
+            </ResponsiveContainer>
+            <div className="flex justify-center gap-4 mt-2">
+              {stats.qualificationDistribution.map((item, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS_QUALIF[i] }} />
+                  {item.name}: <span className="font-bold">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Répartition par statut */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <h2 className="text-base font-bold text-slate-800 mb-4">Pipeline par statut</h2>
+            <div className="space-y-2">
+              {stats.statusDistribution.map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 w-28 truncate">{item.name}</span>
+                  <div className="flex-1 bg-slate-100 rounded-full h-4 relative overflow-hidden">
+                    <div
+                      className="h-4 rounded-full transition-all"
+                      style={{
+                        width: `${stats.totalLeads > 0 ? (item.value / stats.totalLeads * 100) : 0}%`,
+                        background: COLORS_STATUT[i % COLORS_STATUT.length]
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 w-6 text-right">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Commission mensuelle */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <h2 className="text-base font-bold text-slate-800 mb-4">Commission mensuelle (€)</h2>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={stats.monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v) => [`${v.toLocaleString()} €`, 'Commission']} />
+                <Line
+                  type="monotone"
+                  dataKey="commission"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={{ fill: '#10b981', r: 4 }}
+                  name="Commission €"
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Rapport Mensuel Automatique */}
-        <div className="bg-white rounded-2xl shadow-lg shadow-blue-900/5 p-6 border border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Rapport Mensuel</h2>
+        {/* Top Leads */}
+        {stats.topLeads?.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <h2 className="text-base font-bold text-slate-800 mb-4">🏆 Top leads par budget</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Lead</th>
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Qualification</th>
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Statut</th>
+                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Budget</th>
+                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Commission est.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {stats.topLeads.map((lead, i) => {
+                    const q = getQualif(lead)
+                    const badgeClass = q === 'chaud' ? 'bg-green-100 text-green-700'
+                      : q === 'tiede' ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-red-100 text-red-700'
+                    return (
+                      <tr key={lead.id}>
+                        <td className="py-3 text-sm font-medium text-slate-800">
+                          <span className="text-slate-400 mr-2">#{i + 1}</span>{lead.nom}
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${badgeClass}`}>
+                            {q === 'chaud' ? '🟢 Chaud' : q === 'tiede' ? '🟡 Tiède' : '🔴 Froid'}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span className="text-xs text-slate-500">{lead.statut || '—'}</span>
+                        </td>
+                        <td className="py-3 text-right text-sm font-bold text-slate-800">
+                          {(lead.budget || 0).toLocaleString('fr-FR')} €
+                        </td>
+                        <td className="py-3 text-right text-sm font-bold text-green-600">
+                          {calcCommission(lead.budget).toLocaleString('fr-FR')} €
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Rapport mensuel */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <h2 className="text-base font-bold text-slate-800 mb-4">Rapport mensuel</h2>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mois</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leads</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chiffre Potentiel</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Succès</th>
+                  {['Mois', 'Leads', 'Gagnés', 'Chauds', 'Commission', 'Statut'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {stats.monthlyData.map((month, index) => (
-                  <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{month.month}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{month.leads}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{month.commission.toLocaleString()} €</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        month.leads > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              <tbody className="divide-y divide-slate-50">
+                {stats.monthlyData.map((m, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900">{m.month}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{m.leads}</td>
+                    <td className="px-4 py-3 text-sm text-green-600 font-semibold">{m.gagnes}</td>
+                    <td className="px-4 py-3 text-sm text-orange-600 font-semibold">{m.chauds}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-slate-700">{m.commission.toLocaleString()} €</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                        m.commission >= OBJECTIF_MENSUEL ? 'bg-green-100 text-green-700'
+                        : m.commission > 0 ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-slate-100 text-slate-500'
                       }`}>
-                        {month.leads > 0 ? 'Actif' : 'Inactif'}
+                        {m.commission >= OBJECTIF_MENSUEL ? '✅ Objectif atteint'
+                          : m.commission > 0 ? '⚡ En cours'
+                          : '—'}
                       </span>
                     </td>
                   </tr>
@@ -365,7 +467,31 @@ export default function Stats() {
             </table>
           </div>
         </div>
+
       </div>
+    </div>
+  )
+}
+
+// Composant KPI Card réutilisable
+function KPICard({ icon, label, value, color, sub, subColor }) {
+  const colors = {
+    blue: 'text-blue-600 bg-blue-100',
+    green: 'text-green-600 bg-green-100',
+    purple: 'text-purple-600 bg-purple-100',
+    orange: 'text-orange-600 bg-orange-100',
+    indigo: 'text-indigo-600 bg-indigo-100',
+  }
+  return (
+    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        <div className={`rounded-full p-2 ${colors[color]?.split(' ')[1]}`}>
+          <span className="text-xl">{icon}</span>
+        </div>
+      </div>
+      <p className={`text-3xl font-bold ${colors[color]?.split(' ')[0]}`}>{value}</p>
+      {sub && <p className={`text-xs mt-1 ${subColor || 'text-slate-400'}`}>{sub}</p>}
     </div>
   )
 }

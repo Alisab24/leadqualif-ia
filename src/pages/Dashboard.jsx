@@ -6,6 +6,15 @@ import DocumentGenerator from '../components/DocumentGenerator';
 import DocumentTemplateGenerator from '../components/DocumentTemplateGenerator';
 import UnifiedDocumentGenerator from '../components/UnifiedDocumentGenerator';
 import { aiService } from '../services/ai';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+} from '@dnd-kit/core';
+import { useDroppable, useDraggable } from '@dnd-kit/core';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -34,6 +43,12 @@ export default function Dashboard() {
   const [loadingAI, setLoadingAI] = useState(false);
   const [showAISuggestion, setShowAISuggestion] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info' | 'historique' | 'ia'
+
+  // === DRAG & DROP ===
+  const [activeDragId, setActiveDragId] = useState(null);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   // Refs
   const scrollContainerRef = useRef(null);
@@ -126,8 +141,8 @@ export default function Dashboard() {
   // === RENDEZ-VOUS ===
   const handleRendezVous = (lead) => {
     const agencySettings = {
-      calendlyUrl: agencyProfile?.calendly_url || null,
-      useCalendly: !!agencyProfile?.calendly_url
+      calendlyUrl: agencyProfile?.calendly_link || null,
+      useCalendly: !!agencyProfile?.calendly_link
     };
 
     const eventTitle = `Rendez-vous - ${lead.nom}`;
@@ -286,6 +301,25 @@ export default function Dashboard() {
     );
   };
 
+  // === DRAG & DROP HANDLERS ===
+  const handleDragStart = (event) => {
+    setActiveDragId(event.active.id);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+    if (!over) return;
+
+    const leadId = active.id;
+    const newStatut = over.id; // column id = statut name
+
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead || lead.statut === newStatut) return;
+
+    await updateStatus(leadId, newStatut);
+  };
+
   // Helper statut couleur
   const statutColor = (statut) => {
     const map = {
@@ -413,8 +447,14 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 overflow-hidden">
-        {/* ===== VUE KANBAN ===== */}
+        {/* ===== VUE KANBAN avec Drag & Drop ===== */}
         {viewMode === 'kanban' && (
+          <DndContext
+            sensors={dndSensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
           <div className="p-6 h-full overflow-hidden">
             {showLeftArrow && (
               <button
@@ -448,95 +488,52 @@ export default function Dashboard() {
                 {statuts.map((statut, idx) => {
                   const columnLeads = filteredLeads.filter(l => l.statut === statut);
                   return (
-                    <div key={statut} className="min-w-[320px] max-w-[320px] flex flex-col h-full max-h-[85vh] bg-slate-100/50 rounded-xl border border-slate-200">
-                      <div className="p-4 font-bold text-slate-700 bg-white/80 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
-                        {statut}
-                        <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{columnLeads.length}</span>
-                      </div>
-
-                      <div className="p-3 space-y-3 overflow-y-auto flex-1">
-                        {columnLeads.map(lead => {
-                          const badge = getScoreBadge(lead);
-                          return (
-                            <div
-                              key={lead.id}
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setActiveTab('info');
-                                setCrmHistory([]);
-                                setAiSuggestion(lead.suggestion_ia || '');
-                              }}
-                              className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200"
-                            >
-                              {/* Top row */}
-                              <div className="flex justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">🏠 {lead.type_bien || 'Projet'}</span>
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); navigate(`/lead/${lead.id}`); }}
-                                    className="w-6 h-6 bg-green-50 hover:bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm"
-                                    title="Voir les détails"
-                                  >👁</button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, statuts[idx + 1]); }}
-                                    className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
-                                    title="Avancer"
-                                  >→</button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); updateStatus(lead.id, statuts[idx - 1]); }}
-                                    className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
-                                    title="Reculer"
-                                  >←</button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleRendezVous(lead); }}
-                                    className="w-6 h-6 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm"
-                                    title="Prendre rendez-vous"
-                                  >📅</button>
-                                </div>
-                              </div>
-
-                              {/* Nom */}
-                              <div className="font-bold text-slate-900 mb-2 text-sm">{lead.nom}</div>
-
-                              {/* Infos */}
-                              <div className="space-y-1 mb-2">
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <span>📧</span><span className="truncate">{lead.email || '—'}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <span>📞</span><span>{lead.telephone || '—'}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-                                  <span>💰</span><span>{(lead.budget || 0).toLocaleString()} €</span>
-                                </div>
-                              </div>
-
-                              {/* Score badge IA */}
-                              <div className="flex items-center justify-between mt-2">
-                                <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
-                                  {badge.label}
-                                  {badge.score > 0 && <span className="ml-1 opacity-70">{badge.score}%</span>}
-                                </span>
-                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
-                                  {lead.statut}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Colonne vide */}
-                        {columnLeads.length === 0 && (
-                          <div className="text-center text-slate-400 text-xs py-6">Aucun lead</div>
-                        )}
-                      </div>
-                    </div>
+                    <KanbanColumn
+                      key={statut}
+                      statut={statut}
+                      idx={idx}
+                      leads={columnLeads}
+                      statuts={statuts}
+                      activeDragId={activeDragId}
+                      getScoreBadge={getScoreBadge}
+                      statutColor={statutColor}
+                      onSelectLead={(lead) => {
+                        setSelectedLead(lead);
+                        setActiveTab('info');
+                        setCrmHistory([]);
+                        setAiSuggestion(lead.suggestion_ia || '');
+                      }}
+                      onNavigate={(id) => navigate(`/lead/${id}`)}
+                      onUpdateStatus={updateStatus}
+                      onRdv={handleRendezVous}
+                    />
                   );
                 })}
                 <div className="min-w-[50px]"></div>
               </div>
             </div>
           </div>
+
+          {/* Overlay pendant le drag */}
+          <DragOverlay>
+            {activeDragId ? (() => {
+              const lead = leads.find(l => l.id === activeDragId);
+              if (!lead) return null;
+              const badge = getScoreBadge(lead);
+              return (
+                <div className="bg-white p-3 rounded-xl shadow-2xl border-2 border-blue-400 w-[300px] rotate-2 opacity-95">
+                  <div className="font-bold text-slate-900 text-sm mb-1">{lead.nom}</div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-green-600 mb-2">
+                    <span>💰</span><span>{(lead.budget || 0).toLocaleString()} €</span>
+                  </div>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
+                    {badge.label}
+                  </span>
+                </div>
+              );
+            })() : null}
+          </DragOverlay>
+          </DndContext>
         )}
 
         {/* ===== VUE LISTE ===== */}
@@ -1065,6 +1062,161 @@ export default function Dashboard() {
           onClose={() => setShowUnifiedGenerator(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ===== COMPOSANTS KANBAN DnD =====
+
+function KanbanColumn({
+  statut, idx, leads, statuts, activeDragId,
+  getScoreBadge, statutColor,
+  onSelectLead, onNavigate, onUpdateStatus, onRdv
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: statut });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-w-[320px] max-w-[320px] flex flex-col h-full max-h-[85vh] rounded-xl border transition-all duration-200 ${
+        isOver
+          ? 'bg-blue-50 border-blue-400 shadow-lg shadow-blue-100'
+          : 'bg-slate-100/50 border-slate-200'
+      }`}
+    >
+      <div className="p-4 font-bold text-slate-700 bg-white/80 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
+        {statut}
+        <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{leads.length}</span>
+      </div>
+
+      <div className="p-3 space-y-3 overflow-y-auto flex-1">
+        {leads.map(lead => (
+          <KanbanCard
+            key={lead.id}
+            lead={lead}
+            idx={idx}
+            statuts={statuts}
+            activeDragId={activeDragId}
+            getScoreBadge={getScoreBadge}
+            statutColor={statutColor}
+            onSelect={onSelectLead}
+            onNavigate={onNavigate}
+            onUpdateStatus={onUpdateStatus}
+            onRdv={onRdv}
+          />
+        ))}
+
+        {/* Zone de dépôt vide */}
+        {leads.length === 0 && (
+          <div className={`flex items-center justify-center h-16 rounded-xl border-2 border-dashed text-xs transition-all ${
+            isOver ? 'border-blue-400 text-blue-500 bg-blue-50' : 'border-slate-200 text-slate-400'
+          }`}>
+            {isOver ? '⬇ Déposer ici' : 'Aucun lead'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KanbanCard({
+  lead, idx, statuts, activeDragId,
+  getScoreBadge, statutColor,
+  onSelect, onNavigate, onUpdateStatus, onRdv
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lead.id,
+    data: { lead },
+  });
+
+  const badge = getScoreBadge(lead);
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: 999,
+  } : undefined;
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        className="bg-blue-50 border-2 border-dashed border-blue-300 rounded-xl h-[120px] opacity-50"
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-300 transition-all duration-200"
+      onClick={() => onSelect(lead)}
+    >
+      {/* Drag handle hint + actions */}
+      <div className="flex justify-between mb-2">
+        <div className="flex items-center gap-1">
+          {/* Drag handle */}
+          <span
+            {...attributes}
+            {...listeners}
+            className="text-slate-300 hover:text-slate-500 cursor-grab text-xs mr-1 select-none"
+            onClick={e => e.stopPropagation()}
+            title="Glisser pour déplacer"
+          >⠿</span>
+          <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">
+            🏠 {lead.type_bien || 'Projet'}
+          </span>
+        </div>
+        <div className="flex gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onNavigate(lead.id); }}
+            className="w-6 h-6 bg-green-50 hover:bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm"
+            title="Voir les détails"
+          >👁</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx + 1]); }}
+            className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
+            title="Avancer"
+          >→</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx - 1]); }}
+            className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
+            title="Reculer"
+          >←</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRdv(lead); }}
+            className="w-6 h-6 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm"
+            title="RDV"
+          >📅</button>
+        </div>
+      </div>
+
+      {/* Nom */}
+      <div className="font-bold text-slate-900 mb-2 text-sm">{lead.nom}</div>
+
+      {/* Infos */}
+      <div className="space-y-1 mb-2">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span>📧</span><span className="truncate">{lead.email || '—'}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span>📞</span><span>{lead.telephone || '—'}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-bold text-green-600">
+          <span>💰</span><span>{(lead.budget || 0).toLocaleString()} €</span>
+        </div>
+      </div>
+
+      {/* Score badge IA */}
+      <div className="flex items-center justify-between mt-2">
+        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
+          {badge.label}
+          {badge.score > 0 && <span className="ml-1 opacity-70">{badge.score}%</span>}
+        </span>
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
+          {lead.statut}
+        </span>
+      </div>
     </div>
   );
 }
