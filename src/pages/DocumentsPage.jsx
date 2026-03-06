@@ -10,17 +10,21 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import ProfileManager from '../services/profileManager';
 import DevisToFactureService from '../services/devisToFactureService';
 
 const DocumentsPage = () => {
+  const [searchParams] = useSearchParams();
+  const leadIdFilter = searchParams.get('lead') || null;
+
   // États principaux
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [agencyProfile, setAgencyProfile] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
-  
+
   // États de filtrage
   const [filters, setFilters] = useState({
     type: 'tous',
@@ -129,6 +133,11 @@ const DocumentsPage = () => {
         }
       }
 
+      // Filtrage par lead (provient de /documents-center?lead=xxx)
+      if (leadIdFilter) {
+        query = query.eq('lead_id', leadIdFilter);
+      }
+
       // Recherche textuelle
       if (filters.searchTerm) {
         query = query.or(
@@ -153,7 +162,7 @@ const DocumentsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyProfile, filters, pagination]);
+  }, [agencyProfile, filters, pagination, leadIdFilter]);
 
   const getDateFilter = (range) => {
     const now = new Date();
@@ -367,6 +376,20 @@ const DocumentsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Bandeau filtre lead actif */}
+      {leadIdFilter && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <span className="text-sm text-blue-700 font-medium">
+              🔍 Documents filtrés pour un lead spécifique
+            </span>
+            <a href="/documents" className="text-xs text-blue-600 hover:text-blue-800 underline">
+              Voir tous les documents
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Filtres */}
       <div className="bg-white shadow-sm border-b">

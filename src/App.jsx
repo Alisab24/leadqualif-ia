@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Imports Pages
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
 import DocumentsPage from './pages/DocumentsPage';
-import DocumentsCenter from './pages/DocumentsCenter';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import DocumentPreviewPage from './pages/DocumentPreviewPage';
@@ -25,6 +24,12 @@ function LeadQualifRedirect() {
   return null;
 }
 
+// Redirection /documents-center → /documents (en préservant les search params)
+function DocumentsCenterRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/documents${location.search}`} replace />;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -41,7 +46,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/lead/:id" element={<LeadDetails />} />
             <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/documents-center" element={<DocumentsCenter />} />
+            <Route path="/documents-center" element={<DocumentsCenterRedirect />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/app" element={<Navigate to="/dashboard" replace />} />
