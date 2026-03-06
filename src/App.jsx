@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Imports Pages
-import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
@@ -18,13 +17,21 @@ import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 
+// Redirection vers la page produit NexaPro
+function LeadQualifRedirect() {
+  useEffect(() => {
+    window.location.replace('https://nexapro.tech/leadqualif.html');
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <Router>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<LeadQualifRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/estimation" element={<Estimation />} />
           <Route path="/estimation/:agencyId" element={<Estimation />} />

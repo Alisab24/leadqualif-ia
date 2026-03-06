@@ -1,130 +1,153 @@
-# LeadQualif IA
+# LeadQualif IA — Application SaaS
 
-Application web desktop pour la gestion et la qualification automatique de leads immobiliers avec intelligence artificielle.
+> Module central de [NexaPro](https://nexapro.tech) — CRM intelligent pour agences SMMA, immobilières et entreprises de services B2B.
 
-## 🚀 Fonctionnalités
+---
 
-- ✅ Ajout de leads avec formulaire intuitif
-- 🤖 Qualification automatique via OpenAI GPT-4
-- 💾 Stockage sécurisé dans Supabase
-- 📊 Dashboard avec statistiques et tableau des leads
-- 📝 Détails complets d'un lead avec résumé IA
-- 📅 Intégration Calendly pour proposer des RDV
-- 🎨 Interface moderne avec TailwindCSS
+## 🏗️ Architecture des projets
 
-## 📋 Prérequis
+```
+Hp/
+├── nexap/          → Application SaaS LeadQualif (React + Vite + Supabase)
+└── sitenexap/      → Site marketing NexaPro (HTML statique, Vercel)
+```
 
-- Node.js 18+ et npm
-- Compte Supabase (gratuit)
-- Clé API OpenAI
+### Flux utilisateur
 
-## 🛠️ Installation
+```
+nexapro.tech                      →  Site marketing NexaPro (sitenexap/)
+nexapro.tech/leadqualif.html      →  Page produit LeadQualif (page canonique)
+www.leadqualif.com/               →  Redirige → nexapro.tech/leadqualif.html
+www.leadqualif.com/login          →  App SaaS LeadQualif (nexap/)
+```
 
-1. **Installer les dépendances**
+---
+
+## ⚙️ Stack technique
+
+| Couche          | Technologie                      |
+|-----------------|----------------------------------|
+| Frontend App    | React 18, Vite, Tailwind CSS     |
+| Backend IA      | Flask (Python), OpenAI API       |
+| Base de données | Supabase (PostgreSQL + RLS)      |
+| Hébergement     | Vercel                           |
+| Versioning      | GitHub                           |
+
+---
+
+## 🚀 Démarrage rapide
+
+### App LeadQualif (nexap/)
+
 ```bash
 npm install
+npm run dev       # développement local
+npm run build     # build production → dist/
 ```
 
-2. **Configurer les variables d'environnement**
-
-Créez un fichier `.env` à la racine du projet avec :
-
-```env
-VITE_SUPABASE_URL=votre_url_supabase
-VITE_SUPABASE_ANON_KEY=votre_cle_anon_supabase
-VITE_OPENAI_API_KEY=votre_cle_api_openai
-VITE_CALENDLY_URL=https://calendly.com/votre-compte
-```
-
-3. **Créer la table Supabase**
-
-Exécutez cette requête SQL dans votre dashboard Supabase :
-
-```sql
-CREATE TABLE leads (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  nom TEXT NOT NULL,
-  email TEXT NOT NULL,
-  telephone TEXT NOT NULL,
-  message TEXT,
-  source TEXT DEFAULT 'site_web',
-  score_qualification INTEGER,
-  budget_estime TEXT,
-  urgence TEXT,
-  type_bien_recherche TEXT,
-  localisation_souhaitee TEXT,
-  points_forts JSONB,
-  points_attention JSONB,
-  recommandations JSONB,
-  resume TEXT,
-  resume_ia TEXT,
-  qualification_data JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Activer Row Level Security (optionnel mais recommandé)
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-
--- Créer une politique pour permettre toutes les opérations (ajustez selon vos besoins)
-CREATE POLICY "Allow all operations" ON leads
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);
-```
-
-## 🚀 Lancement
+### Backend IA (nexap/backend/)
 
 ```bash
-# Mode développement
-npm run dev
-
-# Build de production
-npm run build
-
-# Prévisualiser le build
-npm run preview
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python run.py
 ```
 
-L'application sera accessible sur `http://localhost:3000`
+### Variables d'environnement
 
-## 📁 Structure du projet
+Copier `.env.example` → `.env.local` et renseigner :
 
 ```
-src/
-├── components/
-│   ├── LeadForm.jsx      # Formulaire d'ajout de lead
-│   ├── LeadList.jsx      # Tableau des leads
-│   └── LeadDetails.jsx   # Page de détails d'un lead
-├── pages/
-│   ├── Dashboard.jsx     # Page principale avec statistiques
-│   └── Settings.jsx      # Page de paramètres
-├── services/
-│   ├── supabase.js       # Configuration et fonctions Supabase
-│   └── ai.js             # Service de qualification IA
-├── utils/
-│   └── format.js         # Fonctions utilitaires de formatage
-├── App.jsx               # Composant principal avec routing
-└── main.jsx              # Point d'entrée de l'application
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+VITE_OPENAI_API_KEY=...
 ```
 
-## 🔧 Technologies utilisées
+---
 
-- **React 18** - Bibliothèque UI
-- **Vite** - Build tool et dev server
-- **TailwindCSS** - Framework CSS
-- **React Router** - Routing
-- **Supabase** - Backend et base de données
-- **OpenAI GPT-4** - Qualification IA des leads
-- **Axios** - Requêtes HTTP
+## 📂 Structure du projet
 
-## 📝 Notes importantes
+```
+nexap/
+├── src/
+│   ├── App.jsx                 → Router principal
+│   ├── pages/                  → Dashboard, Login, Documents, Stats...
+│   ├── components/             → Composants réutilisables
+│   ├── services/               → Logique métier (PDF, IA, Supabase)
+│   ├── context/                → Auth, Leads contexts
+│   └── supabaseClient.js       → Connexion Supabase
+├── backend/
+│   ├── app.py                  → API Flask principale
+│   ├── models.py               → Modèles de données
+│   └── requirements.txt        → Dépendances Python
+├── database/
+│   └── supabase_schema.sql     → Schéma complet Supabase
+├── docs/                       → Documentation technique interne (61 fichiers)
+└── public/
+    ├── estimation.html         → Formulaire prospect public
+    └── merci.html              → Page confirmation
+```
 
-- ⚠️ **Sécurité** : La clé API OpenAI est exposée côté client dans ce projet. Pour la production, créez un backend proxy pour sécuriser vos clés API.
-- 🔒 Configurez correctement les politiques RLS dans Supabase selon vos besoins de sécurité.
-- 💰 Les appels à l'API OpenAI sont facturés selon votre plan OpenAI.
+---
 
-## 📄 Licence
+## 🔌 Modules principaux de LeadQualif
 
-MIT
+### 1. Collecte des leads
+- Formulaire web (`/estimation/:agencyId`)
+- API endpoint POST `/api/leads`
+- Intégration WhatsApp (via webhook)
 
+### 2. Qualification automatique (IA)
+- Analyse des réponses via OpenAI
+- Scoring : 🔴 Froid / 🟡 Tiède / 🟢 Chaud
+- Catégorisation automatique du prospect
+
+### 3. Dashboard CRM
+- Pipeline visuel par statut
+- Actions rapides (WhatsApp, Email, RDV)
+- Historique des conversations
+
+### 4. Génération de documents
+- Devis, Factures, Mandats
+- Templates personnalisables par agence
+- Export PDF depuis la fiche lead
+
+### 5. Gestion multi-agences
+- Isolation des données par `agency_id` (RLS Supabase)
+- Paramètres de profil agence
+- Numérotation automatique des documents
+
+---
+
+## 🗄️ Schéma Supabase (tables principales)
+
+| Table               | Description                              |
+|---------------------|------------------------------------------|
+| `leads`             | Prospects collectés et qualifiés         |
+| `agencies`          | Profils des agences utilisatrices        |
+| `documents`         | Devis, factures, mandats générés         |
+| `document_counters` | Numérotation auto des documents          |
+| `crm_events`        | Historique des actions sur les leads     |
+| `agency_settings`   | Paramètres et préférences par agence     |
+
+---
+
+## 🔗 Liens
+
+- **Site NexaPro** : [nexapro.tech](https://nexapro.tech)
+- **Page produit LeadQualif** : [nexapro.tech/leadqualif.html](https://nexapro.tech/leadqualif.html)
+- **App** : [leadqualif.com/login](https://www.leadqualif.com/login)
+- **Contact** : contact@nexapro.tech
+
+---
+
+## 📋 Changelog
+
+### Mars 2026 — Ménage & Refactoring
+- ✅ **Fix critique** : Suppression des commandes git accidentellement injectées dans `index.html`
+- ✅ **Routing** : La route `/` redirige désormais vers `nexapro.tech/leadqualif.html` (page marketing canonique)
+- ✅ **Nettoyage** : 35 fichiers `vite.config.js.timestamp-*.mjs` supprimés
+- ✅ **Organisation** : 61 fichiers `.md` déplacés dans `docs/`
+- ✅ **Site NexaPro** : `landing-leadqualif.html` redirige vers `leadqualif.html` (page unique canonique)
