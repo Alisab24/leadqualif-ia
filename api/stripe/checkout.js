@@ -7,9 +7,13 @@
 
 const Stripe = require('stripe');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-06-20',
-});
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('⚠️  STRIPE_SECRET_KEY manquant — ajoutez-le dans les variables Vercel');
+}
+
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
+  : null;
 
 // Plans disponibles
 const PLANS = {
@@ -56,6 +60,10 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!stripe) {
+    return res.status(500).json({ error: 'Configuration Stripe manquante. Ajoutez STRIPE_SECRET_KEY dans les variables d\'environnement Vercel.' });
   }
 
   try {

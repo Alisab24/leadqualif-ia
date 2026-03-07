@@ -40,7 +40,16 @@ export const redirectToCheckout = async ({ plan, userId, userEmail, agencyName }
       }),
     });
 
-    const data = await res.json();
+    // Lire la réponse comme texte d'abord pour éviter un crash si ce n'est pas du JSON
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Le serveur a renvoyé du HTML ou du texte brut — souvent une variable d'env manquante
+      console.error('Réponse non-JSON du serveur:', text.slice(0, 200));
+      throw new Error('Erreur serveur. Vérifiez que STRIPE_SECRET_KEY est bien défini dans les variables Vercel.');
+    }
 
     if (!res.ok) {
       throw new Error(data.error || 'Erreur lors de la création de la session');

@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Building, Eye, EyeOff, Mail, Lock, User } from 'lucide-react'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { Building, Eye, EyeOff, Mail, Lock, User, CheckCircle } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+
+const PLAN_LABELS = { starter: 'Starter — 49€/mois', growth: 'Growth — 149€/mois', enterprise: 'Enterprise' }
+const PLAN_COLORS = { starter: 'bg-blue-50 border-blue-200 text-blue-700', growth: 'bg-indigo-50 border-indigo-200 text-indigo-700', enterprise: 'bg-purple-50 border-purple-200 text-purple-700' }
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -9,35 +12,37 @@ export default function SignUp() {
     password: '',
     confirmPassword: '',
     agencyName: '',
-    fullName: ''
+    fullName: '',
+    typeAgence: 'immobilier',
+    telephone: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Plan sélectionné depuis la landing page (ex: ?plan=growth ou returnTo contenant plan)
+  const planFromParam = searchParams.get('plan')
+  const returnTo = searchParams.get('returnTo') || ''
+  const planFromReturn = returnTo.match(/plan=([^&]+)/)?.[1]
+  const selectedPlan = planFromParam || planFromReturn || null
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
+    setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
     setIsLoading(true)
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas')
       setIsLoading(false)
       return
     }
-
     if (formData.password.length < 6) {
       setError('Le mot de passe doit contenir au moins 6 caractères')
       setIsLoading(false)
@@ -45,71 +50,48 @@ export default function SignUp() {
     }
 
     try {
-      console.log('Tentative d\'inscription...', { email: formData.email, agencyName: formData.agencyName })
-      
-      // 1. Créer l'utilisateur dans auth.users
+      // 1. Créer le compte Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       })
-
       if (authError) {
-        console.error('Erreur inscription Supabase:', authError)
         setError(authError.message || 'Erreur lors de la création du compte')
         setIsLoading(false)
         return
       }
 
-      console.log('Utilisateur créé:', authData.user?.email)
-
-      // 2. Créer l'agence
-      const { data: agencyData, error: agencyError } = await supabase
-        .from('agencies')
-        .insert([{ 
-          nom_agence: formData.agencyName, 
-          plan: 'starter' 
-        }])
-        .select()
-        .single()
-
-      if (agencyError) {
-        console.error('Erreur création agence:', agencyError)
-        setError('Erreur lors de la création de l\'agence')
-        setIsLoading(false)
-        return
-      }
-
-      console.log('Agence créée:', agencyData.id)
-
-      // 3. Créer le profil utilisateur
-      const { data: profileData, error: profileError } = await supabase
+      // 2. Créer le profil agence dans la table profiles
+      const { error: profileError } = await supabase
         .from('profiles')
-        .insert([{
+        .upsert([{
           user_id: authData.user.id,
-          agency_id: agencyData.id,
           email: formData.email,
-          role: 'admin',
-          nom_complet: formData.fullName
-        }])
-        .select()
-        .single()
+          nom_agence: formData.agencyName,
+          nom_complet: formData.fullName,
+          telephone: formData.telephone,
+          type_agence: formData.typeAgence,
+          subscription_status: 'inactive',
+          subscription_plan: 'free',
+        }], { onConflict: 'user_id' })
 
       if (profileError) {
-        console.error('Erreur création profil:', profileError)
-        setError('Erreur lors de la création du profil')
-        setIsLoading(false)
-        return
+        console.error('Profil error (non bloquant):', profileError)
+        // Non bloquant — on continue quand même
       }
 
-      console.log('Profil créé:', profileData.id)
+      // 3. Redirection selon contexte
+      if (selectedPlan) {
+        // Venir de la landing page → aller directement au checkout
+        navigate(`/settings?tab=facturation&plan=${selectedPlan}`)
+      } else if (returnTo) {
+        navigate(decodeURIComponent(returnTo))
+      } else {
+        navigate('/app')
+      }
 
-      setSuccess('Compte créé avec succès ! Vérifiez votre email pour confirmer.')
-      setTimeout(() => {
-        navigate('/login')
-      }, 3000)
-
-    } catch (error) {
-      console.error('Erreur inattendue:', error)
+    } catch (err) {
+      console.error('Erreur inattendue:', err)
       setError('Erreur réseau. Veuillez réessayer.')
     }
 
@@ -118,167 +100,138 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
+
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building size={24} className="text-white" />
+        <div className="text-center mb-6">
+          <div className="bg-blue-600 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Building size={22} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">LeadQualif IA</h1>
-          <p className="text-slate-600">Créer votre agence</p>
+          <h1 className="text-2xl font-bold text-slate-900 mb-1">Créer votre compte</h1>
+          <p className="text-slate-500 text-sm">LeadQualif IA — CRM pour agences SMMA & Immo</p>
         </div>
 
-        {/* Formulaire */}
+        {/* Badge plan sélectionné */}
+        {selectedPlan && PLAN_LABELS[selectedPlan] && (
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border mb-5 text-sm font-medium ${PLAN_COLORS[selectedPlan]}`}>
+            <CheckCircle size={16} />
+            Plan sélectionné : <strong>{PLAN_LABELS[selectedPlan]}</strong>
+            <span className="ml-auto text-xs font-normal opacity-70">7 jours gratuits</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Informations Agence */}
-          <div className="space-y-4 pb-4 border-b border-slate-100">
-            <div>
-              <label htmlFor="agencyName" className="block text-sm font-medium text-slate-700 mb-2">
-                Nom de l'agence *
-              </label>
+
+          {/* Infos agence */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nom de l'agence *</label>
               <div className="relative">
-                <User size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  id="agencyName"
-                  name="agencyName"
-                  type="text"
-                  value={formData.agencyName}
-                  onChange={handleChange}
-                  placeholder="Immobilier Dupont"
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  required
-                />
+                <Building size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input name="agencyName" type="text" value={formData.agencyName} onChange={handleChange}
+                  placeholder="Immo Dupont / Agence Marketing XYZ"
+                  className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required />
               </div>
             </div>
 
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 mb-2">
-                Votre nom complet *
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Votre prénom & nom *</label>
               <div className="relative">
-                <User size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={handleChange}
+                <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input name="fullName" type="text" value={formData.fullName} onChange={handleChange}
                   placeholder="Jean Dupont"
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  required
-                />
+                  className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Téléphone</label>
+              <input name="telephone" type="tel" value={formData.telephone} onChange={handleChange}
+                placeholder="+33 6 00 00 00 00"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" />
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Type d'agence *</label>
+              <select name="typeAgence" value={formData.typeAgence} onChange={handleChange}
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white">
+                <option value="immobilier">🏠 Agence Immobilière</option>
+                <option value="smma">📱 Agence SMMA / Marketing</option>
+                <option value="autre">💼 Autre</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-3 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email professionnel *</label>
+              <div className="relative">
+                <Mail size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input name="email" type="email" value={formData.email} onChange={handleChange}
+                  placeholder="contact@agence.fr"
+                  className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required autoComplete="email" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe *</label>
+                <div className="relative">
+                  <Lock size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input name="password" type={showPassword ? 'text' : 'password'} value={formData.password} onChange={handleChange}
+                    placeholder="Min 6 caractères"
+                    className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Confirmer *</label>
+                <div className="relative">
+                  <Lock size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'} value={formData.confirmPassword} onChange={handleChange}
+                    placeholder="Confirmer"
+                    className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Informations Connexion */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-              Email professionnel *
-            </label>
-            <div className="relative">
-              <Mail size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="contact@agence.fr"
-                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                required
-                autoComplete="email"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-              Mot de passe *
-            </label>
-            <div className="relative">
-              <Lock size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Min 6 caractères"
-                className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                required
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
-              Confirmer le mot de passe *
-            </label>
-            <div className="relative">
-              <Lock size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirmer le mot de passe"
-                className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                required
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
+          {/* Note paiement */}
+          <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3 border border-slate-100">
+            💳 Aucune carte bancaire requise maintenant. Le paiement sera demandé uniquement à la fin de votre essai gratuit de 7 jours via Stripe (100% sécurisé).
+          </p>
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
+              ⚠️ {error}
             </div>
           )}
 
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-              {success}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading || !formData.email || !formData.password || !formData.agencyName}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
+          <button type="submit"
+            disabled={isLoading || !formData.email || !formData.password || !formData.agencyName || !formData.fullName}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm">
             {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Création en cours...
-              </>
+              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Création en cours...</>
             ) : (
-              'Créer mon agence'
+              selectedPlan ? `Créer mon compte & choisir ${PLAN_LABELS[selectedPlan]?.split('—')[0].trim()} →` : 'Créer mon compte →'
             )}
           </button>
         </form>
 
-        {/* Footer */}
-        <div className="mt-8 pt-6 border-t border-slate-100">
+        <div className="mt-5 pt-4 border-t border-slate-100">
           <p className="text-center text-slate-500 text-sm">
             Déjà un compte ?{' '}
-            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link
+              to={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'}
+              className="text-blue-600 hover:text-blue-700 font-medium">
               Se connecter
             </Link>
           </p>
