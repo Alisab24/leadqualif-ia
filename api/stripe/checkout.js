@@ -127,10 +127,9 @@ module.exports = async function handler(req, res) {
         });
         sessionParams.customer = customer.id;
       }
-    } else {
-      // Depuis la landing page : Stripe collecte l'email lui-même
-      sessionParams.customer_creation = 'always';
     }
+    // Sans email : Stripe Checkout collecte l'email et crée le customer automatiquement
+    // (customer_creation n'est pas valide en mode subscription)
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
