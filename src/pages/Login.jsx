@@ -1,113 +1,287 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { Eye, EyeOff, Mail, Lock, Zap, CheckCircle, ArrowRight } from 'lucide-react'
+
+const PLAN_INFO = {
+  starter: { label: 'Starter', price: '49€/mois', color: 'from-blue-500 to-blue-600', badge: 'bg-blue-50 border-blue-200 text-blue-700' },
+  growth:  { label: 'Growth',  price: '149€/mois', color: 'from-indigo-500 to-indigo-600', badge: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+  enterprise: { label: 'Enterprise', price: 'Sur mesure', color: 'from-purple-500 to-purple-600', badge: 'bg-purple-50 border-purple-200 text-purple-700' },
+}
+
+const ERROR_MESSAGES = {
+  'Invalid login credentials': 'Email ou mot de passe incorrect.',
+  'Email not confirmed': 'Veuillez confirmer votre email avant de vous connecter.',
+  'Too many requests': 'Trop de tentatives. Réessayez dans quelques minutes.',
+  'User not found': 'Aucun compte associé à cet email.',
+}
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
+  const returnTo = searchParams.get('returnTo') || ''
+  const planFromReturn = returnTo.match(/plan=([^&]+)/)?.[1]
+  const planInfo = planFromReturn ? PLAN_INFO[planFromReturn] : null
+
+  const signupLink = returnTo
+    ? `/signup?returnTo=${searchParams.get('returnTo')}`
+    : '/signup'
+
+  // ── LOGIN ────────────────────────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault()
+    setError('')
     setLoading(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+
     if (error) {
-      alert('Erreur de connexion : ' + error.message)
+      const friendly = Object.entries(ERROR_MESSAGES).find(([k]) =>
+        error.message.includes(k)
+      )
+      setError(friendly ? friendly[1] : error.message)
       setLoading(false)
     } else {
-      // Rediriger vers la page demandée avant login (ex: /settings?tab=facturation&plan=starter)
-      const returnTo = searchParams.get('returnTo')
       navigate(returnTo ? decodeURIComponent(returnTo) : '/app')
     }
   }
 
+  // ── MOT DE PASSE OUBLIÉ ──────────────────────────────────────────────────
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setForgotLoading(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: 'https://www.leadqualif.com/reset-password',
+    })
+
+    setForgotLoading(false)
+    if (error) {
+      setError(error.message)
+    } else {
+      setForgotSent(true)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+
+      {/* Fond décoratif */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full opacity-5 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500 rounded-full opacity-5 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md">
+
+        {/* Logo + titre */}
         <div className="text-center mb-8">
-          <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 mb-4">
+            <Zap size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">LeadQualif IA</h1>
-          <p className="text-slate-600">Accès à l'espace professionnel</p>
+          <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">LeadQualif IA</h1>
+          <p className="text-slate-400 text-sm">CRM intelligent pour agences SMMA & Immo</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="contact@agence.fr"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              required
-              autoComplete="email"
-            />
+        {/* Badge plan sélectionné */}
+        {planInfo && (
+          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border mb-4 text-sm font-medium ${planInfo.badge}`}>
+            <CheckCircle size={15} />
+            Plan sélectionné : <strong>{planInfo.label}</strong> — {planInfo.price}
+            <span className="ml-auto text-xs opacity-70">7 jours gratuits</span>
           </div>
+        )}
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-              Mot de passe
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Entrez votre mot de passe"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              required
-              autoComplete="current-password"
-            />
-          </div>
+        {/* Carte principale */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
 
-          <button
-            type="submit"
-            disabled={loading || !email || !password}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Connexion...
-              </>
-            ) : (
-              'Se connecter'
-            )}
-          </button>
-        </form>
+          {!showForgot ? (
+            <>
+              <h2 className="text-xl font-semibold text-slate-800 mb-6">
+                {planInfo ? 'Connectez-vous pour continuer' : 'Connexion à votre espace'}
+              </h2>
 
-        <div className="mt-8 pt-6 border-t border-slate-100">
-          <p className="text-center text-slate-500 text-sm">
-            Pas encore de compte ?{' '}
-            <Link
-              to={searchParams.get('returnTo')
-                ? `/signup?returnTo=${searchParams.get('returnTo')}`
-                : '/signup'}
-              className="text-blue-600 hover:text-blue-700 font-medium">
-              Créer une agence
-            </Link>
-          </p>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Email professionnel
+                  </label>
+                  <div className="relative">
+                    <Mail size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="contact@agence.fr"
+                      className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                      required
+                      autoComplete="email"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Mot de passe */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-sm font-medium text-slate-700">Mot de passe</label>
+                    <button
+                      type="button"
+                      onClick={() => { setShowForgot(true); setForgotEmail(email); setError('') }}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-10 pr-11 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                      required
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Erreur */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
+                    <span className="mt-0.5">⚠️</span>
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* Bouton connexion */}
+                <button
+                  type="submit"
+                  disabled={loading || !email || !password}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 rounded-xl font-semibold text-sm transition-all shadow-md shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                >
+                  {loading ? (
+                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Connexion...</>
+                  ) : (
+                    <>{planInfo ? 'Se connecter & choisir mon plan' : 'Se connecter'} <ArrowRight size={16} /></>
+                  )}
+                </button>
+              </form>
+
+              {/* Footer */}
+              <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+                <p className="text-slate-500 text-sm">
+                  Pas encore de compte ?{' '}
+                  <Link to={signupLink} className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                    Créer une agence gratuitement →
+                  </Link>
+                </p>
+              </div>
+            </>
+          ) : (
+
+            /* ── MOT DE PASSE OUBLIÉ ── */
+            <>
+              <button
+                onClick={() => { setShowForgot(false); setForgotSent(false); setError('') }}
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-5 transition-colors"
+              >
+                ← Retour à la connexion
+              </button>
+
+              {!forgotSent ? (
+                <>
+                  <h2 className="text-xl font-semibold text-slate-800 mb-2">Réinitialiser le mot de passe</h2>
+                  <p className="text-slate-500 text-sm mb-6">
+                    Entrez votre email et nous vous enverrons un lien de réinitialisation.
+                  </p>
+
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+                      <div className="relative">
+                        <Mail size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          placeholder="contact@agence.fr"
+                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          required
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                        ⚠️ {error}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={forgotLoading || !forgotEmail}
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {forgotLoading
+                        ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Envoi...</>
+                        : 'Envoyer le lien de réinitialisation'
+                      }
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={32} className="text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-slate-800 mb-2">Email envoyé !</h2>
+                  <p className="text-slate-500 text-sm mb-1">
+                    Un lien de réinitialisation a été envoyé à
+                  </p>
+                  <p className="font-semibold text-slate-800 text-sm mb-5">{forgotEmail}</p>
+                  <p className="text-xs text-slate-400">
+                    Vérifiez vos spams si vous ne le recevez pas dans 2 minutes.
+                  </p>
+                  <button
+                    onClick={() => { setShowForgot(false); setForgotSent(false); setError('') }}
+                    className="mt-6 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    ← Retour à la connexion
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
+
+        {/* Bas de page */}
+        <p className="text-center text-slate-500 text-xs mt-6">
+          © 2025 LeadQualif · <a href="https://nexapro.tech" className="hover:text-slate-300 transition-colors">NexaPro</a>
+          {' · '}
+          <a href="mailto:contact@nexapro.tech" className="hover:text-slate-300 transition-colors">Support</a>
+        </p>
       </div>
     </div>
   )
 }
-
-
-
-
-
-

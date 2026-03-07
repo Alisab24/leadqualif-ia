@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 
 // Imports Pages
 import Login from './pages/Login';
+import SignUp from './pages/Signup';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
 import DocumentsPage from './pages/DocumentsPage';
@@ -38,6 +40,8 @@ export default function App() {
           {/* Public */}
           <Route path="/" element={<LeadQualifRedirect />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/estimation" element={<Estimation />} />
           <Route path="/estimation/:agencyId" element={<Estimation />} />
 
