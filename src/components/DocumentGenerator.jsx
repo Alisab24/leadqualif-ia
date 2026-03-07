@@ -125,21 +125,22 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         // Utiliser profiles directement (aligné avec Settings.jsx)
         const profile = {
           id: profileData.id,
-          name: profileData.nom_agence || profileData.nom_commercial || profileData.nom_legal || 'Agence',
-          legalName: profileData.nom_legal || null, // PAS de valeur par défaut factice
+          agency_id: profileData.agency_id,
+          name: profileData.nom_agence || profileData.nom_commercial || profileData.nom_legal || 'Mon Agence',
+          legalName: profileData.nom_legal || profileData.nom_agence || null,
           address: profileData.adresse_legale || profileData.adresse || null,
           phone: profileData.telephone || null,
           email: profileData.email || null,
           legalStatus: profileData.statut_juridique || null,
           registrationNumber: profileData.numero_enregistrement || null,
           legalMention: profileData.mention_legale || null,
-          paymentConditions: profileData.conditions_paiement || null,
-          devise: profileData.devise || null,
-          symbole_devise: profileData.symbole_devise || null,
+          paymentConditions: profileData.conditions_paiement || 'À réception de facture',
+          devise: profileData.devise || 'EUR',
+          symbole_devise: profileData.symbole_devise || '€',
           logo_url: profileData.logo_url || null,
           siret: profileData.siret || null,
           tva: profileData.tva || null,
-          pays: profileData.pays || null,
+          pays: profileData.pays || 'France',
           source: 'profiles'
         };
 
@@ -190,24 +191,15 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       return;
     }
 
-    // Validation CLÉ : champs obligatoires pour la génération
-    const requiredFields = [
-      { field: agencyProfile.legalName, name: 'nom légal' },
-      { field: agencyProfile.pays, name: 'pays' },
-      { field: agencyProfile.devise, name: 'devise' }
-    ];
-
-    const missingFields = requiredFields.filter(
-      ({ field }) => !field || field === null || field === undefined || field.trim() === ''
-    );
-
-    if (missingFields.length > 0) {
+    // Validation : seul le nom légal est vraiment requis.
+    // pays et devise ont des valeurs par défaut (France, EUR).
+    if (!agencyProfile.legalName || agencyProfile.legalName.trim() === '') {
       setCanGenerate(false);
-      setValidationMessage(`Complétez les informations légales dans Paramètres → Documents (${missingFields.map(f => f.name).join(', ')})`);
+      setValidationMessage('Renseignez votre nom légal dans Paramètres → Légal');
       return;
     }
 
-    // ✅ Tous les champs OK
+    // ✅ OK
     setCanGenerate(true);
     setValidationMessage('');
   }, [agencyProfile, profileLoading]);
@@ -1228,7 +1220,32 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       <h4 className="font-bold text-slate-800 flex items-center gap-2">
         📄 Génération de Documents
       </h4>
-      
+
+      {/* Alerte visible si profil incomplet */}
+      {!profileLoading && !canGenerate && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <span className="text-lg shrink-0">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800">Informations manquantes</p>
+            <p className="text-xs text-amber-600 mt-0.5">{validationMessage}</p>
+            <a
+              href="/settings?tab=legal"
+              className="inline-block mt-2 text-xs font-semibold text-amber-700 underline hover:text-amber-900"
+            >
+              Compléter les paramètres légaux →
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Chargement du profil */}
+      {profileLoading && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full" />
+          Chargement du profil…
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {documentTypes.map(docType => (
           <button
