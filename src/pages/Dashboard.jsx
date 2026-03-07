@@ -6,6 +6,9 @@ import DocumentGenerator from '../components/DocumentGenerator';
 import DocumentTemplateGenerator from '../components/DocumentTemplateGenerator';
 import UnifiedDocumentGenerator from '../components/UnifiedDocumentGenerator';
 import { aiService } from '../services/ai';
+import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate } from '../components/PlanGuard';
+import OnboardingGuide from '../components/OnboardingGuide';
+import { NotificationBell, NotificationBanners } from '../components/SmartNotifications';
 import {
   DndContext,
   DragOverlay,
@@ -382,16 +385,20 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <button
-              onClick={() => setShowLeadForm(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
-            >
-              ➕ Nouveau lead
-            </button>
+            <AddLeadGate>
+              <button
+                onClick={() => setShowLeadForm(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+              >
+                ➕ Nouveau lead
+              </button>
+            </AddLeadGate>
 
             <Link to="/documents" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
               📂 Documents
             </Link>
+
+            <NotificationBell agencyId={agencyProfile?.agency_id || agencyProfile?.id} />
 
             <Link to="/settings" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
               ⚙️ Settings
@@ -447,6 +454,17 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 overflow-hidden">
+        {/* ===== ONBOARDING GUIDE ===== */}
+        <OnboardingGuide />
+
+        {/* ===== BANNIÈRES PLAN + NOTIFICATIONS URGENTES ===== */}
+        <div className="px-6 pt-2 space-y-1">
+          <TrialBanner />
+          <LeadQuotaBanner />
+          <UpgradeBanner feature="docs" />
+          <NotificationBanners agencyId={agencyProfile?.agency_id || agencyProfile?.id} />
+        </div>
+
         {/* ===== VUE KANBAN avec Drag & Drop ===== */}
         {viewMode === 'kanban' && (
           <DndContext
