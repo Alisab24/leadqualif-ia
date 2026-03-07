@@ -1,18 +1,18 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
 
-    // Connexion Supabase
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -21,8 +21,9 @@ export default function Login() {
       alert('Erreur de connexion : ' + error.message)
       setLoading(false)
     } else {
-      // Si succès, on va au dashboard
-      navigate('/app')
+      // Rediriger vers la page demandée avant login (ex: /settings?tab=facturation&plan=starter)
+      const returnTo = searchParams.get('returnTo')
+      navigate(returnTo ? decodeURIComponent(returnTo) : '/app')
     }
   }
 

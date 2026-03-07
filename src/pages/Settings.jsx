@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { redirectToCheckout, openBillingPortal, PLAN_LABELS, PLAN_COLORS, STATUS_LABELS } from '../services/stripeService';
 
@@ -17,34 +17,53 @@ export default function Settings() {
     plan: 'free',
     current_period_end: null,
   });
-  // Stocke le plan à auto-déclencher après chargement du profil
-  const pendingPlanRef = useRef(null);
+  // Plan à auto-déclencher une fois le profil chargé (vient de la landing page)
+  const [pendingPlan, setPendingPlan] = useState(null);
 
-  // Détecter retour depuis Stripe (success ou cancel) + auto-checkout depuis landing page
+  // Détecter les params URL au montage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
     if (params.get('subscription') === 'success') {
       const plan = params.get('plan') || 'growth';
-      setStripeError('');
-      alert(`✅ Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif ${plan}.`);
+      alert(`✅ Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif.`);
       window.history.replaceState({}, '', '/settings?tab=facturation');
       setActiveTab('facturation');
+      return;
     }
     if (params.get('canceled') === 'true') {
       setActiveTab('facturation');
       window.history.replaceState({}, '', '/settings?tab=facturation');
+      return;
     }
     if (params.get('tab')) {
       setActiveTab(params.get('tab'));
     }
-    // Auto-déclencher le checkout si plan passé depuis la landing page
+    // Plan depuis la landing page → stocker, nettoyer l'URL
     const planParam = params.get('plan');
     if (planParam && ['starter', 'growth', 'enterprise'].includes(planParam)) {
-      pendingPlanRef.current = planParam;
+      setPendingPlan(planParam);
       setActiveTab('facturation');
-      window.history.replaceState({}, '', `/settings?tab=facturation`);
+      window.history.replaceState({}, '', '/settings?tab=facturation');
+    }
+    // Vérifier aussi sessionStorage (filet de sécurité)
+    const storedPlan = sessionStorage.getItem('pendingPlan');
+    if (storedPlan && ['starter', 'growth', 'enterprise'].includes(storedPlan)) {
+      setPendingPlan(storedPlan);
+      sessionStorage.removeItem('pendingPlan');
+      setActiveTab('facturation');
     }
   }, []);
+
+  // Auto-déclencher le checkout dès que profil chargé + email dispo + plan en attente
+  useEffect(() => {
+    if (!loading && pendingPlan && userEmail && userId) {
+      const plan = pendingPlan;
+      setPendingPlan(null); // reset pour éviter double-déclenchement
+      handleSubscribeWithEmail(plan, userEmail, userId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pendingPlan, userEmail, userId]);
 
   // État global
   const [formData, setFormData] = useState({
@@ -166,17 +185,6 @@ export default function Settings() {
       }
     }
     setLoading(false);
-
-    // Auto-déclencher le checkout si on vient de la landing page (?plan=xxx)
-    if (pendingPlanRef.current) {
-      const plan = pendingPlanRef.current;
-      pendingPlanRef.current = null;
-      const { data: { user: u } } = await supabase.auth.getUser();
-      if (u?.email) {
-        // Un léger délai pour laisser le state se stabiliser
-        setTimeout(() => handleSubscribeWithEmail(plan, u.email, u.id), 500);
-      }
-    }
   };
 
   // === HANDLERS STRIPE ===
