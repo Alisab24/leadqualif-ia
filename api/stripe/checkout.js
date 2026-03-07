@@ -33,14 +33,25 @@ const PLANS = {
   },
 };
 
-module.exports = async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// Helper: CORS headers pour tous les contextes (app + landing page)
+function setCors(res, origin) {
+  const allowed = ['https://nexapro.tech', 'https://www.leadqualif.com', 'https://leadqualif.com'];
+  const allowOrigin = allowed.includes(origin) ? origin : 'https://nexapro.tech';
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Vary', 'Origin');
+}
 
+module.exports = async function handler(req, res) {
+  const origin = req.headers.origin || '';
+
+  // Toujours poser les headers CORS en premier
+  setCors(res, origin);
+
+  // Répondre au preflight OPTIONS immédiatement
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -48,41 +59,16 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { plan, userId, userEmail, agencyName, successUrl, cancelUrl } = req.body;
+    const { plan, userId, userEmail, agencyName, successUrl, cancelUrl } = req.body || {};
 
     if (!plan || !PLANS[plan]) {
       return res.status(400).json({ error: 'Plan invalide. Choisissez: starter, growth ou enterprise' });
     }
 
-    if (!userEmail) {
-      return res.status(400).json({ error: 'Email utilisateur requis' });
-    }
-
     const planData = PLANS[plan];
 
-    // Créer ou récupérer le customer Stripe
-    let customer;
-    const existingCustomers = await stripe.customers.list({
-      email: userEmail,
-      limit: 1,
-    });
-
-    if (existingCustomers.data.length > 0) {
-      customer = existingCustomers.data[0];
-    } else {
-      customer = await stripe.customers.create({
-        email: userEmail,
-        name: agencyName || userEmail,
-        metadata: {
-          userId: userId || '',
-          agencyName: agencyName || '',
-        },
-      });
-    }
-
-    // Créer la session Checkout
-    const session = await stripe.checkout.sessions.create({
-      customer: customer.id,
+    // Session params de base (sans customer — Stripe collecte l'email)
+    const sessionParams = {
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: [
@@ -108,17 +94,37 @@ module.exports = async function handler(req, res) {
           plan,
           agencyName: agencyName || '',
         },
-        trial_period_days: 7, // 7 jours d'essai gratuit
+        trial_period_days: 7,
       },
-      success_url: successUrl || `${req.headers.origin}/dashboard?subscription=success&plan=${plan}`,
-      cancel_url: cancelUrl || `${req.headers.origin}/settings?tab=facturation&canceled=true`,
+      success_url: successUrl || `https://www.leadqualif.com/dashboard?subscription=success&plan=${plan}`,
+      cancel_url: cancelUrl || `https://nexapro.tech/leadqualif.html?canceled=true`,
       metadata: {
         userId: userId || '',
         plan,
       },
       locale: 'fr',
       allow_promotion_codes: true,
-    });
+    };
+
+    // Si on a l'email (appel depuis l'app), créer/récupérer le customer
+    if (userEmail) {
+      const existingCustomers = await stripe.customers.list({ email: userEmail, limit: 1 });
+      if (existingCustomers.data.length > 0) {
+        sessionParams.customer = existingCustomers.data[0].id;
+      } else {
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          name: agencyName || userEmail,
+          metadata: { userId: userId || '', agencyName: agencyName || '' },
+        });
+        sessionParams.customer = customer.id;
+      }
+    } else {
+      // Depuis la landing page : Stripe collecte l'email lui-même
+      sessionParams.customer_creation = 'always';
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     return res.status(200).json({
       sessionId: session.id,
