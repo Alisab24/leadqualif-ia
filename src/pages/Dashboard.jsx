@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import LeadForm from '../components/LeadForm';
 import DocumentGenerator from '../components/DocumentGenerator';
 import { aiService } from '../services/ai';
@@ -366,61 +366,41 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Kanban / Liste toggle — texte masqué sur petits écrans */}
+            {/* Kanban / Liste toggle */}
             <div className="flex bg-slate-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('kanban')}
                 title="Vue Kanban"
-                className={`px-2 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
+                className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <span className="hidden lg:inline">📋 Kanban</span>
-                <span className="lg:hidden">📋</span>
+                <span className="hidden md:inline">📋 Kanban</span>
+                <span className="md:hidden">📋</span>
               </button>
               <button
                 onClick={() => setViewMode('list')}
                 title="Vue Liste"
-                className={`px-2 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
+                className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <span className="hidden lg:inline">☰ Liste</span>
-                <span className="lg:hidden">☰</span>
+                <span className="hidden md:inline">☰ Liste</span>
+                <span className="md:hidden">☰</span>
               </button>
             </div>
 
-            {/* Nouveau lead */}
+            {/* Nouveau lead — action principale */}
             <AddLeadGate>
               <button
                 data-new-lead
                 onClick={() => setShowLeadForm(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold shadow-sm"
                 title="Nouveau lead"
               >
                 <span>➕</span>
-                <span className="hidden lg:inline">Nouveau lead</span>
+                <span className="hidden sm:inline">Nouveau lead</span>
               </button>
             </AddLeadGate>
 
-            {/* Documents */}
-            <Link
-              to="/documents"
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-              title="Mes documents"
-            >
-              <span>📂</span>
-              <span className="hidden lg:inline">Documents</span>
-            </Link>
-
-            {/* Notifications */}
+            {/* Cloche notifications */}
             <NotificationBell agencyId={agencyProfile?.agency_id || agencyProfile?.id} />
-
-            {/* Settings */}
-            <Link
-              to="/settings"
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 text-sm font-medium"
-              title="Paramètres"
-            >
-              <span>⚙️</span>
-              <span className="hidden lg:inline">Paramètres</span>
-            </Link>
           </div>
         </div>
 
