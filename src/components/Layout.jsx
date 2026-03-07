@@ -73,8 +73,7 @@ export default function Layout() {
           <nav className="mt-6 flex flex-col">
             <NavItem to="/dashboard" icon="📊" label="Tableau de bord" />
             <NavItem to="/stats" icon="📈" label="Statistiques" />
-            <NavItem to="/documents" icon="📂" label="Mes Documents" />
-            <NavItem to="/documents-center" icon="📚" label="Centre de Documents" />
+            <NavItem to="/documents" icon="📂" label="Documents" />
             <div className="my-2 border-t border-white/5 mx-4"></div>
             <NavItem to="/settings" icon="⚙️" label="Paramètres" />
           </nav>
@@ -102,8 +101,8 @@ export default function Layout() {
         )}
       </aside>
 
-      {/* CONTENU PRINCIPAL (Décalé de 16 pour laisser la place aux icônes) */}
-      <div className="flex-1 ml-10 transition-all duration-300">
+      {/* CONTENU PRINCIPAL — décalé de w-16 (64px) pour la sidebar fermée */}
+      <div className="flex-1 ml-16 transition-all duration-300 min-w-0">
         <Outlet />
       </div>
     </div>
