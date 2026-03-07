@@ -1,1 +1,26 @@
-{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/stripe/checkout.js": {
+      "memory": 512,
+      "maxDuration": 10
+    },
+    "api/stripe/portal.js": {
+      "memory": 512,
+      "maxDuration": 10
+    },
+    "api/stripe/webhook.js": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  }
+}

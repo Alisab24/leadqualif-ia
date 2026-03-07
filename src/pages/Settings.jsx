@@ -1,11 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { redirectToCheckout, openBillingPortal, PLAN_LABELS, PLAN_COLORS, STATUS_LABELS } from '../services/stripeService';
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [userEmail, setUserEmail] = useState('');
   const [activeTab, setActiveTab] = useState('general');
+
+  // === Stripe ===
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState('');
+  const [subscriptionInfo, setSubscriptionInfo] = useState({
+    status: 'inactive',
+    plan: 'free',
+    current_period_end: null,
+  });
+
+  // Détecter retour depuis Stripe (success ou cancel)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscription') === 'success') {
+      const plan = params.get('plan') || 'growth';
+      setStripeError('');
+      alert(`✅ Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif ${plan}.`);
+      window.history.replaceState({}, '', '/settings?tab=facturation');
+      setActiveTab('facturation');
+    }
+    if (params.get('canceled') === 'true') {
+      setActiveTab('facturation');
+      window.history.replaceState({}, '', '/settings?tab=facturation');
+    }
+    if (params.get('tab')) {
+      setActiveTab(params.get('tab'));
+    }
+  }, []);
 
   // État global
   const [formData, setFormData] = useState({
@@ -63,6 +93,7 @@ export default function Settings() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setUserId(user.id);
+      setUserEmail(user.email || '');
       const { data } = await supabase
         .from('profiles')
         .select('*')
@@ -115,9 +146,51 @@ export default function Settings() {
             pipeline_utilise: 'immobilier'
           }
         });
+
+        // Infos abonnement Stripe depuis le profil
+        setSubscriptionInfo({
+          status: data.subscription_status || 'inactive',
+          plan: data.subscription_plan || 'free',
+          current_period_end: data.subscription_current_period_end || null,
+          stripe_customer_id: data.stripe_customer_id || null,
+        });
       }
     }
     setLoading(false);
+  };
+
+  // === HANDLERS STRIPE ===
+  const handleSubscribe = async (plan) => {
+    if (!userEmail) {
+      setStripeError('Impossible de récupérer votre email. Reconnectez-vous.');
+      return;
+    }
+    setStripeLoading(true);
+    setStripeError('');
+    const result = await redirectToCheckout({
+      plan,
+      userId,
+      userEmail,
+      agencyName: formData.nom_agence,
+    });
+    if (!result.success) {
+      setStripeError(result.error || 'Erreur lors de la redirection vers Stripe.');
+    }
+    setStripeLoading(false);
+  };
+
+  const handleOpenPortal = async () => {
+    if (!userEmail) {
+      setStripeError('Impossible de récupérer votre email.');
+      return;
+    }
+    setStripeLoading(true);
+    setStripeError('');
+    const result = await openBillingPortal(userEmail);
+    if (!result.success) {
+      setStripeError(result.error || 'Erreur lors de l\'ouverture du portail.');
+    }
+    setStripeLoading(false);
   };
 
   const handleChange = (e) => {
@@ -781,116 +854,169 @@ export default function Settings() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-xl font-bold text-slate-800 mb-1">💳 Abonnement & Facturation</h2>
-                <p className="text-sm text-slate-500">Gérez votre abonnement LeadQualif et vos informations de paiement</p>
+                <p className="text-sm text-slate-500">Gérez votre abonnement LeadQualif — paiements sécurisés via Stripe</p>
               </div>
 
-              {/* Plan actuel */}
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-blue-100 text-sm font-medium">Votre plan actuel</p>
-                    <p className="text-2xl font-bold mt-1">Growth — 149€/mois</p>
-                  </div>
-                  <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">✅ Actif</span>
+              {/* Erreur Stripe */}
+              {stripeError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                  ⚠️ {stripeError}
                 </div>
-                <p className="text-blue-200 text-sm">Prochain renouvellement : à configurer avec Stripe</p>
-              </div>
+              )}
+
+              {/* Plan actuel */}
+              {subscriptionInfo.status === 'active' || subscriptionInfo.status === 'trialing' ? (
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">Votre plan actuel</p>
+                      <p className="text-2xl font-bold mt-1">
+                        {PLAN_LABELS[subscriptionInfo.plan] || subscriptionInfo.plan}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold block mb-2">
+                        {STATUS_LABELS[subscriptionInfo.status] || subscriptionInfo.status}
+                      </span>
+                    </div>
+                  </div>
+                  {subscriptionInfo.current_period_end && (
+                    <p className="text-blue-200 text-sm">
+                      Prochain renouvellement : {new Date(subscriptionInfo.current_period_end).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={handleOpenPortal}
+                      disabled={stripeLoading}
+                      className="px-4 py-2 bg-white text-blue-700 rounded-lg font-semibold text-sm hover:bg-blue-50 transition disabled:opacity-50"
+                    >
+                      {stripeLoading ? '⏳ Chargement…' : '⚙️ Gérer mon abonnement'}
+                    </button>
+                    <button
+                      onClick={handleOpenPortal}
+                      disabled={stripeLoading}
+                      className="px-4 py-2 bg-white/20 text-white rounded-lg font-semibold text-sm hover:bg-white/30 transition disabled:opacity-50"
+                    >
+                      📄 Voir mes factures
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">⚡</span>
+                    <div>
+                      <p className="font-bold text-amber-800">Aucun abonnement actif</p>
+                      <p className="text-sm text-amber-700">Choisissez un plan pour débloquer toutes les fonctionnalités</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-amber-600">7 jours d'essai gratuit • Annulation à tout moment • Paiement sécurisé via Stripe</p>
+                </div>
+              )}
 
               {/* Plans disponibles */}
               <div>
-                <h3 className="text-sm font-bold text-slate-700 mb-3">Changer de plan</h3>
+                <h3 className="text-sm font-bold text-slate-700 mb-3">
+                  {subscriptionInfo.status === 'active' ? 'Changer de plan' : 'Choisir votre plan'}
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
                     {
+                      key: 'starter',
                       name: 'Starter',
                       price: '49€',
-                      features: ['Jusqu\'à 100 leads', 'Qualification IA', 'Pipeline Kanban', 'Documents basiques'],
-                      color: 'border-slate-200',
-                      badge: ''
+                      features: ['Jusqu\'à 100 leads', 'Qualification IA', 'Pipeline Kanban', 'Documents basiques', 'Support email'],
+                      border: 'border-slate-200',
+                      badge: '',
+                      btnClass: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
                     },
                     {
+                      key: 'growth',
                       name: 'Growth',
                       price: '149€',
-                      features: ['Leads illimités', 'IA avancée', 'CRM complet', 'Documents Pro', 'Stats & Analytics'],
-                      color: 'border-blue-400 ring-2 ring-blue-200',
-                      badge: '⭐ Recommandé'
+                      features: ['Leads illimités', 'IA avancée + suggestions', 'CRM & historique complet', 'Documents Pro SaaS', 'Stats & Analytics', 'Support prioritaire'],
+                      border: 'border-blue-400 ring-2 ring-blue-200',
+                      badge: '⭐ Recommandé',
+                      btnClass: 'bg-blue-600 text-white hover:bg-blue-700',
                     },
                     {
+                      key: 'enterprise',
                       name: 'Enterprise',
                       price: 'Sur devis',
-                      features: ['Multi-agents', 'API dédiée', 'Onboarding prioritaire', 'SLA garanti'],
-                      color: 'border-purple-200',
-                      badge: ''
+                      features: ['Multi-agents', 'API dédiée', 'Onboarding prioritaire', 'Formation équipe', 'SLA 99.9%'],
+                      border: 'border-purple-200',
+                      badge: '',
+                      btnClass: 'border border-purple-300 text-purple-700 hover:bg-purple-50',
                     },
-                  ].map(plan => (
-                    <div key={plan.name} className={`border-2 rounded-xl p-4 ${plan.color} relative`}>
-                      {plan.badge && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-semibold whitespace-nowrap">
-                          {plan.badge}
-                        </span>
-                      )}
-                      <p className="font-bold text-slate-800 text-lg">{plan.name}</p>
-                      <p className="text-2xl font-bold text-blue-600 mt-1">{plan.price}<span className="text-sm text-slate-400 font-normal">/mois</span></p>
-                      <ul className="mt-3 space-y-1">
-                        {plan.features.map(f => (
-                          <li key={f} className="text-xs text-slate-600 flex items-center gap-1.5">
-                            <span className="text-green-500">✓</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        onClick={() => alert('Intégration Stripe à venir — donnez-moi vos clés API Stripe pour connecter le paiement !')}
-                        className="w-full mt-4 py-2 rounded-lg text-sm font-semibold transition border border-slate-200 text-slate-600 hover:bg-slate-50"
-                      >
-                        Choisir ce plan
-                      </button>
-                    </div>
-                  ))}
+                  ].map(plan => {
+                    const isCurrent = subscriptionInfo.plan === plan.key && subscriptionInfo.status === 'active';
+                    return (
+                      <div key={plan.key} className={`border-2 rounded-xl p-4 ${plan.border} relative`}>
+                        {plan.badge && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-semibold whitespace-nowrap">
+                            {plan.badge}
+                          </span>
+                        )}
+                        {isCurrent && (
+                          <span className="absolute -top-3 right-4 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                            ✅ Actif
+                          </span>
+                        )}
+                        <p className="font-bold text-slate-800 text-lg">{plan.name}</p>
+                        <p className="text-2xl font-bold text-blue-600 mt-1">
+                          {plan.price}
+                          {plan.key !== 'enterprise' && <span className="text-sm text-slate-400 font-normal">/mois</span>}
+                        </p>
+                        <p className="text-xs text-green-600 font-medium mt-1">🎯 7 jours offerts</p>
+                        <ul className="mt-3 space-y-1 mb-4">
+                          {plan.features.map(f => (
+                            <li key={f} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="text-green-500 shrink-0">✓</span>{f}
+                            </li>
+                          ))}
+                        </ul>
+                        {plan.key === 'enterprise' ? (
+                          <a
+                            href="mailto:contact@nexapro.tech?subject=LeadQualif Enterprise"
+                            className={`w-full mt-2 py-2 px-4 rounded-lg text-sm font-semibold transition text-center block ${plan.btnClass}`}
+                          >
+                            Nous contacter
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleSubscribe(plan.key)}
+                            disabled={stripeLoading || isCurrent}
+                            className={`w-full py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${plan.btnClass}`}
+                          >
+                            {stripeLoading ? '⏳ Chargement…' : isCurrent ? '✅ Plan actuel' : `Démarrer l'essai gratuit`}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-
-              {/* Intégration Stripe */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-                <h3 className="text-sm font-bold text-slate-700 mb-3">🔌 Connecter Stripe (paiements automatiques)</h3>
-                <p className="text-xs text-slate-500 mb-4">
-                  Pour activer la facturation automatique, connectez votre compte Stripe.
-                  Vos clients pourront s'abonner et payer directement depuis la page produit.
+                <p className="text-xs text-center text-slate-400 mt-3">
+                  🔒 Paiement sécurisé via Stripe • Annulation à tout moment depuis le portail • Aucun engagement
                 </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Stripe Publishable Key</label>
-                    <input
-                      type="text"
-                      placeholder="pk_live_..."
-                      disabled
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-400 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Stripe Secret Key</label>
-                    <input
-                      type="password"
-                      placeholder="sk_live_..."
-                      disabled
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-400 cursor-not-allowed"
-                    />
-                  </div>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
-                    ⚠️ Pour activer Stripe, transmettez vos clés API à votre développeur.
-                    Les clés seront stockées de manière sécurisée dans les variables d'environnement Vercel.
-                  </div>
-                </div>
               </div>
 
-              {/* Historique factures placeholder */}
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <h3 className="text-sm font-bold text-slate-700 mb-3">📄 Historique des factures</h3>
-                <div className="text-center py-8 text-slate-400">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p className="text-sm">Aucune facture disponible</p>
-                  <p className="text-xs mt-1">Les factures apparaîtront ici une fois Stripe connecté</p>
+              {/* Portail de gestion */}
+              {subscriptionInfo.stripe_customer_id && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">⚙️ Gérer votre abonnement</h3>
+                  <p className="text-xs text-slate-500 mb-3">
+                    Accédez au portail Stripe pour modifier votre plan, télécharger vos factures, changer de carte bancaire ou annuler.
+                  </p>
+                  <button
+                    onClick={handleOpenPortal}
+                    disabled={stripeLoading}
+                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition disabled:opacity-50"
+                  >
+                    {stripeLoading ? '⏳ Ouverture…' : '→ Ouvrir le portail Stripe'}
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
