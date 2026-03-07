@@ -3,8 +3,6 @@ import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
 import LeadForm from '../components/LeadForm';
 import DocumentGenerator from '../components/DocumentGenerator';
-import DocumentTemplateGenerator from '../components/DocumentTemplateGenerator';
-import UnifiedDocumentGenerator from '../components/UnifiedDocumentGenerator';
 import { aiService } from '../services/ai';
 import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate } from '../components/PlanGuard';
 import OnboardingGuide from '../components/OnboardingGuide';
@@ -30,8 +28,6 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
   const [agencyType, setAgencyType] = useState('immobilier');
   const [showLeadForm, setShowLeadForm] = useState(false);
-  const [showTemplateGenerator, setShowTemplateGenerator] = useState(false);
-  const [showUnifiedGenerator, setShowUnifiedGenerator] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
 
   // === NOUVEAUX ÉTATS ===
@@ -932,29 +928,16 @@ export default function Dashboard() {
 
                 {/* === ONGLET DOCUMENTS === */}
                 {activeTab === 'documents' && (
-                  <div className="p-4 space-y-4">
-                    <p className="text-sm font-bold text-slate-800">📄 Documents</p>
-
-                    {/* Templates Pro (principal) */}
-                    <button
-                      onClick={() => setShowUnifiedGenerator(true)}
-                      className="w-full px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-semibold"
-                    >
-                      🎯 Générer un document SaaS
-                    </button>
-
-                    {/* Ancien système */}
-                    <div className="border-t border-slate-100 pt-3">
-                      <p className="text-xs text-slate-500 font-medium mb-2">Devis & Factures rapides</p>
-                      <DocumentGenerator
-                        lead={selectedLead}
-                        agencyId={session?.user?.user_metadata?.agency_id || 'default'}
-                        agencyType={agencyType}
-                        onDocumentGenerated={(data) => {
-                          logCrmEvent(selectedLead.id, 'document', `Document généré`, `Type: ${data?.type || 'Document'}`);
-                        }}
-                      />
-                    </div>
+                  <div className="p-4">
+                    <DocumentGenerator
+                      lead={selectedLead}
+                      agencyId={agencyProfile?.agency_id || agencyProfile?.id || session?.user?.id}
+                      agencyType={agencyType}
+                      onDocumentGenerated={(data) => {
+                        logCrmEvent(selectedLead.id, 'document', `Document généré`, `Type: ${data?.type || 'Document'}`);
+                        fetchLeads();
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -1052,34 +1035,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* ===== DOCUMENT TEMPLATE GENERATOR ===== */}
-      {showTemplateGenerator && selectedLead && (
-        <DocumentTemplateGenerator
-          lead={selectedLead}
-          agencyId={session?.user?.user_metadata?.agency_id || 'default'}
-          agencyType={agencyType}
-          onDocumentGenerated={(document) => {
-            logCrmEvent(selectedLead.id, 'document', 'Document template généré', `Type: ${document?.type || 'Template'}`);
-            setShowTemplateGenerator(false);
-            fetchLeads();
-          }}
-          onClose={() => setShowTemplateGenerator(false)}
-        />
-      )}
-
-      {/* ===== UNIFIED DOCUMENT GENERATOR ===== */}
-      {showUnifiedGenerator && selectedLead && agencyProfile && (
-        <UnifiedDocumentGenerator
-          lead={selectedLead}
-          agencyProfile={agencyProfile}
-          onDocumentGenerated={(document) => {
-            logCrmEvent(selectedLead.id, 'document', 'Document SaaS généré', `Type: ${document?.type || 'SaaS'}`);
-            setShowUnifiedGenerator(false);
-            fetchLeads();
-          }}
-          onClose={() => setShowUnifiedGenerator(false)}
-        />
-      )}
     </div>
   );
 }
