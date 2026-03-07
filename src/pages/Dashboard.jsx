@@ -352,7 +352,7 @@ export default function Dashboard() {
   if (loading) return <div className="flex h-screen items-center justify-center">Chargement...</div>;
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-50 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
       {/* ===== HEADER ===== */}
       <header className="flex-none h-auto bg-white border-b border-slate-200 px-6 z-40 shadow-sm shrink-0">
         {/* Ligne principale */}
