@@ -1,455 +1,607 @@
-import { useState, useEffect } from 'react'
+/**
+ * LeadDetails — Fiche complète d'un lead
+ * Design unifié avec le Dashboard (slate palette)
+ * Route : /lead/:id  |  Rendu dans <Layout>
+ */
+
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
-import { formatDate, formatPhone, formatCurrency, getScoreColor, getUrgencyColor, getInterestLevelColor, getInterestLevelIcon, getInterestLevelDescription } from '../utils/format'
-import UnifiedDocumentGenerator from './UnifiedDocumentGenerator'
+import DocumentGenerator from './DocumentGenerator'
 
+/* ─── Utilitaires ─────────────────────────────────────────── */
+const fmt = {
+  date: (d) =>
+    d
+      ? new Date(d).toLocaleDateString('fr-FR', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        })
+      : '—',
+  dateTime: (d) =>
+    d
+      ? new Date(d).toLocaleDateString('fr-FR', {
+          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+        })
+      : '—',
+  budget: (v) =>
+    v ? Number(v).toLocaleString('fr-FR') + ' €' : '—',
+}
+
+const SCORE_STYLE = (s) => {
+  if (s >= 70) return { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Chaud 🔥' }
+  if (s >= 40) return { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: 'Tiède 🌤' }
+  return         { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: 'Froid ❄️' }
+}
+
+const QUALIFICATION_COLOR = {
+  chaud:    'bg-green-100  text-green-800  border-green-200',
+  tiede:    'bg-yellow-100 text-yellow-800 border-yellow-200',
+  froid:    'bg-red-100    text-red-800    border-red-200',
+  CHAUD:    'bg-green-100  text-green-800  border-green-200',
+  TIEDE:    'bg-yellow-100 text-yellow-800 border-yellow-200',
+  FROID:    'bg-red-100    text-red-800    border-red-200',
+}
+
+const CRM_ICONS = {
+  edit: '✏️', rdv: '📅', whatsapp: '💬', email: '📧',
+  call: '📞', document: '📄', ia_suggestion: '🧠', note: '📝',
+}
+
+const initials = (name = '') =>
+  name.trim().split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+
+/* ─── Composant ───────────────────────────────────────────── */
 const LeadDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [lead, setLead] = useState(null)
+
+  const [lead, setLead]                   = useState(null)
   const [agencyProfile, setAgencyProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState('')
-  const [generatingSummary, setGeneratingSummary] = useState(false)
-  const [error, setError] = useState(null)
-  const [showTemplateGenerator, setShowTemplateGenerator] = useState(false)
+  const [loading, setLoading]             = useState(true)
+  const [error, setError]                 = useState(null)
 
-  const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com'
+  // IA
+  const [aiSuggestion, setAiSuggestion]     = useState('')
+  const [loadingAI, setLoadingAI]           = useState(false)
 
-  useEffect(() => {
-    if (id) {
-      loadLead()
-    }
-  }, [id])
+  // Historique CRM
+  const [crmHistory, setCrmHistory]       = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  // Onglet actif
+  const [activeTab, setActiveTab]         = useState('info')
+
+  // ─── Chargement lead ──────────────────────────────────────
+  useEffect(() => { if (id) loadLead() }, [id])
 
   const loadLead = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      
-      console.log('🔍 Chargement du lead ID:', id)
-      
-      // Charger le lead
-      const { data: leadData, error: leadError } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('id', id)
-        .single()
-      
-      if (leadError) throw leadError
-      
-      
-      if (!leadData) {
-        console.error('❌ Lead non trouvé dans la base')
-        throw new Error('Lead non trouvé')
-      }
-      
-      console.log('✅ Lead chargé avec succès:', leadData)
-      setLead(leadData)
-      
-      // Charger le profil agence
-      if (leadData.agency_id) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('agency_id', leadData.agency_id)
-          .single()
-        
-        if (profileError) {
-          console.warn('Profil agence non trouvé:', profileError)
-          setAgencyProfile({
-            type_agence: leadData.type_agence || 'immobilier',
-            agency_id: leadData.agency_id
-          })
-        } else {
-          setAgencyProfile(profileData)
-        }
-      }
-      
-      // Générer le résumé IA si pas déjà présent
-      if (!leadData.resume_ia && leadData) {
-        console.log('🤖 Génération du résumé IA...')
-        generateAISummary(leadData)
-      } else if (leadData.resume_ia) {
-        console.log('📝 Résumé IA déjà présent:', leadData.resume_ia)
-        setSummary(leadData.resume_ia)
+      setLoading(true); setError(null)
+      const { data, error: e } = await supabase
+        .from('leads').select('*').eq('id', id).single()
+      if (e) throw e
+      setLead(data)
+      if (data.resume_ia)    setAiSuggestion(data.resume_ia)
+      if (data.suggestion_ia) setAiSuggestion(data.suggestion_ia)
+
+      // profil agence
+      if (data.agency_id) {
+        const { data: prof } = await supabase
+          .from('profiles').select('*').eq('agency_id', data.agency_id).single()
+        setAgencyProfile(prof || { agency_id: data.agency_id })
       }
     } catch (err) {
-      console.error('💥 Erreur lors du chargement du lead:', err)
-      setError(err.message || 'Impossible de charger les détails du lead')
+      setError(err.message || 'Erreur de chargement')
     } finally {
       setLoading(false)
     }
   }
 
-  const generateAISummary = async (leadData) => {
+  // ─── Historique CRM ──────────────────────────────────────
+  const fetchHistory = useCallback(async () => {
+    if (!id || loadingHistory) return
+    setLoadingHistory(true)
+    const { data } = await supabase
+      .from('crm_events')
+      .select('*')
+      .eq('lead_id', id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setCrmHistory(data || [])
+    setLoadingHistory(false)
+  }, [id])
+
+  // ─── Suggestion IA ───────────────────────────────────────
+  const fetchAI = async () => {
+    if (!lead || loadingAI) return
+    setLoadingAI(true)
     try {
-      setGeneratingSummary(true)
-      const aiSummary = await aiService.generateLeadSummary(leadData)
-      setSummary(aiSummary)
-      
-      // Sauvegarder le résumé dans la base de données
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ resume_ia: aiSummary })
-        .eq('id', id)
-      
-      if (updateError) throw updateError
-    } catch (err) {
-      console.error('Erreur lors de la génération du résumé:', err)
-    } finally {
-      setGeneratingSummary(false)
-    }
+      const suggestion = await aiService.generateLeadSummary(lead)
+      setAiSuggestion(suggestion)
+      await supabase.from('leads').update({ resume_ia: suggestion }).eq('id', id)
+    } catch { /* silencieux */ }
+    setLoadingAI(false)
   }
 
-  const handleCalendlyClick = () => {
-    window.open(calendlyUrl, '_blank')
+  // ─── Log CRM ─────────────────────────────────────────────
+  const logCrm = async (type, title, description = '') => {
+    await supabase.from('crm_events').insert({
+      lead_id: id, agency_id: lead?.agency_id,
+      type, title, description,
+    })
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <svg className="animate-spin h-8 w-8 text-primary-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-gray-600">Chargement du lead...</p>
-        </div>
+  // ─── Changer onglet ──────────────────────────────────────
+  const switchTab = (key) => {
+    setActiveTab(key)
+    if (key === 'historique' && crmHistory.length === 0) fetchHistory()
+    if (key === 'ia' && !aiSuggestion) fetchAI()
+  }
+
+  // ─── États de chargement / erreur ────────────────────────
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen text-slate-400">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3" />
+        <p className="text-sm">Chargement du lead…</p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="card">
-          <div className="text-center py-12">
-            <div className="text-red-600 mb-4">
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-lg font-semibold mb-2">Erreur de chargement</p>
-              <p className="text-sm">{error}</p>
-            </div>
-            <button onClick={() => navigate('/')} className="btn-primary mt-4">
-              Retour au dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!lead) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="card">
-          <div className="text-center py-12">
-            <div className="text-gray-500 mb-4">
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-lg font-semibold mb-2">Lead non trouvé</p>
-              <p className="text-sm">Le lead demandé n'existe pas ou a été supprimé</p>
-            </div>
-            <button onClick={() => navigate('/')} className="btn-primary mt-4">
-              Retour au dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* 🐛 DEBUG TEMPORAIRE */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h3 className="font-bold text-yellow-800 mb-2">🐛 DEBUG TEMPORAIRE</h3>
-          <div className="text-sm space-y-1">
-            <p><strong>ID du lead:</strong> {id}</p>
-            <p><strong>Loading:</strong> {loading ? 'OUI' : 'NON'}</p>
-            <p><strong>Error:</strong> {error || 'AUCUNE'}</p>
-            <p><strong>Lead existe:</strong> {lead ? 'OUI' : 'NON'}</p>
-            {lead && (
-              <>
-                <p><strong>Nom:</strong> {lead.nom || 'VIDE'}</p>
-                <p><strong>Email:</strong> {lead.email || 'VIDE'}</p>
-                <p><strong>Téléphone:</strong> {lead.telephone || 'VIDE'}</p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Retour au dashboard
+  if (error || !lead) return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-center">
+        <div className="text-5xl mb-4">⚠️</div>
+        <p className="text-slate-700 font-semibold mb-1">{error || 'Lead introuvable'}</p>
+        <button onClick={() => navigate('/dashboard')}
+          className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+          ← Retour au Dashboard
         </button>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowTemplateGenerator(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Générer un document
-          </button>
-          <button
-            onClick={() => navigate(`/documents-center?lead=${id}`)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Voir documents du lead
-          </button>
-          <button
-            onClick={handleCalendlyClick}
-            className="btn-primary flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Proposer un RDV
-          </button>
-        </div>
       </div>
+    </div>
+  )
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Colonne principale */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Badge de classification */}
-          {lead.niveau_interet && (
-            <div className="card bg-gradient-to-r from-white to-gray-50 border-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-4xl">{getInterestLevelIcon(lead.niveau_interet)}</span>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700">Classification du lead</h3>
-                    <p className="text-sm text-gray-500 mt-1">{getInterestLevelDescription(lead.niveau_interet)}</p>
-                  </div>
-                </div>
-                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-lg font-bold border-2 ${getInterestLevelColor(lead.niveau_interet)}`}>
-                  <span>{getInterestLevelIcon(lead.niveau_interet)}</span>
-                  {lead.niveau_interet}
+  const score   = lead.score_qualification || 0
+  const ss      = SCORE_STYLE(score)
+  const niveau  = lead.niveau_interet?.toLowerCase()
+  const qualCls = QUALIFICATION_COLOR[niveau] || 'bg-slate-100 text-slate-700 border-slate-200'
+  const agencyId = agencyProfile?.agency_id || agencyProfile?.id
+  const agencyType = agencyProfile?.type_agence || 'immobilier'
+
+  /* ───────────────────────────────────────────────────────── */
+  return (
+    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
+
+      {/* ── HEADER ─────────────────────────────────────────── */}
+      <header className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm z-10">
+        <div className="flex items-center justify-between h-16">
+
+          {/* Gauche : retour + identité */}
+          <div className="flex items-center gap-4 min-w-0">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors shrink-0"
+              title="Retour au Dashboard"
+            >
+              ←
+            </button>
+
+            {/* Avatar */}
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600
+                            flex items-center justify-center text-white text-sm font-bold shrink-0">
+              {initials(lead.nom)}
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-slate-900 truncate">{lead.nom}</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full border ${qualCls}`}>
+                  {lead.niveau_interet || '—'}
+                </span>
+                <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${ss.badge}`}>
+                  Score {score}%
+                </span>
+                <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                  lead.lead_role === 'proprietaire'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {lead.lead_role === 'proprietaire' ? '🔑 Propriétaire' : '🏠 Client'}
                 </span>
               </div>
             </div>
-          )}
-
-          {/* Informations principales */}
-          <div className="card">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Informations du lead</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Nom complet</label>
-                <p className="mt-1 text-lg text-gray-900">{lead.nom}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Email</label>
-                <p className="mt-1 text-lg text-gray-900">{lead.email}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Téléphone</label>
-                <p className="mt-1 text-lg text-gray-900">{formatPhone(lead.telephone)}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Source</label>
-                <p className="mt-1 text-lg text-gray-900 capitalize">{lead.source?.replace('_', ' ') || 'Non spécifiée'}</p>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-500">Message / Besoins</label>
-                <p className="mt-1 text-gray-900 whitespace-pre-wrap">{lead.message || 'Aucun message'}</p>
-              </div>
-            </div>
           </div>
 
-          {/* Résumé IA */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                Résumé IA
-              </h2>
-              {!summary && !generatingSummary && (
-                <button
-                  onClick={() => generateAISummary(lead)}
-                  className="text-sm text-primary-600 hover:text-primary-700"
-                >
-                  Générer
-                </button>
-              )}
-            </div>
-            {generatingSummary ? (
-              <div className="flex items-center justify-center py-8">
-                <svg className="animate-spin h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
-            ) : summary ? (
-              <p className="text-gray-700 leading-relaxed">{summary}</p>
-            ) : (
-              <p className="text-gray-400 italic">Aucun résumé disponible</p>
-            )}
+          {/* Droite : actions rapides */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                window.open(`https://wa.me/${lead.telephone?.replace(/\D/g, '')}`, '_blank')
+                logCrm('whatsapp', 'Message WhatsApp envoyé')
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-green-50 hover:bg-green-100
+                         text-green-700 rounded-lg text-xs font-semibold transition-colors"
+              title="WhatsApp"
+            >
+              <span>💬</span><span className="hidden sm:inline">WhatsApp</span>
+            </button>
+            <button
+              onClick={() => {
+                window.open(`tel:${lead.telephone}`, '_blank')
+                logCrm('call', 'Appel téléphonique')
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100
+                         text-blue-700 rounded-lg text-xs font-semibold transition-colors"
+              title="Appeler"
+            >
+              <span>📞</span><span className="hidden sm:inline">Appeler</span>
+            </button>
+            <button
+              onClick={() => {
+                window.open(`mailto:${lead.email}`, '_blank')
+                logCrm('email', 'Email envoyé')
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-orange-50 hover:bg-orange-100
+                         text-orange-700 rounded-lg text-xs font-semibold transition-colors"
+              title="Email"
+            >
+              <span>📧</span><span className="hidden sm:inline">Email</span>
+            </button>
+            <button
+              onClick={() => {
+                const url = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com'
+                window.open(url, '_blank')
+                logCrm('rdv', 'RDV proposé via Calendly')
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100
+                         text-purple-700 rounded-lg text-xs font-semibold transition-colors"
+              title="Proposer un RDV"
+            >
+              <span>📅</span><span className="hidden sm:inline">RDV</span>
+            </button>
           </div>
-
-          {/* Qualification détaillée */}
-          {lead.qualification_data && (
-            <div className="card">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Analyse de qualification</h2>
-              
-              {lead.points_forts && lead.points_forts.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Points forts</h3>
-                  <ul className="space-y-2">
-                    {lead.points_forts.map((point, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-gray-700">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {lead.points_attention && lead.points_attention.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Points d'attention</h3>
-                  <ul className="space-y-2">
-                    {lead.points_attention.map((point, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <svg className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-gray-700">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {lead.recommandations && lead.recommandations.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Recommandations</h3>
-                  <ul className="space-y-2">
-                    {lead.recommandations.map((rec, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <svg className="w-5 h-5 text-primary-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span className="text-gray-700">{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
         </div>
+      </header>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Score et métriques */}
-          <div className="card">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Métriques</h3>
-            <div className="space-y-4">
-              {lead.niveau_interet && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Niveau d'intérêt</label>
-                  <div className="mt-2">
-                    <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-base font-bold border ${getInterestLevelColor(lead.niveau_interet)}`}>
-                      <span>{getInterestLevelIcon(lead.niveau_interet)}</span>
-                      {lead.niveau_interet}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">{getInterestLevelDescription(lead.niveau_interet)}</p>
+      {/* ── ONGLETS ────────────────────────────────────────── */}
+      <div className="flex-none flex border-b border-slate-200 bg-white px-6">
+        {[
+          { key: 'info',       label: '📋 Infos' },
+          { key: 'historique', label: '🕐 Historique' },
+          { key: 'ia',         label: '🧠 IA' },
+          { key: 'documents',  label: '📄 Documents' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => switchTab(t.key)}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+              activeTab === t.key
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CONTENU ────────────────────────────────────────── */}
+      <main className="flex-1 overflow-auto p-6">
+
+        {/* ═══ ONGLET INFOS ═══════════════════════════════ */}
+        {activeTab === 'info' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+
+            {/* Colonne principale */}
+            <div className="lg:col-span-2 space-y-5">
+
+              {/* Contact */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                  Coordonnées
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { icon: '📧', label: 'Email',       value: lead.email },
+                    { icon: '📞', label: 'Téléphone',   value: lead.telephone },
+                    { icon: '💰', label: 'Budget',       value: fmt.budget(lead.budget), accent: true },
+                    { icon: '🏠', label: 'Type de bien', value: lead.type_bien },
+                    { icon: '📍', label: 'Localisation', value: lead.localisation_souhaitee },
+                    { icon: '🌍', label: 'Source',       value: lead.source?.replace('_', ' ') },
+                    { icon: '📅', label: 'Créé le',      value: fmt.date(lead.created_at) },
+                    { icon: '🔄', label: 'Mis à jour',   value: fmt.date(lead.updated_at) },
+                  ].filter(r => r.value).map(row => (
+                    <div key={row.label} className="flex items-start gap-3">
+                      <span className="text-base mt-0.5 shrink-0">{row.icon}</span>
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">{row.label}</p>
+                        <p className={`text-sm font-semibold mt-0.5 ${
+                          row.accent ? 'text-green-600' : 'text-slate-800'
+                        }`}>{row.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Message / Besoins */}
+              {lead.message && (
+                <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                  <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">
+                    💬 Message / Besoins
+                  </h2>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {lead.message}
+                  </p>
+                </section>
+              )}
+
+              {/* Points forts / attention / recommandations */}
+              {(lead.points_forts?.length || lead.points_attention?.length || lead.recommandations?.length) && (
+                <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                  <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                    Analyse de qualification
+                  </h2>
+                  <div className="space-y-4">
+                    {lead.points_forts?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-green-700 mb-2">✅ Points forts</p>
+                        <ul className="space-y-1.5">
+                          {lead.points_forts.map((p, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                              <span className="text-green-500 shrink-0 mt-0.5">•</span>{p}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {lead.points_attention?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-yellow-700 mb-2">⚠️ Points d'attention</p>
+                        <ul className="space-y-1.5">
+                          {lead.points_attention.map((p, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                              <span className="text-yellow-500 shrink-0 mt-0.5">•</span>{p}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {lead.recommandations?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-indigo-700 mb-2">💡 Recommandations</p>
+                        <ul className="space-y-1.5">
+                          {lead.recommandations.map((r, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                              <span className="text-indigo-500 shrink-0 mt-0.5">→</span>{r}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+            </div>
+
+            {/* Sidebar métriques */}
+            <div className="space-y-5">
+
+              {/* Score gauge */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                  Score IA
+                </h2>
+                <div className={`rounded-xl p-4 ${ss.badge}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold">{ss.label}</span>
+                    <span className="text-2xl font-bold">{score}%</span>
+                  </div>
+                  <div className="w-full bg-white/60 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${ss.bar}`}
+                      style={{ width: `${score}%` }}
+                    />
+                  </div>
+                  <p className="text-xs mt-2 opacity-70">Score d'intention d'achat</p>
+                </div>
+              </section>
+
+              {/* Métriques */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                  Métriques
+                </h2>
+                <div className="space-y-3">
+                  {lead.niveau_interet && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Niveau d'intérêt</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${qualCls}`}>
+                        {lead.niveau_interet}
+                      </span>
+                    </div>
+                  )}
+                  {lead.urgence && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Urgence</span>
+                      <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {lead.urgence}
+                      </span>
+                    </div>
+                  )}
+                  {lead.budget && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Budget</span>
+                      <span className="text-xs font-bold text-green-600">{fmt.budget(lead.budget)}</span>
+                    </div>
+                  )}
+                  {lead.statut && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Statut pipeline</span>
+                      <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                        {lead.statut}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Lien documents */}
+              <button
+                onClick={() => navigate(`/documents?lead=${id}`)}
+                className="w-full flex items-center justify-center gap-2 p-3
+                           bg-blue-50 hover:bg-blue-100 rounded-xl text-blue-700
+                           text-sm font-semibold transition-colors border border-blue-100"
+              >
+                📂 Voir tous les documents du lead
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ ONGLET HISTORIQUE ══════════════════════════ */}
+        {activeTab === 'historique' && (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                  🕐 Historique CRM
+                </h2>
+                <button
+                  onClick={fetchHistory}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  🔄 Rafraîchir
+                </button>
+              </div>
+
+              {loadingHistory && (
+                <div className="text-center py-8 text-slate-400 text-sm">Chargement…</div>
+              )}
+
+              <div className="space-y-4">
+                {crmHistory.map((ev, i) => (
+                  <div key={ev.id || i} className="flex items-start gap-3">
+                    <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-sm">
+                      {CRM_ICONS[ev.type] || '⚡'}
+                    </div>
+                    <div className="flex-1 min-w-0 pb-4 border-b border-slate-50 last:border-0">
+                      <p className="text-sm font-semibold text-slate-800">{ev.title}</p>
+                      {ev.description && (
+                        <p className="text-xs text-slate-500 mt-0.5">{ev.description}</p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">{fmt.dateTime(ev.created_at)}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Entrée de création toujours présente */}
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">⚡</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800">Lead créé</p>
+                    <p className="text-xs text-slate-400 mt-1">{fmt.date(lead.created_at)}</p>
                   </div>
                 </div>
-              )}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Score IA <span className="text-gray-400 cursor-help" title="Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.">ℹ️</span></label>
-                <div className="mt-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-lg font-bold ${getScoreColor(lead.score_qualification || 0)}`}>
-                    {lead.score_qualification || 0}/100
-                  </span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Budget estimé</label>
-                <p className="mt-1 text-lg font-semibold text-gray-900">{lead.budget_estime || 'Non spécifié'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Urgence</label>
-                <div className="mt-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getUrgencyColor(lead.urgence)}`}>
-                    {lead.urgence || 'Non spécifiée'}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Type de bien recherché</label>
-                <p className="mt-1 text-gray-900 capitalize">{lead.type_bien_recherche || 'Non spécifié'}</p>
-              </div>
-              {lead.localisation_souhaitee && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Localisation souhaitée</label>
-                  <p className="mt-1 text-gray-900">{lead.localisation_souhaitee}</p>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Informations système */}
-          <div className="card">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Informations</h3>
-            <div className="space-y-3 text-sm">
-              <div>
-                <label className="text-gray-500">Date de création</label>
-                <p className="text-gray-900">{formatDate(lead.created_at)}</p>
+                {!loadingHistory && crmHistory.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">
+                    Aucun événement CRM enregistré pour l'instant
+                  </p>
+                )}
               </div>
-              {lead.updated_at && (
-                <div>
-                  <label className="text-gray-500">Dernière mise à jour</label>
-                  <p className="text-gray-900">{formatDate(lead.updated_at)}</p>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      </div>
-      
-      {/* Générateur de documents unifié */}
-      {showTemplateGenerator && lead && agencyProfile && (
-        <UnifiedDocumentGenerator
-          lead={lead}
-          agencyProfile={agencyProfile}
-          onDocumentGenerated={(document) => {
-            console.log('Document généré:', document);
-            setShowTemplateGenerator(false);
-          }}
-          onClose={() => setShowTemplateGenerator(false)}
-        />
-      )}
+        )}
+
+        {/* ═══ ONGLET IA ═══════════════════════════════════ */}
+        {activeTab === 'ia' && (
+          <div className="max-w-2xl mx-auto space-y-5">
+
+            {/* Score + bouton analyser */}
+            <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                  🧠 Analyse IA
+                </h2>
+                <button
+                  onClick={fetchAI}
+                  disabled={loadingAI}
+                  className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white
+                             rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {loadingAI ? '⏳ Analyse…' : '🔄 Analyser'}
+                </button>
+              </div>
+
+              {/* Gauge */}
+              <div className={`rounded-xl p-4 ${ss.badge}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-sm">{ss.label}</span>
+                  <span className="text-3xl font-bold">{score}%</span>
+                </div>
+                <div className="w-full bg-white/60 rounded-full h-2.5">
+                  <div className={`h-2.5 rounded-full transition-all ${ss.bar}`} style={{ width: `${score}%` }} />
+                </div>
+                <p className="text-xs mt-2 opacity-70">Score d'intention d'achat / conversion</p>
+              </div>
+            </section>
+
+            {/* Suggestion IA */}
+            {(aiSuggestion || lead.suggestion_ia) && (
+              <section className="bg-purple-50 border border-purple-200 rounded-xl p-5">
+                <p className="text-xs font-bold text-purple-700 mb-3 uppercase tracking-wide">
+                  💡 Recommandation IA
+                </p>
+                <p className="text-sm text-purple-800 leading-relaxed">
+                  {aiSuggestion || lead.suggestion_ia}
+                </p>
+              </section>
+            )}
+
+            {/* Résumé IA (si différent de la suggestion) */}
+            {lead.resume_ia && lead.resume_ia !== (aiSuggestion || lead.suggestion_ia) && (
+              <section className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                <p className="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wide">
+                  📝 Résumé IA
+                </p>
+                <p className="text-sm text-slate-700 leading-relaxed">{lead.resume_ia}</p>
+              </section>
+            )}
+
+            {loadingAI && (
+              <div className="text-center py-8 text-slate-400">
+                <div className="animate-spin text-3xl mb-3">⚙️</div>
+                <p className="text-sm">Analyse en cours…</p>
+              </div>
+            )}
+
+            {!loadingAI && !aiSuggestion && !lead.suggestion_ia && (
+              <p className="text-sm text-slate-400 text-center py-8">
+                Cliquez sur "Analyser" pour générer une analyse IA de ce lead
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ═══ ONGLET DOCUMENTS ═══════════════════════════ */}
+        {activeTab === 'documents' && (
+          <div className="max-w-4xl mx-auto">
+            <DocumentGenerator
+              lead={lead}
+              agencyId={agencyId}
+              agencyType={agencyType}
+              onDocumentGenerated={(data) => {
+                logCrm('document', 'Document généré', `Type : ${data?.type || 'Document'}`)
+              }}
+            />
+          </div>
+        )}
+
+      </main>
     </div>
   )
 }
 
 export default LeadDetails
-
