@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { redirectToCheckout, openBillingPortal, PLAN_LABELS, PLAN_COLORS, STATUS_LABELS } from '../services/stripeService';
 
@@ -17,8 +17,10 @@ export default function Settings() {
     plan: 'free',
     current_period_end: null,
   });
+  // Stocke le plan à auto-déclencher après chargement du profil
+  const pendingPlanRef = useRef(null);
 
-  // Détecter retour depuis Stripe (success ou cancel)
+  // Détecter retour depuis Stripe (success ou cancel) + auto-checkout depuis landing page
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('subscription') === 'success') {
@@ -34,6 +36,13 @@ export default function Settings() {
     }
     if (params.get('tab')) {
       setActiveTab(params.get('tab'));
+    }
+    // Auto-déclencher le checkout si plan passé depuis la landing page
+    const planParam = params.get('plan');
+    if (planParam && ['starter', 'growth', 'enterprise'].includes(planParam)) {
+      pendingPlanRef.current = planParam;
+      setActiveTab('facturation');
+      window.history.replaceState({}, '', `/settings?tab=facturation`);
     }
   }, []);
 
@@ -157,9 +166,37 @@ export default function Settings() {
       }
     }
     setLoading(false);
+
+    // Auto-déclencher le checkout si on vient de la landing page (?plan=xxx)
+    if (pendingPlanRef.current) {
+      const plan = pendingPlanRef.current;
+      pendingPlanRef.current = null;
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (u?.email) {
+        // Un léger délai pour laisser le state se stabiliser
+        setTimeout(() => handleSubscribeWithEmail(plan, u.email, u.id), 500);
+      }
+    }
   };
 
   // === HANDLERS STRIPE ===
+
+  // Version avec email explicite (utilisée pour auto-checkout depuis landing page)
+  const handleSubscribeWithEmail = async (plan, email, uid) => {
+    setStripeLoading(true);
+    setStripeError('');
+    const result = await redirectToCheckout({
+      plan,
+      userId: uid || userId,
+      userEmail: email,
+      agencyName: formData.nom_agence,
+    });
+    setStripeLoading(false);
+    if (!result.success) {
+      setStripeError(result.error || 'Erreur lors de la redirection vers le paiement.');
+    }
+  };
+
   const handleSubscribe = async (plan) => {
     if (!userEmail) {
       setStripeError('Impossible de récupérer votre email. Reconnectez-vous.');
