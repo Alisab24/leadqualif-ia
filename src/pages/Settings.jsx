@@ -582,7 +582,8 @@ export default function Settings() {
                 </Field>
                 {formData.logo_url && (
                   <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 inline-block">
-                    <img src={formData.logo_url} alt="Logo" className="h-14 object-contain" />
+                    <img src={formData.logo_url} alt="Logo" className="h-14 object-contain"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling?.remove(); }} />
                   </div>
                 )}
               </section>
@@ -669,7 +670,8 @@ export default function Settings() {
                     <div className="h-2" style={{ background: `linear-gradient(to right, ${formData.couleur_primaire}, ${formData.couleur_secondaire})` }} />
                     <div className="p-4 bg-white flex items-center gap-3">
                       {formData.logo_url
-                        ? <img src={formData.logo_url} alt="Logo" className="h-10 object-contain" />
+                        ? <img src={formData.logo_url} alt="Logo" className="h-10 object-contain"
+                            onError={(e) => { e.target.style.display = 'none'; }} />
                         : (
                           <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
                             style={{ background: formData.couleur_primaire }}>
