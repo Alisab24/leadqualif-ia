@@ -1,32 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import { redirectToCheckout, openBillingPortal, PLAN_LABELS, PLAN_COLORS, STATUS_LABELS } from '../services/stripeService';
+/**
+ * Settings — Paramètres de l'Agence
+ * Design unifié (slate, h-screen, w-full)
+ * Formulaire adaptatif selon type agence (IMMO / SMMA)
+ */
 
+import React, { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../supabaseClient';
+import {
+  redirectToCheckout,
+  openBillingPortal,
+  PLAN_LABELS,
+  PLAN_COLORS,
+  STATUS_LABELS,
+} from '../services/stripeService';
+
+/* ─── Toast interne (sans dépendance) ──────────────────────── */
+const Toast = ({ message, type = 'success', onClose }) => (
+  <div className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3.5
+    rounded-xl shadow-xl text-sm font-semibold transition-all
+    ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+    <span>{type === 'success' ? '✅' : '❌'}</span>
+    <span>{message}</span>
+    <button onClick={onClose} className="ml-2 opacity-70 hover:opacity-100 text-lg leading-none">×</button>
+  </div>
+);
+
+/* ─── Toggle Switch ─────────────────────────────────────────── */
+const Toggle = ({ checked, onChange, disabled = false }) => (
+  <button
+    type="button"
+    onClick={() => !disabled && onChange(!checked)}
+    disabled={disabled}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+      ${checked ? 'bg-indigo-600' : 'bg-slate-200'}
+      ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+  >
+    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform
+      ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+  </button>
+);
+
+/* ─── Champ formulaire générique ────────────────────────────── */
+const Field = ({ label, hint, children, required }) => (
+  <div>
+    <label className="block text-xs font-bold text-slate-600 mb-1.5">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    {children}
+    {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+  </div>
+);
+
+const Input = ({ className = '', ...props }) => (
+  <input
+    className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-lg
+      focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300
+      bg-white placeholder:text-slate-300 ${className}`}
+    {...props}
+  />
+);
+
+const Select = ({ className = '', children, ...props }) => (
+  <select
+    className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-lg
+      focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300
+      bg-white ${className}`}
+    {...props}
+  >
+    {children}
+  </select>
+);
+
+const Textarea = ({ className = '', ...props }) => (
+  <textarea
+    className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-lg
+      focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300
+      bg-white placeholder:text-slate-300 resize-none ${className}`}
+    {...props}
+  />
+);
+
+/* ─── Palettes couleurs prédéfinies ─────────────────────────── */
+const COLOR_PRESETS = [
+  '#2563eb', '#7c3aed', '#db2777', '#dc2626',
+  '#ea580c', '#ca8a04', '#16a34a', '#0891b2',
+  '#0f172a', '#475569',
+];
+
+/* ════════════════════════════════════════════════════════════ */
 export default function Settings() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [userId, setUserId]       = useState(null);
   const [userEmail, setUserEmail] = useState('');
   const [activeTab, setActiveTab] = useState('general');
+  const [toast, setToast]         = useState(null);
 
-  // === Stripe ===
+  // Stripe
   const [stripeLoading, setStripeLoading] = useState(false);
-  const [stripeError, setStripeError] = useState('');
+  const [stripeError, setStripeError]     = useState('');
   const [subscriptionInfo, setSubscriptionInfo] = useState({
-    status: 'inactive',
-    plan: 'free',
-    current_period_end: null,
+    status: 'inactive', plan: 'free', current_period_end: null,
   });
-  // Plan à auto-déclencher une fois le profil chargé (vient de la landing page)
   const [pendingPlan, setPendingPlan] = useState(null);
 
-  // Détecter les params URL au montage
+  // Détecter params URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-
     if (params.get('subscription') === 'success') {
       const plan = params.get('plan') || 'growth';
-      alert(`✅ Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif.`);
+      showToast(`Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif.`);
       window.history.replaceState({}, '', '/settings?tab=facturation');
       setActiveTab('facturation');
       return;
@@ -36,17 +119,13 @@ export default function Settings() {
       window.history.replaceState({}, '', '/settings?tab=facturation');
       return;
     }
-    if (params.get('tab')) {
-      setActiveTab(params.get('tab'));
-    }
-    // Plan depuis la landing page → stocker, nettoyer l'URL
+    if (params.get('tab')) setActiveTab(params.get('tab'));
     const planParam = params.get('plan');
     if (planParam && ['starter', 'growth', 'enterprise'].includes(planParam)) {
       setPendingPlan(planParam);
       setActiveTab('facturation');
       window.history.replaceState({}, '', '/settings?tab=facturation');
     }
-    // Vérifier aussi sessionStorage (filet de sécurité)
     const storedPlan = sessionStorage.getItem('pendingPlan');
     if (storedPlan && ['starter', 'growth', 'enterprise'].includes(storedPlan)) {
       setPendingPlan(storedPlan);
@@ -55,19 +134,18 @@ export default function Settings() {
     }
   }, []);
 
-  // Auto-déclencher le checkout dès que profil chargé + email dispo + plan en attente
+  // Auto-checkout depuis landing
   useEffect(() => {
     if (!loading && pendingPlan && userEmail && userId) {
       const plan = pendingPlan;
-      setPendingPlan(null); // reset pour éviter double-déclenchement
+      setPendingPlan(null);
       handleSubscribeWithEmail(plan, userEmail, userId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, pendingPlan, userEmail, userId]);
 
-  // État global
+  // État global du formulaire
   const [formData, setFormData] = useState({
-    // Informations agence
     nom_agence: '',
     email: '',
     telephone: '',
@@ -79,58 +157,57 @@ export default function Settings() {
     calendly_link: '',
     logo_url: '',
     couleur_primaire: '#2563eb',
-    
-    // Type d'agence
-    type_agence: 'immobilier', // immobilier | smma
-    
-    // Informations légales
+    couleur_secondaire: '#7c3aed',
+    type_agence: 'immobilier',
+    // Légal
     nom_legal: '',
     statut_juridique: '',
     numero_enregistrement: '',
     adresse_legale: '',
     mention_legale: '',
     conditions_paiement: '',
-    
-    // 🎯 Option Premium - Montant en lettres
+    // Légal IMMO spécifique
+    carte_pro_t: '',
+    carte_pro_s: '',
+    // Légal SMMA spécifique
+    activite_principale: '',
+    numero_tva: '',
+    // Premium
     show_amount_in_words: false,
-    
     // Formulaire IA
     form_settings: {
       showBudget: true,
       showType: true,
       showDelai: true,
       showLocalisation: true,
+      showRole: true,
       showObjectifMarketing: false,
       showTypeService: false,
-      agencyName: ''
+      agencyName: '',
     },
-    
-    // Paramètres CRM avancés
+    // CRM
     crm_settings: {
-      priorite_defaut: 'moyenne', // faible | moyenne | haute
-      source_principale: 'formulaire_ia', // formulaire_ia | whatsapp | import_manuel
-      pipeline_utilise: 'immobilier' // immobilier | smma
-    }
+      priorite_defaut: 'moyenne',
+      source_principale: 'formulaire_ia',
+      pipeline_utilise: 'immobilier',
+    },
   });
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  const showToast = (msg, type = 'success') => {
+    setToast({ message: msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  useEffect(() => { loadProfile(); }, []);
 
   const loadProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setUserId(user.id);
       setUserEmail(user.email || '');
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
+      const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
       if (data) {
         setFormData({
-          // Informations agence
           nom_agence: data.nom_agence || '',
           email: user.email,
           telephone: data.telephone || '',
@@ -142,40 +219,30 @@ export default function Settings() {
           calendly_link: data.calendly_link || '',
           logo_url: data.logo_url || '',
           couleur_primaire: data.couleur_primaire || '#2563eb',
-          
-          // Type d'agence
+          couleur_secondaire: data.couleur_secondaire || '#7c3aed',
           type_agence: data.type_agence || 'immobilier',
-          
-          // Informations légales
           nom_legal: data.nom_legal || '',
           statut_juridique: data.statut_juridique || '',
           numero_enregistrement: data.numero_enregistrement || '',
           adresse_legale: data.adresse_legale || '',
           mention_legale: data.mention_legale || '',
           conditions_paiement: data.conditions_paiement || '',
-          
-          // 🎯 Option Premium - Montant en lettres
+          carte_pro_t: data.carte_pro_t || '',
+          carte_pro_s: data.carte_pro_s || '',
+          activite_principale: data.activite_principale || '',
+          numero_tva: data.numero_tva || '',
           show_amount_in_words: data.show_amount_in_words || false,
-          
-          // Formulaire IA
           form_settings: data.form_settings || {
-            showBudget: true,
-            showType: true,
-            showDelai: true,
-            showLocalisation: true,
-            showObjectifMarketing: false,
-            showTypeService: false
+            showBudget: true, showType: true, showDelai: true,
+            showLocalisation: true, showRole: true,
+            showObjectifMarketing: false, showTypeService: false, agencyName: '',
           },
-          
-          // Paramètres CRM avancés
           crm_settings: data.crm_settings || {
             priorite_defaut: 'moyenne',
             source_principale: 'formulaire_ia',
-            pipeline_utilise: 'immobilier'
-          }
+            pipeline_utilise: 'immobilier',
+          },
         });
-
-        // Infos abonnement Stripe depuis le profil
         setSubscriptionInfo({
           status: data.subscription_status || 'inactive',
           plan: data.subscription_plan || 'free',
@@ -187,714 +254,738 @@ export default function Settings() {
     setLoading(false);
   };
 
-  // === HANDLERS STRIPE ===
-
-  // Version avec email explicite (utilisée pour auto-checkout depuis landing page)
-  const handleSubscribeWithEmail = async (plan, email, uid) => {
-    setStripeLoading(true);
-    setStripeError('');
-    const result = await redirectToCheckout({
-      plan,
-      userId: uid || userId,
-      userEmail: email,
-      agencyName: formData.nom_agence,
-    });
-    setStripeLoading(false);
-    if (!result.success) {
-      setStripeError(result.error || 'Erreur lors de la redirection vers le paiement.');
-    }
-  };
-
-  const handleSubscribe = async (plan) => {
-    if (!userEmail) {
-      setStripeError('Impossible de récupérer votre email. Reconnectez-vous.');
-      return;
-    }
-    setStripeLoading(true);
-    setStripeError('');
-    const result = await redirectToCheckout({
-      plan,
-      userId,
-      userEmail,
-      agencyName: formData.nom_agence,
-    });
-    if (!result.success) {
-      setStripeError(result.error || 'Erreur lors de la redirection vers Stripe.');
-    }
-    setStripeLoading(false);
-  };
-
-  const handleOpenPortal = async () => {
-    if (!userEmail) {
-      setStripeError('Impossible de récupérer votre email.');
-      return;
-    }
-    setStripeLoading(true);
-    setStripeError('');
-    const result = await openBillingPortal(userEmail);
-    if (!result.success) {
-      setStripeError(result.error || 'Erreur lors de l\'ouverture du portail.');
-    }
-    setStripeLoading(false);
-  };
-
+  /* ── Handlers ────────────────────────────────────────── */
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Logique automatique pour la devise selon le pays
+    const { name, value, type, checked } = e.target;
+    const val = type === 'checkbox' ? checked : value;
     if (name === 'pays') {
-      let devise = 'EUR';
-      let symbole = '€';
-      let format = '1 000 €';
-      
-      switch (value) {
-        case 'France':
-          devise = 'EUR';
-          symbole = '€';
-          format = '1 000 €';
-          break;
-        case 'Bénin':
-        case 'Sénégal':
-        case 'Côte d\'Ivoire':
-          devise = 'XOF';
-          symbole = 'FCFA';
-          format = '1 000 000 FCFA';
-          break;
-        case 'Canada':
-          devise = 'CAD';
-          symbole = '$';
-          format = '$1,000';
-          break;
-        default:
-          devise = 'EUR';
-          symbole = '€';
-          format = '1 000 €';
-      }
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: value,
-        devise: devise,
-        symbole_devise: symbole,
-        format_devise: format
+      const MAP = {
+        'France':       { devise: 'EUR', symbole: '€',    format: '1 000 €' },
+        'Bénin':        { devise: 'XOF', symbole: 'FCFA', format: '1 000 000 FCFA' },
+        'Sénégal':      { devise: 'XOF', symbole: 'FCFA', format: '1 000 000 FCFA' },
+        "Côte d'Ivoire":{ devise: 'XOF', symbole: 'FCFA', format: '1 000 000 FCFA' },
+        'Canada':       { devise: 'CAD', symbole: '$',    format: '$1,000' },
+        'Maroc':        { devise: 'MAD', symbole: 'DH',   format: '1 000 DH' },
+        'Belgique':     { devise: 'EUR', symbole: '€',    format: '1 000 €' },
+        'Suisse':       { devise: 'CHF', symbole: 'CHF',  format: '1 000 CHF' },
+      };
+      const d = MAP[value] || MAP['France'];
+      setFormData(prev => ({
+        ...prev, [name]: value,
+        devise: d.devise, symbole_devise: d.symbole, format_devise: d.format,
+      }));
+    } else if (name === 'type_agence') {
+      // Auto-adapter form_settings selon le type
+      setFormData(prev => ({
+        ...prev,
+        [name]: val,
+        crm_settings: { ...prev.crm_settings, pipeline_utilise: val },
+        form_settings: val === 'immobilier'
+          ? { ...prev.form_settings, showType: true, showLocalisation: true, showRole: true, showObjectifMarketing: false, showTypeService: false }
+          : { ...prev.form_settings, showType: false, showLocalisation: false, showRole: false, showObjectifMarketing: true, showTypeService: true },
       }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: val }));
     }
   };
 
   const handleNestedChange = (parent, key, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent],
-        [key]: value
-      }
-    }));
+    setFormData(prev => ({ ...prev, [parent]: { ...prev[parent], [key]: value } }));
   };
 
   const handleToggle = (key) => {
     setFormData(prev => ({
       ...prev,
-      form_settings: {
-        ...prev.form_settings,
-        [key]: !prev.form_settings[key]
-      }
+      form_settings: { ...prev.form_settings, [key]: !prev.form_settings[key] },
     }));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          // Informations agence
-          nom_agence: formData.nom_agence,
-          telephone: formData.telephone,
-          adresse: formData.adresse,
-          pays: formData.pays,
-          devise: formData.devise,
-          symbole_devise: formData.symbole_devise,
-          format_devise: formData.format_devise,
-          calendly_link: formData.calendly_link,
-          logo_url: formData.logo_url,
-          couleur_primaire: formData.couleur_primaire,
-          
-          // Type d'agence
-          type_agence: formData.type_agence,
-          
-          // Informations légales
-          nom_legal: formData.nom_legal,
-          statut_juridique: formData.statut_juridique,
-          numero_enregistrement: formData.numero_enregistrement,
-          adresse_legale: formData.adresse_legale,
-          mention_legale: formData.mention_legale,
-          conditions_paiement: formData.conditions_paiement,
-          
-          // Formulaire IA et CRM
-          form_settings: formData.form_settings,
-          crm_settings: formData.crm_settings
-        })
-        .eq('user_id', userId);
+      const { error } = await supabase.from('profiles').update({
+        nom_agence: formData.nom_agence,
+        telephone: formData.telephone,
+        adresse: formData.adresse,
+        pays: formData.pays,
+        devise: formData.devise,
+        symbole_devise: formData.symbole_devise,
+        format_devise: formData.format_devise,
+        calendly_link: formData.calendly_link,
+        logo_url: formData.logo_url,
+        couleur_primaire: formData.couleur_primaire,
+        couleur_secondaire: formData.couleur_secondaire,
+        type_agence: formData.type_agence,
+        nom_legal: formData.nom_legal,
+        statut_juridique: formData.statut_juridique,
+        numero_enregistrement: formData.numero_enregistrement,
+        adresse_legale: formData.adresse_legale,
+        mention_legale: formData.mention_legale,
+        conditions_paiement: formData.conditions_paiement,
+        carte_pro_t: formData.carte_pro_t,
+        carte_pro_s: formData.carte_pro_s,
+        activite_principale: formData.activite_principale,
+        numero_tva: formData.numero_tva,
+        show_amount_in_words: formData.show_amount_in_words,
+        form_settings: formData.form_settings,
+        crm_settings: formData.crm_settings,
+      }).eq('user_id', userId);
 
       if (error) throw error;
-      alert('✅ Paramètres sauvegardés avec succès !');
+      showToast('Paramètres sauvegardés avec succès !');
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      showToast('Erreur : ' + err.message, 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  /* ── Stripe handlers ─────────────────────────────────── */
+  const handleSubscribeWithEmail = async (plan, email, uid) => {
+    setStripeLoading(true); setStripeError('');
+    const r = await redirectToCheckout({ plan, userId: uid || userId, userEmail: email, agencyName: formData.nom_agence });
+    setStripeLoading(false);
+    if (!r.success) setStripeError(r.error || 'Erreur lors de la redirection vers le paiement.');
+  };
+
+  const handleSubscribe = async (plan) => {
+    if (!userEmail) { setStripeError('Email introuvable. Reconnectez-vous.'); return; }
+    setStripeLoading(true); setStripeError('');
+    const r = await redirectToCheckout({ plan, userId, userEmail, agencyName: formData.nom_agence });
+    if (!r.success) setStripeError(r.error || 'Erreur Stripe.');
+    setStripeLoading(false);
+  };
+
+  const handleOpenPortal = async () => {
+    if (!userEmail) { setStripeError("Email introuvable."); return; }
+    setStripeLoading(true); setStripeError('');
+    const r = await openBillingPortal(userEmail);
+    if (!r.success) setStripeError(r.error || "Erreur portail Stripe.");
+    setStripeLoading(false);
+  };
+
+  // URL du formulaire public
+  const formUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/estimation/${userId || ''}`
+    : '';
+
+  const isImmo = formData.type_agence === 'immobilier';
+
+  /* ── Onglets ─────────────────────────────────────────── */
+  const TABS = [
+    { key: 'general',     icon: '🏢', label: 'Agence' },
+    { key: 'visuel',      icon: '🎨', label: 'Apparence' },
+    { key: 'form',        icon: '🤖', label: 'Formulaire IA' },
+    { key: 'legal',       icon: '📋', label: 'Légal & Documents' },
+    { key: 'crm',         icon: '⚙️', label: 'CRM' },
+    { key: 'facturation', icon: '💳', label: 'Abonnement' },
+  ];
+
+  /* ── Loading ──────────────────────────────────────────── */
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="flex items-center justify-center h-screen text-slate-400">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-slate-600">Chargement des paramètres...</p>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3" />
+        <p className="text-sm">Chargement des paramètres…</p>
       </div>
     </div>
   );
 
+  /* ════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">⚙️ Paramètres de l'Agence</h1>
-          <p className="text-slate-600">Configurez votre profil et personnalisez votre expérience</p>
-        </div>
+    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
-        {/* Navigation Onglets */}
-        <div className="flex gap-4 border-b border-slate-200 mb-6 overflow-x-auto">
-          <button 
-            onClick={() => setActiveTab('general')} 
-            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'general' 
-                ? 'border-b-2 border-blue-600 text-blue-600' 
-                : 'text-slate-500'
-            }`}
-          >
-            🏢 Informations Agence
-          </button>
-          <button 
-            onClick={() => setActiveTab('legal')} 
-            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'legal' 
-                ? 'border-b-2 border-blue-600 text-blue-600' 
-                : 'text-slate-500'
-            }`}
-          >
-            📋 Documents & Identité légale
-          </button>
-          <button 
-            onClick={() => setActiveTab('form')} 
-            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'form' 
-                ? 'border-b-2 border-blue-600 text-blue-600' 
-                : 'text-slate-500'
-            }`}
-          >
-            🤖 Formulaire IA
-          </button>
-          <button 
-            onClick={() => setActiveTab('crm')} 
-            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'crm' 
-                ? 'border-b-2 border-blue-600 text-blue-600' 
-                : 'text-slate-500'
-            }`}
-          >
-            ⚙️ Paramètres CRM avancés
-          </button>
-          <button
-            onClick={() => setActiveTab('visuel')}
-            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'visuel'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-slate-500'
-            }`}
-          >
-            🎨 Apparence
-          </button>
-          <button
-            onClick={() => setActiveTab('facturation')}
-            className={`pb-2 px-4 font-medium transition whitespace-nowrap ${
-              activeTab === 'facturation'
-                ? 'border-b-2 border-green-600 text-green-600'
-                : 'text-slate-500'
-            }`}
-          >
-            💳 Abonnement & Facturation
-          </button>
-        </div>
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-          
-          {/* ONGLET INFORMATIONS AGENCE */}
+      {/* ── HEADER ─────────────────────────────────────── */}
+      <header className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm z-10">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-xl shrink-0">⚙️</span>
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-slate-900 truncate">Paramètres</h1>
+              <p className="text-xs text-slate-400 truncate">
+                {formData.nom_agence || 'Agence'} · {isImmo ? '🏠 Immobilier' : '📱 SMMA'}
+              </p>
+            </div>
+          </div>
+
+          {/* Save button — sticky dans le header */}
+          {activeTab !== 'facturation' && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
+                         text-white rounded-lg text-sm font-semibold shadow-sm
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving ? (
+                <><span className="animate-spin">⏳</span> Sauvegarde…</>
+              ) : (
+                <><span>💾</span> Enregistrer</>
+              )}
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* ── ONGLETS ─────────────────────────────────────── */}
+      <div className="flex-none flex border-b border-slate-200 bg-white px-6 overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-semibold
+              border-b-2 whitespace-nowrap transition-all ${
+              activeTab === t.key
+                ? t.key === 'facturation'
+                  ? 'border-green-600 text-green-600'
+                  : 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <span>{t.icon}</span>
+            <span className="hidden sm:inline">{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── CONTENU ─────────────────────────────────────── */}
+      <main className="flex-1 overflow-auto p-6">
+        <div className="max-w-3xl mx-auto">
+
+          {/* ═══ ONGLET AGENCE ════════════════════════ */}
           {activeTab === 'general' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold mb-1">Nom de l'agence</label>
-                  <input 
-                    name="nom_agence" 
-                    value={formData.nom_agence} 
-                    onChange={handleChange} 
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Type d'agence</label>
-                  <select 
-                    name="type_agence" 
-                    value={formData.type_agence} 
-                    onChange={handleChange} 
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="immobilier">🏠 Immobilier</option>
-                    <option value="smma">📱 SMMA</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">Ce choix adapte le formulaire IA et les documents</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Email principal</label>
-                  <input 
-                    name="email" 
-                    value={formData.email} 
-                    onChange={handleChange} 
-                    type="email"
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Téléphone principal</label>
-                  <input 
-                    name="telephone" 
-                    value={formData.telephone} 
-                    onChange={handleChange} 
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Pays *</label>
-                  <select 
-                    name="pays" 
-                    value={formData.pays} 
-                    onChange={handleChange} 
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="France">🇫🇷 France</option>
-                    <option value="Bénin">🇧🇯 Bénin</option>
-                    <option value="Sénégal">🇸🇳 Sénégal</option>
-                    <option value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</option>
-                    <option value="Canada">🇨🇦 Canada</option>
-                    <option value="Autre">🌍 Autre</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">Le pays détermine automatiquement la devise et le format</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Devise (lecture seule)</label>
-                  <div className="flex items-center gap-2 p-2 border border-slate-200 rounded-lg bg-slate-50">
-                    <span className="font-medium">{formData.devise}</span>
-                    <span className="text-slate-500">({formData.symbole_devise})</span>
-                    <span className="text-xs text-slate-400">Format: {formData.format_devise}</span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-1">Adresse complète</label>
-                <input 
-                  name="adresse" 
-                  value={formData.adresse} 
-                  onChange={handleChange} 
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                />
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <label className="block text-sm font-bold text-blue-800 mb-1">Lien Calendly / Prise de RDV</label>
-                <input 
-                  name="calendly_link" 
-                  value={formData.calendly_link} 
-                  onChange={handleChange} 
-                  placeholder="https://calendly.com/..." 
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                />
-                <p className="text-xs text-blue-600 mt-1">Sert pour le bouton "Prendre RDV" sur vos leads.</p>
-              </div>
-              
-              {!formData.nom_agence && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-sm text-amber-800">
-                    ⚠️ Veuillez compléter les informations de l'agence pour activer la génération de documents.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+            <div className="space-y-6">
 
-          {/* ONGLET DOCUMENTS & IDENTITÉ LÉGALE */}
-          {activeTab === 'legal' && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h3 className="font-bold text-blue-800 mb-2">📋 Informations légales pour documents</h3>
-                <p className="text-sm text-blue-600">Ces informations sont utilisées pour générer automatiquement vos documents (devis, factures, contrats).</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold mb-1">Nom légal de l'entreprise</label>
-                  <input 
-                    name="nom_legal" 
-                    value={formData.nom_legal} 
-                    onChange={handleChange} 
-                    placeholder="Ex: SARL IMMOBILIER SERVICES"
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
+              {/* Sélecteur type agence — cartes visuelles */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                  Type d'agence
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'immobilier', icon: '🏠', title: 'Immobilier', desc: 'Mandats, devis, suivi acquéreurs/vendeurs', color: 'indigo' },
+                    { value: 'smma',       icon: '📱', title: 'SMMA',       desc: 'Propositions commerciales, suivi clients marketing', color: 'purple' },
+                  ].map(t => (
+                    <button
+                      key={t.value}
+                      onClick={() => handleChange({ target: { name: 'type_agence', value: t.value } })}
+                      className={`p-4 rounded-xl border-2 text-left transition-all ${
+                        formData.type_agence === t.value
+                          ? t.color === 'indigo'
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-purple-400 bg-purple-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-2xl mb-2">{t.icon}</div>
+                      <p className={`text-sm font-bold ${formData.type_agence === t.value ? (t.color === 'indigo' ? 'text-indigo-700' : 'text-purple-700') : 'text-slate-700'}`}>
+                        {t.title}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">{t.desc}</p>
+                      {formData.type_agence === t.value && (
+                        <span className={`inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          t.color === 'indigo' ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'
+                        }`}>✓ Sélectionné</span>
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Statut juridique</label>
-                  <select 
-                    name="statut_juridique" 
-                    value={formData.statut_juridique} 
-                    onChange={handleChange} 
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Sélectionner...</option>
-                    <option value="auto-entrepreneur">Auto-entrepreneur</option>
-                    <option value="ei">Entreprise Individuelle (EI)</option>
-                    <option value="eurl">EURL</option>
-                    <option value="sarl">SARL</option>
-                    <option value="sas">SAS</option>
-                    <option value="sasu">SASU</option>
-                    <option value="scs">SCS</option>
-                    <option value="snc">SNC</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Numéro d'enregistrement</label>
-                  <input 
-                    name="numero_enregistrement" 
-                    value={formData.numero_enregistrement} 
-                    onChange={handleChange} 
-                    placeholder="SIRET, RCCM, etc."
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">Adresse légale</label>
-                  <input 
-                    name="adresse_legale" 
-                    value={formData.adresse_legale} 
-                    onChange={handleChange} 
-                    placeholder="Si différente de l'adresse principale"
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold mb-1">Mention légale (pied de page documents)</label>
-                <textarea 
-                  name="mention_legale" 
-                  value={formData.mention_legale} 
-                  onChange={handleChange} 
-                  placeholder="Ex: TVA non applicable, art. 293 B du CGI"
-                  rows={2}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold mb-1">Conditions de paiement</label>
-                <textarea 
-                  name="conditions_paiement" 
-                  value={formData.conditions_paiement} 
-                  onChange={handleChange} 
-                  placeholder="Ex: Paiement à 30 jours, pénalités de retard de 3% par mois"
-                  rows={3}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                />
-              </div>
-              
-              {/* 🎯 OPTION PREMIUM - MONTANT EN LETTRES */}
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-purple-800 mb-1">💎 Afficher le montant en lettres</h4>
-                    <p className="text-sm text-purple-600 mb-2">
-                      Option premium - Différenciation professionnelle vs Bitrix/Pipedrive
-                    </p>
-                    <ul className="text-xs text-purple-600 space-y-1">
-                      <li>• Affiche "Arrêté la présente facture à la somme de..."</li>
-                      <li>• Conversion intelligente selon devise et pays</li>
-                      <li>• Style italique, aligné à gauche, discret</li>
-                      <li>• Compatible EUR, USD, CAD, FCFA</li>
-                    </ul>
-                  </div>
-                  <div className="flex items-center">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        name="show_amount_in_words"
-                        checked={formData.show_amount_in_words} 
-                        onChange={handleChange}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              
-              {(!formData.nom_legal || !formData.statut_juridique) && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-sm text-amber-800">
-                    ⚠️ Veuillez compléter les informations légales pour générer des documents valides.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ONGLET FORMULAIRE IA */}
-          {activeTab === 'form' && (
-            <div className="space-y-4">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-                <h3 className="font-bold text-purple-800 mb-2">🤖 Formulaire IA (Paramétrable par Agence)</h3>
-                <p className="text-sm text-purple-600">Adaptez le formulaire client selon votre type d'agence. Ces réglages améliorent la qualité des leads.</p>
-              </div>
-              
-              <div className="bg-slate-50 rounded-lg p-4 mb-4">
-                <h4 className="font-bold text-slate-800 mb-3">Type d'agence détecté: {formData.type_agence === 'immobilier' ? '🏠 Immobilier' : '📱 SMMA'}</h4>
-                <p className="text-sm text-slate-600">
-                  {formData.type_agence === 'immobilier' 
-                    ? 'Les champs recommandés pour l\'immobilier sont activés par défaut.'
-                    : 'Les champs recommandés pour le SMMA sont activés par défaut.'
-                  }
+                <p className="text-xs text-slate-400 mt-3">
+                  Ce choix adapte automatiquement le formulaire IA, les documents générés et les champs du pipeline.
                 </p>
-              </div>
-              
-              <div className="space-y-3">
-                <h4 className="font-bold text-slate-800">Champs visibles côté client</h4>
-                
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white">
-                  <div>
-                    <span className="font-medium">💰 Budget</span>
-                    <p className="text-xs text-slate-500">Essentiel pour qualifier le lead</p>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.form_settings?.showBudget} 
-                    onChange={() => handleToggle('showBudget')} 
-                    className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white">
-                  <div>
-                    <span className="font-medium">⏱️ Délai</span>
-                    <p className="text-xs text-slate-500">Urgence du projet</p>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.form_settings?.showDelai} 
-                    onChange={() => handleToggle('showDelai')} 
-                    className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white">
-                  <div>
-                    <span className="font-medium">🏠 Type de bien</span>
-                    <p className="text-xs text-slate-500">Immobilier uniquement</p>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.form_settings?.showType} 
-                    onChange={() => handleToggle('showType')} 
-                    className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                    disabled={formData.type_agence !== 'immobilier'}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white">
-                  <div>
-                    <span className="font-medium">📍 Localisation</span>
-                    <p className="text-xs text-slate-500">Zone géographique souhaitée</p>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.form_settings?.showLocalisation} 
-                    onChange={() => handleToggle('showLocalisation')} 
-                    className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white">
-                  <div>
-                    <span className="font-medium">🎯 Objectif marketing</span>
-                    <p className="text-xs text-slate-500">SMMA uniquement</p>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.form_settings?.showObjectifMarketing} 
-                    onChange={() => handleToggle('showObjectifMarketing')} 
-                    className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                    disabled={formData.type_agence !== 'smma'}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white">
-                  <div>
-                    <span className="font-medium">🛠️ Type de service</span>
-                    <p className="text-xs text-slate-500">SMMA uniquement</p>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.form_settings?.showTypeService} 
-                    onChange={() => handleToggle('showTypeService')} 
-                    className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                    disabled={formData.type_agence !== 'smma'}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+              </section>
 
-          {/* ONGLET PARAMÈTRES CRM AVANCÉS */}
-          {activeTab === 'crm' && (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                <h3 className="font-bold text-green-800 mb-2">⚙️ Paramètres CRM avancés</h3>
-                <p className="text-sm text-green-600">Préparez votre CRM pour le futur scoring IA. Ces paramètres influenceront l'automatisation.</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold mb-1">Priorité par défaut d'un lead</label>
-                  <select 
-                    value={formData.crm_settings?.priorite_defaut} 
-                    onChange={(e) => handleNestedChange('crm_settings', 'priorite_defaut', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="faible">🔴 Faible</option>
-                    <option value="moyenne">🟡 Moyenne</option>
-                    <option value="haute">🟢 Haute</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">Utilisé pour l'assignation automatique des leads</p>
+              {/* Informations agence */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                  Informations de l'agence
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Nom de l'agence" required>
+                    <Input name="nom_agence" value={formData.nom_agence} onChange={handleChange} placeholder="Ex: Agence Dupont Immobilier" />
+                  </Field>
+                  <Field label="Email principal">
+                    <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="contact@agence.com" />
+                  </Field>
+                  <Field label="Téléphone">
+                    <Input name="telephone" value={formData.telephone} onChange={handleChange} placeholder="+33 6 00 00 00 00" />
+                  </Field>
+                  <Field label="Pays" hint="Détermine automatiquement la devise" required>
+                    <Select name="pays" value={formData.pays} onChange={handleChange}>
+                      <option value="France">🇫🇷 France</option>
+                      <option value="Belgique">🇧🇪 Belgique</option>
+                      <option value="Suisse">🇨🇭 Suisse</option>
+                      <option value="Canada">🇨🇦 Canada</option>
+                      <option value="Maroc">🇲🇦 Maroc</option>
+                      <option value="Bénin">🇧🇯 Bénin</option>
+                      <option value="Sénégal">🇸🇳 Sénégal</option>
+                      <option value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</option>
+                      <option value="Autre">🌍 Autre</option>
+                    </Select>
+                  </Field>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-bold mb-1">Source principale préférée</label>
-                  <select 
-                    value={formData.crm_settings?.source_principale} 
-                    onChange={(e) => handleNestedChange('crm_settings', 'source_principale', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="formulaire_ia">🤖 Formulaire IA</option>
-                    <option value="whatsapp">💬 WhatsApp</option>
-                    <option value="import_manuel">📥 Import manuel</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">Influence les algorithmes de scoring futur</p>
+                <div className="mt-4">
+                  <Field label="Adresse complète">
+                    <Input name="adresse" value={formData.adresse} onChange={handleChange} placeholder="12 rue des Fleurs, 75001 Paris" />
+                  </Field>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-bold mb-1">Pipeline utilisé</label>
-                  <select 
-                    value={formData.crm_settings?.pipeline_utilise} 
-                    onChange={(e) => handleNestedChange('crm_settings', 'pipeline_utilise', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="immobilier">🏠 Immobilier</option>
-                    <option value="smma">📱 SMMA</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">Doit correspondre à votre type d'agence</p>
+
+                {/* Devise (lecture seule) */}
+                <div className="mt-4 flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-lg">💱</span>
+                  <div>
+                    <p className="text-xs font-bold text-slate-600">Devise automatique</p>
+                    <p className="text-sm text-slate-700">{formData.devise} ({formData.symbole_devise}) · Format : {formData.format_devise}</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="bg-slate-50 rounded-lg p-4">
-                <h4 className="font-bold text-slate-800 mb-2">🚀 Préparation IA</h4>
-                <p className="text-sm text-slate-600 mb-3">Ces paramètres seront utilisés par le futur système de scoring IA:</p>
-                <ul className="text-sm text-slate-600 space-y-1">
-                  <li>• Priorité automatique basée sur le budget et l'urgence</li>
-                  <li>• Score de qualité selon la source du lead</li>
-                  <li>• Recommandations de suivi personnalisées</li>
-                  <li>• Prédiction de taux de conversion</li>
-                </ul>
-              </div>
-            </div>
-          )}
-          {/* ONGLET VISUEL */}
-          {activeTab === 'visuel' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-1">URL du Logo</label>
-                <input 
-                  name="logo_url" 
-                  value={formData.logo_url} 
-                  onChange={handleChange} 
-                  placeholder="https://..." 
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+              </section>
+
+              {/* Calendly */}
+              <section className="bg-white rounded-xl border border-indigo-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">📅 Lien prise de RDV</h2>
+                <p className="text-xs text-slate-400 mb-4">Utilisé pour le bouton "Proposer un RDV" sur la fiche lead et dans la Phase 3 (Calendly)</p>
+                <Input
+                  name="calendly_link"
+                  value={formData.calendly_link}
+                  onChange={handleChange}
+                  placeholder="https://calendly.com/votre-agence"
                 />
-                {formData.logo_url && (
-                  <img 
-                    src={formData.logo_url} 
-                    alt="Logo Preview" 
-                    className="h-16 mt-2 object-contain border p-1 rounded" 
-                  />
+                {formData.calendly_link && (
+                  <a href={formData.calendly_link} target="_blank" rel="noopener noreferrer"
+                    className="inline-block mt-2 text-xs text-indigo-600 hover:text-indigo-800 underline">
+                    Tester le lien ↗
+                  </a>
                 )}
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-1">Couleur Principale</label>
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="color" 
-                    name="couleur_primaire" 
-                    value={formData.couleur_primaire} 
-                    onChange={handleChange} 
-                    className="h-10 w-20 p-1 border border-slate-300 rounded" 
-                  />
-                  <span className="text-sm text-slate-500">{formData.couleur_primaire}</span>
+              </section>
+
+              {!formData.nom_agence && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                  <span className="text-lg shrink-0">⚠️</span>
+                  <p className="text-sm text-amber-800">Complétez le nom de l'agence pour activer la génération de documents.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ ONGLET APPARENCE ════════════════════════ */}
+          {activeTab === 'visuel' && (
+            <div className="space-y-6">
+
+              {/* Logo */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">🖼️ Logo de l'agence</h2>
+                <Field label="URL du logo" hint="Lien direct vers votre logo (PNG, SVG recommandé). Utilisé dans les documents générés.">
+                  <Input name="logo_url" value={formData.logo_url} onChange={handleChange} placeholder="https://..." />
+                </Field>
+                {formData.logo_url && (
+                  <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 inline-block">
+                    <img src={formData.logo_url} alt="Logo" className="h-14 object-contain" />
+                  </div>
+                )}
+              </section>
+
+              {/* Couleurs */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">🎨 Couleurs de la marque</h2>
+                <p className="text-xs text-slate-400 mb-5">Ces couleurs sont utilisées dans le formulaire public et les documents générés (Phase 4 — White-label).</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Couleur primaire */}
+                  <div>
+                    <p className="text-xs font-bold text-slate-600 mb-3">Couleur primaire</p>
+                    <div className="flex items-center gap-3 mb-3">
+                      <input
+                        type="color"
+                        name="couleur_primaire"
+                        value={formData.couleur_primaire}
+                        onChange={handleChange}
+                        className="h-10 w-14 p-0.5 border border-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <Input
+                        value={formData.couleur_primaire}
+                        onChange={(e) => setFormData(prev => ({ ...prev, couleur_primaire: e.target.value }))}
+                        className="font-mono text-xs max-w-[100px]"
+                        placeholder="#2563eb"
+                        maxLength={7}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {COLOR_PRESETS.map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setFormData(prev => ({ ...prev, couleur_primaire: c }))}
+                          className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                            formData.couleur_primaire === c ? 'border-slate-800 scale-110' : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Couleur secondaire */}
+                  <div>
+                    <p className="text-xs font-bold text-slate-600 mb-3">Couleur secondaire</p>
+                    <div className="flex items-center gap-3 mb-3">
+                      <input
+                        type="color"
+                        name="couleur_secondaire"
+                        value={formData.couleur_secondaire}
+                        onChange={handleChange}
+                        className="h-10 w-14 p-0.5 border border-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <Input
+                        value={formData.couleur_secondaire}
+                        onChange={(e) => setFormData(prev => ({ ...prev, couleur_secondaire: e.target.value }))}
+                        className="font-mono text-xs max-w-[100px]"
+                        placeholder="#7c3aed"
+                        maxLength={7}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {COLOR_PRESETS.map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setFormData(prev => ({ ...prev, couleur_secondaire: c }))}
+                          className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                            formData.couleur_secondaire === c ? 'border-slate-800 scale-110' : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview carte agence */}
+                <div className="mt-6">
+                  <p className="text-xs font-bold text-slate-600 mb-3">Aperçu — En-tête formulaire public</p>
+                  <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                    <div className="h-2" style={{ background: `linear-gradient(to right, ${formData.couleur_primaire}, ${formData.couleur_secondaire})` }} />
+                    <div className="p-4 bg-white flex items-center gap-3">
+                      {formData.logo_url
+                        ? <img src={formData.logo_url} alt="Logo" className="h-10 object-contain" />
+                        : (
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                            style={{ background: formData.couleur_primaire }}>
+                            {formData.nom_agence?.charAt(0)?.toUpperCase() || 'A'}
+                          </div>
+                        )
+                      }
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{formData.nom_agence || 'Nom de votre agence'}</p>
+                        <p className="text-xs" style={{ color: formData.couleur_primaire }}>
+                          {isImmo ? '🏠 Agence immobilière' : '📱 Agence marketing'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* ═══ ONGLET FORMULAIRE IA ═══════════════════ */}
+          {activeTab === 'form' && (
+            <div className="space-y-6">
+
+              {/* Badge type agence actif */}
+              <div className={`flex items-center gap-3 p-4 rounded-xl border ${
+                isImmo ? 'bg-indigo-50 border-indigo-200' : 'bg-purple-50 border-purple-200'
+              }`}>
+                <span className="text-2xl">{isImmo ? '🏠' : '📱'}</span>
+                <div>
+                  <p className={`text-sm font-bold ${isImmo ? 'text-indigo-800' : 'text-purple-800'}`}>
+                    Mode {isImmo ? 'Immobilier' : 'SMMA'} actif
+                  </p>
+                  <p className={`text-xs ${isImmo ? 'text-indigo-600' : 'text-purple-600'}`}>
+                    {isImmo
+                      ? 'Les champs spécifiques à l\'immobilier sont affichés.'
+                      : 'Les champs marketing sont activés, les champs immobiliers masqués.'}
+                  </p>
                 </div>
               </div>
+
+              {/* Champs communs */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+                  Champs communs — toujours visibles
+                </h2>
+                <div className="space-y-3">
+                  {[
+                    { key: null, label: '👤 Nom & Prénom', desc: 'Obligatoire — non désactivable', locked: true },
+                    { key: null, label: '📧 Email',         desc: 'Obligatoire — non désactivable', locked: true },
+                    { key: null, label: '📞 Téléphone',     desc: 'Obligatoire — non désactivable', locked: true },
+                    { key: 'showBudget', label: '💰 Budget', desc: 'Essentiel pour qualifier le lead' },
+                    { key: 'showDelai',  label: '⏱️ Délai / Urgence', desc: 'Quand souhaitez-vous concrétiser ?' },
+                  ].map(row => (
+                    <div key={row.label} className={`flex items-center justify-between p-3 rounded-lg border ${
+                      row.locked ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'
+                    }`}>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{row.label}</p>
+                        <p className="text-xs text-slate-400">{row.desc}</p>
+                      </div>
+                      {row.locked
+                        ? <span className="text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full">Fixe</span>
+                        : <Toggle checked={!!formData.form_settings?.[row.key]} onChange={() => handleToggle(row.key)} />
+                      }
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Champs IMMO */}
+              {isImmo && (
+                <section className="bg-white rounded-xl border border-indigo-100 shadow-sm p-5">
+                  <h2 className="text-sm font-bold text-indigo-700 uppercase tracking-wide mb-4">
+                    🏠 Champs Immobilier
+                  </h2>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'showRole',         label: '🔑 Rôle',             desc: 'Propriétaire vendeur ou client acquéreur' },
+                      { key: 'showType',         label: '🏠 Type de bien',      desc: 'Appartement, maison, terrain, local…' },
+                      { key: 'showLocalisation', label: '📍 Localisation',      desc: 'Zone géographique souhaitée' },
+                    ].map(row => (
+                      <div key={row.key} className="flex items-center justify-between p-3 bg-white border border-indigo-100 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{row.label}</p>
+                          <p className="text-xs text-slate-400">{row.desc}</p>
+                        </div>
+                        <Toggle checked={!!formData.form_settings?.[row.key]} onChange={() => handleToggle(row.key)} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Champs SMMA */}
+              {!isImmo && (
+                <section className="bg-white rounded-xl border border-purple-100 shadow-sm p-5">
+                  <h2 className="text-sm font-bold text-purple-700 uppercase tracking-wide mb-4">
+                    📱 Champs SMMA
+                  </h2>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'showObjectifMarketing', label: '🎯 Objectif marketing', desc: 'Notoriété, leads, ventes, engagement…' },
+                      { key: 'showTypeService',       label: '🛠️ Type de service',    desc: 'Social Ads, SEO, contenu, email…' },
+                    ].map(row => (
+                      <div key={row.key} className="flex items-center justify-between p-3 bg-white border border-purple-100 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{row.label}</p>
+                          <p className="text-xs text-slate-400">{row.desc}</p>
+                        </div>
+                        <Toggle checked={!!formData.form_settings?.[row.key]} onChange={() => handleToggle(row.key)} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* URL formulaire public */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">
+                  🔗 URL de votre formulaire public
+                </h2>
+                <div className="flex items-center gap-2">
+                  <Input value={formUrl} readOnly className="bg-slate-50 text-xs font-mono cursor-text" />
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(formUrl); showToast('URL copiée !'); }}
+                    className="shrink-0 px-3 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    📋 Copier
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Partagez cette URL sur vos réseaux sociaux ou votre site pour recevoir des leads qualifiés automatiquement.
+                </p>
+              </section>
             </div>
           )}
 
-          {/* ONGLET FORMULAIRE */}
-          {activeTab === 'form' && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-500 mb-4">Personnalisez le formulaire que vos clients voient.</p>
-              <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50">
-                <span className="font-medium">Demander le Budget</span>
-                <input 
-                  type="checkbox" 
-                  checked={formData.form_settings?.showBudget} 
-                  onChange={() => handleToggle('showBudget')} 
-                  className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                />
+          {/* ═══ ONGLET LÉGAL ═══════════════════════════ */}
+          {activeTab === 'legal' && (
+            <div className="space-y-6">
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <span className="text-lg shrink-0">📋</span>
+                <div>
+                  <p className="text-sm font-bold text-blue-800">Identité légale pour documents</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Ces informations apparaissent dans vos devis, factures et contrats générés.</p>
+                </div>
               </div>
-              <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50">
-                <span className="font-medium">Demander le Type de bien</span>
-                <input 
-                  type="checkbox" 
-                  checked={formData.form_settings?.showType} 
-                  onChange={() => handleToggle('showType')} 
-                  className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                />
-              </div>
-              <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50">
-                <span className="font-medium">Demander le Délai</span>
-                <input 
-                  type="checkbox" 
-                  checked={formData.form_settings?.showDelai} 
-                  onChange={() => handleToggle('showDelai')} 
-                  className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500" 
-                />
-              </div>
+
+              {/* Champs légaux communs */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Informations communes</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Nom légal de l'entreprise" required>
+                    <Input name="nom_legal" value={formData.nom_legal} onChange={handleChange} placeholder="SARL DUPONT IMMOBILIER" />
+                  </Field>
+                  <Field label="Statut juridique">
+                    <Select name="statut_juridique" value={formData.statut_juridique} onChange={handleChange}>
+                      <option value="">Sélectionner…</option>
+                      <option value="auto-entrepreneur">Auto-entrepreneur / Micro</option>
+                      <option value="ei">Entreprise Individuelle (EI)</option>
+                      <option value="eurl">EURL</option>
+                      <option value="sarl">SARL</option>
+                      <option value="sas">SAS</option>
+                      <option value="sasu">SASU</option>
+                      <option value="scs">SCS</option>
+                      <option value="snc">SNC</option>
+                    </Select>
+                  </Field>
+                  <Field label="Numéro d'enregistrement" hint="SIRET, RCCM, etc.">
+                    <Input name="numero_enregistrement" value={formData.numero_enregistrement} onChange={handleChange} placeholder="123 456 789 00012" />
+                  </Field>
+                  <Field label="Numéro de TVA intracommunautaire">
+                    <Input name="numero_tva" value={formData.numero_tva} onChange={handleChange} placeholder="FR 12 345678901" />
+                  </Field>
+                  <Field label="Adresse légale" hint="Si différente de l'adresse principale" className="sm:col-span-2">
+                    <Input name="adresse_legale" value={formData.adresse_legale} onChange={handleChange} placeholder="Si différente de l'adresse principale" />
+                  </Field>
+                </div>
+              </section>
+
+              {/* Champs légaux IMMO spécifiques */}
+              {isImmo && (
+                <section className="bg-white rounded-xl border border-indigo-100 shadow-sm p-5">
+                  <h2 className="text-sm font-bold text-indigo-700 uppercase tracking-wide mb-4">
+                    🏠 Réglementation immobilière
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Carte professionnelle T (Transaction)" hint="Délivrée par la CCI — obligatoire pour vendre">
+                      <Input name="carte_pro_t" value={formData.carte_pro_t} onChange={handleChange} placeholder="CPI 12345678" />
+                    </Field>
+                    <Field label="Carte professionnelle S (Syndic/Gestion)" hint="Obligatoire pour la gestion locative">
+                      <Input name="carte_pro_s" value={formData.carte_pro_s} onChange={handleChange} placeholder="CPI 87654321" />
+                    </Field>
+                  </div>
+                </section>
+              )}
+
+              {/* Champs légaux SMMA spécifiques */}
+              {!isImmo && (
+                <section className="bg-white rounded-xl border border-purple-100 shadow-sm p-5">
+                  <h2 className="text-sm font-bold text-purple-700 uppercase tracking-wide mb-4">
+                    📱 Activité SMMA
+                  </h2>
+                  <Field label="Activité principale déclarée" hint="Utilisé dans les mentions légales des devis">
+                    <Input name="activite_principale" value={formData.activite_principale} onChange={handleChange} placeholder="Conseil en communication digitale" />
+                  </Field>
+                </section>
+              )}
+
+              {/* Mentions légales + conditions */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Pied de page documents</h2>
+                <div className="space-y-4">
+                  <Field label="Mention légale" hint='Ex: "TVA non applicable, art. 293 B du CGI"'>
+                    <Textarea name="mention_legale" value={formData.mention_legale} onChange={handleChange} rows={2} placeholder="Mention légale à afficher en pied de document…" />
+                  </Field>
+                  <Field label="Conditions de paiement" hint='Ex: "Paiement à 30 jours, pénalités de retard 3%/mois"'>
+                    <Textarea name="conditions_paiement" value={formData.conditions_paiement} onChange={handleChange} rows={3} placeholder="Conditions de paiement…" />
+                  </Field>
+                </div>
+              </section>
+
+              {/* Option premium montant en lettres */}
+              <section className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0 mr-4">
+                    <h3 className="text-sm font-bold text-purple-800">💎 Montant en lettres sur les documents</h3>
+                    <p className="text-xs text-purple-600 mt-1">
+                      Affiche "Arrêté la présente facture à la somme de…" — option de différenciation professionnelle (vs Bitrix/Pipedrive).
+                      Compatible EUR, FCFA, CAD, MAD.
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={formData.show_amount_in_words}
+                    onChange={(v) => setFormData(prev => ({ ...prev, show_amount_in_words: v }))}
+                  />
+                </div>
+              </section>
+
+              {(!formData.nom_legal || !formData.statut_juridique) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                  <span className="text-lg shrink-0">⚠️</span>
+                  <p className="text-sm text-amber-800">Complétez le nom légal et le statut juridique pour générer des documents valides.</p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ===== ONGLET ABONNEMENT & FACTURATION ===== */}
+          {/* ═══ ONGLET CRM ════════════════════════════ */}
+          {activeTab === 'crm' && (
+            <div className="space-y-6">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                <span className="text-lg shrink-0">⚙️</span>
+                <div>
+                  <p className="text-sm font-bold text-green-800">Paramètres CRM avancés</p>
+                  <p className="text-xs text-green-600 mt-0.5">Prépare le futur scoring IA et les automatisations Phase 3.</p>
+                </div>
+              </div>
+
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <div className="space-y-4">
+                  <Field label="Priorité par défaut d'un nouveau lead" hint="Utilisé pour l'assignation automatique">
+                    <Select
+                      value={formData.crm_settings?.priorite_defaut}
+                      onChange={(e) => handleNestedChange('crm_settings', 'priorite_defaut', e.target.value)}
+                    >
+                      <option value="faible">🔴 Faible</option>
+                      <option value="moyenne">🟡 Moyenne</option>
+                      <option value="haute">🟢 Haute</option>
+                    </Select>
+                  </Field>
+                  <Field label="Source principale préférée" hint="Influence les algorithmes de scoring IA">
+                    <Select
+                      value={formData.crm_settings?.source_principale}
+                      onChange={(e) => handleNestedChange('crm_settings', 'source_principale', e.target.value)}
+                    >
+                      <option value="formulaire_ia">🤖 Formulaire IA</option>
+                      <option value="whatsapp">💬 WhatsApp</option>
+                      <option value="import_manuel">📥 Import manuel</option>
+                      <option value="meta_ads">📘 Meta Ads (Phase 4)</option>
+                      <option value="google_ads">🔍 Google Ads (Phase 4)</option>
+                    </Select>
+                  </Field>
+                  <Field label="Pipeline utilisé" hint="Doit correspondre à votre type d'agence">
+                    <Select
+                      value={formData.crm_settings?.pipeline_utilise}
+                      onChange={(e) => handleNestedChange('crm_settings', 'pipeline_utilise', e.target.value)}
+                    >
+                      <option value="immobilier">🏠 Immobilier</option>
+                      <option value="smma">📱 SMMA</option>
+                    </Select>
+                  </Field>
+                </div>
+              </section>
+
+              <section className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-700 mb-3">🚀 Préparation IA (Phase 3)</h3>
+                <ul className="space-y-2 text-sm text-slate-600">
+                  {[
+                    'Priorité automatique basée sur le budget et l\'urgence',
+                    'Score de qualité selon la source du lead',
+                    'Recommandations de suivi personnalisées',
+                    'Prédiction de taux de conversion par agent',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="text-indigo-500 shrink-0 mt-0.5">→</span>{item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          )}
+
+          {/* ═══ ONGLET FACTURATION ═════════════════════ */}
           {activeTab === 'facturation' && (
             <div className="space-y-6">
               <div>
@@ -902,28 +993,20 @@ export default function Settings() {
                 <p className="text-sm text-slate-500">Gérez votre abonnement LeadQualif — paiements sécurisés via Stripe</p>
               </div>
 
-              {/* Erreur Stripe */}
               {stripeError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                  ⚠️ {stripeError}
-                </div>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠️ {stripeError}</div>
               )}
 
-              {/* Plan actuel */}
               {subscriptionInfo.status === 'active' || subscriptionInfo.status === 'trialing' ? (
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <p className="text-blue-100 text-sm font-medium">Votre plan actuel</p>
-                      <p className="text-2xl font-bold mt-1">
-                        {PLAN_LABELS[subscriptionInfo.plan] || subscriptionInfo.plan}
-                      </p>
+                      <p className="text-2xl font-bold mt-1">{PLAN_LABELS[subscriptionInfo.plan] || subscriptionInfo.plan}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold block mb-2">
-                        {STATUS_LABELS[subscriptionInfo.status] || subscriptionInfo.status}
-                      </span>
-                    </div>
+                    <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">
+                      {STATUS_LABELS[subscriptionInfo.status] || subscriptionInfo.status}
+                    </span>
                   </div>
                   {subscriptionInfo.current_period_end && (
                     <p className="text-blue-200 text-sm">
@@ -931,82 +1014,48 @@ export default function Settings() {
                     </p>
                   )}
                   <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={handleOpenPortal}
-                      disabled={stripeLoading}
-                      className="px-4 py-2 bg-white text-blue-700 rounded-lg font-semibold text-sm hover:bg-blue-50 transition disabled:opacity-50"
-                    >
-                      {stripeLoading ? '⏳ Chargement…' : '⚙️ Gérer mon abonnement'}
+                    <button onClick={handleOpenPortal} disabled={stripeLoading}
+                      className="px-4 py-2 bg-white text-blue-700 rounded-lg font-semibold text-sm hover:bg-blue-50 disabled:opacity-50">
+                      {stripeLoading ? '⏳…' : '⚙️ Gérer mon abonnement'}
                     </button>
-                    <button
-                      onClick={handleOpenPortal}
-                      disabled={stripeLoading}
-                      className="px-4 py-2 bg-white/20 text-white rounded-lg font-semibold text-sm hover:bg-white/30 transition disabled:opacity-50"
-                    >
-                      📄 Voir mes factures
+                    <button onClick={handleOpenPortal} disabled={stripeLoading}
+                      className="px-4 py-2 bg-white/20 text-white rounded-lg font-semibold text-sm hover:bg-white/30 disabled:opacity-50">
+                      📄 Mes factures
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl">⚡</span>
-                    <div>
-                      <p className="font-bold text-amber-800">Aucun abonnement actif</p>
-                      <p className="text-sm text-amber-700">Choisissez un plan pour débloquer toutes les fonctionnalités</p>
-                    </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-3">
+                  <span className="text-2xl">⚡</span>
+                  <div>
+                    <p className="font-bold text-amber-800">Aucun abonnement actif</p>
+                    <p className="text-sm text-amber-700 mt-1">Choisissez un plan pour débloquer toutes les fonctionnalités</p>
+                    <p className="text-xs text-amber-600 mt-2">7 jours d'essai gratuit • Annulation à tout moment • Paiement sécurisé Stripe</p>
                   </div>
-                  <p className="text-xs text-amber-600">7 jours d'essai gratuit • Annulation à tout moment • Paiement sécurisé via Stripe</p>
                 </div>
               )}
 
-              {/* Plans disponibles */}
+              {/* Plans */}
               <div>
                 <h3 className="text-sm font-bold text-slate-700 mb-3">
                   {subscriptionInfo.status === 'active' ? 'Changer de plan' : 'Choisir votre plan'}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
-                    {
-                      key: 'starter',
-                      name: 'Starter',
-                      price: '49€',
-                      features: ['Jusqu\'à 100 leads', 'Qualification IA', 'Pipeline Kanban', 'Documents basiques', 'Support email'],
-                      border: 'border-slate-200',
-                      badge: '',
-                      btnClass: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
-                    },
-                    {
-                      key: 'growth',
-                      name: 'Growth',
-                      price: '149€',
-                      features: ['Leads illimités', 'IA avancée + suggestions', 'CRM & historique complet', 'Documents Pro SaaS', 'Stats & Analytics', 'Support prioritaire'],
-                      border: 'border-blue-400 ring-2 ring-blue-200',
-                      badge: '⭐ Recommandé',
-                      btnClass: 'bg-blue-600 text-white hover:bg-blue-700',
-                    },
-                    {
-                      key: 'enterprise',
-                      name: 'Enterprise',
-                      price: 'Sur devis',
-                      features: ['Multi-agents', 'API dédiée', 'Onboarding prioritaire', 'Formation équipe', 'SLA 99.9%'],
-                      border: 'border-purple-200',
-                      badge: '',
-                      btnClass: 'border border-purple-300 text-purple-700 hover:bg-purple-50',
-                    },
+                    { key: 'starter',    name: 'Starter',    price: '49€',      features: ['100 leads/mois', 'Qualification IA', 'Pipeline Kanban', 'Documents basiques', 'Support email'], border: 'border-slate-200', badge: '', btnCls: 'border border-slate-300 text-slate-700 hover:bg-slate-50' },
+                    { key: 'growth',     name: 'Growth',     price: '149€',     features: ['Leads illimités', 'IA avancée + suggestions', 'CRM & historique', 'Documents Pro', 'Stats & Analytics', 'Support prioritaire'], border: 'border-blue-400 ring-2 ring-blue-200', badge: '⭐ Recommandé', btnCls: 'bg-blue-600 text-white hover:bg-blue-700' },
+                    { key: 'enterprise', name: 'Enterprise', price: 'Sur devis', features: ['Multi-agents', 'API dédiée', 'Onboarding prioritaire', 'Formation équipe', 'SLA 99.9%'], border: 'border-purple-200', badge: '', btnCls: 'border border-purple-300 text-purple-700 hover:bg-purple-50' },
                   ].map(plan => {
                     const isCurrent = subscriptionInfo.plan === plan.key && subscriptionInfo.status === 'active';
                     return (
-                      <div key={plan.key} className={`border-2 rounded-xl p-4 ${plan.border} relative`}>
+                      <div key={plan.key} className={`border-2 rounded-xl p-4 relative ${plan.border}`}>
                         {plan.badge && (
                           <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-semibold whitespace-nowrap">
                             {plan.badge}
                           </span>
                         )}
                         {isCurrent && (
-                          <span className="absolute -top-3 right-4 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                            ✅ Actif
-                          </span>
+                          <span className="absolute -top-3 right-4 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">✅ Actif</span>
                         )}
                         <p className="font-bold text-slate-800 text-lg">{plan.name}</p>
                         <p className="text-2xl font-bold text-blue-600 mt-1">
@@ -1022,19 +1071,14 @@ export default function Settings() {
                           ))}
                         </ul>
                         {plan.key === 'enterprise' ? (
-                          <a
-                            href="mailto:contact@nexapro.tech?subject=LeadQualif Enterprise"
-                            className={`w-full mt-2 py-2 px-4 rounded-lg text-sm font-semibold transition text-center block ${plan.btnClass}`}
-                          >
+                          <a href="mailto:contact@nexapro.tech?subject=LeadQualif Enterprise"
+                            className={`w-full mt-2 py-2 px-4 rounded-lg text-sm font-semibold transition text-center block ${plan.btnCls}`}>
                             Nous contacter
                           </a>
                         ) : (
-                          <button
-                            onClick={() => handleSubscribe(plan.key)}
-                            disabled={stripeLoading || isCurrent}
-                            className={`w-full py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${plan.btnClass}`}
-                          >
-                            {stripeLoading ? '⏳ Chargement…' : isCurrent ? '✅ Plan actuel' : `Démarrer l'essai gratuit`}
+                          <button onClick={() => handleSubscribe(plan.key)} disabled={stripeLoading || isCurrent}
+                            className={`w-full py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${plan.btnCls}`}>
+                            {stripeLoading ? '⏳…' : isCurrent ? '✅ Plan actuel' : "Démarrer l'essai gratuit"}
                           </button>
                         )}
                       </div>
@@ -1042,22 +1086,16 @@ export default function Settings() {
                   })}
                 </div>
                 <p className="text-xs text-center text-slate-400 mt-3">
-                  🔒 Paiement sécurisé via Stripe • Annulation à tout moment depuis le portail • Aucun engagement
+                  🔒 Paiement sécurisé via Stripe • Annulation à tout moment • Aucun engagement
                 </p>
               </div>
 
-              {/* Portail de gestion */}
               {subscriptionInfo.stripe_customer_id && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <h3 className="text-sm font-bold text-slate-700 mb-2">⚙️ Gérer votre abonnement</h3>
-                  <p className="text-xs text-slate-500 mb-3">
-                    Accédez au portail Stripe pour modifier votre plan, télécharger vos factures, changer de carte bancaire ou annuler.
-                  </p>
-                  <button
-                    onClick={handleOpenPortal}
-                    disabled={stripeLoading}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition disabled:opacity-50"
-                  >
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">⚙️ Portail de gestion</h3>
+                  <p className="text-xs text-slate-500 mb-3">Modifiez votre plan, téléchargez vos factures, changez de carte ou annulez.</p>
+                  <button onClick={handleOpenPortal} disabled={stripeLoading}
+                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition disabled:opacity-50">
                     {stripeLoading ? '⏳ Ouverture…' : '→ Ouvrir le portail Stripe'}
                   </button>
                 </div>
@@ -1065,20 +1103,8 @@ export default function Settings() {
             </div>
           )}
 
-          {/* BOUTON SAUVEGARDE */}
-          {activeTab !== 'facturation' && (
-          <div className="mt-8 pt-4 border-t border-slate-200 flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Sauvegarde...' : 'Enregistrer les modifications'}
-            </button>
-          </div>
-          )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
