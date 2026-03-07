@@ -365,47 +365,69 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Kanban / Liste toggle — texte masqué sur petits écrans */}
             <div className="flex bg-slate-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('kanban')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
+                title="Vue Kanban"
+                className={`px-2 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
               >
-                📋 Kanban
+                <span className="hidden lg:inline">📋 Kanban</span>
+                <span className="lg:hidden">📋</span>
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
+                title="Vue Liste"
+                className={`px-2 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
               >
-                📋 Liste
+                <span className="hidden lg:inline">☰ Liste</span>
+                <span className="lg:hidden">☰</span>
               </button>
             </div>
 
+            {/* Nouveau lead */}
             <AddLeadGate>
               <button
+                data-new-lead
                 onClick={() => setShowLeadForm(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+                className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                title="Nouveau lead"
               >
-                ➕ Nouveau lead
+                <span>➕</span>
+                <span className="hidden lg:inline">Nouveau lead</span>
               </button>
             </AddLeadGate>
 
-            <Link to="/documents" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-              📂 Documents
+            {/* Documents */}
+            <Link
+              to="/documents"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+              title="Mes documents"
+            >
+              <span>📂</span>
+              <span className="hidden lg:inline">Documents</span>
             </Link>
 
+            {/* Notifications */}
             <NotificationBell agencyId={agencyProfile?.agency_id || agencyProfile?.id} />
 
-            <Link to="/settings" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
-              ⚙️ Settings
+            {/* Settings */}
+            <Link
+              to="/settings"
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 text-sm font-medium"
+              title="Paramètres"
+            >
+              <span>⚙️</span>
+              <span className="hidden lg:inline">Paramètres</span>
             </Link>
           </div>
         </div>
 
         {/* === BARRE RECHERCHE + FILTRES === */}
-        <div className="flex items-center gap-3 pb-3">
+        <div className="flex flex-wrap items-center gap-2 pb-3">
           {/* Recherche */}
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 min-w-[160px] max-w-sm">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
             <input
               type="text"
@@ -423,19 +445,21 @@ export default function Dashboard() {
           </div>
 
           {/* Filtres qualification */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {[
-              { key: 'all', label: 'Tous', style: filterQualification === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50' },
-              { key: 'chaud', label: '🟢 Chaud', style: filterQualification === 'chaud' ? 'bg-green-600 text-white' : 'bg-white text-green-700 border border-green-200 hover:bg-green-50' },
-              { key: 'tiede', label: '🟡 Tiède', style: filterQualification === 'tiede' ? 'bg-yellow-500 text-white' : 'bg-white text-yellow-700 border border-yellow-200 hover:bg-yellow-50' },
-              { key: 'froid', label: '🔴 Froid', style: filterQualification === 'froid' ? 'bg-red-500 text-white' : 'bg-white text-red-700 border border-red-200 hover:bg-red-50' },
+              { key: 'all',   icon: '⚡', label: 'Tous',   style: filterQualification === 'all'   ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50' },
+              { key: 'chaud', icon: '🟢', label: 'Chaud', style: filterQualification === 'chaud' ? 'bg-green-600 text-white'  : 'bg-white text-green-700 border border-green-200 hover:bg-green-50' },
+              { key: 'tiede', icon: '🟡', label: 'Tiède', style: filterQualification === 'tiede' ? 'bg-yellow-500 text-white' : 'bg-white text-yellow-700 border border-yellow-200 hover:bg-yellow-50' },
+              { key: 'froid', icon: '🔴', label: 'Froid', style: filterQualification === 'froid' ? 'bg-red-500 text-white'    : 'bg-white text-red-700 border border-red-200 hover:bg-red-50' },
             ].map(f => (
               <button
                 key={f.key}
                 onClick={() => setFilterQualification(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${f.style}`}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${f.style}`}
+                title={f.label}
               >
-                {f.label}
+                <span className="hidden sm:inline">{f.icon} {f.label}</span>
+                <span className="sm:hidden">{f.icon}</span>
               </button>
             ))}
           </div>

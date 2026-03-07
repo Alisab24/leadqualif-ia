@@ -347,223 +347,185 @@ const DocumentsPage = () => {
 
   if (!agencyProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement du profil...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center h-screen text-slate-400">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-3"></div>
+        <p className="text-sm">Chargement du profil…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
+      {/* ── En-tête de page (slim, intégré à la sidebar Layout) ── */}
+      <div className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">📂</span>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                {totalCount} document{totalCount > 1 ? 's' : ''} • {agencyProfile.nom_agence}
+              <h1 className="text-base font-bold text-slate-900 leading-tight">Documents</h1>
+              <p className="text-xs text-slate-500">
+                {totalCount} document{totalCount > 1 ? 's' : ''} · {agencyProfile.nom_agence}
+                {agencyProfile.type_agence === 'immobilier' ? ' · 🏠 Immo' : ' · 📱 SMMA'}
               </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {agencyProfile.type_agence === 'immobilier' ? '🏠 Immobilier' : '📱 SMMA'}
+          </div>
+          {leadIdFilter && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg">
+                🔍 Lead filtré
               </span>
+              <a href="/documents" className="text-xs text-slate-500 hover:text-slate-700 underline">
+                Voir tout
+              </a>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Filtres ── */}
+      <div className="flex-none bg-white border-b border-slate-100 px-6 py-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          {/* Recherche */}
+          <div className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="Référence, titre ou client…"
+              value={filters.searchTerm}
+              onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 outline-none bg-slate-50"
+            />
+          </div>
+
+          {/* Type */}
+          <div>
+            <select
+              value={filters.type}
+              onChange={(e) => handleFilterChange('type', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none bg-slate-50"
+            >
+              <option value="tous">Tous les types</option>
+              <option value="devis">📄 Devis</option>
+              <option value="facture">🧾 Factures</option>
+              <option value="mandat">📋 Mandats</option>
+              <option value="rapport">📊 Rapports</option>
+              <option value="contrat">📝 Contrats</option>
+            </select>
+          </div>
+
+          {/* Statut */}
+          <div>
+            <select
+              value={filters.statut}
+              onChange={(e) => handleFilterChange('statut', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none bg-slate-50"
+            >
+              <option value="tous">Tous les statuts</option>
+              <option value="généré">📝 Généré</option>
+              <option value="validé">✅ Validé</option>
+              <option value="facturé">🧾 Facturé</option>
+              <option value="émis">📤 Émis</option>
+              <option value="payé">💰 Payé</option>
+            </select>
+          </div>
+
+          {/* Date */}
+          <div>
+            <select
+              value={filters.dateRange}
+              onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none bg-slate-50"
+            >
+              <option value="tous">Toutes les dates</option>
+              <option value="7jours">7 derniers jours</option>
+              <option value="30jours">30 derniers jours</option>
+              <option value="90jours">90 derniers jours</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Bandeau filtre lead actif */}
-      {leadIdFilter && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <span className="text-sm text-blue-700 font-medium">
-              🔍 Documents filtrés pour un lead spécifique
-            </span>
-            <a href="/documents" className="text-xs text-blue-600 hover:text-blue-800 underline">
-              Voir tous les documents
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Filtres */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {/* Recherche */}
-            <div className="md:col-span-2">
-              <input
-                type="text"
-                placeholder="Rechercher par référence, titre ou client..."
-                value={filters.searchTerm}
-                onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Type */}
-            <div>
-              <select
-                value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="tous">Tous les types</option>
-                <option value="devis">📄 Devis</option>
-                <option value="facture">🧾 Factures</option>
-                <option value="mandat">📋 Mandats</option>
-                <option value="rapport">📊 Rapports</option>
-                <option value="contrat">📝 Contrats</option>
-              </select>
-            </div>
-
-            {/* Statut */}
-            <div>
-              <select
-                value={filters.statut}
-                onChange={(e) => handleFilterChange('statut', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="tous">Tous les statuts</option>
-                <option value="généré">📝 Généré</option>
-                <option value="validé">✅ Validé</option>
-                <option value="facturé">🧾 Facturé</option>
-                <option value="émis">📤 Émis</option>
-                <option value="payé">💰 Payé</option>
-              </select>
-            </div>
-
-            {/* Date */}
-            <div>
-              <select
-                value={filters.dateRange}
-                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="tous">Toutes les dates</option>
-                <option value="7jours">📅 7 derniers jours</option>
-                <option value="30jours">📅 30 derniers jours</option>
-                <option value="90jours">📅 90 derniers jours</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Contenu principal */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* ── Contenu principal scrollable ── */}
+      <div className="flex-1 overflow-auto px-6 py-5">
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Chargement des documents...</p>
+          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+            <p className="text-sm">Chargement des documents…</p>
           </div>
         ) : documents.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">📄</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun document trouvé</h3>
-            <p className="text-gray-600">
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <span className="text-5xl mb-4">📄</span>
+            <h3 className="text-base font-semibold text-slate-700 mb-1">Aucun document trouvé</h3>
+            <p className="text-sm">
               {filters.searchTerm || filters.type !== 'tous' || filters.statut !== 'tous'
                 ? 'Essayez de modifier vos filtres'
-                : 'Commencez par créer votre premier document'
-              }
+                : 'Créez votre premier document depuis un lead'}
             </p>
           </div>
         ) : (
           <>
             {/* Liste des documents */}
-            <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-100">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Document
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Montant
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Statut
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Document</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Statut</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-slate-100">
                     {documents.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className="text-2xl mr-3">{getTypeIcon(doc.type)}</span>
+                      <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl shrink-0">{getTypeIcon(doc.type)}</span>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{doc.reference}</div>
-                              <div className="text-sm text-gray-500">{doc.titre}</div>
+                              <div className="text-sm font-semibold text-slate-800">{doc.reference}</div>
+                              <div className="text-xs text-slate-400 truncate max-w-[160px]">{doc.titre}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{doc.client_nom || '-'}</div>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="text-sm text-slate-700">{doc.client_nom || '—'}</div>
                           {doc.client_email && (
-                            <div className="text-sm text-gray-500">{doc.client_email}</div>
+                            <div className="text-xs text-slate-400">{doc.client_email}</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-slate-800">
                             {formatCurrency(doc.total_ttc, doc.devise)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(doc.statut)}`}>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(doc.statut)}`}>
                             {doc.statut}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-400 hidden sm:table-cell">
                           {formatDate(doc.created_at)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
-                            {/* Preview */}
+                        <td className="px-5 py-3.5 whitespace-nowrap text-right">
+                          <div className="flex justify-end gap-1">
                             <button
                               onClick={() => handlePreview(doc)}
-                              className="text-blue-600 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-50"
+                              className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Aperçu"
-                            >
-                              👁️
-                            </button>
-
-                            {/* Download */}
+                            >👁️</button>
                             <button
                               onClick={() => downloadDocument(doc)}
-                              className="text-green-600 hover:text-green-900 px-2 py-1 rounded hover:bg-green-50"
+                              className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                               title="Télécharger"
-                            >
-                              ⬇️
-                            </button>
-
-                            {/* Convert to Invoice */}
+                            >⬇️</button>
                             {doc.type === 'devis' && (
                               <button
-                                onClick={() => {
-                                  setSelectedDocument(doc);
-                                  setShowConversionModal(true);
-                                }}
-                                className="text-purple-600 hover:text-purple-900 px-2 py-1 rounded hover:bg-purple-50"
+                                onClick={() => { setSelectedDocument(doc); setShowConversionModal(true); }}
+                                className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
                                 title="Convertir en facture"
-                              >
-                                🔄
-                              </button>
+                              >🔄</button>
                             )}
                           </div>
                         </td>
@@ -576,28 +538,27 @@ const DocumentsPage = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Affichage de {((pagination.page - 1) * pagination.limit) + 1} à{' '}
-                  {Math.min(pagination.page * pagination.limit, totalCount)} sur {totalCount} documents
-                </div>
-                <div className="flex space-x-2">
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-xs text-slate-500">
+                  {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, totalCount)} sur {totalCount} documents
+                </p>
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => handlePageChange(pagination.page - 1)}
                     disabled={pagination.page === 1}
-                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Précédent
+                    ← Précédent
                   </button>
-                  <span className="px-3 py-2 text-sm font-medium text-gray-700">
-                    Page {pagination.page} sur {totalPages}
+                  <span className="text-xs text-slate-500 font-medium">
+                    {pagination.page} / {totalPages}
                   </span>
                   <button
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page === totalPages}
-                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Suivant
+                    Suivant →
                   </button>
                 </div>
               </div>
