@@ -262,18 +262,15 @@ export default function Settings() {
           stripe_customer_id: data.stripe_customer_id || null,
         });
       } else {
-        // Aucun profil en base → créer une ligne vide pour cet utilisateur
-        // Cela arrive quand l'inscription a échoué à créer le profil
-        console.log('Profil introuvable, création automatique…');
-        await supabase.from('profiles').upsert([{
+        // Aucun profil en base → créer une ligne minimale (colonnes de base uniquement)
+        // NOTE: les colonnes avancées (nom_agence, type_agence…) n'existent qu'APRÈS
+        // avoir exécuté la migration FIX_SETTINGS_DEFINITIF.sql dans Supabase.
+        console.log('Profil introuvable, création ligne de base…');
+        const { error: insertErr } = await supabase.from('profiles').upsert([{
           user_id: user.id,
-          agency_id: user.id,
           email: user.email,
-          nom_agence: '',
-          type_agence: 'immobilier',
-          subscription_status: 'inactive',
-          subscription_plan: 'free',
         }], { onConflict: 'user_id' });
+        if (insertErr) console.error('Création profil échouée:', insertErr.message, '— Avez-vous exécuté FIX_SETTINGS_DEFINITIF.sql dans Supabase ?');
         // formData reste aux valeurs par défaut — l'utilisateur peut remplir
         setFormData(prev => ({ ...prev, email: user.email }));
       }
@@ -399,7 +396,16 @@ export default function Settings() {
         crm_settings: formData.crm_settings,
       }, { onConflict: 'user_id' });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur sauvegarde:', error);
+        // 409 = colonnes manquantes → migration SQL non exécutée
+        if (error.code === '42703' || error.message?.includes('column') || error.code === '23505' || String(error.code) === '409') {
+          showToast('⚠️ Migration Supabase requise — exécutez FIX_SETTINGS_DEFINITIF.sql dans SQL Editor', 'error');
+        } else {
+          showToast('Erreur : ' + error.message, 'error');
+        }
+        return;
+      }
       showToast('Paramètres sauvegardés avec succès !');
     } catch (err) {
       console.error('Erreur sauvegarde:', err);
