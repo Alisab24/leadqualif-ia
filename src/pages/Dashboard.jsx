@@ -57,6 +57,10 @@ export default function Dashboard() {
 
   const statuts = ['À traiter', 'Contacté', 'Offre en cours', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
 
+  // === ARCHIVE / DELETE ===
+  const [showArchived, setShowArchived] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // leadId en attente de confirmation
+
   // === HELPER: Score IA Badge ===
   const getScoreBadge = (lead) => {
     const score = lead.score || lead.score_ia || 0;
@@ -77,7 +81,11 @@ export default function Dashboard() {
     const q = lead.qualification || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
     const matchesFilter = filterQualification === 'all' || q === filterQualification;
 
-    return matchesSearch && matchesFilter;
+    // Archivés : masqués par défaut, visibles si showArchived
+    const isArchived = lead.statut === 'Archivé';
+    const matchesArchive = showArchived ? isArchived : !isArchived;
+
+    return matchesSearch && matchesFilter && matchesArchive;
   });
 
   // === LOG CRM EVENT ===
@@ -300,6 +308,22 @@ export default function Dashboard() {
     );
   };
 
+  // === ARCHIVER UN LEAD ===
+  const handleArchiveLead = async (leadId) => {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, statut: 'Archivé' } : l));
+    await supabase.from('leads').update({ statut: 'Archivé' }).eq('id', leadId);
+    await logCrmEvent(leadId, 'archive', 'Lead archivé', 'Lead déplacé vers les archives');
+    if (selectedLead?.id === leadId) setSelectedLead(null);
+  };
+
+  // === SUPPRIMER UN LEAD ===
+  const handleDeleteLead = async (leadId) => {
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    await supabase.from('leads').delete().eq('id', leadId);
+    setConfirmDelete(null);
+    if (selectedLead?.id === leadId) setSelectedLead(null);
+  };
+
   // === DRAG & DROP HANDLERS ===
   const handleDragStart = (event) => {
     setActiveDragId(event.active.id);
@@ -366,6 +390,20 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Toggle archivés */}
+            <button
+              onClick={() => setShowArchived(prev => !prev)}
+              title={showArchived ? 'Masquer les archivés' : 'Voir les archivés'}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                showArchived
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'text-slate-500 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span className="hidden sm:inline">{showArchived ? '📂 Archivés' : '📂 Archivés'}</span>
+              <span className="sm:hidden">📂</span>
+            </button>
+
             {/* Kanban / Liste toggle */}
             <div className="flex bg-slate-100 rounded-lg p-1">
               <button
@@ -524,6 +562,9 @@ export default function Dashboard() {
                       onNavigate={(id) => navigate(`/lead/${id}`)}
                       onUpdateStatus={updateStatus}
                       onRdv={handleRendezVous}
+                      onArchive={handleArchiveLead}
+                      onDelete={(id) => setConfirmDelete(id)}
+                      /* relayés vers KanbanCard via KanbanColumn */
                     />
                   );
                 })}
@@ -620,6 +661,8 @@ export default function Dashboard() {
                               <a href={`tel:${lead.telephone}`} className="text-blue-600 hover:text-blue-800 p-1" title="Appeler" onClick={e => { e.stopPropagation(); logCrmEvent(lead.id, 'call', 'Appel téléphonique'); }}>📞</a>
                               <a href={`mailto:${lead.email}`} className="text-orange-600 hover:text-orange-800 p-1" title="Email" onClick={e => { e.stopPropagation(); logCrmEvent(lead.id, 'email', 'Email envoyé'); }}>📧</a>
                               <button className="text-purple-600 hover:text-purple-800 p-1" title="RDV" onClick={e => { e.stopPropagation(); handleRendezVous(lead); }}>📅</button>
+                              <button className="text-amber-500 hover:text-amber-700 p-1" title="Archiver" onClick={e => { e.stopPropagation(); handleArchiveLead(lead.id); }}>📁</button>
+                              <button className="text-red-500 hover:text-red-700 p-1" title="Supprimer" onClick={e => { e.stopPropagation(); setConfirmDelete(lead.id); }}>🗑</button>
                             </div>
                           </td>
                         </tr>
@@ -1040,6 +1083,34 @@ export default function Dashboard() {
         )}
       </main>
 
+      {/* ══ MODALE CONFIRMATION SUPPRESSION ══ */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-lg">🗑️</div>
+              <div>
+                <p className="font-bold text-slate-900">Supprimer ce lead ?</p>
+                <p className="text-xs text-slate-500">Cette action est irréversible.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-5 bg-slate-50 rounded-lg px-3 py-2">
+              <strong>{leads.find(l => l.id === confirmDelete)?.nom || 'Ce lead'}</strong> sera définitivement supprimé avec tout son historique CRM.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                Annuler
+              </button>
+              <button onClick={() => handleDeleteLead(confirmDelete)}
+                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -1049,7 +1120,8 @@ export default function Dashboard() {
 function KanbanColumn({
   statut, idx, leads, statuts, activeDragId,
   getScoreBadge, statutColor,
-  onSelectLead, onNavigate, onUpdateStatus, onRdv
+  onSelectLead, onNavigate, onUpdateStatus, onRdv,
+  onArchive, onDelete
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: statut });
 
@@ -1081,6 +1153,8 @@ function KanbanColumn({
             onNavigate={onNavigate}
             onUpdateStatus={onUpdateStatus}
             onRdv={onRdv}
+            onArchive={onArchive}
+            onDelete={onDelete}
           />
         ))}
 
@@ -1100,7 +1174,8 @@ function KanbanColumn({
 function KanbanCard({
   lead, idx, statuts, activeDragId,
   getScoreBadge, statutColor,
-  onSelect, onNavigate, onUpdateStatus, onRdv
+  onSelect, onNavigate, onUpdateStatus, onRdv,
+  onArchive, onDelete
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
@@ -1166,6 +1241,16 @@ function KanbanCard({
             className="w-6 h-6 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm"
             title="RDV"
           >📅</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
+            className="w-6 h-6 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shadow-sm"
+            title="Archiver"
+          >📁</button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(lead.id); }}
+            className="w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center shadow-sm"
+            title="Supprimer"
+          >🗑</button>
         </div>
       </div>
 

@@ -41,6 +41,9 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
     type_de_bien: '',
     delai_achat: '',
     criteres_specifiques: '',
+    type_projet: '',        // résidence principale / investissement / secondaire
+    financement: '',        // cash / crédit / primo-accédant / à définir
+    deja_proprietaire: '', // oui / non
     // IMMO — propriétaire
     adresse_bien: '',
     surface: '',
@@ -53,6 +56,9 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
     budget_marketing: '',
     site_web: '',
     reseau_social: '',
+    secteur_activite: '',   // restaurant, e-commerce, coach, artisan...
+    deja_agence: '',        // oui / non
+    taille_entreprise: '',  // solo / tpe / pme
   })
 
   const [loading, setLoading] = useState(false)
@@ -274,6 +280,34 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
               <option value="indefini">Indéfini / En réflexion</option>
             </select>
           </Field>
+          {/* 3 champs clés qualification marché IMMO */}
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Type de projet" required>
+              <select className={selectCls} name="type_projet" value={formData.type_projet} onChange={handleChange} required>
+                <option value="">Sélectionner</option>
+                <option value="residence_principale">Résidence principale</option>
+                <option value="investissement">Investissement locatif</option>
+                <option value="residence_secondaire">Résidence secondaire</option>
+              </select>
+            </Field>
+            <Field label="Financement" required>
+              <select className={selectCls} name="financement" value={formData.financement} onChange={handleChange} required>
+                <option value="">Sélectionner</option>
+                <option value="cash">Comptant (cash)</option>
+                <option value="credit">Crédit bancaire</option>
+                <option value="primo">Primo-accédant (PTZ)</option>
+                <option value="a_definir">À définir</option>
+              </select>
+            </Field>
+            <Field label="Déjà propriétaire ?">
+              <select className={selectCls} name="deja_proprietaire" value={formData.deja_proprietaire} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="non">Non</option>
+                <option value="oui_vendre">Oui, doit vendre</option>
+                <option value="oui_garder">Oui, garde son bien</option>
+              </select>
+            </Field>
+          </div>
           <Field label="Critères spécifiques">
             <textarea className={textareaCls} name="criteres_specifiques" rows={2}
               value={formData.criteres_specifiques} onChange={handleChange}
@@ -386,6 +420,44 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
             <input className={inputCls} type="url" name="site_web" value={formData.site_web}
               onChange={handleChange} placeholder="https://monsite.com" />
           </Field>
+
+          {/* 3 champs clés qualification marché SMMA */}
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Secteur d'activité" required>
+              <select className={selectCls} name="secteur_activite" value={formData.secteur_activite} onChange={handleChange} required>
+                <option value="">Sélectionner</option>
+                <option value="restaurant_food">Restaurant / Food</option>
+                <option value="ecommerce">E-commerce</option>
+                <option value="coach_formation">Coach / Formation</option>
+                <option value="immobilier">Immobilier</option>
+                <option value="beaute_bien_etre">Beauté / Bien-être</option>
+                <option value="sante">Santé / Médical</option>
+                <option value="artisan_btp">Artisan / BTP</option>
+                <option value="mode_luxe">Mode / Luxe</option>
+                <option value="tech_saas">Tech / SaaS</option>
+                <option value="service_b2b">Service B2B</option>
+                <option value="autre">Autre</option>
+              </select>
+            </Field>
+            <Field label="Taille structure">
+              <select className={selectCls} name="taille_entreprise" value={formData.taille_entreprise} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="solo">Solo / Auto-entrepreneur</option>
+                <option value="tpe">TPE (2–10 pers.)</option>
+                <option value="pme">PME (10–50 pers.)</option>
+                <option value="pme_plus">PME+ (50+ pers.)</option>
+              </select>
+            </Field>
+            <Field label="Déjà une agence ?">
+              <select className={selectCls} name="deja_agence" value={formData.deja_agence} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="non_jamais">Non, jamais</option>
+                <option value="non_avant">Oui, mais terminé</option>
+                <option value="oui_concurrent">Oui, avec concurrent</option>
+                <option value="en_interne">Gère en interne</option>
+              </select>
+            </Field>
+          </div>
         </div>
       )}
 
