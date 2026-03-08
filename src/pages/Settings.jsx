@@ -260,14 +260,50 @@ export default function Settings() {
     const val = type === 'checkbox' ? checked : value;
     if (name === 'pays') {
       const MAP = {
-        'France':       { devise: 'EUR', symbole: '€',    format: '1 000 €' },
-        'Bénin':        { devise: 'XOF', symbole: 'FCFA', format: '1 000 000 FCFA' },
-        'Sénégal':      { devise: 'XOF', symbole: 'FCFA', format: '1 000 000 FCFA' },
-        "Côte d'Ivoire":{ devise: 'XOF', symbole: 'FCFA', format: '1 000 000 FCFA' },
-        'Canada':       { devise: 'CAD', symbole: '$',    format: '$1,000' },
-        'Maroc':        { devise: 'MAD', symbole: 'DH',   format: '1 000 DH' },
-        'Belgique':     { devise: 'EUR', symbole: '€',    format: '1 000 €' },
-        'Suisse':       { devise: 'CHF', symbole: 'CHF',  format: '1 000 CHF' },
+        // Europe
+        'France':           { devise: 'EUR', symbole: '€',    format: '1 000 €' },
+        'Belgique':         { devise: 'EUR', symbole: '€',    format: '1 000 €' },
+        'Suisse':           { devise: 'CHF', symbole: 'CHF',  format: '1 000 CHF' },
+        'Luxembourg':       { devise: 'EUR', symbole: '€',    format: '1 000 €' },
+        'Allemagne':        { devise: 'EUR', symbole: '€',    format: '1.000 €' },
+        'Espagne':          { devise: 'EUR', symbole: '€',    format: '1.000 €' },
+        'Italie':           { devise: 'EUR', symbole: '€',    format: '1.000 €' },
+        'Portugal':         { devise: 'EUR', symbole: '€',    format: '1.000 €' },
+        'Pays-Bas':         { devise: 'EUR', symbole: '€',    format: '1.000 €' },
+        'Royaume-Uni':      { devise: 'GBP', symbole: '£',    format: '£1,000' },
+        // Amérique du Nord
+        'États-Unis':       { devise: 'USD', symbole: '$',    format: '$1,000' },
+        'Canada':           { devise: 'CAD', symbole: 'CA$',  format: 'CA$1,000' },
+        'Mexique':          { devise: 'MXN', symbole: 'MX$',  format: 'MX$1,000' },
+        // Amérique Latine
+        'Brésil':           { devise: 'BRL', symbole: 'R$',   format: 'R$ 1.000' },
+        'Argentine':        { devise: 'ARS', symbole: 'AR$',  format: 'AR$1.000' },
+        'Colombie':         { devise: 'COP', symbole: 'COP',  format: 'COP 1.000' },
+        // Afrique du Nord & Moyen-Orient
+        'Maroc':            { devise: 'MAD', symbole: 'DH',   format: '1 000 DH' },
+        'Algérie':          { devise: 'DZD', symbole: 'DA',   format: '1 000 DA' },
+        'Tunisie':          { devise: 'TND', symbole: 'DT',   format: '1 000 DT' },
+        'Égypte':           { devise: 'EGP', symbole: 'LE',   format: '1 000 LE' },
+        'Émirats arabes':   { devise: 'AED', symbole: 'AED',  format: '1,000 AED' },
+        'Arabie saoudite':  { devise: 'SAR', symbole: 'SAR',  format: '1,000 SAR' },
+        // Afrique subsaharienne
+        'Bénin':            { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Sénégal':          { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        "Côte d'Ivoire":    { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Cameroun':         { devise: 'XAF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Mali':             { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Burkina Faso':     { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Togo':             { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Niger':            { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Guinée':           { devise: 'GNF', symbole: 'FG',   format: '1 000 000 FG' },
+        'Congo (RDC)':      { devise: 'CDF', symbole: 'FC',   format: '1 000 FC' },
+        "Côte d'Ivoire":    { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
+        'Madagascar':       { devise: 'MGA', symbole: 'Ar',   format: '1 000 Ar' },
+        // Asie-Pacifique
+        'Inde':             { devise: 'INR', symbole: '₹',    format: '₹1,00,000' },
+        'Chine':            { devise: 'CNY', symbole: '¥',    format: '¥1,000' },
+        'Japon':            { devise: 'JPY', symbole: '¥',    format: '¥1,000' },
+        'Australie':        { devise: 'AUD', symbole: 'AU$',  format: 'AU$1,000' },
       };
       const d = MAP[value] || MAP['France'];
       setFormData(prev => ({
@@ -515,14 +551,55 @@ export default function Settings() {
                   </Field>
                   <Field label="Pays" hint="Détermine automatiquement la devise" required>
                     <Select name="pays" value={formData.pays} onChange={handleChange}>
-                      <option value="France">🇫🇷 France</option>
-                      <option value="Belgique">🇧🇪 Belgique</option>
-                      <option value="Suisse">🇨🇭 Suisse</option>
-                      <option value="Canada">🇨🇦 Canada</option>
-                      <option value="Maroc">🇲🇦 Maroc</option>
-                      <option value="Bénin">🇧🇯 Bénin</option>
-                      <option value="Sénégal">🇸🇳 Sénégal</option>
-                      <option value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</option>
+                      <optgroup label="── Europe ──">
+                        <option value="France">🇫🇷 France</option>
+                        <option value="Belgique">🇧🇪 Belgique</option>
+                        <option value="Suisse">🇨🇭 Suisse</option>
+                        <option value="Luxembourg">🇱🇺 Luxembourg</option>
+                        <option value="Allemagne">🇩🇪 Allemagne</option>
+                        <option value="Espagne">🇪🇸 Espagne</option>
+                        <option value="Italie">🇮🇹 Italie</option>
+                        <option value="Portugal">🇵🇹 Portugal</option>
+                        <option value="Pays-Bas">🇳🇱 Pays-Bas</option>
+                        <option value="Royaume-Uni">🇬🇧 Royaume-Uni</option>
+                      </optgroup>
+                      <optgroup label="── Amérique du Nord ──">
+                        <option value="États-Unis">🇺🇸 États-Unis</option>
+                        <option value="Canada">🇨🇦 Canada</option>
+                        <option value="Mexique">🇲🇽 Mexique</option>
+                      </optgroup>
+                      <optgroup label="── Amérique Latine ──">
+                        <option value="Brésil">🇧🇷 Brésil</option>
+                        <option value="Argentine">🇦🇷 Argentine</option>
+                        <option value="Colombie">🇨🇴 Colombie</option>
+                      </optgroup>
+                      <optgroup label="── Afrique du Nord & Moyen-Orient ──">
+                        <option value="Maroc">🇲🇦 Maroc</option>
+                        <option value="Algérie">🇩🇿 Algérie</option>
+                        <option value="Tunisie">🇹🇳 Tunisie</option>
+                        <option value="Égypte">🇪🇬 Égypte</option>
+                        <option value="Émirats arabes">🇦🇪 Émirats arabes</option>
+                        <option value="Arabie saoudite">🇸🇦 Arabie saoudite</option>
+                      </optgroup>
+                      <optgroup label="── Afrique subsaharienne ──">
+                        <option value="Bénin">🇧🇯 Bénin</option>
+                        <option value="Sénégal">🇸🇳 Sénégal</option>
+                        <option value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</option>
+                        <option value="Cameroun">🇨🇲 Cameroun</option>
+                        <option value="Mali">🇲🇱 Mali</option>
+                        <option value="Burkina Faso">🇧🇫 Burkina Faso</option>
+                        <option value="Togo">🇹🇬 Togo</option>
+                        <option value="Niger">🇳🇪 Niger</option>
+                        <option value="Guinée">🇬🇳 Guinée</option>
+                        <option value="Congo (RDC)">🇨🇩 Congo (RDC)</option>
+                        <option value="Madagascar">🇲🇬 Madagascar</option>
+                      </optgroup>
+                      <optgroup label="── Asie-Pacifique ──">
+                        <option value="Inde">🇮🇳 Inde</option>
+                        <option value="Chine">🇨🇳 Chine</option>
+                        <option value="Japon">🇯🇵 Japon</option>
+                        <option value="Australie">🇦🇺 Australie</option>
+                      </optgroup>
                       <option value="Autre">🌍 Autre</option>
                     </Select>
                   </Field>
