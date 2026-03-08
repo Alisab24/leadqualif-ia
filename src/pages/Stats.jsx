@@ -23,6 +23,7 @@ const getQualif = (lead) => {
 
 export default function Stats() {
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [leads, setLeads] = useState([])
   const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState({
@@ -50,6 +51,12 @@ export default function Stats() {
     if (!budget || budget <= 0) return 0
     if (budget < 100000) return 5000
     return Math.round(budget * 0.05)
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchStats()
+    setRefreshing(false)
   }
 
   const fetchStats = async () => {
@@ -193,7 +200,7 @@ export default function Stats() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="flex flex-col h-screen w-full bg-slate-50 items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-slate-600">Chargement des statistiques…</p>
@@ -203,22 +210,33 @@ export default function Stats() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">Statistiques</h1>
-            <p className="text-slate-600 mt-1">Performance de {profile?.nom_agence || 'votre agence'}</p>
+      {/* ── HEADER fixe ──────────────────────────────────── */}
+      <header className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm z-10">
+        <div className="flex items-center justify-between h-16">
+          <div className="min-w-0">
+            <h1 className="text-base font-bold text-slate-900 truncate">📊 Statistiques</h1>
+            <p className="text-xs text-slate-400 truncate">
+              Performance de {profile?.nom_agence || 'votre agence'}
+            </p>
           </div>
           <button
-            onClick={fetchStats}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 shadow-sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg
+                       text-sm text-slate-600 hover:bg-slate-50 shadow-sm
+                       disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            🔄 Rafraîchir
+            <span className={refreshing ? 'animate-spin inline-block' : ''}>🔄</span>
+            {refreshing ? 'Actualisation…' : 'Rafraîchir'}
           </button>
         </div>
+      </header>
+
+      {/* ── CONTENU scrollable ───────────────────────────── */}
+      <main className="flex-1 overflow-auto p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
 
         {/* === OBJECTIF MENSUEL === */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
@@ -469,6 +487,7 @@ export default function Stats() {
         </div>
 
       </div>
+      </main>
     </div>
   )
 }
