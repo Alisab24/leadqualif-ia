@@ -246,41 +246,10 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
           CHAMPS IMMO — CLIENT ACHETEUR
       ══════════════════════════════════════ */}
       {isImmo && formData.lead_role === 'client' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
-          <h3 className="font-semibold text-blue-900 text-sm">🏠 Informations de recherche</h3>
-          <Field label="Localisation souhaitée" required>
-            <input className={inputCls} name="localisation_souhaitee" value={formData.localisation_souhaitee}
-              onChange={handleChange} placeholder="Paris 15ème, Lyon, Bordeaux…" required />
-          </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Budget maximum (€)" required>
-              <input className={inputCls} type="number" name="budget" value={formData.budget}
-                onChange={handleChange} placeholder="250 000" min="0" required />
-            </Field>
-            <Field label="Type de bien">
-              <select className={selectCls} name="type_de_bien" value={formData.type_de_bien} onChange={handleChange}>
-                <option value="">Sélectionner</option>
-                <option value="appartement">Appartement</option>
-                <option value="maison">Maison</option>
-                <option value="studio">Studio</option>
-                <option value="villa">Villa</option>
-                <option value="terrain">Terrain</option>
-                <option value="commercial">Local commercial</option>
-                <option value="autre">Autre</option>
-              </select>
-            </Field>
-          </div>
-          <Field label="Délai d'achat">
-            <select className={selectCls} name="delai_achat" value={formData.delai_achat} onChange={handleChange}>
-              <option value="">Sélectionner</option>
-              <option value="immediat">Immédiat (- 1 mois)</option>
-              <option value="court">Court terme (1–3 mois)</option>
-              <option value="moyen">Moyen terme (3–6 mois)</option>
-              <option value="long">Long terme (+ 6 mois)</option>
-              <option value="indefini">Indéfini / En réflexion</option>
-            </select>
-          </Field>
-          {/* 3 champs clés qualification marché IMMO */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+          <h3 className="font-semibold text-blue-900 text-sm">🏠 Qualification du projet</h3>
+
+          {/* ── Les 3 champs clés EN PREMIER ── */}
           <div className="grid grid-cols-3 gap-3">
             <Field label="Type de projet" required>
               <select className={selectCls} name="type_projet" value={formData.type_projet} onChange={handleChange} required>
@@ -305,6 +274,40 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
                 <option value="non">Non</option>
                 <option value="oui_vendre">Oui, doit vendre</option>
                 <option value="oui_garder">Oui, garde son bien</option>
+              </select>
+            </Field>
+          </div>
+
+          {/* ── Infos complémentaires ── */}
+          <Field label="Localisation souhaitée" required>
+            <input className={inputCls} name="localisation_souhaitee" value={formData.localisation_souhaitee}
+              onChange={handleChange} placeholder="Paris 15ème, Lyon, Bordeaux…" required />
+          </Field>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Budget max (€)">
+              <input className={inputCls} type="number" name="budget" value={formData.budget}
+                onChange={handleChange} placeholder="250 000" min="0" />
+            </Field>
+            <Field label="Type de bien">
+              <select className={selectCls} name="type_de_bien" value={formData.type_de_bien} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="appartement">Appartement</option>
+                <option value="maison">Maison</option>
+                <option value="studio">Studio</option>
+                <option value="villa">Villa</option>
+                <option value="terrain">Terrain</option>
+                <option value="commercial">Local commercial</option>
+                <option value="autre">Autre</option>
+              </select>
+            </Field>
+            <Field label="Délai d'achat">
+              <select className={selectCls} name="delai_achat" value={formData.delai_achat} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="immediat">Immédiat (- 1 mois)</option>
+                <option value="court">1 – 3 mois</option>
+                <option value="moyen">3 – 6 mois</option>
+                <option value="long">+ 6 mois</option>
+                <option value="indefini">En réflexion</option>
               </select>
             </Field>
           </div>
@@ -359,69 +362,12 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
           CHAMPS SMMA — PROSPECT / CLIENT
       ══════════════════════════════════════ */}
       {!isImmo && formData.lead_role && (
-        <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-4">
+        <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-violet-900 text-sm">
-            {formData.lead_role === 'prospect' ? '🎯 Infos prospect' : '💼 Infos client'}
+            {formData.lead_role === 'prospect' ? '🎯 Qualification prospect' : '💼 Qualification client'}
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Objectif marketing" required>
-              <select className={selectCls} name="objectif_marketing" value={formData.objectif_marketing} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
-                <option value="generation_leads">Génération de leads</option>
-                <option value="notoriete">Notoriété / Branding</option>
-                <option value="ecommerce">E-commerce / Ventes</option>
-                <option value="reseaux_sociaux">Croissance réseaux sociaux</option>
-                <option value="seo_contenu">SEO / Contenu</option>
-                <option value="lancement">Lancement de produit</option>
-                <option value="autre">Autre</option>
-              </select>
-            </Field>
-            <Field label="Type de service" required>
-              <select className={selectCls} name="type_service" value={formData.type_service} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
-                <option value="social_media">Social Media Management</option>
-                <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
-                <option value="google_ads">Google Ads</option>
-                <option value="seo">SEO</option>
-                <option value="creation_contenu">Création de contenu</option>
-                <option value="emailing">Emailing / CRM</option>
-                <option value="strategie">Stratégie globale</option>
-                <option value="autre">Autre</option>
-              </select>
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Budget marketing mensuel (€)">
-              <select className={selectCls} name="budget_marketing" value={formData.budget_marketing} onChange={handleChange}>
-                <option value="">Sélectionner</option>
-                <option value="moins_500">Moins de 500 €</option>
-                <option value="500_1500">500 – 1 500 €</option>
-                <option value="1500_3000">1 500 – 3 000 €</option>
-                <option value="3000_5000">3 000 – 5 000 €</option>
-                <option value="5000_plus">+ 5 000 €</option>
-              </select>
-            </Field>
-            <Field label="Réseau social principal">
-              <select className={selectCls} name="reseau_social" value={formData.reseau_social} onChange={handleChange}>
-                <option value="">Sélectionner</option>
-                <option value="instagram">Instagram</option>
-                <option value="facebook">Facebook</option>
-                <option value="linkedin">LinkedIn</option>
-                <option value="tiktok">TikTok</option>
-                <option value="youtube">YouTube</option>
-                <option value="aucun">Aucun pour l'instant</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Site web / URL">
-            <input className={inputCls} type="url" name="site_web" value={formData.site_web}
-              onChange={handleChange} placeholder="https://monsite.com" />
-          </Field>
-
-          {/* 3 champs clés qualification marché SMMA */}
+          {/* ── Les 3 champs clés EN PREMIER ── */}
           <div className="grid grid-cols-3 gap-3">
             <Field label="Secteur d'activité" required>
               <select className={selectCls} name="secteur_activite" value={formData.secteur_activite} onChange={handleChange} required>
@@ -456,6 +402,62 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
                 <option value="oui_concurrent">Oui, avec concurrent</option>
                 <option value="en_interne">Gère en interne</option>
               </select>
+            </Field>
+          </div>
+
+          {/* ── Infos complémentaires ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Objectif marketing" required>
+              <select className={selectCls} name="objectif_marketing" value={formData.objectif_marketing} onChange={handleChange} required>
+                <option value="">Sélectionner</option>
+                <option value="generation_leads">Génération de leads</option>
+                <option value="notoriete">Notoriété / Branding</option>
+                <option value="ecommerce">E-commerce / Ventes</option>
+                <option value="reseaux_sociaux">Croissance réseaux sociaux</option>
+                <option value="seo_contenu">SEO / Contenu</option>
+                <option value="lancement">Lancement de produit</option>
+                <option value="autre">Autre</option>
+              </select>
+            </Field>
+            <Field label="Type de service" required>
+              <select className={selectCls} name="type_service" value={formData.type_service} onChange={handleChange} required>
+                <option value="">Sélectionner</option>
+                <option value="social_media">Social Media Management</option>
+                <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
+                <option value="google_ads">Google Ads</option>
+                <option value="seo">SEO</option>
+                <option value="creation_contenu">Création de contenu</option>
+                <option value="emailing">Emailing / CRM</option>
+                <option value="strategie">Stratégie globale</option>
+                <option value="autre">Autre</option>
+              </select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Budget mensuel (€)">
+              <select className={selectCls} name="budget_marketing" value={formData.budget_marketing} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="moins_500">- 500 €</option>
+                <option value="500_1500">500 – 1 500 €</option>
+                <option value="1500_3000">1 500 – 3 000 €</option>
+                <option value="3000_5000">3 000 – 5 000 €</option>
+                <option value="5000_plus">+ 5 000 €</option>
+              </select>
+            </Field>
+            <Field label="Réseau principal">
+              <select className={selectCls} name="reseau_social" value={formData.reseau_social} onChange={handleChange}>
+                <option value="">—</option>
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="aucun">Aucun</option>
+              </select>
+            </Field>
+            <Field label="Site web">
+              <input className={inputCls} type="url" name="site_web" value={formData.site_web}
+                onChange={handleChange} placeholder="https://…" />
             </Field>
           </div>
         </div>
