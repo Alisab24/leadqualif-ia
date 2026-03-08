@@ -72,6 +72,7 @@ export default function Layout() {
     try { return localStorage.getItem('sidebar_pinned') === 'true'; } catch { return false; }
   });
   const [hovered, setHovered]   = useState(false);
+  const [showUserPopup, setShowUserPopup] = useState(false);
 
   const expanded = pinned || hovered;
 
@@ -89,8 +90,8 @@ export default function Layout() {
   }, [navigate]);
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
-    setProfile(data);
+    const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle();
+    if (data) setProfile(data);
   };
 
   const handleLogout = async () => {
@@ -212,20 +213,122 @@ export default function Layout() {
 
         {/* ── Profil utilisateur + déconnexion ── */}
         {session && (
-          <div className="shrink-0 p-3 border-t border-white/5 bg-black/20">
-            <div className="flex items-center gap-3">
-              {/* Avatar */}
-              <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500
-                flex items-center justify-center text-xs font-bold text-white border-2 border-slate-700 shadow">
-                {initials()}
-              </div>
+          <div className="shrink-0 p-3 border-t border-white/5 bg-black/20 relative">
 
-              {/* Nom + déco */}
+            {/* ── POPUP PROFIL ─────────────────────────────── */}
+            {showUserPopup && (
+              <>
+                {/* Overlay transparent pour fermer en cliquant dehors */}
+                <div
+                  className="fixed inset-0 z-[199]"
+                  onClick={() => setShowUserPopup(false)}
+                />
+                {/* Popup */}
+                <div className="absolute bottom-full left-2 right-2 mb-2 z-[200]
+                  bg-slate-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden
+                  animate-in fade-in slide-in-from-bottom-2 duration-150">
+
+                  {/* En-tête coloré */}
+                  <div className="px-4 pt-4 pb-3 bg-gradient-to-r from-slate-700 to-slate-800 border-b border-white/5">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar grand */}
+                      <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500
+                        flex items-center justify-center text-base font-bold text-white border-2 border-slate-600 shadow-lg">
+                        {initials()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-white truncate leading-tight">
+                          {profile?.nom_complet || session.user.email?.split('@')[0] || 'Utilisateur'}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">{session.user.email}</p>
+                      </div>
+                      {/* Bouton fermer */}
+                      <button
+                        onClick={() => setShowUserPopup(false)}
+                        className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Corps — infos */}
+                  <div className="px-4 py-3 space-y-2">
+                    {/* Agence */}
+                    <div className="flex items-center gap-2.5 text-xs text-slate-300">
+                      <span className="w-4 text-center">🏢</span>
+                      <span className="truncate">{profile?.nom_agence || 'Agence non définie'}</span>
+                    </div>
+                    {/* Type agence */}
+                    <div className="flex items-center gap-2.5 text-xs text-slate-300">
+                      <span className="w-4 text-center">{profile?.type_agence === 'smma' ? '📱' : '🏠'}</span>
+                      <span>{profile?.type_agence === 'smma' ? 'SMMA' : 'Immobilier'}</span>
+                    </div>
+                    {/* Rôle */}
+                    <div className="flex items-center gap-2.5 text-xs text-slate-300">
+                      <span className="w-4 text-center">👤</span>
+                      <span className="capitalize">{profile?.role || 'admin'}</span>
+                      <span className="ml-auto px-1.5 py-0.5 bg-indigo-600/40 text-indigo-300 text-[10px] font-semibold rounded-full">
+                        {profile?.role === 'agent' ? 'Agent' : 'Administrateur'}
+                      </span>
+                    </div>
+                    {/* Plan */}
+                    <div className="flex items-center gap-2.5 text-xs text-slate-300">
+                      <span className="w-4 text-center">💳</span>
+                      <span>Plan actuel</span>
+                      <span className={`ml-auto px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="px-3 pb-3 space-y-1.5 border-t border-white/5 pt-3">
+                    <button
+                      onClick={() => { navigate('/settings'); setShowUserPopup(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl
+                        text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-colors text-left"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                      </svg>
+                      Paramètres du compte
+                    </button>
+                    <button
+                      onClick={() => { handleLogout(); setShowUserPopup(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl
+                        text-xs font-semibold text-red-400 hover:bg-red-500/15 hover:text-red-300 transition-colors text-left"
+                    >
+                      {Icons.logout}
+                      Déconnexion
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── BARRE BAS : avatar cliquable + logout ── */}
+            <div className="flex items-center gap-3">
+              {/* Avatar — cliquable pour ouvrir popup */}
+              <button
+                onClick={() => setShowUserPopup(v => !v)}
+                title="Mon profil"
+                className={`w-9 h-9 shrink-0 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500
+                  flex items-center justify-center text-xs font-bold text-white border-2 transition-all
+                  ${showUserPopup ? 'border-blue-400 scale-105 shadow-lg shadow-blue-500/30' : 'border-slate-700 hover:border-slate-500 hover:scale-105'}`}
+              >
+                {initials()}
+              </button>
+
+              {/* Nom + email (sidebar ouverte) */}
               <div className={`flex-1 overflow-hidden transition-all duration-300 ${
                 expanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
               }`}>
                 <p className="text-xs font-semibold text-white truncate leading-tight">
-                  {profile?.nom_complet || profile?.nom_agence || session.user.email}
+                  {profile?.nom_complet || profile?.nom_agence || session.user.email?.split('@')[0]}
                 </p>
                 <p className="text-[10px] text-slate-400 truncate">{session.user.email}</p>
               </div>
@@ -235,6 +338,7 @@ export default function Layout() {
                 <button
                   onClick={handleLogout}
                   className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                  title="Déconnexion"
                 >
                   {Icons.logout}
                 </button>
