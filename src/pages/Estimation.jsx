@@ -1,425 +1,579 @@
+/**
+ * Estimation.jsx — Formulaire public adaptatif
+ * IMMO : Client acheteur / Propriétaire bailleur
+ * SMMA : Prospect / Client actif
+ *
+ * Fix : useParams() lit 'agencyId' (= nom du param dans App.jsx)
+ */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useParams } from 'react-router-dom';
 
 export default function Estimation() {
-  const { agency_id } = useParams();
+  const { agencyId } = useParams(); // ✅ corrigé (était agency_id → toujours undefined)
 
-  const [loading, setLoading] = useState(false);
+  const [agencyProfile, setAgencyProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loading, setLoading]   = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState(null);
-  const [showClientPreview, setShowClientPreview] = useState(false);
+  const [error, setError]       = useState(null);
   const [scoreData, setScoreData] = useState(null);
 
-  // Réglages par défaut avec personnalisation SMMA/IMMO
-  const [settings, setSettings] = useState({
-    showBudget: true,
-    showType: true,
-    showDelai: true,
-    showMsg: true,
-    labelBudget: "Budget estimé",
-    labelType: "Type de bien",
-    labelDelai: "Délai du projet",
-    labelMsg: "Message / Précisions",
-    agencyName: "LeadQualif IA",
-    logoUrl: null,
-    agencyType: "IMMO", // IMMO ou SMMA
-    introText: "Obtenez une analyse précise de votre projet par notre intelligence artificielle",
-    analysisLabel: "Analyse IA"
-  });
-
+  /* ── Données du formulaire ── */
   const [formData, setFormData] = useState({
-    nom: '',
-    email: '',
-    telephone: '',
-    type_bien: 'Appartement',
+    lead_role: '',
+    nom: '', email: '', telephone: '',
+    source: 'formulaire_web',
+    message: '',
+    // IMMO — client
+    localisation_souhaitee: '',
     budget: '',
+    type_de_bien: '',
+    delai_achat: '',
+    type_projet: '',
+    financement: '',
+    deja_proprietaire: '',
+    criteres_specifiques: '',
+    // IMMO — propriétaire
+    adresse_bien: '',
     surface: '',
-    projet: 'Achat',
-    delai: 'Indéfini',
-    message: ''
+    nb_pieces: '',
+    prix_vente: '',
+    date_disponibilite: '',
+    // SMMA
+    secteur_activite: '',
+    taille_entreprise: '',
+    deja_agence: '',
+    objectif_marketing: '',
+    type_service: '',
+    budget_marketing: '',
+    reseau_social: '',
+    site_web: '',
   });
 
-  // Chargement config Agence
+  /* ── Chargement profil agence ── */
   useEffect(() => {
-    const fetchSettings = async () => {
-      if (!agency_id) return;
+    if (!agencyId) { setLoadingProfile(false); return; }
+    const fetchProfile = async () => {
       try {
-        const { data } = await supabase.from('profiles').select('form_settings, agency_id, nom_agence, logo_url').eq('agency_id', agency_id).single();
-        if (data?.form_settings) {
-          setSettings(prev => ({ 
-            ...prev, 
-            ...data.form_settings,
-            agencyName: data.nom_agence || 'LeadQualif IA',
-            logoUrl: data.logo_url || null
-          }));
-        }
+        const { data } = await supabase
+          .from('profiles')
+          .select('nom_agence, logo_url, couleur_primaire, type_agence, agency_id')
+          .eq('agency_id', agencyId)
+          .single();
+        setAgencyProfile(data || null);
       } catch (e) {
-        console.error(e);
+        console.error('Profil agence:', e);
+      } finally {
+        setLoadingProfile(false);
       }
     };
-    fetchSettings();
-  }, [agency_id]);
+    fetchProfile();
+  }, [agencyId]);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  /* ── Dérivés ── */
+  const isImmo        = !agencyProfile || agencyProfile?.type_agence !== 'smma';
+  const primaryColor  = agencyProfile?.couleur_primaire || (isImmo ? '#2563eb' : '#7c3aed');
+  const accentBg      = isImmo ? 'bg-blue-50 border-blue-200'   : 'bg-violet-50 border-violet-200';
+  const accentTitle   = isImmo ? 'text-blue-900'                : 'text-violet-900';
 
-  // Fonction pour calculer la lecture métier
-  const calculateBusinessInsights = (score, budget, delai) => {
-    let priority = "Faible";
-    let delay = "6+ mois";
-    let potential = "0€";
-    let action = "Relance";
-    let priorityColor = "bg-gray-100 text-gray-700";
-
-    if (score >= 80) {
-      priority = "Élevé";
-      delay = "1-2 semaines";
-      potential = `${Math.round((budget || 0) * 0.02)}€`;
-      action = "Appel immédiat";
-      priorityColor = "bg-red-100 text-red-700";
-    } else if (score >= 60) {
-      priority = "Moyen";
-      delay = "2-4 semaines";
-      potential = `${Math.round((budget || 0) * 0.015)}€`;
-      action = "RDV prioritaire";
-      priorityColor = "bg-yellow-100 text-yellow-700";
-    }
-
-    return { priority, delay, potential, action, priorityColor };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  /* ── Soumission ── */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("ID Agence:", agency_id);
+    setError(null);
+    if (!formData.lead_role) {
+      setError('Veuillez sélectionner votre profil avant de continuer.');
+      return;
+    }
     setLoading(true);
     try {
-      // --- ALGORITHME DE SCORING LEADQUALIF IA ---
-      let scoreIA = 30; // Score de base (Intérêt manifesté)
-      
-      // 1. Critère Budget (Le nerf de la guerre)
-      if (formData.budget > 0) scoreIA += 20;
-      if (formData.budget > 200000) scoreIA += 10; // Bonus gros budget
-      
-      // 2. Critère Urgence (Délai)
-      if (formData.delai === 'Urgent (Immédiat)') scoreIA += 30;
-      else if (formData.delai === 'Dans les 3 mois') scoreIA += 15;
-      else if (formData.delai === 'Projet indéfini') scoreIA -= 10;
-      
-      // 3. Critère Complétude
-      if (formData.message && formData.message.length > 10) scoreIA += 10; // A pris le temps d'écrire
-      if (formData.telephone && formData.telephone.length >= 10) scoreIA += 10;
-      
-      // Plafond à 99% (Nul n'est parfait)
-      if (scoreIA > 99) scoreIA = 99;
-      if (scoreIA < 10) scoreIA = 10;
-      // -------------------------------------------
+      /* Score simplifié côté client */
+      let scoreIA = 30;
+      const budget = parseInt(formData.budget || formData.prix_vente || 0) || 0;
+      if (budget > 0)        scoreIA += 20;
+      if (budget > 100000)   scoreIA += 10;
+      if (formData.message?.length > 10) scoreIA += 10;
+      if (formData.telephone?.length >= 10) scoreIA += 10;
+      if (formData.type_projet || formData.secteur_activite) scoreIA += 10;
+      if (formData.financement || formData.objectif_marketing) scoreIA += 10;
+      scoreIA = Math.min(99, Math.max(10, scoreIA));
 
-      // Calcul des insights métier
-      const insights = calculateBusinessInsights(scoreIA, parseInt(formData.budget) || 0, formData.delai);
-      setScoreData({ score: scoreIA, insights });
-
-      const { error } = await supabase.from('leads').insert([{
+      const leadPayload = {
         ...formData,
-        budget: formData.budget ? parseInt(formData.budget) : 0,
-        surface: formData.surface ? parseInt(formData.surface) : 0,
-        score: scoreIA, // Score IA ajouté
+        budget: budget || null,
+        score: scoreIA,
+        score_qualification: scoreIA,
         statut: 'À traiter',
-        created_at: new Date(),
-        agency_id: agency_id || null,
-        source: 'Formulaire Web IA'
-      }]);
-      if (error) throw error;
+        agency_id: agencyId || null,
+        source: 'formulaire_web',
+        created_at: new Date().toISOString(),
+      };
+
+      const { error: insertError } = await supabase.from('leads').insert([leadPayload]);
+      if (insertError) throw insertError;
+
+      setScoreData({ score: scoreIA });
       setSubmitted(true);
     } catch (err) {
-      console.error("🔴 ERREUR CRITIQUE:", err);
-      console.log("Données envoyées:", formData);
-      setError(`Erreur technique: ${err.message || err.details || 'Inconnue'}`);
+      setError(`Erreur : ${err.message || 'Veuillez réessayer.'}`);
     } finally {
       setLoading(false);
     }
   };
 
+  /* ── Rôles selon type d'agence ── */
+  const roles = isImmo
+    ? [
+        { id: 'client',       icon: '🏠', label: 'Je cherche un bien',  desc: 'Achat ou location' },
+        { id: 'proprietaire', icon: '🔑', label: 'Je vends / loue',     desc: 'Mise en vente ou location' },
+      ]
+    : [
+        { id: 'prospect',     icon: '🎯', label: 'Nouveau projet',      desc: 'Je cherche une agence' },
+        { id: 'client_actif', icon: '💼', label: 'Client actif',        desc: 'Déjà en relation' },
+      ];
+
+  const inputCls  = 'w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition';
+  const labelCls  = 'block text-xs font-bold text-slate-600 mb-1';
+
+  /* ──────────── ÉCRAN SUCCÈS ──────────── */
   if (submitted) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white py-10 px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white/50 backdrop-blur-xl">
-          
-          {/* Header succès */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              {settings.analysisLabel} lancée !
-            </h1>
-            <p className="text-lg text-gray-600 mb-2">
-              Votre projet a été soumis à notre IA.<br />
-              Un expert vous contactera rapidement.
-            </p>
-            <p className="text-sm text-gray-500 mb-8">
-              Analyse prédictive de la probabilité de conversion
-            </p>
-          </div>
-
-          {/* BLOC LECTURE MÉTIER */}
-          {scoreData && (
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-6 mb-8 border border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                🔥 Lecture métier de votre projet
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 text-center">
-                  <div className="text-xs font-semibold text-gray-500 mb-1">Niveau de priorité</div>
-                  <div className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${scoreData.insights.priorityColor}`}>
-                    {scoreData.insights.priority}
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 text-center">
-                  <div className="text-xs font-semibold text-gray-500 mb-1">⏱ Délai estimé de closing</div>
-                  <div className="text-lg font-bold text-slate-800">{scoreData.insights.delay}</div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 text-center">
-                  <div className="text-xs font-semibold text-gray-500 mb-1">💰 Potentiel estimé</div>
-                  <div className="text-lg font-bold text-green-600">{scoreData.insights.potential}</div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 text-center">
-                  <div className="text-xs font-semibold text-gray-500 mb-1">🎯 Action recommandée</div>
-                  <div className="text-sm font-bold text-blue-600">{scoreData.insights.action}</div>
-                </div>
-              </div>
-
-              {/* Info-bulle score */}
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-blue-700">Score IA (Intention d'achat): {scoreData.score}%</span>
-                  <span className="text-xs text-blue-600">• Score calculé automatiquement selon budget, urgence et engagement</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Boutons d'action */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => setShowClientPreview(!showClientPreview)}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg flex items-center justify-center space-x-2"
-            >
-              <span>👁️</span>
-              <span>{showClientPreview ? 'Masquer' : 'Aperçu client'}</span>
-            </button>
-            
-            <button
-              onClick={() => {
-                setSubmitted(false);
-                setScoreData(null);
-                setShowClientPreview(false);
-                setFormData({
-                  nom: '',
-                  email: '',
-                  telephone: '',
-                  type_bien: 'Appartement',
-                  budget: '',
-                  surface: '',
-                  projet: 'Achat',
-                  delai: 'Indéfini',
-                  message: ''
-                });
-              }}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
-            >
-              Nouvelle analyse
-            </button>
-          </div>
-
-          {/* APERÇU CLIENT */}
-          {showClientPreview && (
-            <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-200">
-              <h3 className="text-lg font-bold text-green-800 mb-4">👁️ Aperçu Client</h3>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h4 className="text-xl font-bold text-green-800 mb-2">Votre projet est en cours d'analyse</h4>
-                <p className="text-green-700 mb-4">
-                  Un expert vous recontacte dans les plus brefs délais pour étudier votre projet en détail.
-                </p>
-                <div className="bg-white rounded-xl p-4">
-                  <p className="text-sm text-gray-600">
-                    <strong>Prochaine étape :</strong> Un conseiller spécialisé vous appellera pour affiner votre recherche et vous présenter les meilleures opportunités correspondant à votre projet.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-8 text-center">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
-              <div className="flex items-center justify-center space-x-2 text-blue-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span className="font-medium">{settings.analysisLabel} gratuite et sans engagement</span>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-10 text-center">
+        <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+          style={{ backgroundColor: `${primaryColor}20` }}>
+          <svg className="w-10 h-10" fill="none" stroke={primaryColor} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
         </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-3">Demande envoyée !</h2>
+        <p className="text-slate-600 mb-6">
+          {isImmo
+            ? 'Votre projet immobilier a bien été reçu. Un conseiller vous contactera rapidement.'
+            : 'Votre demande a bien été reçue. Notre équipe revient vers vous sous 24h.'}
+        </p>
+
+        {scoreData && (
+          <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-200 text-left">
+            <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Score de votre projet</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-slate-200 rounded-full h-2">
+                <div className="h-2 rounded-full transition-all" style={{ width: `${scoreData.score}%`, backgroundColor: primaryColor }} />
+              </div>
+              <span className="font-bold text-slate-900 text-sm">{scoreData.score}%</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              Score calculé selon les informations fournies
+            </p>
+          </div>
+        )}
+
+        {agencyProfile?.nom_agence && (
+          <p className="text-xs text-slate-400 mt-4">
+            Formulaire proposé par <strong>{agencyProfile.nom_agence}</strong>
+          </p>
+        )}
       </div>
     </div>
   );
 
+  /* ──────────── CHARGEMENT ──────────── */
+  if (loadingProfile) return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+        <p className="text-slate-500 text-sm">Chargement…</p>
+      </div>
+    </div>
+  );
+
+  /* ──────────── FORMULAIRE ──────────── */
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header moderne avec personnalisation */}
-        <div className="text-center mb-12">
-          {settings.logoUrl ? (
-            <div className="w-24 h-24 mx-auto mb-6 bg-white rounded-2xl shadow-lg p-3 flex items-center justify-center">
-              <img 
-                src={settings.logoUrl} 
-                alt={settings.agencyName}
-                className="w-full h-full object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div 
-                className="w-full h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl"
-                style={{ display: 'none' }}
-              >
-                {settings.agencyName?.substring(0, 2).toUpperCase() || 'LQ'}
-              </div>
-            </div>
+      <div className="max-w-xl mx-auto">
+
+        {/* Header agence */}
+        <div className="text-center mb-10">
+          {agencyProfile?.logo_url ? (
+            <img
+              src={agencyProfile.logo_url}
+              alt={agencyProfile.nom_agence}
+              className="h-16 w-auto mx-auto mb-4 object-contain"
+              onError={e => e.target.style.display = 'none'}
+            />
           ) : (
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-              <span className="text-white font-bold text-3xl">LQ</span>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white font-bold text-2xl shadow-lg"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {agencyProfile?.nom_agence?.substring(0, 2).toUpperCase() || 'AG'}
             </div>
           )}
-          
-          <h1 className="text-5xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            {settings.analysisLabel} Immédiate
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            {agencyProfile?.nom_agence || 'Formulaire de contact'}
           </h1>
-          
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-            {settings.introText}
+          <p className="text-slate-500 text-sm">
+            {isImmo
+              ? 'Partagez votre projet immobilier en quelques clics'
+              : 'Dites-nous en plus sur votre projet marketing'}
           </p>
-          
-          <p className="text-sm text-gray-500 mb-8">
-            Analyse prédictive de la probabilité de conversion
-          </p>
-          
-          {settings.agencyName && settings.agencyName !== 'LeadQualif IA' && (
-            <div className="mb-8">
-              <span className="bg-gradient-to-r from-slate-100 to-slate-50 text-slate-700 px-6 py-3 rounded-full text-base font-semibold border border-slate-200 shadow-sm">
-                {settings.analysisLabel} proposée par {settings.agencyName}
-              </span>
-            </div>
-          )}
-          
-          <div className="flex justify-center items-center space-x-3 mb-8">
-            <span className="bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-4 py-2 rounded-full text-sm font-semibold border border-green-200">
-              🔒 RGPD Compliant
-            </span>
-            <span className="bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold border border-blue-200">
-              🇫🇷 Service France
-            </span>
-            <span className="bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold border border-purple-200">
-              ⚡ {settings.analysisLabel}
-            </span>
-          </div>
-          
-          <div className="flex justify-center">
-            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium">
-              Powered by LeadQualif AI
-            </span>
-          </div>
         </div>
 
-        <div className="bg-white py-10 px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white/50 backdrop-blur-xl">
-          {error && <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium border border-red-100">{error}</div>}
-          
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Grid 2 colonnes pour desktop */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {settings.showType && (
-                <div className="col-span-1">
-                  <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelType}</label>
-                  <select name="type_bien" value={formData.type_bien} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm">
-                    <option>Appartement</option>
-                    <option>Maison</option>
-                    <option>Terrain</option>
-                    <option>Local</option>
+        <div className="bg-white rounded-3xl shadow-xl p-8 space-y-6">
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* ── Sélecteur de rôle ── */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-3">
+              Vous êtes <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {roles.map(r => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, lead_role: r.id }))}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    formData.lead_role === r.id
+                      ? 'shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                  style={formData.lead_role === r.id
+                    ? { borderColor: primaryColor, backgroundColor: `${primaryColor}12` }
+                    : {}}
+                >
+                  <div className="text-2xl mb-1">{r.icon}</div>
+                  <div className="font-semibold text-sm text-slate-900">{r.label}</div>
+                  <div className="text-xs mt-0.5 text-slate-500">{r.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Coordonnées ── */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              Nom complet <span className="text-red-500">*</span>
+            </label>
+            <input className={inputCls} name="nom" value={formData.nom}
+              onChange={handleChange} placeholder="Jean Dupont" required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input className={inputCls} type="email" name="email" value={formData.email}
+                onChange={handleChange} placeholder="jean@exemple.com" required />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Téléphone <span className="text-red-500">*</span>
+              </label>
+              <input className={inputCls} type="tel" name="telephone" value={formData.telephone}
+                onChange={handleChange} placeholder="06 12 34 56 78" required />
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════
+              IMMO — CLIENT ACHETEUR
+          ══════════════════════════════════════ */}
+          {isImmo && formData.lead_role === 'client' && (
+            <div className={`${accentBg} rounded-2xl p-5 space-y-4 border`}>
+              <h3 className={`font-semibold text-sm ${accentTitle}`}>🏠 Votre projet d'achat</h3>
+
+              {/* 3 champs clés EN PREMIER */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Type de projet <span className="text-red-500">*</span></label>
+                  <select className={inputCls} name="type_projet" value={formData.type_projet} onChange={handleChange} required>
+                    <option value="">—</option>
+                    <option value="residence_principale">Résidence principale</option>
+                    <option value="investissement">Investissement locatif</option>
+                    <option value="residence_secondaire">Résidence secondaire</option>
                   </select>
                 </div>
-              )}
-              <div className="col-span-1">
-                <label className="block text-sm font-bold text-slate-700 mb-1">Surface (m²)</label>
-                <input type="number" name="surface" required value={formData.surface} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm" placeholder="Ex: 85" />
-              </div>
-              {settings.showBudget && (
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelBudget}</label>
-                  <div className="relative">
-                    <input type="number" name="budget" value={formData.budget} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm pl-4" placeholder="Votre budget max..." />
-                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400 font-bold">€</div>
-                  </div>
+                <div>
+                  <label className={labelCls}>Financement <span className="text-red-500">*</span></label>
+                  <select className={inputCls} name="financement" value={formData.financement} onChange={handleChange} required>
+                    <option value="">—</option>
+                    <option value="cash">Comptant</option>
+                    <option value="credit">Crédit bancaire</option>
+                    <option value="primo">Primo-accédant (PTZ)</option>
+                    <option value="a_definir">À définir</option>
+                  </select>
                 </div>
-              )}
-              {settings.showDelai && (
-                 <div className="col-span-1 md:col-span-2">
-                   <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelDelai}</label>
-                   <select name="delai" value={formData.delai} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm">
-                     <option>Urgent (Immédiat)</option>
-                     <option>Dans les 3 mois</option>
-                     <option>Dans les 6 mois</option>
-                     <option>Projet indéfini</option>
-                   </select>
-                 </div>
-              )}
-            </div>
-            {/* Message (Full width) */}
-            {settings.showMsg && (
+                <div>
+                  <label className={labelCls}>Déjà propriétaire ?</label>
+                  <select className={inputCls} name="deja_proprietaire" value={formData.deja_proprietaire} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="non">Non</option>
+                    <option value="oui_vendre">Oui, doit vendre</option>
+                    <option value="oui_garder">Oui, garde son bien</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Localisation */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">{settings.labelMsg}</label>
-                <textarea name="message" rows="3" value={formData.message} onChange={handleChange} className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-sm" placeholder="Précisez votre recherche..."></textarea>
+                <label className={labelCls}>Localisation souhaitée <span className="text-red-500">*</span></label>
+                <input className={inputCls} name="localisation_souhaitee" value={formData.localisation_souhaitee}
+                  onChange={handleChange} placeholder="Paris 15ème, Lyon, Bordeaux…" required />
               </div>
-            )}
-            <div className="border-t border-slate-100 pt-6 mt-6">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Vos Coordonnées</p>
-              <div className="space-y-4">
-                <input type="text" name="nom" required value={formData.nom} onChange={handleChange} placeholder="Nom complet" className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 focus:ring-2 focus:ring-blue-500 transition" />
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="email" name="email" required value={formData.email} onChange={handleChange} placeholder="Email" className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 focus:ring-2 focus:ring-blue-500 transition" />
-                  <input type="tel" name="telephone" required value={formData.telephone} onChange={handleChange} placeholder="Téléphone" className="w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 focus:ring-2 focus:ring-blue-500 transition" />
+
+              {/* Budget + Type + Délai */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Budget max (€)</label>
+                  <input className={inputCls} type="number" name="budget" value={formData.budget}
+                    onChange={handleChange} placeholder="250 000" min="0" />
+                </div>
+                <div>
+                  <label className={labelCls}>Type de bien</label>
+                  <select className={inputCls} name="type_de_bien" value={formData.type_de_bien} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="appartement">Appartement</option>
+                    <option value="maison">Maison</option>
+                    <option value="studio">Studio</option>
+                    <option value="villa">Villa</option>
+                    <option value="terrain">Terrain</option>
+                    <option value="commercial">Local commercial</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Délai</label>
+                  <select className={inputCls} name="delai_achat" value={formData.delai_achat} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="immediat">Immédiat</option>
+                    <option value="court">1 – 3 mois</option>
+                    <option value="moyen">3 – 6 mois</option>
+                    <option value="long">+ 6 mois</option>
+                    <option value="indefini">En réflexion</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Critères spécifiques</label>
+                <textarea className={`${inputCls} resize-none`} name="criteres_specifiques" rows={2}
+                  value={formData.criteres_specifiques} onChange={handleChange}
+                  placeholder="Nb pièces, étage, parking, jardin…" />
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════
+              IMMO — PROPRIÉTAIRE
+          ══════════════════════════════════════ */}
+          {isImmo && formData.lead_role === 'proprietaire' && (
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-5 space-y-4">
+              <h3 className="font-semibold text-green-900 text-sm">🔑 Votre bien</h3>
+
+              <div>
+                <label className={labelCls}>Adresse du bien <span className="text-red-500">*</span></label>
+                <input className={inputCls} name="adresse_bien" value={formData.adresse_bien}
+                  onChange={handleChange} placeholder="15 Rue de la Paix, 75001 Paris" required />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Surface (m²) <span className="text-red-500">*</span></label>
+                  <input className={inputCls} type="number" name="surface" value={formData.surface}
+                    onChange={handleChange} placeholder="75" min="0" required />
+                </div>
+                <div>
+                  <label className={labelCls}>Pièces <span className="text-red-500">*</span></label>
+                  <select className={inputCls} name="nb_pieces" value={formData.nb_pieces} onChange={handleChange} required>
+                    <option value="">—</option>
+                    {['1','2','3','4','5','6+'].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Prix souhaité (€) <span className="text-red-500">*</span></label>
+                  <input className={inputCls} type="number" name="prix_vente" value={formData.prix_vente}
+                    onChange={handleChange} placeholder="350 000" min="0" required />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Disponibilité <span className="text-red-500">*</span></label>
+                <select className={inputCls} name="date_disponibilite" value={formData.date_disponibilite} onChange={handleChange} required>
+                  <option value="">Sélectionner</option>
+                  <option value="immediat">Immédiat</option>
+                  <option value="1_mois">Dans 1 mois</option>
+                  <option value="3_mois">Dans 3 mois</option>
+                  <option value="6_mois">Dans 6 mois</option>
+                  <option value="plus_6_mois">+ 6 mois</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════
+              SMMA — PROSPECT / CLIENT
+          ══════════════════════════════════════ */}
+          {!isImmo && formData.lead_role && (
+            <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5 space-y-4">
+              <h3 className="font-semibold text-violet-900 text-sm">
+                {formData.lead_role === 'prospect' ? '🎯 Votre projet marketing' : '💼 Votre situation'}
+              </h3>
+
+              {/* 3 champs clés EN PREMIER */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Secteur d'activité <span className="text-red-500">*</span></label>
+                  <select className={inputCls} name="secteur_activite" value={formData.secteur_activite} onChange={handleChange} required>
+                    <option value="">—</option>
+                    <option value="restaurant_food">Restaurant / Food</option>
+                    <option value="ecommerce">E-commerce</option>
+                    <option value="coach_formation">Coach / Formation</option>
+                    <option value="immobilier">Immobilier</option>
+                    <option value="beaute_bien_etre">Beauté / Bien-être</option>
+                    <option value="sante">Santé / Médical</option>
+                    <option value="artisan_btp">Artisan / BTP</option>
+                    <option value="mode_luxe">Mode / Luxe</option>
+                    <option value="tech_saas">Tech / SaaS</option>
+                    <option value="service_b2b">Service B2B</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Taille structure</label>
+                  <select className={inputCls} name="taille_entreprise" value={formData.taille_entreprise} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="solo">Solo / Auto-entrepreneur</option>
+                    <option value="tpe">TPE (2–10 pers.)</option>
+                    <option value="pme">PME (10–50 pers.)</option>
+                    <option value="pme_plus">PME+ (50+ pers.)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Déjà une agence ?</label>
+                  <select className={inputCls} name="deja_agence" value={formData.deja_agence} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="non_jamais">Non, jamais</option>
+                    <option value="non_avant">Oui, mais terminé</option>
+                    <option value="oui_concurrent">Oui, avec concurrent</option>
+                    <option value="en_interne">Gère en interne</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Objectif + Service */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Objectif marketing <span className="text-red-500">*</span></label>
+                  <select className={inputCls} name="objectif_marketing" value={formData.objectif_marketing} onChange={handleChange} required>
+                    <option value="">—</option>
+                    <option value="generation_leads">Génération de leads</option>
+                    <option value="notoriete">Notoriété / Branding</option>
+                    <option value="ecommerce">E-commerce / Ventes</option>
+                    <option value="reseaux_sociaux">Croissance réseaux sociaux</option>
+                    <option value="seo_contenu">SEO / Contenu</option>
+                    <option value="lancement">Lancement de produit</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Service souhaité <span className="text-red-500">*</span></label>
+                  <select className={inputCls} name="type_service" value={formData.type_service} onChange={handleChange} required>
+                    <option value="">—</option>
+                    <option value="social_media">Social Media Management</option>
+                    <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
+                    <option value="google_ads">Google Ads</option>
+                    <option value="seo">SEO</option>
+                    <option value="creation_contenu">Création de contenu</option>
+                    <option value="emailing">Emailing / CRM</option>
+                    <option value="strategie">Stratégie globale</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Budget + Réseau + Site */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Budget mensuel</label>
+                  <select className={inputCls} name="budget_marketing" value={formData.budget_marketing} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="moins_500">- 500 €</option>
+                    <option value="500_1500">500 – 1 500 €</option>
+                    <option value="1500_3000">1 500 – 3 000 €</option>
+                    <option value="3000_5000">3 000 – 5 000 €</option>
+                    <option value="5000_plus">+ 5 000 €</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Réseau principal</label>
+                  <select className={inputCls} name="reseau_social" value={formData.reseau_social} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="aucun">Aucun</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Site web</label>
+                  <input className={inputCls} type="url" name="site_web" value={formData.site_web}
+                    onChange={handleChange} placeholder="https://…" />
                 </div>
               </div>
             </div>
-            
-            {/* Info-bulle Score IA */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <div className="flex items-center space-x-2">
-                <span className="font-semibold text-blue-700">Score IA (Intention d'achat)</span>
-                <span className="text-xs text-blue-600">• Score calculé automatiquement selon budget, urgence et engagement</span>
-              </div>
-            </div>
-            
-            <button type="submit" disabled={loading} className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-500/30 text-lg font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition duration-200">
-              {loading ? 'Analyse en cours...' : `Lancer l'${settings.analysisLabel.toLowerCase()} 🚀`}
-            </button>
-          </form>
+          )}
+
+          {/* ── Message ── */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              {isImmo ? 'Message / Besoins' : 'Notes additionnelles'}
+            </label>
+            <textarea
+              className={`${inputCls} resize-none`}
+              name="message" rows={3}
+              value={formData.message} onChange={handleChange}
+              placeholder={isImmo
+                ? 'Décrivez vos critères, souhaits particuliers…'
+                : 'Contexte, historique, attentes spécifiques…'}
+            />
+          </div>
+
+          {/* ── Bouton ── */}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full py-4 rounded-xl text-white font-bold text-base shadow-lg transition hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Envoi en cours…
+              </span>
+            ) : '✨ Envoyer ma demande'}
+          </button>
+
+          <p className="text-xs text-center text-slate-400">
+            🔒 Données sécurisées · Aucun engagement
+            {agencyProfile?.nom_agence ? ` · ${agencyProfile.nom_agence}` : ''}
+          </p>
         </div>
-        <p className="mt-8 text-center text-xs text-slate-400">
-          &copy; {new Date().getFullYear()} LeadQualif System • Données sécurisées
-        </p>
       </div>
     </div>
   );
