@@ -205,8 +205,20 @@ export default function Settings() {
     if (user) {
       setUserId(user.id);
       setUserEmail(user.email || '');
-      const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
+
+      // maybeSingle() évite l'erreur 406 quand le profil n'existe pas encore
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erreur chargement profil:', error.message);
+      }
+
       if (data) {
+        // Profil existant → charger les données
         setFormData({
           nom_agence: data.nom_agence || '',
           email: user.email,
@@ -249,6 +261,21 @@ export default function Settings() {
           current_period_end: data.subscription_current_period_end || null,
           stripe_customer_id: data.stripe_customer_id || null,
         });
+      } else {
+        // Aucun profil en base → créer une ligne vide pour cet utilisateur
+        // Cela arrive quand l'inscription a échoué à créer le profil
+        console.log('Profil introuvable, création automatique…');
+        await supabase.from('profiles').upsert([{
+          user_id: user.id,
+          agency_id: user.id,
+          email: user.email,
+          nom_agence: '',
+          type_agence: 'immobilier',
+          subscription_status: 'inactive',
+          subscription_plan: 'free',
+        }], { onConflict: 'user_id' });
+        // formData reste aux valeurs par défaut — l'utilisateur peut remplir
+        setFormData(prev => ({ ...prev, email: user.email }));
       }
     }
     setLoading(false);
@@ -337,9 +364,14 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
+    if (!userId) { showToast('Session expirée, reconnectez-vous.', 'error'); return; }
     setSaving(true);
     try {
-      const { error } = await supabase.from('profiles').update({
+      // upsert = crée la ligne si elle n'existe pas, la met à jour sinon
+      const { error } = await supabase.from('profiles').upsert({
+        user_id: userId,
+        agency_id: userId,
+        email: formData.email,
         nom_agence: formData.nom_agence,
         telephone: formData.telephone,
         adresse: formData.adresse,
@@ -365,11 +397,12 @@ export default function Settings() {
         show_amount_in_words: formData.show_amount_in_words,
         form_settings: formData.form_settings,
         crm_settings: formData.crm_settings,
-      }).eq('user_id', userId);
+      }, { onConflict: 'user_id' });
 
       if (error) throw error;
       showToast('Paramètres sauvegardés avec succès !');
     } catch (err) {
+      console.error('Erreur sauvegarde:', err);
       showToast('Erreur : ' + err.message, 'error');
     } finally {
       setSaving(false);
