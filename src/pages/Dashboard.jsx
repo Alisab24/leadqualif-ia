@@ -211,6 +211,8 @@ export default function Dashboard() {
   };
 
   const startHoverScroll = (direction) => {
+    // Ne pas scroller si un drag est en cours
+    if (activeDragId) return;
     if (scrollInterval.current) return;
     scrollInterval.current = setInterval(() => {
       const container = scrollContainerRef.current;
@@ -327,6 +329,7 @@ export default function Dashboard() {
   // === DRAG & DROP HANDLERS ===
   const handleDragStart = (event) => {
     setActiveDragId(event.active.id);
+    stopHoverScroll(); // stopper tout scroll automatique dès le début du drag
   };
 
   const handleDragEnd = async (event) => {
@@ -514,10 +517,11 @@ export default function Dashboard() {
           <div className="p-6 h-full overflow-hidden">
             {showLeftArrow && (
               <button
-                onClick={() => scrollByAmount(-320)}
+                onClick={() => !activeDragId && scrollByAmount(-320)}
                 onMouseEnter={() => startHoverScroll('left')}
                 onMouseLeave={stopHoverScroll}
-                className="fixed left-16 top-1/2 -translate-y-1/2 z-50 w-11 h-11 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                className={`fixed left-16 top-1/2 -translate-y-1/2 z-50 w-11 h-11 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110
+                  ${activeDragId ? 'pointer-events-none opacity-0' : ''}`}
               >
                 <span className="text-gray-700 text-lg select-none">◀</span>
               </button>
@@ -525,10 +529,11 @@ export default function Dashboard() {
 
             {showRightArrow && (
               <button
-                onClick={() => scrollByAmount(320)}
+                onClick={() => !activeDragId && scrollByAmount(320)}
                 onMouseEnter={() => startHoverScroll('right')}
                 onMouseLeave={stopHoverScroll}
-                className="fixed right-4 top-1/2 -translate-y-1/2 z-50 w-11 h-11 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                className={`fixed right-4 top-1/2 -translate-y-1/2 z-50 w-11 h-11 bg-white/90 hover:bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110
+                  ${activeDragId ? 'pointer-events-none opacity-0' : ''}`}
               >
                 <span className="text-gray-700 text-lg select-none">▶</span>
               </button>
