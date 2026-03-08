@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
+import AuthConfirm from './pages/AuthConfirm';
 import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
 import DocumentsPage from './pages/DocumentsPage';
@@ -18,12 +19,36 @@ import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Redirection vers la page produit NexaPro
+/**
+ * Route racine "/" — redirige vers nexapro.tech SAUF si
+ * l'URL contient un token Supabase (confirmation email).
+ * Dans ce cas, on redirige vers /auth/confirm qui traite le token.
+ */
 function LeadQualifRedirect() {
   useEffect(() => {
-    window.location.replace('https://nexapro.tech/leadqualif.html');
+    const hash   = window.location.hash;
+    const search = window.location.search;
+    // Supabase met le token dans le hash (#access_token=...) ou
+    // la query string (?token_hash=...&type=signup)
+    const hasAuthToken =
+      hash.includes('access_token') ||
+      hash.includes('error_code')   ||
+      hash.includes('type=')        ||
+      search.includes('token_hash');
+
+    if (hasAuthToken) {
+      // Préserve hash + query → /auth/confirm les traitera
+      window.location.replace('/auth/confirm' + search + hash);
+    } else {
+      window.location.replace('https://nexapro.tech/leadqualif.html');
+    }
   }, []);
-  return null;
+  // Spinner pendant la détection
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+    </div>
+  );
 }
 
 // Redirection /documents-center → /documents (en préservant les search params)
@@ -42,6 +67,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/confirm" element={<AuthConfirm />} />
           <Route path="/estimation" element={<Estimation />} />
           <Route path="/estimation/:agencyId" element={<Estimation />} />
 
