@@ -56,12 +56,29 @@ export default function Estimation() {
     if (!agencyId) { setLoadingProfile(false); return; }
     const fetchProfile = async () => {
       try {
-        const { data } = await supabase
+        // L'UUID dans l'URL peut être user_id OU agency_id selon quand le profil a été créé.
+        // On essaie user_id en premier (cas le plus fréquent — signup standard),
+        // puis agency_id (si explicitement défini dans Settings).
+        let profile = null;
+
+        const { data: byUserId } = await supabase
           .from('profiles')
-          .select('nom_agence, logo_url, couleur_primaire, type_agence, agency_id')
-          .eq('agency_id', agencyId)
-          .single();
-        setAgencyProfile(data || null);
+          .select('nom_agence, logo_url, couleur_primaire, type_agence, agency_id, user_id')
+          .eq('user_id', agencyId)
+          .maybeSingle();
+
+        if (byUserId) {
+          profile = byUserId;
+        } else {
+          const { data: byAgencyId } = await supabase
+            .from('profiles')
+            .select('nom_agence, logo_url, couleur_primaire, type_agence, agency_id, user_id')
+            .eq('agency_id', agencyId)
+            .maybeSingle();
+          profile = byAgencyId || null;
+        }
+
+        setAgencyProfile(profile);
       } catch (e) {
         console.error('Profil agence:', e);
       } finally {
