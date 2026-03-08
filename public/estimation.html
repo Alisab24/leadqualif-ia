@@ -3,192 +3,717 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LeadQualif IA - Formulaire de qualification</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <title>Formulaire IA</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    /* --- VOTRE DESIGN PROFESSIONNEL --- */
-    :root { --primary: #007bff; --primary-dark: #0056b3; --bg: #f8f9fa; --text-main: #1f2933; --text-muted: #6c7a89; --border: #dde2eb; --radius-lg: 12px; --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08); }
-    body { 
-      margin: 0; 
-      min-height: 100vh; 
-      font-family: 'Inter', sans-serif; 
-      background: radial-gradient(circle at top left, #e0f0ff 0, #f8f9fa 45%, #f1f3f9 100%); 
-      color: var(--text-main); 
-      display: flex; 
-      flex-direction: column; 
-      padding: 24px 0; 
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #f8fafc;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 20px 50px rgba(15,23,42,0.08);
     }
-
-    .main-content {
-      flex: 1;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 24px;
+      flex-direction: column;
+      color: #1e293b;
     }
-    .page-wrapper { max-width: 1100px; width: 100%; background: #ffffff; border-radius: 24px; box-shadow: var(--shadow-soft); padding: 32px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; }
-    .logo-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #5aa8ff); display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; box-shadow: 0 10px 25px rgba(0, 123, 255, 0.35); }
-    .form-card { background: #ffffff; border-radius: 18px; border: 1px solid #e2e6f0; padding: 25px; }
-    
-    /* Style pour Inputs ET Select */
-    input, select { width: 100%; height: 42px; border-radius: 10px; border: 1px solid var(--border); padding: 0 12px; margin-bottom: 15px; background: #f9fafb; font-family: 'Inter', sans-serif; font-size: 14px; box-sizing: border-box; }
-    label { font-size: 12px; font-weight: 700; color: #6c7a89; text-transform: uppercase; margin-bottom: 4px; display: block; }
-    
-    .submit-btn { width: 100%; border: none; border-radius: 999px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-weight: 600; padding: 14px; cursor: pointer; box-shadow: 0 12px 24px rgba(0, 123, 255, 0.35); transition: transform 0.2s; }
+    .main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+    .wrapper {
+      max-width: 1080px; width: 100%;
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+    }
+    @media (max-width: 760px) { .wrapper { grid-template-columns: 1fr; } .side { display: none; } }
+
+    /* ── Panel gauche formulaire ── */
+    .panel { padding: 36px 32px; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+    .brand-logo {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; color: #fff; font-size: 16px; overflow: hidden;
+    }
+    .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .brand-name { font-weight: 700; font-size: 17px; color: #0f172a; }
+    h1 { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 28px; }
+
+    /* ── Sélecteur de rôle ── */
+    .role-section {
+      background: #f0f7ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 22px;
+    }
+    .role-section label { font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 10px; }
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .role-btn {
+      padding: 14px 10px;
+      border-radius: 10px;
+      border: 2px solid #cbd5e1;
+      background: #fff;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+      font-family: 'Inter', sans-serif;
+    }
+    .role-btn:hover { border-color: var(--primary); }
+    .role-btn.selected { border-color: var(--primary); background: #eff6ff; }
+    .role-btn .icon { font-size: 22px; margin-bottom: 4px; }
+    .role-btn .title { font-size: 13px; font-weight: 600; color: #0f172a; }
+    .role-btn .desc { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+    /* ── Champs dynamiques ── */
+    .fields { display: none; }
+    .fields.visible { display: block; }
+    .field-group { margin-bottom: 14px; }
+    .field-group label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 5px; }
+    .field-group input,
+    .field-group select {
+      width: 100%; height: 42px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0 14px;
+      background: #f9fafb;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: #1e293b;
+      transition: border-color .15s;
+    }
+    .field-group input:focus,
+    .field-group select:focus { outline: none; border-color: var(--primary); background: #fff; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    /* Champs spécifiques colorés */
+    .fields-box {
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .fields-box.blue { background: #eff6ff; border: 1.5px solid #bfdbfe; }
+    .fields-box.green { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+    .fields-box.violet { background: #f5f3ff; border: 1.5px solid #ddd6fe; }
+    .fields-box h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    .fields-box.blue h3 { color: #1e40af; }
+    .fields-box.green h3 { color: #15803d; }
+    .fields-box.violet h3 { color: #6d28d9; }
+    .fields-box .field-group { margin-bottom: 10px; }
+    .fields-box .field-group:last-child { margin-bottom: 0; }
+
+    /* Communs toujours visibles */
+    .common-fields { margin-bottom: 6px; }
+
+    /* Bouton submit */
+    .submit-btn {
+      width: 100%; height: 48px;
+      border: none; border-radius: 100px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff; font-weight: 600; font-size: 15px;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(37,99,235,.3);
+      transition: transform .2s, opacity .2s;
+      margin-top: 18px;
+      font-family: 'Inter', sans-serif;
+    }
     .submit-btn:hover { transform: translateY(-2px); }
-    .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-    
-    .status-message { margin-top: 15px; font-size: 14px; text-align: center; padding: 10px; border-radius: 8px; }
+    .submit-btn:disabled { opacity: .65; cursor: not-allowed; transform: none; }
+
+    .status-msg { margin-top: 14px; font-size: 14px; text-align: center; padding: 10px; border-radius: 8px; }
     .error { background: #fee2e2; color: #b91c1c; }
     .success { background: #dcfce7; color: #15803d; }
-    @media (max-width: 900px) { .page-wrapper { grid-template-columns: 1fr; } }
-    
-    /* Footer Styles */
-    .footer { background: #ffffff; border-top: 1px solid #e2e6f0; padding: 20px 0; margin-top: auto; text-align: center; color: #6c7a89; font-size: 14px; width: 100%; flex-shrink: 0; }
-    .footer-content { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
-    .footer-links { margin: 10px 0; }
-    .footer-links a { color: #007bff; text-decoration: none; margin: 0 10px; }
-    .footer-links a:hover { text-decoration: underline; }
-    .footer-privacy { margin-top: 15px; font-size: 12px; color: #9ca3af; line-height: 1.4; }
+
+    /* ── Panel droit ── */
+    .side {
+      background: #0f172a;
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+    }
+    .side-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 100px;
+      padding: 6px 14px;
+      font-size: 13px; color: #94a3b8; width: fit-content;
+    }
+    .side h2 { font-size: 26px; font-weight: 700; color: #f8fafc; line-height: 1.3; }
+    .side h2 span { color: #4ade80; }
+    .side p { font-size: 14px; color: #94a3b8; line-height: 1.7; }
+    .side-features { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+    .side-feature {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .side-feature .feat-icon { font-size: 20px; }
+    .side-feature .feat-text { font-size: 13px; color: #cbd5e1; line-height: 1.4; }
+    .side-feature strong { color: #f8fafc; }
+
+    /* ── Footer ── */
+    footer {
+      background: #fff;
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    footer a { color: var(--primary); text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="main-content">
-    <div class="page-wrapper">
-      <div>
-        <div class="logo"><div class="logo-mark">LQ</div></div>
-        <h1 style="margin-top: 20px; color: #1f2933;">Découvrez la valeur de votre bien</h1>
-        <p style="color: #6c7a89; margin-bottom: 30px;">Analyse intelligente par IA pour votre projet immobilier.</p>
-        
-        <div class="form-card">
-          <form id="leadForm">
-            <label>Nom complet</label>
-            <input type="text" id="nom" placeholder="Ex: Marie Dupont" required />
-            
-            <label>Email</label>
-            <input type="email" id="email" placeholder="marie@email.com" required />
-            
-            <label>Téléphone</label>
-            <input type="tel" id="telephone" placeholder="06 12 34 56 78" required />
-            
-            <label>Type de bien</label>
-            <select id="type_bien">
-                <option value="Appartement">Appartement</option>
-                <option value="Maison">Maison</option>
-                <option value="Villa">Villa</option>
-                <option value="Terrain">Terrain</option>
-                <option value="Boutique">Local Commercial</option>
+
+<div class="main">
+  <div class="wrapper">
+
+    <!-- ── Formulaire ── -->
+    <div class="panel">
+      <!-- Branding dynamique -->
+      <div class="brand">
+        <div class="brand-logo" id="brandLogo">N</div>
+        <span class="brand-name" id="brandName">Chargement…</span>
+      </div>
+      <h1 id="pageTitle">Analysez votre projet</h1>
+      <p class="subtitle" id="pageSubtitle">Notre IA qualifie votre demande instantanément.</p>
+
+      <form id="leadForm">
+
+        <!-- Sélecteur de rôle -->
+        <div class="role-section">
+          <label id="roleLabel">Type de contact *</label>
+          <div class="role-grid" id="roleGrid">
+            <!-- injecté par JS selon type_agence -->
+          </div>
+          <input type="hidden" id="lead_role" name="lead_role" required />
+        </div>
+
+        <!-- Champs communs (toujours visibles) -->
+        <div class="common-fields">
+          <div class="field-group">
+            <label>Nom complet *</label>
+            <input type="text" id="nom" placeholder="Marie Dupont" required />
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>Email *</label>
+              <input type="email" id="email" placeholder="marie@exemple.com" required />
+            </div>
+            <div class="field-group">
+              <label>Téléphone *</label>
+              <input type="tel" id="telephone" placeholder="06 12 34 56 78" required />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Source</label>
+            <select id="source">
+              <!-- Options injectées par JS -->
             </select>
-
-            <label>Adresse du bien</label>
-            <input type="text" id="adresse" placeholder="Ex: 75011 Paris, France" required />
-            
-            <label>Prix estimé / Budget (€)</label>
-            <input type="number" id="prix" placeholder="Ex: 350000" />
-            
-            <button type="submit" class="submit-btn" id="submitBtn">Obtenir mon analyse IA</button>
-          </form>
-          <div id="statusMessage"></div>
+          </div>
         </div>
+
+        <!-- ───── Champs IMMO Client ───── -->
+        <div class="fields" id="fields-immo-client">
+          <div class="fields-box blue">
+            <h3>🏠 Votre recherche</h3>
+            <div class="field-group">
+              <label>Localisation souhaitée *</label>
+              <input type="text" id="localisation_souhaitee" placeholder="Paris 15ème, Lyon, Bordeaux…" />
+            </div>
+            <div class="grid-3">
+              <div class="field-group">
+                <label>Type de projet *</label>
+                <select id="type_projet">
+                  <option value="">—</option>
+                  <option value="residence_principale">Résidence principale</option>
+                  <option value="investissement">Investissement locatif</option>
+                  <option value="residence_secondaire">Résidence secondaire</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Financement *</label>
+                <select id="financement">
+                  <option value="">—</option>
+                  <option value="cash">Comptant (cash)</option>
+                  <option value="credit">Crédit bancaire</option>
+                  <option value="primo">Primo-accédant (PTZ)</option>
+                  <option value="a_definir">À définir</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Déjà propriétaire ?</label>
+                <select id="deja_proprietaire">
+                  <option value="">—</option>
+                  <option value="non">Non</option>
+                  <option value="oui_vendre">Oui, doit vendre</option>
+                  <option value="oui_garder">Oui, garde son bien</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field-group">
+                <label>Budget maximum (€)</label>
+                <input type="number" id="budget" placeholder="250 000" min="0" />
+              </div>
+              <div class="field-group">
+                <label>Type de bien</label>
+                <select id="type_de_bien">
+                  <option value="">Sélectionner</option>
+                  <option value="appartement">Appartement</option>
+                  <option value="maison">Maison</option>
+                  <option value="studio">Studio</option>
+                  <option value="villa">Villa</option>
+                  <option value="terrain">Terrain</option>
+                  <option value="commercial">Local commercial</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Délai d'achat</label>
+              <select id="delai_achat">
+                <option value="">Sélectionner</option>
+                <option value="immediat">Immédiat (- 1 mois)</option>
+                <option value="court">Court terme (1–3 mois)</option>
+                <option value="moyen">Moyen terme (3–6 mois)</option>
+                <option value="long">Long terme (+ 6 mois)</option>
+                <option value="indefini">En réflexion</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ───── Champs IMMO Propriétaire ───── -->
+        <div class="fields" id="fields-immo-proprio">
+          <div class="fields-box green">
+            <h3>🔑 Votre bien</h3>
+            <div class="field-group">
+              <label>Adresse du bien *</label>
+              <input type="text" id="adresse_bien" placeholder="15 Rue de la Paix, 75001 Paris" />
+            </div>
+            <div class="grid-3">
+              <div class="field-group">
+                <label>Surface (m²)</label>
+                <input type="number" id="surface" placeholder="75" min="0" />
+              </div>
+              <div class="field-group">
+                <label>Nb pièces</label>
+                <select id="nb_pieces">
+                  <option value="">—</option>
+                  <option>1</option><option>2</option><option>3</option>
+                  <option>4</option><option>5</option><option value="6+">6+</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Prix souhaité (€)</label>
+                <input type="number" id="prix_vente" placeholder="350 000" min="0" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Disponibilité</label>
+              <select id="date_disponibilite">
+                <option value="">Sélectionner</option>
+                <option value="immediat">Immédiat</option>
+                <option value="1_mois">Dans 1 mois</option>
+                <option value="3_mois">Dans 3 mois</option>
+                <option value="6_mois">Dans 6 mois</option>
+                <option value="plus_6_mois">+ 6 mois</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ───── Champs SMMA ───── -->
+        <div class="fields" id="fields-smma">
+          <div class="fields-box violet">
+            <h3 id="smmaBoxTitle">🎯 Votre projet</h3>
+            <div class="grid-2">
+              <div class="field-group">
+                <label>Objectif marketing *</label>
+                <select id="objectif_marketing">
+                  <option value="">Sélectionner</option>
+                  <option value="generation_leads">Génération de leads</option>
+                  <option value="notoriete">Notoriété / Branding</option>
+                  <option value="ecommerce">E-commerce / Ventes</option>
+                  <option value="reseaux_sociaux">Croissance réseaux sociaux</option>
+                  <option value="seo_contenu">SEO / Contenu</option>
+                  <option value="lancement">Lancement de produit</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Type de service *</label>
+                <select id="type_service">
+                  <option value="">Sélectionner</option>
+                  <option value="social_media">Social Media Management</option>
+                  <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
+                  <option value="google_ads">Google Ads</option>
+                  <option value="seo">SEO</option>
+                  <option value="creation_contenu">Création de contenu</option>
+                  <option value="emailing">Emailing / CRM</option>
+                  <option value="strategie">Stratégie globale</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid-3">
+              <div class="field-group">
+                <label>Secteur d'activité *</label>
+                <select id="secteur_activite">
+                  <option value="">Sélectionner</option>
+                  <option value="restaurant_food">Restaurant / Food</option>
+                  <option value="ecommerce">E-commerce</option>
+                  <option value="coach_formation">Coach / Formation</option>
+                  <option value="immobilier">Immobilier</option>
+                  <option value="beaute_bien_etre">Beauté / Bien-être</option>
+                  <option value="sante">Santé / Médical</option>
+                  <option value="artisan_btp">Artisan / BTP</option>
+                  <option value="mode_luxe">Mode / Luxe</option>
+                  <option value="tech_saas">Tech / SaaS</option>
+                  <option value="service_b2b">Service B2B</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Taille structure</label>
+                <select id="taille_entreprise">
+                  <option value="">—</option>
+                  <option value="solo">Solo / Auto-entrepreneur</option>
+                  <option value="tpe">TPE (2–10 pers.)</option>
+                  <option value="pme">PME (10–50 pers.)</option>
+                  <option value="pme_plus">PME+ (50+ pers.)</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Déjà une agence ?</label>
+                <select id="deja_agence">
+                  <option value="">—</option>
+                  <option value="non_jamais">Non, jamais</option>
+                  <option value="non_avant">Oui, mais terminé</option>
+                  <option value="oui_concurrent">Oui, avec concurrent</option>
+                  <option value="en_interne">Gère en interne</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field-group">
+                <label>Budget mensuel (€)</label>
+                <select id="budget_marketing">
+                  <option value="">Sélectionner</option>
+                  <option value="moins_500">Moins de 500 €</option>
+                  <option value="500_1500">500 – 1 500 €</option>
+                  <option value="1500_3000">1 500 – 3 000 €</option>
+                  <option value="3000_5000">3 000 – 5 000 €</option>
+                  <option value="5000_plus">+ 5 000 €</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Site web</label>
+                <input type="url" id="site_web" placeholder="https://monsite.com" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message commun -->
+        <div class="field-group">
+          <label id="messageLabel">Message / Besoins</label>
+          <textarea id="message" rows="3"
+            style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-family:Inter,sans-serif;font-size:14px;resize:none;background:#f9fafb;color:#1e293b;"
+            placeholder="Décrivez votre projet…"></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          ✨ Analyser mon projet
+        </button>
+      </form>
+      <div id="statusMessage"></div>
+    </div>
+
+    <!-- ── Panel droit ── -->
+    <div class="side">
+      <div class="side-badge">⚡ Powered by IA</div>
+      <div>
+        <h2 id="sideTitle">Qualification <span>instantanée</span></h2>
+        <p id="sideDesc">Notre IA analyse votre profil en quelques secondes et vous met en relation avec le bon conseiller.</p>
       </div>
-      
-      <div style="background: #0f172a; color: white; border-radius: 18px; padding: 30px; display: flex; flex-direction: column; justify-content: center;">
-        <h2 style="color: #4ade80;">✓ Qualification Immédiate</h2>
-        <p style="color: #94a3b8; line-height: 1.6;">Notre IA analyse votre secteur et votre budget pour vous donner un score de priorité. Vos données sont sécurisées et traitées instantanément.</p>
-        
-        <div style="margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-            <p style="margin: 0; font-size: 13px;">📊 <strong>Le saviez-vous ?</strong><br>Les dossiers complets sont traités 3x plus vite par nos agents.</p>
+      <div class="side-features">
+        <div class="side-feature">
+          <span class="feat-icon">🤖</span>
+          <span class="feat-text"><strong>Score IA immédiat</strong><br>Votre dossier qualifié en temps réel</span>
+        </div>
+        <div class="side-feature">
+          <span class="feat-icon">🔒</span>
+          <span class="feat-text"><strong>100% sécurisé</strong><br>Vos données sont chiffrées et protégées</span>
+        </div>
+        <div class="side-feature">
+          <span class="feat-icon">📞</span>
+          <span class="feat-text"><strong>Réponse rapide</strong><br>Un conseiller vous rappelle sous 24h</span>
         </div>
       </div>
     </div>
+
   </div>
+</div>
 
-  <footer class="footer">
-    <div class="footer-content">
-      <div> LeadQualif IA – Tous droits réservés</div>
-      <div class="footer-links">
-        <a href="#">Contact Support</a>
-      </div>
-      <div class="footer-privacy">
-        Les données collectées sont utilisées uniquement dans le cadre du traitement des demandes immobilières.
-      </div>
-    </div>
-  </footer>
+<footer>
+  <span id="footerName">LeadQualif IA</span> — Tous droits réservés &nbsp;|&nbsp;
+  <a href="#">Mentions légales</a> &nbsp;|&nbsp;
+  <a href="#">Confidentialité</a>
+</footer>
 
-  <script>
-    // ⚠️ METTEZ ICI VOTRE URL RENDER (Sans le slash à la fin)
-    // Exemple: https://leadqualif-backend.onrender.com/api
-    const API_BASE_URL = "https://leadqualif-backend.onrender.com/api"; 
+<script>
+  // ── Config Supabase ──
+  const SUPABASE_URL = 'https://rscjrpisvorapbopagox.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzY2pycGlzdm9yYXBib3BhZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2NDYxMzEsImV4cCI6MjA2MjIyMjEzMX0.Rh5Tm2aLgJJA2nDNTSYbWCrB5KYf_3hFxUf6_T0eV0A';
 
-    document.getElementById('leadForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('submitBtn');
-        const statusDiv = document.getElementById('statusMessage');
-        
-        // Animation Bouton
-        btn.textContent = "🚀 Analyse IA en cours...";
-        btn.disabled = true;
-        statusDiv.className = 'status-message';
-        statusDiv.textContent = '';
+  const urlParams = new URLSearchParams(window.location.search);
+  const agencyId  = urlParams.get('aid');
 
-        // Récupération des données
-        const formData = {
-            nom: document.getElementById('nom').value,
-            email: document.getElementById('email').value,
-            telephone: document.getElementById('telephone').value,
-            // On mappe "Prix" vers "Budget" pour le backend Python
-            budget: document.getElementById('prix').value,
-            type_bien: document.getElementById('type_bien').value,
-            // On envoie l'adresse aussi (le backend pourra l'utiliser pour le prompt IA)
-            adresse: document.getElementById('adresse').value
-        };
+  let agencyType  = 'immobilier';
+  let agencyData  = {};
 
-        try {
-            // Récupérer l'agency_id depuis l'URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const agencyId = urlParams.get('aid');
-            
-            if (!agencyId) {
-                throw new Error('ID d\'agence manquant. Veuillez utiliser le lien complet fourni par votre agence.');
-            }
-            
-            // Ajouter l'agency_id aux données du formulaire
-            formData.agency_id = agencyId;
-            
-            // Envoi au Backend Python (Render)
-            const response = await fetch(`${API_BASE_URL}/leads`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+  // ── Charger le profil agence ──
+  async function loadAgency() {
+    if (!agencyId) {
+      applyBranding({ nom_agence: 'LeadQualif IA', type_agence: 'immobilier', couleur_primaire: '#2563eb' });
+      buildForm('immobilier');
+      return;
+    }
+    try {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?agency_id=eq.${agencyId}&select=*&limit=1`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      );
+      const rows = await r.json();
+      const data = rows[0] || {};
+      agencyData  = data;
+      agencyType  = data.type_agence || 'immobilier';
+      applyBranding(data);
+      buildForm(agencyType);
+    } catch(e) {
+      applyBranding({ nom_agence: 'LeadQualif IA', type_agence: 'immobilier', couleur_primaire: '#2563eb' });
+      buildForm('immobilier');
+    }
+  }
 
-            const result = await response.json();
+  // ── Appliquer le branding agence ──
+  function applyBranding(data) {
+    const primary = data.couleur_primaire || '#2563eb';
+    document.documentElement.style.setProperty('--primary', primary);
+    document.documentElement.style.setProperty('--primary-dark', darken(primary));
 
-            if (response.ok) {
-                // Succès - Redirection
-                btn.innerHTML = "✅ Reçu ! Redirection...";
-                btn.classList.replace('bg-blue-600', 'bg-green-500');
-                setTimeout(() => {
-                    window.location.href = "/merci";
-                }, 1000);
-            } else {
-                // Erreur
-                statusDiv.className = 'status-message error';
-                statusDiv.innerHTML = `<strong>❌ Erreur</strong><br>${result.message || 'Veuillez réessayer.'}`;
-                btn.textContent = "Obtenir mon analyse IA";
-                btn.disabled = false;
-            }
+    const logo = document.getElementById('brandLogo');
+    logo.style.background = primary;
+    if (data.logo_url) {
+      logo.innerHTML = `<img src="${data.logo_url}" onerror="this.style.display='none'">`;
+      logo.style.fontSize = '0';
+    } else {
+      logo.textContent = (data.nom_agence || 'N').charAt(0).toUpperCase();
+    }
+    document.getElementById('brandName').textContent = data.nom_agence || 'LeadQualif IA';
+    document.getElementById('footerName').textContent = data.nom_agence || 'LeadQualif IA';
 
-        } catch (error) {
-            console.error('Erreur:', error);
-            statusDiv.className = 'status-message error';
-            statusDiv.innerHTML = '<strong>❌ Erreur de connexion</strong><br>Vérifiez votre connexion internet.';
-            btn.textContent = "Obtenir mon analyse IA";
-            btn.disabled = false;
-        }
+    // Titre et description selon type
+    if ((data.type_agence || 'immobilier') === 'immobilier') {
+      document.getElementById('pageTitle').textContent = 'Qualifiez votre projet immobilier';
+      document.getElementById('pageSubtitle').textContent = 'Notre IA analyse votre dossier en temps réel pour une prise en charge prioritaire.';
+      document.getElementById('sideTitle').innerHTML = 'Votre projet immobilier entre de <span>bonnes mains</span>';
+      document.getElementById('sideDesc').textContent = "Notre IA qualifie votre dossier immédiatement. Un agent vous rappelle sous 24h pour discuter de votre projet.";
+      document.getElementById('messageLabel').textContent = 'Vos besoins / critères spécifiques';
+    } else {
+      document.getElementById('pageTitle').textContent = 'Parlons de votre projet marketing';
+      document.getElementById('pageSubtitle').textContent = 'Décrivez vos objectifs — notre IA prépare votre stratégie personnalisée.';
+      document.getElementById('sideTitle').innerHTML = 'Une stratégie digitale <span>sur mesure</span>';
+      document.getElementById('sideDesc').textContent = "Notre IA analyse votre secteur et vos objectifs pour vous proposer la meilleure stratégie. Réponse sous 24h.";
+      document.getElementById('messageLabel').textContent = 'Notes additionnelles / contexte';
+    }
+  }
+
+  // ── Construire les options de rôle selon type_agence ──
+  function buildForm(type) {
+    const roleGrid = document.getElementById('roleGrid');
+    const sourceEl = document.getElementById('source');
+
+    if (type === 'immobilier') {
+      roleGrid.innerHTML = `
+        <button type="button" class="role-btn" data-role="client">
+          <div class="icon">🏠</div>
+          <div class="title">Client acheteur</div>
+          <div class="desc">Cherche un bien à acheter ou louer</div>
+        </button>
+        <button type="button" class="role-btn" data-role="proprietaire">
+          <div class="icon">🔑</div>
+          <div class="title">Propriétaire / Bailleur</div>
+          <div class="desc">Vend ou met en location un bien</div>
+        </button>`;
+      sourceEl.innerHTML = `
+        <option value="site_web">Site web</option>
+        <option value="portail_immo">Portail immobilier (SeLoger, LBC…)</option>
+        <option value="reseaux_sociaux">Réseaux sociaux</option>
+        <option value="recommandation">Recommandation</option>
+        <option value="panneau">Panneau / Vitrine agence</option>
+        <option value="publicite">Publicité</option>
+        <option value="autre">Autre</option>`;
+    } else {
+      roleGrid.innerHTML = `
+        <button type="button" class="role-btn" data-role="prospect">
+          <div class="icon">🎯</div>
+          <div class="title">Prospect</div>
+          <div class="desc">Intéressé par nos services</div>
+        </button>
+        <button type="button" class="role-btn" data-role="client_actif">
+          <div class="icon">💼</div>
+          <div class="title">Client actif</div>
+          <div class="desc">Déjà en relation avec une agence</div>
+        </button>`;
+      sourceEl.innerHTML = `
+        <option value="site_web">Site web</option>
+        <option value="linkedin">LinkedIn</option>
+        <option value="instagram">Instagram</option>
+        <option value="facebook">Facebook / Meta Ads</option>
+        <option value="google_ads">Google Ads</option>
+        <option value="recommandation">Recommandation</option>
+        <option value="cold_outreach">Prospection directe</option>
+        <option value="evenement">Événement / Réseau</option>
+        <option value="autre">Autre</option>`;
+    }
+
+    // Attacher les events aux boutons de rôle
+    roleGrid.querySelectorAll('.role-btn').forEach(btn => {
+      btn.addEventListener('click', () => selectRole(btn.dataset.role, type));
     });
-  </script>
+  }
+
+  // ── Sélection du rôle ──
+  function selectRole(role, type) {
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector(`[data-role="${role}"]`)?.classList.add('selected');
+    document.getElementById('lead_role').value = role;
+
+    // Masquer tous les blocs
+    document.querySelectorAll('.fields').forEach(f => f.classList.remove('visible'));
+
+    if (type === 'immobilier') {
+      if (role === 'client')       document.getElementById('fields-immo-client').classList.add('visible');
+      if (role === 'proprietaire') document.getElementById('fields-immo-proprio').classList.add('visible');
+    } else {
+      document.getElementById('fields-smma').classList.add('visible');
+      document.getElementById('smmaBoxTitle').textContent = role === 'prospect' ? '🎯 Votre projet' : '💼 Votre demande';
+    }
+  }
+
+  // ── Soumission ──
+  document.getElementById('leadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn       = document.getElementById('submitBtn');
+    const statusDiv = document.getElementById('statusMessage');
+    const role      = document.getElementById('lead_role').value;
+
+    if (!role) {
+      statusDiv.className = 'status-msg error';
+      statusDiv.textContent = '⚠️ Veuillez sélectionner votre type de contact.';
+      return;
+    }
+
+    btn.textContent = '🚀 Analyse IA en cours…';
+    btn.disabled = true;
+    statusDiv.textContent = '';
+    statusDiv.className = 'status-msg';
+
+    const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+
+    const payload = {
+      lead_role:   role,
+      nom:         val('nom'),
+      email:       val('email'),
+      telephone:   val('telephone'),
+      source:      val('source'),
+      message:     val('message'),
+      agency_id:   agencyId,
+      statut_crm:  'À traiter',
+      // IMMO client
+      localisation_souhaitee: val('localisation_souhaitee'),
+      budget:      val('budget'),
+      type_de_bien: val('type_de_bien'),
+      delai_achat: val('delai_achat'),
+      type_projet: val('type_projet'),
+      financement: val('financement'),
+      deja_proprietaire: val('deja_proprietaire'),
+      // IMMO proprio
+      adresse_bien: val('adresse_bien'),
+      surface:     val('surface'),
+      nb_pieces:   val('nb_pieces'),
+      prix_vente:  val('prix_vente'),
+      date_disponibilite: val('date_disponibilite'),
+      // SMMA
+      objectif_marketing: val('objectif_marketing'),
+      type_service: val('type_service'),
+      secteur_activite: val('secteur_activite'),
+      taille_entreprise: val('taille_entreprise'),
+      deja_agence: val('deja_agence'),
+      budget_marketing: val('budget_marketing'),
+      site_web:    val('site_web'),
+    };
+
+    // Nettoyer les champs vides
+    Object.keys(payload).forEach(k => { if (payload[k] === '') delete payload[k]; });
+
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Prefer':        'return=minimal'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (r.ok || r.status === 201) {
+        btn.textContent = '✅ Envoyé ! Redirection…';
+        setTimeout(() => { window.location.href = '/merci'; }, 1200);
+      } else {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.message || `Erreur ${r.status}`);
+      }
+    } catch(err) {
+      statusDiv.className = 'status-msg error';
+      statusDiv.innerHTML = `<strong>❌ Erreur</strong> — ${err.message}`;
+      btn.textContent = '✨ Analyser mon projet';
+      btn.disabled = false;
+    }
+  });
+
+  // ── Utilitaire couleur ──
+  function darken(hex) {
+    const n = parseInt(hex.replace('#',''), 16);
+    const r = Math.max(0, (n >> 16) - 30);
+    const g = Math.max(0, ((n >> 8) & 0xff) - 30);
+    const b = Math.max(0, (n & 0xff) - 30);
+    return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+  }
+
+  // ── Init ──
+  loadAgency();
+</script>
 </body>
 </html>
