@@ -960,6 +960,7 @@ export default function Dashboard() {
               <LeadForm
                 onClose={() => setShowLeadForm(false)}
                 onSuccess={() => { setShowLeadForm(false); fetchLeads(); fetchStats(); }}
+                agencyType={agencyProfile?.type_agence || 'immobilier'}
               />
             </div>
           </div>
