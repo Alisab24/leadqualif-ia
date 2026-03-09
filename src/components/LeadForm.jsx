@@ -23,7 +23,7 @@ const textareaCls = `${inputCls} resize-none`
 
 /* ──────────────────────────────────────────────────── */
 
-const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
+const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = null }) => {
   const isImmo = agencyType === 'immobilier'
 
   /* ── État du formulaire ── */
@@ -115,9 +115,17 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
 
       const budgetInt = formData.budget ? parseInt(formData.budget, 10) : null
 
+      // Récupérer l'ID utilisateur si agencyId non fourni en prop
+      let resolvedAgencyId = agencyId
+      if (!resolvedAgencyId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        resolvedAgencyId = user?.id || null
+      }
+
       const leadData = {
         ...sanitized,
         budget: isNaN(budgetInt) ? null : budgetInt,
+        agency_id: resolvedAgencyId,
         score_qualification: result.score,
         niveau_interet: niveauInteret,
         budget_estime: formData.budget || formData.budget_marketing || qualification.budget_estime || 'Non spécifié',
