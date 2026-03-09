@@ -228,6 +228,113 @@ Génère une annonce complète et prête à être publiée.`
   },
 
   /**
+   * Génère les clauses d'un mandat/compromis via IA à partir des données lead + agence
+   * @param {Object} lead    - Données du lead (nom, email, budget, type_de_bien, etc.)
+   * @param {Object} agency  - Données de l'agence (nom, adresse, carte_pro_t, etc.)
+   * @returns {Promise<Object>} - Clauses structurées pour le mandat
+   */
+  async generateMandatClauses(lead = {}, agency = {}) {
+    if (!openai) {
+      console.warn('OpenAI non configuré. Utilisation des clauses par défaut.')
+      return this._mandatFallback(lead, agency)
+    }
+
+    const budgetFormate = lead.budget
+      ? `${Number(lead.budget).toLocaleString('fr-FR')} €`
+      : 'À définir'
+
+    const prompt = `Tu es un juriste expert en droit immobilier français (loi Hoguet, loi ALUR).
+Génère les clauses professionnelles pour un mandat de vente immobilier au format JSON avec les champs suivants :
+
+- objet_mandat       : description précise du bien et de la mission (2-3 phrases)
+- prix_suggere       : fourchette de prix recommandée basée sur le budget indiqué
+- commission         : taux de commission recommandé (entre 4% et 7%) avec justification courte
+- duree              : durée conseillée du mandat (ex: "3 mois renouvelables")
+- exclusivite        : true ou false selon le profil du bien
+- clause_exclusivite : texte juridique de la clause d'exclusivité (ou clause simple si non-exclusif)
+- obligations_mandataire : tableau de 5 obligations principales de l'agent
+- obligations_mandant    : tableau de 4 obligations principales du client
+- clause_resiliation : conditions et délai de résiliation (loi ALUR)
+- mentions_alur      : mentions légales obligatoires (carte pro, assurance RCP, garant)
+- recommandation_agent : conseil personnalisé pour l'agent basé sur le profil du lead (2-3 phrases)
+
+Données du bien / client :
+- Client : ${lead.nom || 'Non spécifié'}
+- Budget / prix souhaité : ${budgetFormate}
+- Type de bien : ${lead.type_de_bien || lead.type_bien || 'Non spécifié'}
+- Localisation : ${lead.localisation_souhaitee || lead.adresse || 'Non spécifiée'}
+- Délai souhaité : ${lead.delai_achat || lead.delai || 'Non spécifié'}
+- Message : ${lead.message || 'Aucun'}
+
+Agence mandataire :
+- Nom : ${agency.nom || agency.nom_agence || 'Non spécifié'}
+- Carte Pro Transaction : ${agency.carte_pro_t || 'Non spécifiée'}
+- Carte Pro Syndic : ${agency.carte_pro_s || 'Non spécifiée'}
+
+Réponds UNIQUEMENT avec du JSON valide, sans texte supplémentaire. Adapte le langage juridique au contexte français.`
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'Tu es un juriste expert en droit immobilier français. Tu génères des clauses contractuelles professionnelles et conformes à la loi ALUR et à la loi Hoguet. Tu réponds toujours en JSON valide.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.4,
+        response_format: { type: 'json_object' }
+      })
+
+      const clauses = JSON.parse(completion.choices[0].message.content)
+      return { ...clauses, ia_generated: true }
+    } catch (error) {
+      console.error('Erreur generateMandatClauses:', error)
+      return this._mandatFallback(lead, agency)
+    }
+  },
+
+  /**
+   * Clauses de repli professionnelles si OpenAI indisponible
+   * @private
+   */
+  _mandatFallback(lead = {}, agency = {}) {
+    const budgetFormate = lead.budget
+      ? `${Number(lead.budget).toLocaleString('fr-FR')} €`
+      : 'À définir avec le client'
+
+    return {
+      ia_generated: false,
+      objet_mandat: `Le Mandant confie au Mandataire la mission exclusive de rechercher un acquéreur pour le bien immobilier de type ${lead.type_de_bien || 'à préciser'}, situé ${lead.adresse || 'à l\'adresse indiquée'}. Le Mandataire s'engage à mettre en œuvre tous les moyens nécessaires pour trouver un acquéreur au meilleur prix dans les meilleures conditions.`,
+      prix_suggere: `Fourchette estimée : ${budgetFormate} (à affiner après estimation formelle)`,
+      commission: '5% TTC du prix de vente, payable à la signature de l\'acte authentique',
+      duree: '3 mois renouvelables par tacite reconduction',
+      exclusivite: true,
+      clause_exclusivite: 'Le présent mandat est consenti à titre EXCLUSIF. Pendant toute la durée du mandat, le Mandant s\'interdit de confier la vente du bien à tout autre intermédiaire ou de traiter directement avec un acquéreur présenté par le Mandataire, sous peine de devoir verser la commission prévue.',
+      obligations_mandataire: [
+        'Rechercher activement des acquéreurs potentiels par tous les moyens disponibles (portails immobiliers, réseau, visites)',
+        'Organiser et assurer toutes les visites du bien dans le respect des horaires convenus',
+        'Négocier les conditions de vente au meilleur profit du Mandant',
+        'Assurer le suivi complet du dossier jusqu\'à la signature de l\'acte authentique',
+        'Informer régulièrement le Mandant de l\'avancement des démarches'
+      ],
+      obligations_mandant: [
+        'Fournir l\'intégralité des documents nécessaires à la vente (titre de propriété, diagnostics, etc.)',
+        'Permettre les visites du bien selon les créneaux convenus',
+        'Informer immédiatement le Mandataire de toute proposition directe reçue',
+        'Collaborer de bonne foi et ne pas entraver la mission du Mandataire'
+      ],
+      clause_resiliation: 'Conformément à l\'article 78 de la loi du 2 janvier 1970 (loi Hoguet) et à la loi ALUR du 24 mars 2014, le Mandant peut résilier le présent mandat à l\'issue du premier mois irrévocable, par lettre recommandée avec avis de réception, moyennant un préavis de 15 jours.',
+      mentions_alur: `Mandataire titulaire de la carte professionnelle Transaction n° ${agency.carte_pro_t || '[N° à compléter]'} délivrée par la CCI. Garant financier : [Nom et adresse du garant]. Assurance responsabilité civile professionnelle souscrite auprès de [Nom assureur]. Conformément à la loi ALUR, le Mandant a un délai de 14 jours pour se rétracter.`,
+      recommandation_agent: `Profil à fort potentiel avec un budget de ${budgetFormate}. Préparez une estimation comparative de marché avant la première rencontre pour renforcer votre crédibilité. Proposez un mandat exclusif de 3 mois pour maximiser votre investissement commercial.`
+    }
+  },
+
+  /**
    * Génère une annonce immobilière simulée (pour tests ou fallback)
    * @param {Object} bienData - Les données du bien
    * @returns {string} - Annonce immobilière simulée mais bien structurée

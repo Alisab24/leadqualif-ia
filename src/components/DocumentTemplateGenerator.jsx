@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplateService } from '../services/documentTemplateService';
 import { supabase } from '../supabaseClient';
+import MandatIAGenerator from './MandatIAGenerator';
 
 const DocumentTemplateGenerator = ({ 
   lead, 
@@ -412,6 +413,24 @@ const DocumentTemplateGenerator = ({
       case 'mandat':
         return (
           <>
+            {/* ── Générateur IA des clauses ── */}
+            <MandatIAGenerator
+              lead={lead}
+              agency={agencyProfile}
+              onClauses={(clauses) => {
+                // Pré-remplir automatiquement les champs depuis les suggestions IA
+                if (clauses.commission) {
+                  const match = clauses.commission.match(/(\d+(?:[.,]\d+)?)\s*%/)
+                  if (match) handleTemplateDataChange('commission', parseFloat(match[1]))
+                }
+                if (typeof clauses.exclusivite === 'boolean') {
+                  handleTemplateDataChange('exclusivite', clauses.exclusivite)
+                }
+                const dureeMatch = clauses.duree && clauses.duree.match(/(\d+)\s*mois/)
+                if (dureeMatch) handleTemplateDataChange('duree', parseInt(dureeMatch[1]))
+              }}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type de bien</label>
