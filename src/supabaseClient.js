@@ -63,13 +63,11 @@ export const auth = {
 
       if (error) throw error
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('*, agencies(*)')
+        .select('*')
         .eq('user_id', data.user.id)
-        .single()
-
-      if (profileError) throw profileError
+        .maybeSingle()
 
       return { success: true, user: data.user, profile }
     } catch (error) {
@@ -96,13 +94,11 @@ export const auth = {
 
       if (!user) return { user: null, profile: null }
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('*, agencies(*)')
+        .select('*')
         .eq('user_id', user.id)
-        .single()
-
-      if (profileError) throw profileError
+        .maybeSingle()
 
       return { user, profile }
     } catch (error) {

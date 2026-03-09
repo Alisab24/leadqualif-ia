@@ -47,7 +47,7 @@ export default function OnboardingGuide() {
 
       // Vérifier chaque étape en parallèle
       const [agencyRes, leadsRes, docsRes] = await Promise.all([
-        aid ? supabase.from('agencies').select('nom_agence').eq('id', aid).single() : Promise.resolve({ data: null }),
+        aid ? supabase.from('agencies').select('nom_agence').eq('id', aid).maybeSingle() : Promise.resolve({ data: null }),
         aid ? supabase.from('leads').select('id', { count: 'exact', head: true }).eq('agency_id', aid) : Promise.resolve({ count: 0 }),
         aid ? supabase.from('documents').select('id', { count: 'exact', head: true }).eq('agency_id', aid) : Promise.resolve({ count: 0 }),
       ]);
