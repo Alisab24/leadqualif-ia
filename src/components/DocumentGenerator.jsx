@@ -115,11 +115,28 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           .from('profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();  // maybeSingle évite l'erreur 406 si aucune ligne
 
         if (profileError) {
-          console.error('❌ profiles non trouvé pour user_id:', user.id, profileError);
-          throw new Error(`Paramètres agence non trouvés. Veuillez compléter les paramètres agence.`);
+          console.error('❌ profiles erreur pour user_id:', user.id, profileError);
+          throw new Error(`Erreur de chargement du profil agence.`);
+        }
+
+        if (!profileData) {
+          // Profil inexistant → profil minimal pour ne pas bloquer
+          console.warn('⚠️ Aucun profil trouvé, utilisation des valeurs par défaut');
+          setAgencyProfile({
+            id: user.id,
+            agency_id: user.id,
+            name: 'Mon Agence',
+            legalName: 'Mon Agence',
+            pays: 'France',
+            devise: 'EUR',
+            symbole_devise: '€',
+            source: 'default'
+          });
+          setProfileLoading(false);
+          return;
         }
 
         // Utiliser profiles directement (aligné avec Settings.jsx)

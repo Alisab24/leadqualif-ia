@@ -258,9 +258,16 @@ export default function Dashboard() {
 
   const fetchLeads = async () => {
     try {
+      // Récupérer l'utilisateur connecté pour filtrer par agency_id
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return; }
+
       const { data, error } = await supabase
         .from('leads')
         .select('*')
+        // Isolation par agence : agency_id = user.id (architecture profiles)
+        // Inclut aussi les leads où user_id = user.id (formulaire interne)
+        .or(`agency_id.eq.${user.id},user_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setLeads(data || []);
@@ -273,7 +280,10 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const { data: leads } = await supabase.from('leads').select('budget, statut');
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: leads } = await supabase
+        .from('leads').select('budget, statut')
+        .or(`agency_id.eq.${user?.id},user_id.eq.${user?.id}`);
       if (leads) {
         const total = leads.length;
         const won = leads.filter(l => l.statut === 'Gagné').length;
