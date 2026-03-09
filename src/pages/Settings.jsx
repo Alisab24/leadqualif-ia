@@ -200,16 +200,44 @@ export default function Settings() {
 
   useEffect(() => { loadProfile(); }, []);
 
+  // Sanitise un objet JSONB venant de Supabase :
+  // - garde uniquement les clés attendues (whitelist)
+  // - évite le RangeError "Too many properties" si la colonne est corrompue
+  const sanitizeFormSettings = (raw) => {
+    const defaults = { showBudget: true, showType: true, showDelai: true, showLocalisation: true, showRole: true, showObjectifMarketing: false, showTypeService: false, agencyName: '' };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaults;
+    return {
+      showBudget:            typeof raw.showBudget            === 'boolean' ? raw.showBudget            : defaults.showBudget,
+      showType:              typeof raw.showType              === 'boolean' ? raw.showType              : defaults.showType,
+      showDelai:             typeof raw.showDelai             === 'boolean' ? raw.showDelai             : defaults.showDelai,
+      showLocalisation:      typeof raw.showLocalisation      === 'boolean' ? raw.showLocalisation      : defaults.showLocalisation,
+      showRole:              typeof raw.showRole              === 'boolean' ? raw.showRole              : defaults.showRole,
+      showObjectifMarketing: typeof raw.showObjectifMarketing === 'boolean' ? raw.showObjectifMarketing : defaults.showObjectifMarketing,
+      showTypeService:       typeof raw.showTypeService       === 'boolean' ? raw.showTypeService       : defaults.showTypeService,
+      agencyName:            typeof raw.agencyName            === 'string'  ? raw.agencyName            : '',
+    };
+  };
+
+  const sanitizeCrmSettings = (raw) => {
+    const defaults = { priorite_defaut: 'moyenne', source_principale: 'formulaire_ia', pipeline_utilise: 'immobilier' };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaults;
+    return {
+      priorite_defaut:    typeof raw.priorite_defaut    === 'string' ? raw.priorite_defaut    : defaults.priorite_defaut,
+      source_principale:  typeof raw.source_principale  === 'string' ? raw.source_principale  : defaults.source_principale,
+      pipeline_utilise:   typeof raw.pipeline_utilise   === 'string' ? raw.pipeline_utilise   : defaults.pipeline_utilise,
+    };
+  };
+
   const loadProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setUserId(user.id);
       setUserEmail(user.email || '');
 
-      // maybeSingle() évite l'erreur 406 quand le profil n'existe pas encore
+      // Sélectionner uniquement les colonnes nécessaires (évite de charger des données massives)
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -218,7 +246,7 @@ export default function Settings() {
       }
 
       if (data) {
-        // Profil existant → charger les données
+        // Profil existant → charger les données avec sanitisation défensive
         setFormData({
           nom_agence: data.nom_agence || '',
           email: user.email,
@@ -244,16 +272,8 @@ export default function Settings() {
           activite_principale: data.activite_principale || '',
           numero_tva: data.numero_tva || '',
           show_amount_in_words: data.show_amount_in_words || false,
-          form_settings: data.form_settings || {
-            showBudget: true, showType: true, showDelai: true,
-            showLocalisation: true, showRole: true,
-            showObjectifMarketing: false, showTypeService: false, agencyName: '',
-          },
-          crm_settings: data.crm_settings || {
-            priorite_defaut: 'moyenne',
-            source_principale: 'formulaire_ia',
-            pipeline_utilise: 'immobilier',
-          },
+          form_settings: sanitizeFormSettings(data.form_settings),
+          crm_settings:  sanitizeCrmSettings(data.crm_settings),
         });
         setSubscriptionInfo({
           status: data.subscription_status || 'inactive',
@@ -321,7 +341,6 @@ export default function Settings() {
         'Niger':            { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
         'Guinée':           { devise: 'GNF', symbole: 'FG',   format: '1 000 000 FG' },
         'Congo (RDC)':      { devise: 'CDF', symbole: 'FC',   format: '1 000 FC' },
-        "Côte d'Ivoire":    { devise: 'XOF', symbole: 'FCFA', format: '1 000 FCFA' },
         'Madagascar':       { devise: 'MGA', symbole: 'Ar',   format: '1 000 Ar' },
         // Asie-Pacifique
         'Inde':             { devise: 'INR', symbole: '₹',    format: '₹1,00,000' },
