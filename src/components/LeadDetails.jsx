@@ -117,10 +117,27 @@ const LeadDetails = () => {
     if (!lead || loadingAI) return
     setLoadingAI(true)
     try {
-      const suggestion = await aiService.generateLeadSummary(lead)
-      setAiSuggestion(suggestion)
-      await supabase.from('leads').update({ resume_ia: suggestion }).eq('id', id)
-    } catch { /* silencieux */ }
+      const result = await aiService.qualifyLead(lead)
+      const evaluation = result?.evaluation_complete || result
+      const actionImmediate = evaluation?.recommandations?.action_immediate
+      const niveau = result?.niveau_interet_final || result?.niveau_interet || evaluation?.niveau_interet || 'FROID'
+      const score = result?.score_qualification ?? result?.score ?? 0
+      const resume = result?.resume || evaluation?.raison_classification || ''
+      const recs = Array.isArray(result?.recommandations) ? result.recommandations : []
+      const suggestion = actionImmediate
+        || (recs.length > 0 ? recs.join(' ') : null)
+        || (resume ? `${niveau} (${score}%) — ${resume}` : `Score : ${score}% — Niveau : ${niveau}`)
+
+      setAiSuggestion(suggestion || '')
+      await supabase.from('leads').update({
+        resume_ia: suggestion,
+        suggestion_ia: suggestion,
+        score_qualification: score,
+        niveau_interet: niveau,
+      }).eq('id', id)
+    } catch (err) {
+      console.error('fetchAI error:', err)
+    }
     setLoadingAI(false)
   }
 
@@ -548,20 +565,26 @@ const LeadDetails = () => {
               </div>
             </section>
 
-            {/* Suggestion IA */}
-            {(aiSuggestion || lead.suggestion_ia) && (
-              <section className="bg-purple-50 border border-purple-200 rounded-xl p-5">
-                <p className="text-xs font-bold text-purple-700 mb-3 uppercase tracking-wide">
-                  💡 Recommandation IA
-                </p>
-                <p className="text-sm text-purple-800 leading-relaxed">
-                  {aiSuggestion || lead.suggestion_ia}
-                </p>
-              </section>
-            )}
+            {/* Suggestion IA — on vérifie que c'est une string non-vide */}
+            {(() => {
+              const txt = typeof aiSuggestion === 'string' && aiSuggestion.trim()
+                ? aiSuggestion
+                : typeof lead.suggestion_ia === 'string' && lead.suggestion_ia.trim()
+                  ? lead.suggestion_ia
+                  : null
+              return txt ? (
+                <section className="bg-purple-50 border border-purple-200 rounded-xl p-5">
+                  <p className="text-xs font-bold text-purple-700 mb-3 uppercase tracking-wide">
+                    💡 Recommandation IA
+                  </p>
+                  <p className="text-sm text-purple-800 leading-relaxed">{txt}</p>
+                </section>
+              ) : null
+            })()}
 
-            {/* Résumé IA (si différent de la suggestion) */}
-            {lead.resume_ia && lead.resume_ia !== (aiSuggestion || lead.suggestion_ia) && (
+            {/* Résumé IA distinct */}
+            {typeof lead.resume_ia === 'string' && lead.resume_ia.trim() &&
+              lead.resume_ia !== aiSuggestion && lead.resume_ia !== lead.suggestion_ia && (
               <section className="bg-slate-50 border border-slate-200 rounded-xl p-5">
                 <p className="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wide">
                   📝 Résumé IA
@@ -577,7 +600,8 @@ const LeadDetails = () => {
               </div>
             )}
 
-            {!loadingAI && !aiSuggestion && !lead.suggestion_ia && (
+            {!loadingAI && !(typeof aiSuggestion === 'string' && aiSuggestion.trim()) &&
+              !(typeof lead.suggestion_ia === 'string' && lead.suggestion_ia.trim()) && (
               <p className="text-sm text-slate-400 text-center py-8">
                 Cliquez sur "Analyser" pour générer une analyse IA de ce lead
               </p>

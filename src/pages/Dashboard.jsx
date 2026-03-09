@@ -130,8 +130,16 @@ export default function Dashboard() {
     setAiSuggestion('');
     try {
       const result = await aiService.qualifyLead(lead);
-      const suggestion = result?.action_recommandee ||
-        `Score: ${result?.score || 0}% — ${result?.raison || 'Analyse non disponible'}`;
+      // Extraire la recommandation depuis les différents niveaux de réponse
+      const evaluation = result?.evaluation_complete || result
+      const actionImmediate = evaluation?.recommandations?.action_immediate
+      const scoreLabel = result?.score_qualification ?? result?.score ?? 0
+      const niveau = result?.niveau_interet_final || result?.niveau_interet || evaluation?.niveau_interet || 'FROID'
+      const resume = result?.resume || evaluation?.raison_classification || ''
+      const recs = Array.isArray(result?.recommandations) ? result.recommandations : []
+      const suggestion = actionImmediate
+        || (recs.length > 0 ? recs.join(' — ') : null)
+        || (resume ? `${niveau} (${scoreLabel}%) — ${resume}` : `Score : ${scoreLabel}% — Niveau : ${niveau}`)
       setAiSuggestion(suggestion);
       // Sauvegarder la suggestion en base
       await supabase.from('leads')
@@ -588,7 +596,7 @@ export default function Dashboard() {
                 <div className="bg-white p-3 rounded-xl shadow-2xl border-2 border-blue-400 w-[300px] rotate-2 opacity-95">
                   <div className="font-bold text-slate-900 text-sm mb-1">{lead.nom}</div>
                   <div className="flex items-center gap-2 text-xs font-bold text-green-600 mb-2">
-                    <span>💰</span><span>{(lead.budget || 0).toLocaleString()} €</span>
+                    <span>💰</span><span>{lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : '—'}</span>
                   </div>
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
                     {badge.label}
@@ -652,7 +660,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right font-bold text-green-600 text-sm">
-                            {(lead.budget || 0).toLocaleString('fr-FR')} €
+                            {lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : '—'}
                           </td>
                           <td className="px-3 py-2">
                             <span className="inline-flex px-2 py-1 text-xs rounded bg-slate-50 text-slate-700 border">
@@ -781,7 +789,7 @@ export default function Dashboard() {
                       {[
                         { icon: '📧', label: 'Email', value: selectedLead.email },
                         { icon: '📞', label: 'Téléphone', value: selectedLead.telephone },
-                        { icon: '💰', label: 'Budget', value: `${(selectedLead.budget || 0).toLocaleString('fr-FR')} €`, green: true },
+                        { icon: '💰', label: 'Budget', value: selectedLead.budget ? selectedLead.budget.toLocaleString('fr-FR') + ' €' : '—', green: true },
                         { icon: '🏠', label: 'Type de bien', value: selectedLead.type_bien },
                         { icon: '🌍', label: 'Source', value: selectedLead.source },
                         { icon: '📅', label: 'Créé le', value: new Date(selectedLead.created_at).toLocaleDateString('fr-FR') },
@@ -1271,7 +1279,7 @@ function KanbanCard({
           <span>📞</span><span>{lead.telephone || '—'}</span>
         </div>
         <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-          <span>💰</span><span>{(lead.budget || 0).toLocaleString()} €</span>
+          <span>💰</span><span>{lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : '—'}</span>
         </div>
       </div>
 
