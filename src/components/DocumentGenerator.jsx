@@ -127,7 +127,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           id: profileData.id,
           agency_id: profileData.agency_id,
           name: profileData.nom_agence || profileData.nom_commercial || profileData.nom_legal || 'Mon Agence',
-          legalName: profileData.nom_legal || profileData.nom_agence || null,
+          // legalName : fallback nom_agence/nom_commercial pour ne jamais bloquer la génération
+          legalName: profileData.nom_legal || profileData.nom_agence || profileData.nom_commercial || 'Mon Agence',
           address: profileData.adresse_legale || profileData.adresse || null,
           phone: profileData.telephone || null,
           email: profileData.email || null,
@@ -194,8 +195,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     // Validation : seul le nom légal est vraiment requis.
     // pays et devise ont des valeurs par défaut (France, EUR).
     if (!agencyProfile.legalName || agencyProfile.legalName.trim() === '') {
+      // Ne jamais bloquer si nom_agence existe (fallback déjà appliqué)
       setCanGenerate(false);
-      setValidationMessage('Renseignez votre nom légal dans Paramètres → Légal');
+      setValidationMessage('Renseignez le nom de votre agence dans Paramètres');
       return;
     }
 

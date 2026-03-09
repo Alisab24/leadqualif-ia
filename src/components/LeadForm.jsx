@@ -107,8 +107,17 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier' }) => {
       const evaluation = qualification.evaluation_complete || qualification
       const niveauInteret = qualification.niveau_interet_final || qualification.niveau_interet || evaluation.niveau_interet
 
+      // Sanitiser toutes les chaînes vides → null pour éviter les erreurs
+      // "invalid input syntax for type integer: ''" sur les colonnes numériques
+      const sanitized = Object.fromEntries(
+        Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
+      )
+
+      const budgetInt = formData.budget ? parseInt(formData.budget, 10) : null
+
       const leadData = {
-        ...formData,
+        ...sanitized,
+        budget: isNaN(budgetInt) ? null : budgetInt,
         score_qualification: result.score,
         niveau_interet: niveauInteret,
         budget_estime: formData.budget || formData.budget_marketing || qualification.budget_estime || 'Non spécifié',

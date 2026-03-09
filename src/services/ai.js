@@ -77,7 +77,7 @@ Réponds UNIQUEMENT avec du JSON valide, sans texte supplémentaire.`
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -132,7 +132,7 @@ Réponds UNIQUEMENT avec du JSON valide, sans texte supplémentaire.`
   async generateLeadSummary(leadData) {
     if (!openai) {
       console.warn('OpenAI non configuré. Résumé non disponible.')
-      return 'Résumé non disponible (OpenAI non configuré)'
+      return null
     }
 
     const prompt = `Génère un résumé professionnel et concis (3-4 phrases maximum) pour ce lead immobilier:
@@ -149,7 +149,7 @@ Le résumé doit être professionnel, informatif et aider l'agent à comprendre 
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -167,7 +167,7 @@ Le résumé doit être professionnel, informatif et aider l'agent à comprendre 
       return completion.choices[0].message.content.trim()
     } catch (error) {
       console.error('Erreur lors de la génération du résumé:', error)
-      return 'Résumé non disponible'
+      return null
     }
   },
 
