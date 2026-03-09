@@ -1,11 +1,13 @@
 import React from 'react';
+import DocumentWatermark from './DocumentWatermark';
 
-export default function MandatTemplate({ 
-  agency, 
-  lead, 
+export default function MandatTemplate({
+  agency,
+  lead,
   documentNumber = `MANDAT-${Date.now()}`,
   mandateType = 'Vente',
-  duration = '6 mois'
+  duration = '6 mois',
+  statut = null,          // brouillon | généré | envoyé | signé | annulé
 }) {
   const currentDate = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
@@ -20,14 +22,18 @@ export default function MandatTemplate({
   });
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-8 print:p-6" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="max-w-4xl mx-auto bg-white p-8 print:p-6" style={{ fontFamily: 'Inter, system-ui, sans-serif', position: 'relative' }}>
+
+      {/* ── Filigrane statut automatique ── */}
+      <DocumentWatermark statut={statut} />
+
       {/* Header */}
       <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-200">
         <div className="flex items-center space-x-4">
           {agency?.logo ? (
             <img src={agency.logo} alt="Logo" className="h-16 w-16 object-contain rounded-lg" />
           ) : (
-            <div 
+            <div
               className="h-16 w-16 rounded-lg flex items-center justify-center text-white font-bold text-xl"
               style={{ backgroundColor: agency?.couleur || '#3B82F6' }}
             >
@@ -42,12 +48,47 @@ export default function MandatTemplate({
               <p>{agency?.telephone}</p>
               {agency?.site && <p>{agency?.site}</p>}
             </div>
+
+            {/* ── Cartes professionnelles T / S ── */}
+            {(agency?.carte_pro_t || agency?.carte_pro_s) && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {agency?.carte_pro_t && (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border"
+                    style={{ borderColor: agency?.couleur || '#3B82F6', color: agency?.couleur || '#3B82F6', backgroundColor: 'transparent' }}
+                  >
+                    Carte Pro Transaction n° {agency.carte_pro_t}
+                  </span>
+                )}
+                {agency?.carte_pro_s && (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border"
+                    style={{ borderColor: agency?.couleur || '#3B82F6', color: agency?.couleur || '#3B82F6', backgroundColor: 'transparent' }}
+                  >
+                    Carte Pro Syndic n° {agency.carte_pro_s}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
-        
+
         <div className="text-right">
           <div className="text-sm text-gray-500 mb-2">MANDAT N°</div>
           <div className="text-xl font-bold text-gray-900">{documentNumber}</div>
+          {statut && (
+            <div className="mt-2">
+              <span className={`px-2 py-1 text-xs font-bold rounded-full uppercase ${
+                statut === 'signé'    ? 'bg-green-100 text-green-700' :
+                statut === 'envoyé'  ? 'bg-blue-100 text-blue-700'   :
+                statut === 'généré'  ? 'bg-purple-100 text-purple-700':
+                statut === 'annulé'  ? 'bg-red-100 text-red-700'     :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                {statut}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -256,9 +297,10 @@ export default function MandatTemplate({
         <div className="grid grid-cols-2 gap-8">
           <div>
             <p><strong>{agency?.nom || 'LeadQualif IA'}</strong></p>
-            {agency?.ifu && <p>IFU: {agency.ifu}</p>}
-            {agency?.siret && <p>SIRET: {agency.siret}</p>}
-            <p>Assurance professionnelle N°: RC-PRO-2024-001</p>
+            {agency?.ifu   && <p>IFU : {agency.ifu}</p>}
+            {agency?.siret && <p>SIRET : {agency.siret}</p>}
+            {agency?.carte_pro_t && <p>Carte pro Transaction n° {agency.carte_pro_t} — délivrée par la CCI</p>}
+            {agency?.carte_pro_s && <p>Carte pro Syndic n° {agency.carte_pro_s} — délivrée par la CCI</p>}
           </div>
           <div className="text-right">
             <p>Document généré le {currentDate}</p>

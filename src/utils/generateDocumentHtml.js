@@ -3,6 +3,8 @@
  * Génère le HTML d'un document à partir des données structurées
  * Prêt pour production et server-side rendering
  */
+import { getWatermarkHtml } from '../components/templates/DocumentWatermark';
+
 
 /**
  * Génère le HTML d'un document
@@ -13,7 +15,7 @@
  * @param {Object} params.docType - Type de document
  * @returns {string} HTML complet du document
  */
-export const generateDocumentHtml = ({ document, agencyProfile, lead, docType }) => {
+export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, statut = null }) => {
   // 🎯 VALIDATION DES DONNÉES
   if (!document || !agencyProfile || !lead || !docType) {
     throw new Error('Données manquantes pour la génération du HTML');
@@ -39,8 +41,13 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType })
     mention_legale,
     conditions_paiement,
     numero_enregistrement,
-    statut_juridique
+    statut_juridique,
+    carte_pro_t,
+    carte_pro_s,
   } = agencyProfile;
+
+  // 🎯 FILIGRANE STATUT
+  const { css: watermarkCss, html: watermarkHtml } = getWatermarkHtml(statut);
 
   const {
     nom: clientNom,
@@ -302,27 +309,65 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType })
             body {
                 padding: 0;
             }
-            
+
             .container {
                 padding: 20px;
                 max-width: 100%;
             }
-            
+
             .header {
                 page-break-inside: avoid;
             }
-            
+
             .items-table {
                 page-break-inside: avoid;
             }
-            
+
             .totals-section {
                 page-break-inside: avoid;
             }
         }
+
+        /* ── Cartes professionnelles ── */
+        .carte-pro-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .carte-pro-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1.5px solid #3b82f6;
+            color: #3b82f6;
+            font-size: 11px;
+            font-weight: 600;
+            background: transparent;
+        }
+
+        /* ── Badge statut ── */
+        .statut-badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .statut-signe   { background: #dcfce7; color: #15803d; }
+        .statut-envoye  { background: #dbeafe; color: #1d4ed8; }
+        .statut-genere  { background: #f3e8ff; color: #7e22ce; }
+        .statut-annule  { background: #fee2e2; color: #b91c1c; }
+        .statut-brouillon { background: #f3f4f6; color: #4b5563; }
+
+        ${watermarkCss}
     </style>
 </head>
 <body>
+    ${watermarkHtml}
     <div class="container">
         <!-- Header -->
         <header class="header">
@@ -335,10 +380,16 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType })
                     ${telephone ? `<div>Tél: ${telephone}</div>` : ''}
                     ${numero_enregistrement ? `<div>N° ${numero_enregistrement}</div>` : ''}
                 </div>
+                ${(carte_pro_t || carte_pro_s) ? `
+                <div class="carte-pro-badges">
+                    ${carte_pro_t ? `<span class="carte-pro-badge">Carte Pro Transaction n° ${carte_pro_t}</span>` : ''}
+                    ${carte_pro_s ? `<span class="carte-pro-badge">Carte Pro Syndic n° ${carte_pro_s}</span>` : ''}
+                </div>` : ''}
             </div>
             <div class="document-info">
                 <div class="document-number">${docType.label} ${number}</div>
                 <div class="document-date">Date: ${new Date().toLocaleDateString('fr-FR')}</div>
+                ${statut ? `<div class="statut-badge statut-${statut.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}">${statut}</div>` : ''}
             </div>
         </header>
 
