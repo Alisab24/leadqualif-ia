@@ -265,9 +265,8 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from('leads')
         .select('*')
-        // Isolation par agence : agency_id = user.id (architecture profiles)
-        // Inclut aussi les leads où user_id = user.id (formulaire interne)
-        .or(`agency_id.eq.${user.id},user_id.eq.${user.id}`)
+        // Isolation par agence : agency_id = user.id
+        .eq('agency_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setLeads(data || []);
@@ -283,7 +282,7 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       const { data: leads } = await supabase
         .from('leads').select('budget, statut')
-        .or(`agency_id.eq.${user?.id},user_id.eq.${user?.id}`);
+        .eq('agency_id', user?.id);
       if (leads) {
         const total = leads.length;
         const won = leads.filter(l => l.statut === 'Gagné').length;
