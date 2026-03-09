@@ -8,6 +8,14 @@ DO $$
 BEGIN
 
   -- ── Qualification IA ─────────────────────────────────────
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='niveau_interet') THEN
+    ALTER TABLE leads ADD COLUMN niveau_interet TEXT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='lead_role') THEN
+    ALTER TABLE leads ADD COLUMN lead_role TEXT;
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='budget_estime') THEN
     ALTER TABLE leads ADD COLUMN budget_estime TEXT;
   END IF;
