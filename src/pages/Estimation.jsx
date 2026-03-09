@@ -120,8 +120,14 @@ export default function Estimation() {
       if (formData.financement || formData.objectif_marketing) scoreIA += 10;
       scoreIA = Math.min(99, Math.max(10, scoreIA));
 
+      // Convertit les chaînes vides en null pour éviter
+      // "invalid input syntax for type integer: ''"
+      const sanitized = Object.fromEntries(
+        Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
+      );
+
       const leadPayload = {
-        ...formData,
+        ...sanitized,
         budget: budget || null,
         score: scoreIA,
         score_qualification: scoreIA,
