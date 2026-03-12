@@ -120,26 +120,55 @@ export default function Estimation() {
       if (formData.financement || formData.objectif_marketing) scoreIA += 10;
       scoreIA = Math.min(99, Math.max(10, scoreIA));
 
-      // Convertit les chaînes vides en null pour éviter
-      // "invalid input syntax for type integer: ''"
-      const sanitized = Object.fromEntries(
+      // Convertit les chaînes vides en null
+      const s = Object.fromEntries(
         Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
       );
 
       // Utiliser profile.user_id en priorité (= l'UUID auth du propriétaire de l'agence)
-      // Cela garantit la cohérence avec le filtre du Dashboard (.eq('agency_id', user.id))
-      // Fallback : agencyId depuis l'URL (qui est aussi user.id dans Settings)
       const resolvedAgencyId = agencyProfile?.user_id || agencyId || null;
 
+      // ⚠️ Construction EXPLICITE du payload pour éviter les colonnes inconnues dans Supabase.
+      // Notamment : formData.type_de_bien → DB colonne type_bien_recherche (noms différents).
+      // Envoyer un champ inconnu provoque une erreur 400 "column does not exist" côté Supabase.
       const leadPayload = {
-        ...sanitized,
-        budget: budget || null,
-        score: scoreIA,
+        // Champs de base
+        nom:               s.nom,
+        email:             s.email,
+        telephone:         s.telephone,
+        message:           s.message,
+        lead_role:         s.lead_role,
+        source:            'formulaire_web',
+        created_at:        new Date().toISOString(),
+        // Qualification
+        agency_id:         resolvedAgencyId,
+        budget:            budget || null,
+        score:             scoreIA,
         score_qualification: scoreIA,
-        statut: 'À traiter',
-        agency_id: resolvedAgencyId,
-        source: 'formulaire_web',
-        created_at: new Date().toISOString(),
+        statut:            'À traiter',
+        // IMMO — client
+        localisation_souhaitee: s.localisation_souhaitee,
+        type_bien_recherche:    s.type_de_bien,        // ← mapping correct vers colonne DB
+        delai_achat:            s.delai_achat,
+        type_projet:            s.type_projet,
+        financement:            s.financement,
+        deja_proprietaire:      s.deja_proprietaire,
+        criteres_specifiques:   s.criteres_specifiques,
+        // IMMO — propriétaire
+        adresse_bien:      s.adresse_bien,
+        surface:           s.surface     ? parseFloat(s.surface)     : null,
+        nb_pieces:         s.nb_pieces   ? parseInt(s.nb_pieces, 10) : null,
+        prix_vente:        s.prix_vente  ? parseFloat(s.prix_vente)  : null,
+        date_disponibilite: s.date_disponibilite,
+        // SMMA
+        secteur_activite:  s.secteur_activite,
+        type_service:      s.type_service,
+        budget_marketing:  s.budget_marketing,
+        objectif_marketing: s.objectif_marketing,
+        taille_entreprise: s.taille_entreprise,
+        deja_agence:       s.deja_agence,
+        reseau_social:     s.reseau_social,
+        site_web:          s.site_web,
       };
 
       const { error: insertError } = await supabase.from('leads').insert([leadPayload]);

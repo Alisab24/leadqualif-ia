@@ -40,7 +40,8 @@ const BUDGET_MARKETING_LABELS = {
 /** Retourne le libellé TYPE selon le contexte agence */
 const getLeadType = (lead, isSmma) => {
   if (isSmma) return TYPE_SERVICE_LABELS[lead.type_service] || lead.type_service || null;
-  return lead.type_de_bien || lead.type_bien || null;
+  // Priorité : type_bien_recherche (colonne réelle DB), puis fallbacks anciens noms
+  return lead.type_bien_recherche || lead.type_de_bien || lead.type_bien || null;
 };
 
 /** Retourne le libellé BUDGET selon le contexte agence */

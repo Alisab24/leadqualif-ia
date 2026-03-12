@@ -69,6 +69,27 @@ BEGIN
     ALTER TABLE leads ADD COLUMN deja_proprietaire TEXT;
   END IF;
 
+  -- delai_achat : délai d'achat souhaité (IMMO client)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='delai_achat') THEN
+    ALTER TABLE leads ADD COLUMN delai_achat TEXT;
+  END IF;
+
+  -- type_bien_recherche : type de bien (colonne canonique, ex-type_bien)
+  -- Utilisé par Estimation.jsx via le mapping type_de_bien → type_bien_recherche
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='type_bien_recherche') THEN
+    ALTER TABLE leads ADD COLUMN type_bien_recherche TEXT;
+  END IF;
+
+  -- score : alias de score_qualification (utilisé par Estimation.jsx)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='score') THEN
+    ALTER TABLE leads ADD COLUMN score INTEGER;
+  END IF;
+
+  -- statut : statut pipeline (utilisé par l'app entière — à distinguer de statut_crm original)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='statut') THEN
+    ALTER TABLE leads ADD COLUMN statut TEXT DEFAULT 'À traiter';
+  END IF;
+
   -- ── Formulaire IMMO — propriétaire ───────────────────────
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leads' AND column_name='adresse_bien') THEN
     ALTER TABLE leads ADD COLUMN adresse_bien TEXT;
