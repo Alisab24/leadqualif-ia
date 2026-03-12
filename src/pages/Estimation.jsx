@@ -126,13 +126,18 @@ export default function Estimation() {
         Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
       );
 
+      // Utiliser profile.user_id en priorité (= l'UUID auth du propriétaire de l'agence)
+      // Cela garantit la cohérence avec le filtre du Dashboard (.eq('agency_id', user.id))
+      // Fallback : agencyId depuis l'URL (qui est aussi user.id dans Settings)
+      const resolvedAgencyId = agencyProfile?.user_id || agencyId || null;
+
       const leadPayload = {
         ...sanitized,
         budget: budget || null,
         score: scoreIA,
         score_qualification: scoreIA,
         statut: 'À traiter',
-        agency_id: agencyId || null,
+        agency_id: resolvedAgencyId,
         source: 'formulaire_web',
         created_at: new Date().toISOString(),
       };

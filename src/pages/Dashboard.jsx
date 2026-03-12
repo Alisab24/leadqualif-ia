@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import ProfileManager from '../services/profileManager';
 import LeadForm from '../components/LeadForm';
 import DocumentGenerator from '../components/DocumentGenerator';
 import { aiService } from '../services/ai';
@@ -258,15 +259,28 @@ export default function Dashboard() {
 
   const fetchLeads = async () => {
     try {
-      // Récupérer l'utilisateur connecté pour filtrer par agency_id
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
+
+      // Utiliser ProfileManager pour obtenir le bon agency_id
+      // (cohérent avec Stats.jsx et les leads insérés via le formulaire public)
+      const profileResult = await ProfileManager.getUserProfile(user.id, {
+        createIfMissing: false,
+        useFallback: true,
+        verbose: false,
+      });
+
+      // Priorité : profile.agency_id → fallback sur user.id
+      const agencyId = profileResult.success
+        ? (ProfileManager.getSafeAgencyId(profileResult.profile) !== 'default'
+            ? ProfileManager.getSafeAgencyId(profileResult.profile)
+            : user.id)
+        : user.id;
 
       const { data, error } = await supabase
         .from('leads')
         .select('*')
-        // Isolation par agence : agency_id = user.id
-        .eq('agency_id', user.id)
+        .eq('agency_id', agencyId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setLeads(data || []);
@@ -279,10 +293,24 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const profileResult = await ProfileManager.getUserProfile(user.id, {
+        createIfMissing: false,
+        useFallback: true,
+        verbose: false,
+      });
+
+      const agencyId = profileResult.success
+        ? (ProfileManager.getSafeAgencyId(profileResult.profile) !== 'default'
+            ? ProfileManager.getSafeAgencyId(profileResult.profile)
+            : user.id)
+        : user.id;
+
       const { data: leads } = await supabase
         .from('leads').select('budget, statut')
-        .eq('agency_id', user?.id);
+        .eq('agency_id', agencyId);
       if (leads) {
         const total = leads.length;
         const won = leads.filter(l => l.statut === 'Gagné').length;
