@@ -15,19 +15,18 @@ export async function qualifyLeadServer(lead) {
   })
 
   // Vérifier la présence de la clé API
-  // Vite expose les variables d'environnement avec VITE_ côté client
-  // Côté serveur (middleware), on peut utiliser process.env directement
-  const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY
+  // ✅ SÉCURITÉ : uniquement OPENAI_API_KEY (sans préfixe VITE_)
+  // VITE_OPENAI_API_KEY intégrait la clé dans le JS public — supprimé
+  const apiKey = process.env.OPENAI_API_KEY
 
   console.log('[QUALIFY] Vérification de la clé API:', {
-    hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-    hasViteOpenAIKey: !!process.env.VITE_OPENAI_API_KEY,
+    hasOpenAIKey: !!apiKey,
     apiKeyLength: apiKey ? apiKey.length : 0,
     apiKeyPrefix: apiKey ? apiKey.substring(0, 7) + '...' : 'N/A'
   })
 
-  if (!apiKey) {
-    const errorMsg = 'OPENAI_API_KEY non configurée. Configurez OPENAI_API_KEY ou VITE_OPENAI_API_KEY dans votre fichier .env'
+  if (!apiKey || apiKey === 'REMPLACER_PAR_NOUVELLE_CLE') {
+    const errorMsg = 'OPENAI_API_KEY non configurée. Ajoutez-la dans .env (local) et Vercel Dashboard > Environment Variables (production)'
     console.error('[QUALIFY] ERREUR:', errorMsg)
     throw new Error(errorMsg)
   }
