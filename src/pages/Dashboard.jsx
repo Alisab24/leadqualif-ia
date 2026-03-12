@@ -18,6 +18,37 @@ import {
 } from '@dnd-kit/core';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 
+// ── Labels SMMA pour l'affichage ─────────────────────────────
+const TYPE_SERVICE_LABELS = {
+  social_media:      'Social Media',
+  meta_ads:          'Meta Ads',
+  google_ads:        'Google Ads',
+  seo:               'SEO',
+  creation_contenu:  'Contenu',
+  emailing:          'Emailing / CRM',
+  strategie:         'Stratégie globale',
+  autre:             'Autre',
+};
+const BUDGET_MARKETING_LABELS = {
+  'moins_500':   '< 500 €/mois',
+  '500_1500':    '500–1 500 €',
+  '1500_3000':   '1 500–3 000 €',
+  '3000_5000':   '3 000–5 000 €',
+  '5000_plus':   '> 5 000 €',
+};
+
+/** Retourne le libellé TYPE selon le contexte agence */
+const getLeadType = (lead, isSmma) => {
+  if (isSmma) return TYPE_SERVICE_LABELS[lead.type_service] || lead.type_service || null;
+  return lead.type_de_bien || lead.type_bien || null;
+};
+
+/** Retourne le libellé BUDGET selon le contexte agence */
+const getLeadBudget = (lead, isSmma) => {
+  if (isSmma) return BUDGET_MARKETING_LABELS[lead.budget_marketing] || lead.budget_marketing || null;
+  return lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : null;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState('kanban');
@@ -603,6 +634,7 @@ export default function Dashboard() {
                       activeDragId={activeDragId}
                       getScoreBadge={getScoreBadge}
                       statutColor={statutColor}
+                      agencyType={agencyType}
                       onSelectLead={(lead) => {
                         setSelectedLead(lead);
                         setActiveTab('info');
@@ -614,7 +646,6 @@ export default function Dashboard() {
                       onRdv={handleRendezVous}
                       onArchive={handleArchiveLead}
                       onDelete={(id) => setConfirmDelete(id)}
-                      /* relayés vers KanbanCard via KanbanColumn */
                     />
                   );
                 })}
@@ -657,9 +688,13 @@ export default function Dashboard() {
                       <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Score IA</th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Email</th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Téléphone</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">
+                        {agencyType === 'smma' ? 'Service' : 'Type'}
+                      </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
-                      <th className="px-3 py-2 text-right text-xs font-bold text-slate-500 uppercase">Budget</th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-slate-500 uppercase">
+                        {agencyType === 'smma' ? 'Budget mensuel' : 'Budget'}
+                      </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
                       <th className="px-3 py-2 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
                     </tr>
@@ -687,9 +722,15 @@ export default function Dashboard() {
                           <td className="px-3 py-2 text-xs text-slate-500">{lead.email || '—'}</td>
                           <td className="px-3 py-2 text-xs text-slate-500">{lead.telephone || '—'}</td>
                           <td className="px-3 py-2">
-                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700">
-                              🏠 {lead.type_bien || 'Non défini'}
-                            </span>
+                            {(() => {
+                              const isSmma = agencyType === 'smma';
+                              const typeLabel = getLeadType(lead, isSmma);
+                              return (
+                                <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700">
+                                  {isSmma ? '📣' : '🏠'} {typeLabel || 'Non défini'}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-2">
                             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
@@ -697,7 +738,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right font-bold text-green-600 text-sm">
-                            {lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : '—'}
+                            {getLeadBudget(lead, agencyType === 'smma') || '—'}
                           </td>
                           <td className="px-3 py-2">
                             <span className="inline-flex px-2 py-1 text-xs rounded bg-slate-50 text-slate-700 border">
@@ -1170,7 +1211,7 @@ export default function Dashboard() {
 
 function KanbanColumn({
   statut, idx, leads, statuts, activeDragId,
-  getScoreBadge, statutColor,
+  getScoreBadge, statutColor, agencyType,
   onSelectLead, onNavigate, onUpdateStatus, onRdv,
   onArchive, onDelete
 }) {
@@ -1200,6 +1241,7 @@ function KanbanColumn({
             activeDragId={activeDragId}
             getScoreBadge={getScoreBadge}
             statutColor={statutColor}
+            agencyType={agencyType}
             onSelect={onSelectLead}
             onNavigate={onNavigate}
             onUpdateStatus={onUpdateStatus}
@@ -1224,7 +1266,7 @@ function KanbanColumn({
 
 function KanbanCard({
   lead, idx, statuts, activeDragId,
-  getScoreBadge, statutColor,
+  getScoreBadge, statutColor, agencyType,
   onSelect, onNavigate, onUpdateStatus, onRdv,
   onArchive, onDelete
 }) {
@@ -1268,7 +1310,8 @@ function KanbanCard({
             title="Glisser pour déplacer"
           >⠿</span>
           <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">
-            🏠 {lead.type_bien || 'Projet'}
+            {agencyType === 'smma' ? '📣' : '🏠'}{' '}
+            {getLeadType(lead, agencyType === 'smma') || (agencyType === 'smma' ? 'Service' : 'Projet')}
           </span>
         </div>
         <div className="flex gap-1">
@@ -1317,7 +1360,7 @@ function KanbanCard({
           <span>📞</span><span>{lead.telephone || '—'}</span>
         </div>
         <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-          <span>💰</span><span>{lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : '—'}</span>
+          <span>💰</span><span>{getLeadBudget(lead, agencyType === 'smma') || '—'}</span>
         </div>
       </div>
 
