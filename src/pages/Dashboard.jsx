@@ -30,11 +30,11 @@ const TYPE_SERVICE_LABELS = {
   autre:             'Autre',
 };
 const BUDGET_MARKETING_LABELS = {
-  'moins_500':   '< 500 €/mois',
-  '500_1500':    '500–1 500 €',
-  '1500_3000':   '1 500–3 000 €',
-  '3000_5000':   '3 000–5 000 €',
-  '5000_plus':   '> 5 000 €',
+  'moins_500':   '< 500\u00a0€/mois',
+  '500_1500':    '500–1\u00a0500\u00a0€',
+  '1500_3000':   '1\u00a0500–3\u00a0000\u00a0€',
+  '3000_5000':   '3\u00a0000–5\u00a0000\u00a0€',
+  '5000_plus':   '> 5\u00a0000\u00a0€',
 };
 
 /** Retourne le libellé TYPE selon le contexte agence */
@@ -738,7 +738,7 @@ export default function Dashboard() {
                               {lead.statut}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right font-bold text-green-600 text-sm">
+                          <td className="px-3 py-2 text-right font-bold text-green-600 text-sm whitespace-nowrap">
                             {getLeadBudget(lead, agencyType === 'smma') || '—'}
                           </td>
                           <td className="px-3 py-2">
