@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import ProfileManager from '../services/profileManager';
+import { DOC_TYPE_LABEL, DOC_TYPE_ICON } from '../services/documentCounterService';
 
 export default function DocumentsCenter() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filteredLeadId, setFilteredLeadId] = useState(searchParams.get('lead'));
+  const [filterType, setFilterType] = useState('tous');
+  const [filterStatut, setFilterStatut] = useState('tous');
 
   useEffect(() => {
     fetchDocuments();
@@ -18,88 +22,59 @@ export default function DocumentsCenter() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.error('❌ Utilisateur non authentifié');
         setDocuments([]);
         return;
       }
 
-      // 🛡️ PROTECTION ROBUSTE: Utiliser ProfileManager
       const profileResult = await ProfileManager.getUserProfile(user.id, {
-        createIfMissing: true,  // Créer automatiquement si non trouvé
-        useFallback: true,      // Utiliser fallback si échec
-        required: ['agency_id'], // agency_id est obligatoire
-        verbose: true
+        createIfMissing: true,
+        useFallback: true,
+        required: ['agency_id'],
+        verbose: true,
       });
 
       if (!profileResult.success) {
-        console.error('❌ Impossible de récupérer le profil:', profileResult.error);
         setDocuments([]);
         return;
       }
 
       const profile = profileResult.profile;
       const agencyId = ProfileManager.getSafeAgencyId(profile);
-      
+
       if (!agencyId) {
-        console.error('❌ Agency ID non disponible');
         setDocuments([]);
         return;
       }
 
-      console.log('✅ Profil chargé:', {
-        action: profileResult.action,
-        agencyId,
-        isFallback: ProfileManager.isFallbackProfile(profile)
-      });
-
-      // 🎯 AGENCY-CENTRIC: Utiliser agency_id pour les documents
-      // L'agence est l'unité de vérité - Multi-user compatible
       let query = supabase
         .from('documents')
         .select('*')
-        .eq('agency_id', agencyId); // ✅ JAMAIS user_id
+        .eq('agency_id', agencyId);
 
-      // 🎯 AJOUTER FILTRE PAR LEAD SI PRÉSENT
       if (filteredLeadId) {
-        console.log("🔍 FILTRÉ PAR LEAD ID:", filteredLeadId);
         query = query.eq('lead_id', filteredLeadId);
       }
 
-      const { data: documents, error: documentsError } = await query
+      const { data: docs, error: documentsError } = await query
         .order('created_at', { ascending: false });
 
-      if (documentsError) {
-        console.error('❌ Erreur requête documents:', documentsError);
-        throw documentsError;
-      }
-      
-      console.log('📚 Documents trouvés:', documents?.length || 0);
-      
-      // 🎯 Récupérer les leads séparément si nécessaire
-      if (documents && documents.length > 0) {
-        const leadIds = [...new Set(documents.map(doc => doc.lead_id))].filter(Boolean);
-        
+      if (documentsError) throw documentsError;
+
+      // Enrichir avec les données leads
+      if (docs && docs.length > 0) {
+        const leadIds = [...new Set(docs.map(d => d.lead_id))].filter(Boolean);
         if (leadIds.length > 0) {
-          console.log('🔍 Lead IDs à récupérer:', leadIds);
-          
-          const { data: leads, error: leadsError } = await supabase
+          const { data: leads } = await supabase
             .from('leads')
             .select('id, nom, email, telephone, statut, budget, type_bien')
             .in('id', leadIds);
-            
-          if (leadsError) {
-            console.error('❌ Erreur récupération leads:', leadsError);
-          } else {
-            // Combiner les données
-            const docsWithLeads = documents.map(doc => ({
-              ...doc,
-              lead: leads.find(lead => lead.id === doc.lead_id) || null
-            }));
-            
-            setDocuments(docsWithLeads);
-          }
+
+          setDocuments(docs.map(doc => ({
+            ...doc,
+            lead: (leads || []).find(l => l.id === doc.lead_id) || null,
+          })));
         } else {
-          setDocuments(documents);
+          setDocuments(docs);
         }
       } else {
         setDocuments([]);
@@ -112,213 +87,253 @@ export default function DocumentsCenter() {
     }
   };
 
-  const getDocumentIcon = (type) => {
-    switch (type) {
-      case 'devis': return '💰';
-      case 'contrat': return '📋';
-      case 'mandat': return '✍️';
-      case 'facture': return '🧾';
-      default: return '📄';
-    }
+  // ──────────────────────────────────────────────────────────
+  // Filtrage local
+  // ──────────────────────────────────────────────────────────
+  const filteredDocs = documents.filter(doc => {
+    const typeOk = filterType === 'tous' || doc.type_document === filterType;
+    const statutOk = filterStatut === 'tous' || doc.statut === filterStatut;
+    return typeOk && statutOk;
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // Helpers UI
+  // ──────────────────────────────────────────────────────────
+  const getDocumentIcon = (type) => DOC_TYPE_ICON[type] ?? '📄';
+  const getDocumentLabel = (type) => DOC_TYPE_LABEL[type] ?? type;
+
+  const STATUT_COLOR = {
+    brouillon:  'bg-slate-100 text-slate-700',
+    envoyé:     'bg-blue-100 text-blue-700',
+    signé:      'bg-purple-100 text-purple-700',
+    payé:       'bg-green-100 text-green-700',
+    annulé:     'bg-red-100 text-red-700',
+    généré:     'bg-teal-100 text-teal-700',
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'généré': return 'bg-green-100 text-green-800';
-      case 'envoyé': return 'bg-blue-100 text-blue-800';
-      case 'signé': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const LEAD_STATUT_COLOR = {
+    'À traiter':  'bg-slate-100 text-slate-700',
+    'Contacté':   'bg-blue-100 text-blue-700',
+    'RDV fixé':   'bg-yellow-100 text-yellow-700',
+    'Négociation':'bg-orange-100 text-orange-700',
+    'Gagné':      'bg-green-100 text-green-700',
+    'Perdu':      'bg-red-100 text-red-700',
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (str) =>
+    str ? new Date(str).toLocaleDateString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    }) : '—';
 
-  const getLeadStatusColor = (status) => {
-    switch (status) {
-      case 'À traiter': return 'bg-slate-100 text-slate-700';
-      case 'Contacté': return 'bg-blue-100 text-blue-700';
-      case 'RDV fixé': return 'bg-yellow-100 text-yellow-700';
-      case 'Négociation': return 'bg-orange-100 text-orange-700';
-      case 'Gagné': return 'bg-green-100 text-green-700';
-      case 'Perdu': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
+  // Compteurs par type pour les stats rapides
+  const countByType = (type) => documents.filter(d => d.type_document === type).length;
+  const countByStatut = (statut) => documents.filter(d => d.statut === statut).length;
 
+  // ──────────────────────────────────────────────────────────
+  // Render
+  // ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Chargement des documents...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-slate-600">Chargement des documents…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Centre de Documents</h1>
-              <p className="text-slate-600">
-                {filteredLeadId 
-                  ? `Documents du lead #${filteredLeadId}` 
-                  : 'Vue d\'ensemble de tous les documents générés pour votre agence'
-                }
-              </p>
-            </div>
+    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
+
+      {/* ── En-tête sticky ── */}
+      <header className="flex-none bg-white border-b border-slate-200 px-8 py-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Centre de Documents</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {filteredLeadId
+                ? `Documents filtrés — lead #${filteredLeadId}`
+                : 'Tous les documents générés pour votre agence'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
             {filteredLeadId && (
               <button
                 onClick={() => setFilteredLeadId(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="text-sm px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
               >
-                ← Voir tous les documents
+                ← Tous les documents
               </button>
             )}
+            <button
+              onClick={fetchDocuments}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Actualiser
+            </button>
           </div>
         </div>
+      </header>
 
-        {/* Statistiques rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between">
+      {/* ── Zone scrollable ── */}
+      <main className="flex-1 overflow-auto px-8 py-6 space-y-6">
+
+        {/* Stats rapides */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total', value: documents.length, icon: '📄', color: 'text-slate-900', bg: 'bg-slate-100' },
+            { label: 'Devis', value: countByType('devis'), icon: '💰', color: 'text-green-700', bg: 'bg-green-100' },
+            { label: 'Factures', value: countByType('facture'), icon: '🧾', color: 'text-blue-700', bg: 'bg-blue-100' },
+            { label: 'Signés', value: countByStatut('signé'), icon: '✍️', color: 'text-purple-700', bg: 'bg-purple-100' },
+          ].map(({ label, value, icon, color, bg }) => (
+            <div key={label} className="bg-white rounded-xl border border-slate-200 p-5 flex items-center justify-between shadow-sm">
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Total documents</p>
-                <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
+                <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
+                <p className={`text-2xl font-bold ${color}`}>{value}</p>
               </div>
-              <div className="bg-blue-100 rounded-full p-3">
-                <span className="text-2xl">📄</span>
-              </div>
+              <div className={`${bg} rounded-full p-3 text-xl`}>{icon}</div>
             </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Devis</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {documents.filter(d => d.type_document === 'devis').length}
-                </p>
-              </div>
-              <div className="bg-green-100 rounded-full p-3">
-                <span className="text-2xl">💰</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Contrats</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {documents.filter(d => d.type_document === 'contrat').length}
-                </p>
-              </div>
-              <div className="bg-blue-100 rounded-full p-3">
-                <span className="text-2xl">📋</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Signés</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {documents.filter(d => d.statut === 'signé').length}
-                </p>
-              </div>
-              <div className="bg-purple-100 rounded-full p-3">
-                <span className="text-2xl">✍️</span>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Tableau des documents */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Filtres */}
+        <div className="flex flex-wrap gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-500">Type</label>
+            <select
+              value={filterType}
+              onChange={e => setFilterType(e.target.value)}
+              className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="tous">Tous les types</option>
+              {Object.entries(DOC_TYPE_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-500">Statut</label>
+            <select
+              value={filterStatut}
+              onChange={e => setFilterStatut(e.target.value)}
+              className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="tous">Tous les statuts</option>
+              {['brouillon', 'envoyé', 'signé', 'payé', 'annulé'].map(s => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          <p className="ml-auto text-xs text-slate-400 self-center">
+            {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+
+        {/* Tableau */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
+            <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Document</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Lead</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Contact</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Statut Lead</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Statut Doc</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Actions</th>
+                  {['Type & N°', 'Lead', 'Contact', 'Statut lead', 'Statut doc', 'Date', 'Actions'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xl">{getDocumentIcon(doc.type_document)}</span>
-                        <span className="font-medium capitalize">{doc.type_document}</span>
+              <tbody className="divide-y divide-slate-100">
+                {filteredDocs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-16 text-slate-400">
+                      <div className="text-5xl mb-3">📄</div>
+                      <p className="font-medium">Aucun document trouvé</p>
+                      <p className="text-sm mt-1">Ajustez les filtres ou générez des documents depuis les fiches leads</p>
+                    </td>
+                  </tr>
+                ) : filteredDocs.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                    {/* Type & N° */}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{getDocumentIcon(doc.type_document)}</span>
+                        <div>
+                          <p className="font-medium text-slate-800 capitalize">
+                            {getDocumentLabel(doc.type_document)}
+                          </p>
+                          {doc.numero_document && (
+                            <p className="text-xs font-mono text-slate-400">{doc.numero_document}</p>
+                          )}
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-slate-900">{doc.leads?.nom}</div>
-                      {doc.leads?.budget && (
-                        <div className="text-sm text-green-600">{doc.leads.budget.toLocaleString()} €</div>
+
+                    {/* Lead */}
+                    <td className="px-5 py-4">
+                      <p className="font-medium text-slate-800">{doc.lead?.nom ?? '—'}</p>
+                      {doc.lead?.budget && (
+                        <p className="text-xs text-green-600">{doc.lead.budget.toLocaleString()} €</p>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-600">
-                        <div>{doc.leads?.email}</div>
-                        <div>{doc.leads?.telephone}</div>
-                      </div>
+
+                    {/* Contact */}
+                    <td className="px-5 py-4 text-sm text-slate-600">
+                      <p>{doc.lead?.email ?? '—'}</p>
+                      <p>{doc.lead?.telephone ?? ''}</p>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getLeadStatusColor(doc.leads?.statut)}`}>
-                        {doc.leads?.statut || 'N/A'}
+
+                    {/* Statut lead */}
+                    <td className="px-5 py-4">
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${LEAD_STATUT_COLOR[doc.lead?.statut] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {doc.lead?.statut ?? 'N/A'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(doc.statut)}`}>
-                        {doc.statut}
+
+                    {/* Statut doc */}
+                    <td className="px-5 py-4">
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${STATUT_COLOR[doc.statut] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {doc.statut ?? '—'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+
+                    {/* Date */}
+                    <td className="px-5 py-4 text-sm text-slate-500 whitespace-nowrap">
                       {formatDate(doc.created_at)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
+
+                    {/* Actions */}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
                         <Link
                           to={`/documents/view/${doc.id}`}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                         >
-                          Voir document
+                          Voir
                         </Link>
                         <button
-                          onClick={() => window.open(`/dashboard?lead=${doc.lead_id}`, '_blank')}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          onClick={() => navigate(`/dashboard?lead=${doc.lead_id}`)}
+                          className="text-slate-500 hover:text-slate-800 text-sm font-medium"
                         >
-                          Voir lead
+                          Lead
                         </button>
                         {doc.fichier_url && (
-                          <button
-                            onClick={() => {
-                              console.log('Téléchargement du document:', doc.fichier_url);
-                            }}
-                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+                          <a
+                            href={doc.fichier_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center gap-1"
                           >
-                            Télécharger
-                          </button>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            PDF
+                          </a>
                         )}
                       </div>
                     </td>
@@ -328,15 +343,7 @@ export default function DocumentsCenter() {
             </table>
           </div>
         </div>
-
-        {documents.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">📄</div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Aucun document</h3>
-            <p className="text-slate-600">Commencez par générer des documents depuis les fiches leads</p>
-          </div>
-        )}
-      </div>
+      </main>
     </div>
   );
 }

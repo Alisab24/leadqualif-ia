@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import '../styles/print.css';
 import '../styles/invoice-quote.css';
 import { DocumentCounterService } from '../services/documentCounterService';
+import { downloadDocumentAsPdf } from '../components/DocumentTemplate';
 import { supabase } from '../supabaseClient';
 
 const InvoiceQuoteDocument = () => {
@@ -11,6 +12,7 @@ const InvoiceQuoteDocument = () => {
   const navigate = useNavigate();
   const componentRef = useRef();
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [document, setDocument] = useState(null);
   const [agencyProfile, setAgencyProfile] = useState(null);
   const [lead, setLead] = useState(null);
@@ -38,6 +40,24 @@ const InvoiceQuoteDocument = () => {
       alert('Erreur lors de l\'impression. Veuillez réessayer.');
     }
   });
+
+  // Téléchargement PDF via html2pdf.js (pixel-perfect, sans dialogue navigateur)
+  const handleDownloadPdf = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const filename = DocumentCounterService.generatePdfFileName(
+        document?.document_number,
+        type
+      );
+      await downloadDocumentAsPdf('invoice-quote-print-area', filename);
+    } catch (err) {
+      console.error('❌ Erreur téléchargement PDF:', err);
+      alert('Erreur lors du téléchargement PDF. Réessayez ou utilisez "Imprimer".');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const getCurrentDate = () => {
     return new Date().toLocaleDateString('fr-FR', {
@@ -398,6 +418,25 @@ const InvoiceQuoteDocument = () => {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* ⬇️ Télécharger PDF (html2pdf — sans dialogue navigateur) */}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {isDownloading ? (
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              )}
+              <span>{isDownloading ? 'Génération...' : 'Télécharger PDF'}</span>
+            </button>
+
+            {/* 🖨️ Imprimer (react-to-print) */}
             <button
               onClick={handlePrint}
               disabled={isPrinting}
@@ -441,10 +480,11 @@ const InvoiceQuoteDocument = () => {
 
       {/* Contenu du document - plein écran */}
       <div className="document-content">
-        <div 
-          ref={componentRef} 
+        <div
+          id="invoice-quote-print-area"
+          ref={componentRef}
           className="document-container invoice-quote-document bg-white max-w-4xl mx-auto shadow-lg print:shadow-none"
-          style={{ 
+          style={{
             minHeight: '100vh',
             padding: '2rem',
           }}

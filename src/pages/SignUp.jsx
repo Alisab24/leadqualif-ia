@@ -20,6 +20,7 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [emailSent, setEmailSent] = useState(false)   // ← nouvel état
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -66,6 +67,7 @@ export default function SignUp() {
         .from('profiles')
         .upsert([{
           user_id: authData.user.id,
+          agency_id: authData.user.id,   // ← agency_id = user_id pour les liens /estimation/:id
           email: formData.email,
           nom_agence: formData.agencyName,
           nom_complet: formData.fullName,
@@ -80,14 +82,20 @@ export default function SignUp() {
         // Non bloquant — on continue quand même
       }
 
-      // 3. Redirection selon contexte
-      if (selectedPlan) {
-        // Venir de la landing page → aller directement au checkout
-        navigate(`/settings?tab=facturation&plan=${selectedPlan}`)
-      } else if (returnTo) {
-        navigate(decodeURIComponent(returnTo))
+      // 3. Vérifier si l'email doit être confirmé
+      const needsConfirmation = !authData.session
+      if (needsConfirmation) {
+        // Supabase a envoyé un mail de confirmation → afficher l'écran d'attente
+        setEmailSent(true)
       } else {
-        navigate('/app')
+        // Email déjà confirmé (ex: config Supabase sans confirmation) → rediriger
+        if (selectedPlan) {
+          navigate(`/settings?tab=facturation&plan=${selectedPlan}`)
+        } else if (returnTo) {
+          navigate(decodeURIComponent(returnTo))
+        } else {
+          navigate('/dashboard')
+        }
       }
 
     } catch (err) {
@@ -97,6 +105,43 @@ export default function SignUp() {
 
     setIsLoading(false)
   }
+
+  /* ── Écran "vérifie ton email" ── */
+  if (emailSent) return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-10 text-center">
+        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">Vérifiez votre email</h1>
+        <p className="text-slate-600 mb-1">
+          Un email de confirmation a été envoyé à :
+        </p>
+        <p className="font-semibold text-blue-700 mb-6">{formData.email}</p>
+        <p className="text-slate-500 text-sm mb-8">
+          Cliquez sur le lien dans l'email pour activer votre compte.
+          Le lien est valable <strong>24 heures</strong>.
+        </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left text-sm text-amber-800 mb-6">
+          <p className="font-semibold mb-1">📧 Pas de mail reçu ?</p>
+          <ul className="list-disc list-inside space-y-1 text-amber-700">
+            <li>Vérifiez votre dossier <strong>Spam / Courrier indésirable</strong></li>
+            <li>L'email vient de <strong>noreply@leadqualif.com</strong></li>
+            <li>Attendez 1–2 minutes avant de vérifier</li>
+          </ul>
+        </div>
+        <button
+          onClick={() => navigate('/login')}
+          className="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors text-sm"
+        >
+          Retour à la connexion
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
