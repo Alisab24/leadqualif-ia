@@ -594,7 +594,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         document: documentData,
         agencyProfile: agencyProfile,
         lead: lead,
-        docType: docType
+        docType: { ...docType, agencyType }  // ← transmet le type d'agence au template HTML
       });
 
       console.log("🎯 HTML généré et prêt à être persisté:", documentHtml.substring(0, 200) + "...");
@@ -603,19 +603,11 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // 🎯 RÉCUPÉRER L'AGENCY ID DEPUIS LE PROFIL
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('agency_id')
-            .eq('user_id', user.id)
-            .single();
-
-          const agencyId = profileData?.agency_id;
-
-          if (!agencyId) {
-            console.error('❌ Agency ID non trouvé dans le profil');
-            return;
-          }
+          // 🎯 UTILISER L'AGENCY ID DÉJÀ CHARGÉ dans agencyProfile (avec fallbacks)
+          // Ne pas refaire une requête DB — si agency_id est null en DB, on utilise le prop agencyId
+          // puis user.id en dernier recours. La re-requête silencieuse avec return causait
+          // la disparition du preview sans message d'erreur visible.
+          const resolvedAgencyId = agencyProfile?.agency_id || agencyId || user.id;
 
           // 🎯 CALCULER LES MONTANTS
           const commissionAmount = documentSettings.commissionType === 'percentage' 
@@ -630,12 +622,12 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           const { data: insertedData, error: insertError } = await supabase
             .from('documents')
             .insert({
-              agency_id: agencyId,  // 🎯 agency_id (champ existant)
+              agency_id: resolvedAgencyId,
               lead_id: lead.id,
               type: docType.id,
               reference: documentData.number,
               titre: `${docType.label} - ${lead.nom}`,
-              statut: 'generated',  // 🎯 "generated" en anglais comme demandé
+              statut: 'généré',  // ✅ Français — cohérent avec DocumentsPage.jsx
               preview_html: documentHtml,  // 🎯 HTML PERSISTÉ (STRIPE-LIKE)
               total_ttc: totalTTC,
               total_ht: baseAmount,  // 🎯 montant HT
@@ -1970,13 +1962,21 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                     </div>
                     <div>
                       <div className="client-item">
-                        <span className="client-label">Projet:</span>
-                        <span className="client-value">{docData.lead?.type_bien || 'Non spécifié'}</span>
+                        <span className="client-label">{agencyType === 'smma' ? 'Service' : 'Projet'}:</span>
+                        <span className="client-value">
+                          {agencyType === 'smma'
+                            ? (docData.lead?.type_service || docData.lead?.secteur_activite || 'Non spécifié')
+                            : (docData.lead?.type_bien_recherche || docData.lead?.type_bien || 'Non spécifié')}
+                        </span>
                       </div>
-                      {docData.lead?.budget && (
+                      {(docData.lead?.budget || docData.lead?.budget_marketing) && (
                         <div className="client-item">
                           <span className="client-label">Budget:</span>
-                          <span className="client-value">{formatAmount(docData.lead.budget, docData.document?.financialData?.devise || 'EUR')}</span>
+                          <span className="client-value">
+                            {agencyType === 'smma'
+                              ? (docData.lead?.budget_marketing || '—')
+                              : formatAmount(docData.lead.budget, docData.document?.financialData?.devise || 'EUR')}
+                          </span>
                         </div>
                       )}
                       <div className="client-item">

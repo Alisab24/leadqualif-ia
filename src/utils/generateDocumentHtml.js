@@ -53,8 +53,21 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
     nom: clientNom,
     email: clientEmail,
     telephone: clientTelephone,
-    adresse: clientAdresse
+    adresse: clientAdresse,
+    // IMMO
+    type_bien_recherche,
+    type_bien,
+    // SMMA
+    type_service,
+    secteur_activite,
+    budget_marketing,
   } = lead;
+
+  // Projet/Service selon le type d'agence (agencyType transmis via docType.agencyType ou fallback)
+  const agencyTypeCtx = docType.agencyType || 'immobilier';
+  const clientProjet = agencyTypeCtx === 'smma'
+    ? (type_service || secteur_activite || null)
+    : (type_bien_recherche || type_bien || null);
 
   // 🎯 GÉNÉRATION DU HTML
   const html = `
@@ -402,6 +415,8 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
                     ${clientEmail ? `<div>Email: ${clientEmail}</div>` : ''}
                     ${clientTelephone ? `<div>Téléphone: ${clientTelephone}</div>` : ''}
                     ${clientAdresse ? `<div>Adresse: ${clientAdresse}</div>` : ''}
+                    ${clientProjet ? `<div>${agencyTypeCtx === 'smma' ? 'Service' : 'Projet'}: ${clientProjet}</div>` : ''}
+                    ${agencyTypeCtx === 'smma' && budget_marketing ? `<div>Budget mensuel: ${budget_marketing}</div>` : ''}
                 </div>
             </div>
         </section>
