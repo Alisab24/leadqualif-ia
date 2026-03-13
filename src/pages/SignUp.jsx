@@ -30,6 +30,9 @@ export default function SignUp() {
   const planFromReturn = returnTo.match(/plan=([^&]+)/)?.[1]
   const selectedPlan = planFromParam || planFromReturn || null
 
+  // Token d'invitation d'équipe (ex: /signup?invite=TOKEN)
+  const inviteToken = searchParams.get('invite') || null
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
@@ -62,34 +65,72 @@ export default function SignUp() {
         return
       }
 
-      // 2. Créer le profil agence dans la table profiles
+      // 2. Résoudre l'invitation si un token est présent
+      let invitedAgencyId = null
+      let invitedRole = 'agent'
+      let invitationId = null
+
+      if (inviteToken) {
+        const { data: invitation, error: invErr } = await supabase
+          .from('agency_invitations')
+          .select('id, agency_id, role, email, status, expires_at')
+          .eq('token', inviteToken)
+          .eq('status', 'pending')
+          .single()
+
+        if (!invErr && invitation) {
+          // Vérifier que l'invitation n'est pas expirée
+          if (new Date(invitation.expires_at) > new Date()) {
+            invitedAgencyId = invitation.agency_id
+            invitedRole     = invitation.role || 'agent'
+            invitationId    = invitation.id
+          }
+        }
+      }
+
+      // 3. Créer le profil agence dans la table profiles
+      const profilePayload = {
+        user_id:             authData.user.id,
+        agency_id:           invitedAgencyId || authData.user.id,  // si invité → agence de l'invitant
+        email:               formData.email,
+        nom_agence:          invitedAgencyId ? formData.agencyName || formData.fullName : formData.agencyName,
+        nom_complet:         formData.fullName,
+        telephone:           formData.telephone,
+        type_agence:         formData.typeAgence,
+        subscription_status: invitedAgencyId ? undefined : 'inactive',
+        subscription_plan:   invitedAgencyId ? undefined : 'free',
+        role:                invitedAgencyId ? invitedRole : 'owner',
+      }
+      // Nettoyer les champs undefined
+      Object.keys(profilePayload).forEach(k => profilePayload[k] === undefined && delete profilePayload[k])
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert([{
-          user_id: authData.user.id,
-          agency_id: authData.user.id,   // ← agency_id = user_id pour les liens /estimation/:id
-          email: formData.email,
-          nom_agence: formData.agencyName,
-          nom_complet: formData.fullName,
-          telephone: formData.telephone,
-          type_agence: formData.typeAgence,
-          subscription_status: 'inactive',
-          subscription_plan: 'free',
-        }], { onConflict: 'user_id' })
+        .upsert([profilePayload], { onConflict: 'user_id' })
 
       if (profileError) {
         console.error('Profil error (non bloquant):', profileError)
         // Non bloquant — on continue quand même
       }
 
-      // 3. Vérifier si l'email doit être confirmé
+      // 4. Marquer l'invitation comme acceptée
+      if (invitationId) {
+        await supabase
+          .from('agency_invitations')
+          .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+          .eq('id', invitationId)
+      }
+
+      // 5. Vérifier si l'email doit être confirmé
       const needsConfirmation = !authData.session
       if (needsConfirmation) {
         // Supabase a envoyé un mail de confirmation → afficher l'écran d'attente
         setEmailSent(true)
       } else {
         // Email déjà confirmé (ex: config Supabase sans confirmation) → rediriger
-        if (selectedPlan) {
+        if (inviteToken && invitedAgencyId) {
+          navigate('/dashboard')
+        } else if (selectedPlan) {
           navigate(`/settings?tab=facturation&plan=${selectedPlan}`)
         } else if (returnTo) {
           navigate(decodeURIComponent(returnTo))
