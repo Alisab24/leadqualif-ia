@@ -174,8 +174,6 @@ export default function Stats() {
       const commissionMoisEnCours = leadsData
         .filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth)
         .reduce((sum, l) => sum + calcCommission(l.budget), 0)
-      const OBJECTIF_MENSUEL_IMMO = 10000
-      const objectifProgress = Math.min(100, Math.round((commissionMoisEnCours / OBJECTIF_MENSUEL_IMMO) * 100))
 
       // ── SMMA : CA & budget marketing ─────────────────────
       const parseBudget = (v) => {
@@ -190,8 +188,6 @@ export default function Stats() {
       const caMoisEnCours = leadsData
         .filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth)
         .reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
-      const OBJECTIF_MENSUEL_SMMA = 5000
-      const smmaProgress = Math.min(100, Math.round((caMoisEnCours / OBJECTIF_MENSUEL_SMMA) * 100))
 
       // ── Données mensuelles (6 mois) ───────────────────────
       const monthlyData = []
@@ -276,14 +272,10 @@ export default function Stats() {
         commissionRealisee,
         commissionPotentielle,
         commissionMoisEnCours,
-        objectifProgress,
-        OBJECTIF_MENSUEL_IMMO,
         // SMMA
         caGenere,
         budgetMarketing,
         caMoisEnCours,
-        smmaProgress,
-        OBJECTIF_MENSUEL_SMMA,
         clientsActifs: gagneLeads.length,
         // Commun
         monthlyData,
@@ -346,64 +338,49 @@ export default function Stats() {
 
         {/* ═══════════ BANDEAU OBJECTIF ═══════════════ */}
         {isSmma ? (
-          /* SMMA : CA mensuel */
+          /* SMMA : résumé CA mensuel */
           <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm font-medium">CA ce mois (clients signés)</p>
-                <p className="text-3xl font-bold">
-                  {fmtEuro(stats.caMoisEnCours)}
-                  <span className="text-purple-200 text-lg font-normal"> / {fmtEuro(stats.OBJECTIF_MENSUEL_SMMA)}</span>
+                <p className="text-purple-100 text-sm font-medium">CA ce mois</p>
+                <p className="text-4xl font-bold mt-1">{fmtEuro(stats.caMoisEnCours)}</p>
+                <p className="text-purple-200 text-sm mt-2">
+                  {stats.clientsActifs} client{stats.clientsActifs > 1 ? 's' : ''} actif{stats.clientsActifs > 1 ? 's' : ''} ·{' '}
+                  Budget géré total : {fmtEuro(stats.budgetMarketing)}/mois
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-4xl font-bold">{stats.smmaProgress}%</p>
-                <p className="text-purple-200 text-sm">de l'objectif</p>
+              <div className="text-right space-y-3">
+                <div className="bg-white/15 rounded-xl px-4 py-3">
+                  <p className="text-purple-100 text-xs font-medium">CA total généré</p>
+                  <p className="text-2xl font-bold">{fmtEuro(stats.caGenere)}</p>
+                </div>
+                {stats.topSource && (
+                  <p className="text-purple-200 text-xs">
+                    📡 {stats.topSource.name} · source #1 ({stats.topSource.pct}%)
+                  </p>
+                )}
               </div>
-            </div>
-            <div className="w-full bg-purple-500/40 rounded-full h-3">
-              <div
-                className="bg-white rounded-full h-3 transition-all duration-500"
-                style={{ width: `${stats.smmaProgress}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-purple-200 text-xs">
-                {stats.clientsActifs} client{stats.clientsActifs > 1 ? 's' : ''} actif{stats.clientsActifs > 1 ? 's' : ''} ·{' '}
-                Budget géré total : {fmtEuro(stats.budgetMarketing)}/mois
-              </p>
-              {stats.topSource && (
-                <p className="text-purple-200 text-xs">
-                  📡 Source principale : {stats.topSource.name} ({stats.topSource.pct}%)
-                </p>
-              )}
             </div>
           </div>
         ) : (
-          /* IMMO : commission mensuelle */
+          /* IMMO : résumé commission mensuelle */
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm font-medium">Commission ce mois</p>
-                <p className="text-3xl font-bold">
-                  {fmtEuro(stats.commissionMoisEnCours)}
-                  <span className="text-blue-200 text-lg font-normal"> / {fmtEuro(stats.OBJECTIF_MENSUEL_IMMO)}</span>
+                <p className="text-4xl font-bold mt-1">{fmtEuro(stats.commissionMoisEnCours)}</p>
+                <p className="text-blue-200 text-sm mt-2">
+                  {leads.filter(l => l.statut === 'Gagné').length} lead{leads.filter(l => l.statut === 'Gagné').length > 1 ? 's' : ''} gagné{leads.filter(l => l.statut === 'Gagné').length > 1 ? 's' : ''} ce mois
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-4xl font-bold">{stats.objectifProgress}%</p>
-                <p className="text-blue-200 text-sm">atteint ce mois</p>
+              <div className="text-right space-y-3">
+                <div className="bg-white/15 rounded-xl px-4 py-3">
+                  <p className="text-blue-100 text-xs font-medium">Commission potentielle</p>
+                  <p className="text-2xl font-bold">{fmtEuro(stats.commissionPotentielle)}</p>
+                </div>
+                <p className="text-blue-200 text-xs">Si tous les leads actifs signent</p>
               </div>
             </div>
-            <div className="w-full bg-blue-500/40 rounded-full h-3">
-              <div
-                className="bg-white rounded-full h-3 transition-all duration-500"
-                style={{ width: `${stats.objectifProgress}%` }}
-              />
-            </div>
-            <p className="text-blue-200 text-xs mt-2">
-              Il manque {fmtEuro(Math.max(0, stats.OBJECTIF_MENSUEL_IMMO - (stats.commissionMoisEnCours || 0)))} pour atteindre 10 000 €/mois
-            </p>
           </div>
         )}
 
@@ -816,7 +793,6 @@ export default function Stats() {
               <tbody className="divide-y divide-slate-50">
                 {stats.monthlyData?.map((m, i) => {
                   const rev = isSmma ? m.ca_smma : m.commission
-                  const obj = isSmma ? stats.OBJECTIF_MENSUEL_SMMA : stats.OBJECTIF_MENSUEL_IMMO
                   return (
                     <tr key={i} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-sm font-medium text-slate-900">{m.month}</td>
@@ -826,11 +802,9 @@ export default function Stats() {
                       <td className="px-4 py-3 text-sm font-bold text-slate-700">{fmtEuro(rev)}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                          rev >= obj         ? 'bg-green-100 text-green-700'
-                          : rev > 0          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-slate-100 text-slate-500'
+                          rev > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
                         }`}>
-                          {rev >= obj ? '✅ Objectif atteint' : rev > 0 ? '⚡ En cours' : '—'}
+                          {rev > 0 ? '✅ Actif' : '—'}
                         </span>
                       </td>
                     </tr>
