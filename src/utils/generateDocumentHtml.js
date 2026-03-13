@@ -30,22 +30,22 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
     bodyContent    // ← contenu structuré des documents non-financiers
   } = document;
 
-  const {
-    nom_legal,
-    nom_agence,
-    email,
-    telephone,
-    adresse_legale,
-    logo_url,
-    devise,
-    symbole_devise,
-    mention_legale,
-    conditions_paiement,
-    numero_enregistrement,
-    statut_juridique,
-    carte_pro_t,
-    carte_pro_s,
-  } = agencyProfile;
+  // agencyProfile peut venir soit en format DB (snake_case) soit en format mappé (camelCase)
+  // DocumentGenerator.jsx transforme le profil en camelCase → on supporte les deux
+  const nom_agence          = agencyProfile.name          || agencyProfile.nom_agence          || agencyProfile.nom_commercial || '';
+  const nom_legal           = agencyProfile.legalName     || agencyProfile.nom_legal           || nom_agence;
+  const email               = agencyProfile.email         || '';
+  const telephone           = agencyProfile.phone         || agencyProfile.telephone           || '';
+  const adresse_legale      = agencyProfile.address       || agencyProfile.adresse_legale      || agencyProfile.adresse || '';
+  const logo_url            = agencyProfile.logo_url      || null;
+  const devise              = agencyProfile.devise        || 'EUR';
+  const symbole_devise      = agencyProfile.symbole_devise || '€';
+  const mention_legale      = agencyProfile.legalMention  || agencyProfile.mention_legale      || '';
+  const conditions_paiement = agencyProfile.paymentConditions || agencyProfile.conditions_paiement || '';
+  const numero_enregistrement = agencyProfile.registrationNumber || agencyProfile.numero_enregistrement || agencyProfile.siret || '';
+  const statut_juridique    = agencyProfile.legalStatus   || agencyProfile.statut_juridique    || '';
+  const carte_pro_t         = agencyProfile.carte_pro_t   || '';
+  const carte_pro_s         = agencyProfile.carte_pro_s   || '';
 
   // 🎯 FILIGRANE STATUT
   const { css: watermarkCss, html: watermarkHtml } = getWatermarkHtml(statut);
