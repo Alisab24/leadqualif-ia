@@ -113,7 +113,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     
     // Champs SMMA
     designationPrestation: agencyType === 'smma' ? 'Stratégie marketing digitale complète' : '',
-    prixHT: agencyType === 'smma' ? (lead.budget || 0) * 0.05 : 0,
+    prixHT: agencyType === 'smma' ? (lead.budget || 0) : 0,
     periodicite: 'one-shot',
     conditionsPaiementSMMA: 'Paiement à réception de facture'
   });
@@ -734,11 +734,17 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
       // Préparer les données financières si nécessaire
       if (docType.id === 'devis' || docType.id === 'facture') {
-        const commissionAmount = documentSettings.commissionType === 'percentage' 
-          ? documentSettings.bienPrice * (documentSettings.commissionValue / 100)
-          : documentSettings.commissionValue;
-        
-        const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
+        // SMMA : l'utilisateur entre directement le Prix HT dans le formulaire
+        // IMMO : calcul via commission + honoraires + frais
+        let baseAmount;
+        if (agencyType === 'smma') {
+          baseAmount = documentSettings.prixHT || 0;
+        } else {
+          const commissionAmount = documentSettings.commissionType === 'percentage'
+            ? documentSettings.bienPrice * (documentSettings.commissionValue / 100)
+            : documentSettings.commissionValue;
+          baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
+        }
         const tvaAmount = baseAmount * (documentSettings.tva / 100);
         const totalTTC = baseAmount + tvaAmount;
 

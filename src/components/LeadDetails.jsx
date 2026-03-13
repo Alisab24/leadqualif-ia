@@ -180,7 +180,15 @@ const LeadDetails = () => {
   )
 
   const score   = lead.score_qualification || 0
-  const ss      = SCORE_STYLE(score)
+  // Aligner avec Dashboard : niveau_interet prime sur le calcul du score numérique
+  const rawNiveau = (lead.niveau_interet || '').toLowerCase()
+    .replace('tiède', 'tiede').replace('tièd', 'tiede')
+  const effectiveNiveau = rawNiveau || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid')
+  const ss = effectiveNiveau === 'chaud'
+    ? { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Chaud 🔥' }
+    : effectiveNiveau === 'tiede'
+    ? { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: 'Tiède 🌤' }
+    : { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: 'Froid ❄️' }
   const niveau  = lead.niveau_interet?.toLowerCase()
   const qualCls = QUALIFICATION_COLOR[niveau] || 'bg-slate-100 text-slate-700 border-slate-200'
   const agencyId = agencyProfile?.agency_id || agencyProfile?.id
