@@ -172,6 +172,10 @@ export default function Settings() {
     // Légal SMMA spécifique
     activite_principale: '',
     numero_tva: '',
+    // Tracking & Pixels
+    facebook_pixel_id: '',
+    google_ads_id: '',
+    google_ads_label: '',
     // Premium
     show_amount_in_words: false,
     // Formulaire IA
@@ -237,7 +241,7 @@ export default function Settings() {
       // Sélectionner uniquement les colonnes nécessaires (évite de charger des données massives)
       const { data, error } = await supabase
         .from('profiles')
-        .select('nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
+        .select('nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -271,6 +275,9 @@ export default function Settings() {
           carte_pro_s: data.carte_pro_s || '',
           activite_principale: data.activite_principale || '',
           numero_tva: data.numero_tva || '',
+          facebook_pixel_id: data.facebook_pixel_id || '',
+          google_ads_id: data.google_ads_id || '',
+          google_ads_label: data.google_ads_label || '',
           show_amount_in_words: data.show_amount_in_words || false,
           form_settings: sanitizeFormSettings(data.form_settings),
           crm_settings:  sanitizeCrmSettings(data.crm_settings),
@@ -410,6 +417,9 @@ export default function Settings() {
         carte_pro_s: formData.carte_pro_s,
         activite_principale: formData.activite_principale,
         numero_tva: formData.numero_tva,
+        facebook_pixel_id: formData.facebook_pixel_id,
+        google_ads_id: formData.google_ads_id,
+        google_ads_label: formData.google_ads_label,
         show_amount_in_words: formData.show_amount_in_words,
         form_settings: formData.form_settings,
         crm_settings: formData.crm_settings,
@@ -923,6 +933,92 @@ export default function Settings() {
                   </div>
                 </section>
               )}
+
+              {/* ── Tracking & Pixels ── */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">
+                  📡 Tracking & Pixels publicitaires
+                </h2>
+                <p className="text-xs text-slate-400 mb-4">
+                  Ajoutez vos identifiants de suivi pour mesurer le retour sur investissement de vos campagnes.
+                  Ces codes sont injectés dans votre formulaire public.
+                </p>
+                <div className="space-y-4">
+
+                  {/* Facebook Pixel */}
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-base">🔵</span>
+                      <p className="text-sm font-bold text-blue-800">Facebook / Meta Pixel</p>
+                      {formData.facebook_pixel_id && (
+                        <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">✓ Actif</span>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      name="facebook_pixel_id"
+                      value={formData.facebook_pixel_id}
+                      onChange={handleChange}
+                      placeholder="Ex : 1234567890123456"
+                      className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+                    />
+                    <p className="text-xs text-blue-500 mt-1.5">
+                      Trouvez votre Pixel ID dans Meta Business Suite → Gestionnaire d'événements.
+                    </p>
+                  </div>
+
+                  {/* Google Ads */}
+                  <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-base">🔍</span>
+                      <p className="text-sm font-bold text-yellow-800">Google Ads (Conversion Tracking)</p>
+                      {formData.google_ads_id && (
+                        <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-yellow-500 text-white rounded-full">✓ Actif</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Conversion ID</label>
+                        <input
+                          type="text"
+                          name="google_ads_id"
+                          value={formData.google_ads_id}
+                          onChange={handleChange}
+                          placeholder="Ex : AW-1234567890"
+                          className="w-full px-3 py-2 text-sm border border-yellow-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Conversion Label</label>
+                        <input
+                          type="text"
+                          name="google_ads_label"
+                          value={formData.google_ads_label}
+                          onChange={handleChange}
+                          placeholder="Ex : AbCdEfGhIj"
+                          className="w-full px-3 py-2 text-sm border border-yellow-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 font-mono"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-yellow-600 mt-1.5">
+                      Trouvez ces valeurs dans Google Ads → Outils → Conversions → Balise Google.
+                    </p>
+                  </div>
+
+                  {/* Statut tracking */}
+                  {(formData.facebook_pixel_id || formData.google_ads_id) && (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-lg">
+                      <span>✅</span>
+                      <p className="text-xs text-green-700 font-medium">
+                        {[
+                          formData.facebook_pixel_id && 'Facebook Pixel',
+                          formData.google_ads_id && 'Google Ads'
+                        ].filter(Boolean).join(' + ')} configuré{(formData.facebook_pixel_id && formData.google_ads_id) ? 's' : ''} — visible sur la page Statistiques.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
 
               {/* URL formulaire public */}
               <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
