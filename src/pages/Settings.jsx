@@ -13,6 +13,7 @@ import {
   PLAN_COLORS,
   STATUS_LABELS,
 } from '../services/stripeService';
+import TeamSettings from '../components/TeamSettings';
 
 /* ─── Toast interne ──────────────── */
 const Toast = ({ message, type = 'success', onClose }) => (
@@ -482,6 +483,7 @@ export default function Settings() {
     { key: 'form',        icon: '🤖', label: 'Formulaire IA' },
     { key: 'legal',       icon: '📋', label: 'Légal & Documents' },
     { key: 'crm',         icon: '⚙️', label: 'CRM' },
+    { key: 'equipe',      icon: '👥', label: 'Équipe' },
     { key: 'facturation', icon: '💳', label: 'Abonnement' },
   ];
 
@@ -516,7 +518,7 @@ export default function Settings() {
           </div>
 
           {/* Save button — sticky dans le header */}
-          {activeTab !== 'facturation' && (
+          {activeTab !== 'facturation' && activeTab !== 'equipe' && (
             <button
               onClick={handleSave}
               disabled={saving}
@@ -1216,6 +1218,11 @@ export default function Settings() {
                 </ul>
               </section>
             </div>
+          )}
+
+          {/* ═══ ONGLET ÉQUIPE ════════════════════════ */}
+          {activeTab === 'equipe' && (
+            <TeamSettings />
           )}
 
           {/* ═══ ONGLET FACTURATION ═════════════════════ */}

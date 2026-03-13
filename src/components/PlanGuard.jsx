@@ -5,11 +5,11 @@ import { supabase } from '../supabaseClient'
 // Limites par plan
 // ──────────────────────────────────────
 export const PLAN_LIMITS = {
-  free:       { leads_per_month: 10,  docs: false, stats: false, ia: false, multiUsers: false },
-  starter:    { leads_per_month: 100, docs: true,  stats: false, ia: false, multiUsers: false },
-  growth:     { leads_per_month: null, docs: true, stats: true,  ia: true,  multiUsers: false },
-  enterprise: { leads_per_month: null, docs: true, stats: true,  ia: true,  multiUsers: true },
-  trialing:   { leads_per_month: null, docs: true, stats: true,  ia: true,  multiUsers: false },
+  free:       { leads_per_month: 10,   docs: false, stats: false, ia: false, multiUsers: false, maxUsers: 1 },
+  starter:    { leads_per_month: 100,  docs: true,  stats: false, ia: false, multiUsers: true,  maxUsers: 3 },
+  growth:     { leads_per_month: null, docs: true,  stats: true,  ia: true,  multiUsers: true,  maxUsers: 5 },
+  enterprise: { leads_per_month: null, docs: true,  stats: true,  ia: true,  multiUsers: true,  maxUsers: null },
+  trialing:   { leads_per_month: null, docs: true,  stats: true,  ia: true,  multiUsers: true,  maxUsers: 5 },
 }
 
 export const PLAN_LABELS = {

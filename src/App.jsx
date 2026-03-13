@@ -57,6 +57,14 @@ function DocumentsCenterRedirect() {
   return <Navigate to={`/documents${location.search}`} replace />;
 }
 
+// Redirection /join/:token → /signup?invite=TOKEN
+function JoinInviteRedirect() {
+  const location = useLocation();
+  // Extraire le token depuis /join/TOKEN
+  const token = location.pathname.replace('/join/', '');
+  return <Navigate to={`/signup?invite=${token}`} replace />;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -66,6 +74,7 @@ export default function App() {
           <Route path="/" element={<LeadQualifRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/join/:token" element={<JoinInviteRedirect />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/confirm" element={<AuthConfirm />} />
           <Route path="/estimation" element={<Estimation />} />
