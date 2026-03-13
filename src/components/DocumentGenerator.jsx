@@ -734,13 +734,15 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
       // Préparer les données financières si nécessaire
       if (docType.id === 'devis' || docType.id === 'facture') {
-        // SMMA : l'utilisateur entre directement le Prix HT dans le formulaire
-        // IMMO : calcul via commission + honoraires + frais
+        // SMMA : prixHT saisi par l'utilisateur (pas de logique commission)
+        // IMMO : commission % ou fixe + honoraires + frais
+        let commissionAmount;
         let baseAmount;
         if (agencyType === 'smma') {
-          baseAmount = documentSettings.prixHT || 0;
+          baseAmount     = documentSettings.prixHT || 0;
+          commissionAmount = baseAmount; // pour SMMA : une seule ligne = prixHT
         } else {
-          const commissionAmount = documentSettings.commissionType === 'percentage'
+          commissionAmount = documentSettings.commissionType === 'percentage'
             ? documentSettings.bienPrice * (documentSettings.commissionValue / 100)
             : documentSettings.commissionValue;
           baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
@@ -752,14 +754,14 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         const amountForWords = totalTTC;
         const documentTypeLabel = docType.id === 'devis' ? 'devis' : 'facture';
 
-        documentData.metadata.amountInWords = metadataSettings.showAmountInWords ? 
-          `Arrêté la présente ${documentTypeLabel} à la somme de ${DocumentCounterService.formatAmountInWords(amountForWords)}` : 
+        documentData.metadata.amountInWords = metadataSettings.showAmountInWords ?
+          `Arrêté la présente ${documentTypeLabel} à la somme de ${DocumentCounterService.formatAmountInWords(amountForWords)}` :
           null;
 
         documentData.financialData = {
           items: [
             {
-              description: agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital',
+              description: agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : documentSettings.designationPrestation || 'Services de marketing digital',
               quantity: '1',
               amount: commissionAmount
             },
