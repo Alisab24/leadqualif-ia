@@ -77,14 +77,8 @@ ALTER TABLE documents
     'compromis','contrat_gestion','contrat','rapport','autre'
   ));
 
--- Ajouter une contrainte statut acceptant toutes les valeurs utilisées par le code
-ALTER TABLE documents
-  ADD CONSTRAINT documents_statut_check
-  CHECK (statut IN (
-    'brouillon','généré','genere','émis','émise',
-    'envoyé','envoyée','signé','signée','validé',
-    'facturé','converti','payé','payée','annulé'
-  ));
+-- Pas de contrainte CHECK sur statut — trop fragile avec les données existantes.
+-- La normalisation est gérée côté application via normalizeStatut().
 
 
 -- ── 4. RLS — politique simplifiée (agency_id = auth.uid()) ──

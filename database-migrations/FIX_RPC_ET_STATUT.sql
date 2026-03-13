@@ -106,26 +106,10 @@ BEGIN
   END LOOP;
 END $$;
 
--- Ajouter une contrainte permissive qui accepte tous les statuts utilisés
-ALTER TABLE documents
-  ADD CONSTRAINT documents_statut_check
-  CHECK (statut IN (
-    'brouillon',
-    'généré',    -- valeur écrite par le code JS
-    'genere',    -- alias sans accent (sécurité)
-    'émis',
-    'émise',
-    'envoyé',
-    'envoyée',
-    'signé',
-    'signée',
-    'validé',
-    'facturé',
-    'converti',
-    'payé',
-    'payée',
-    'annulé'
-  ));
+-- Pas de nouvelle contrainte CHECK sur statut :
+-- des lignes existantes peuvent avoir n'importe quelle valeur héritée
+-- → ajouter une contrainte ferait échouer ce script.
+-- La normalisation est gérée côté application (normalizeStatut).
 
 -- Vérification : contraintes restantes sur documents
 SELECT conname, pg_get_constraintdef(oid) AS definition
