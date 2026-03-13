@@ -9,34 +9,18 @@ import { processLead } from './leadProcessor'
  */
 async function callQualifyEndpoint(lead) {
   try {
-    console.log('[aiService] Appel à /api/qualify avec:', lead);
-    
-    // En production, utiliser l'API backend, en local utiliser le middleware Vite
-    const apiUrl = window.location.hostname === 'www.leadqualif.com' 
-      ? 'https://leadqualif-backend.onrender.com/api/qualify'  // Production
-      : '/api/qualify';  // Développement local
-    
-    console.log('[aiService] URL utilisée:', apiUrl);
-    
-    const res = await fetch(apiUrl, {
+    // ✅ Toujours utiliser /api/qualify (Vercel serverless)
+    // L'ancien backend Render (leadqualif-backend.onrender.com) est abandonné.
+    const res = await fetch('/api/qualify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(lead)
     });
-    console.log('[aiService] Response status:', res.status, res.statusText);
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[aiService] Error response:', errorText);
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
-    }
-    
-    const result = await res.json();
-    console.log('[aiService] Response data:', result);
-    return result;
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
   } catch (err) {
-    console.error('[aiService] /api/qualify indisponible, fallback automatique:', err.message);
-    console.error('[aiService] Stack trace:', err.stack);
+    console.warn('[aiService] /api/qualify indisponible, fallback automatique:', err.message);
     return null;
   }
 }
