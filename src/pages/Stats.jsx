@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import ProfileManager from '../services/profileManager'
 import {
@@ -81,13 +81,15 @@ function KPICard({ icon, label, value, color = 'blue', sub, subColor }) {
 
 // ── Composant principal ───────────────────────────────────────────
 export default function Stats() {
-  const [loading, setLoading]     = useState(true)
+  const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [leads, setLeads]         = useState([])
-  const [profile, setProfile]     = useState(null)
+  const [leads, setLeads]           = useState([])
+  const [profile, setProfile]       = useState(null)
   const [agencyType, setAgencyType] = useState('immobilier')
-  const [pixels, setPixels]       = useState({ fb: '', gads: '', gLabel: '' })
-  const [stats, setStats]         = useState({})
+  const [pixels, setPixels]         = useState({ fb: '', gads: '', gLabel: '' })
+  const [stats, setStats]           = useState({})
+  const [showReport, setShowReport] = useState(false)
+  const reportRef = useRef(null)
 
   useEffect(() => { fetchStats() }, [])
 
@@ -250,6 +252,31 @@ export default function Stats() {
       // Source principale
       const topSource = sourceDistribution[0] || null
 
+      // ── ROI par source ────────────────────────────────────
+      const roiMap = {}
+      leadsData.forEach(l => {
+        const src = l.source || 'autre'
+        if (!roiMap[src]) roiMap[src] = { leads: 0, gagnes: 0, revenue: 0 }
+        roiMap[src].leads++
+        if (l.statut === 'Gagné') {
+          roiMap[src].gagnes++
+          const rev = type === 'smma'
+            ? parseBudget(l.budget_marketing || l.budget)
+            : calcCommission(l.budget)
+          roiMap[src].revenue += rev
+        }
+      })
+      const roiDistribution = Object.entries(roiMap)
+        .sort((a, b) => b[1].revenue - a[1].revenue || b[1].leads - a[1].leads)
+        .map(([key, data]) => ({
+          key,
+          name:      SOURCE_LABELS[key] || key,
+          leads:     data.leads,
+          gagnes:    data.gagnes,
+          revenue:   data.revenue,
+          convRate:  data.leads > 0 ? Math.round((data.gagnes / data.leads) * 100) : 0,
+        }))
+
       // ── Top 5 leads ───────────────────────────────────────
       const topLeads = [...leadsData]
         .filter(l => (type === 'smma' ? parseBudget(l.budget_marketing) : l.budget) > 0)
@@ -284,6 +311,7 @@ export default function Stats() {
         sourceDistribution,
         topSource,
         topLeads,
+        roiDistribution,
       })
 
     } catch (error) {
@@ -319,16 +347,25 @@ export default function Stats() {
               {isSmma ? '📱 SMMA' : '🏠 Immobilier'}
             </p>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg
-                       text-sm text-slate-600 hover:bg-slate-50 shadow-sm
-                       disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            <span className={refreshing ? 'animate-spin inline-block' : ''}>🔄</span>
-            {refreshing ? 'Actualisation…' : 'Rafraîchir'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowReport(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
+                         text-white rounded-lg text-sm font-semibold shadow-sm transition-all"
+            >
+              <span>📄</span> Rapport PDF
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg
+                         text-sm text-slate-600 hover:bg-slate-50 shadow-sm
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <span className={refreshing ? 'animate-spin inline-block' : ''}>🔄</span>
+              {refreshing ? 'Actualisation…' : 'Rafraîchir'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -778,6 +815,87 @@ export default function Stats() {
           </div>
         )}
 
+        {/* ═══════════ ROI PAR SOURCE ═══════════════════ */}
+        {stats.roiDistribution?.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-800">
+                💰 ROI par source de trafic
+              </h2>
+              <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                {isSmma ? 'CA rétainer' : 'Commission estimée'} des leads Gagnés
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Source</th>
+                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">Leads</th>
+                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">{isSmma ? 'Signés' : 'Gagnés'}</th>
+                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">Taux closing</th>
+                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">{isSmma ? 'CA généré' : 'Commission est.'}</th>
+                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Part du CA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {(() => {
+                    const totalRevenue = stats.roiDistribution.reduce((s, r) => s + r.revenue, 0)
+                    return stats.roiDistribution.map((row, i) => {
+                      const pct = totalRevenue > 0 ? Math.round((row.revenue / totalRevenue) * 100) : 0
+                      return (
+                        <tr key={row.key} className="hover:bg-slate-50">
+                          <td className="py-3 text-sm font-medium text-slate-800">{row.name}</td>
+                          <td className="py-3 text-center text-sm text-slate-600">{row.leads}</td>
+                          <td className="py-3 text-center text-sm font-semibold text-green-600">{row.gagnes}</td>
+                          <td className="py-3 text-center">
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                              row.convRate >= 50 ? 'bg-green-100 text-green-700'
+                              : row.convRate >= 20 ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                            }`}>
+                              {row.convRate}%
+                            </span>
+                          </td>
+                          <td className="py-3 text-right text-sm font-bold text-slate-800">
+                            {fmtEuro(row.revenue)}
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="h-2 rounded-full"
+                                  style={{
+                                    width: `${pct}%`,
+                                    background: COLORS_SOURCE[i % COLORS_SOURCE.length]
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs font-semibold text-slate-600 w-8 text-right">{pct}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+                <tfoot className="border-t-2 border-slate-200">
+                  <tr>
+                    <td className="pt-3 text-sm font-bold text-slate-800">Total</td>
+                    <td className="pt-3 text-center text-sm font-bold text-slate-800">{stats.totalLeads}</td>
+                    <td className="pt-3 text-center text-sm font-bold text-green-700">{leads.filter(l => l.statut === 'Gagné').length}</td>
+                    <td className="pt-3 text-center text-sm font-bold text-indigo-700">{stats.conversionRate}%</td>
+                    <td className="pt-3 text-right text-sm font-bold text-green-700">
+                      {fmtEuro(stats.roiDistribution.reduce((s, r) => s + r.revenue, 0))}
+                    </td>
+                    <td className="pt-3 text-right text-xs font-semibold text-slate-400">100%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ═══════════ RAPPORT MENSUEL ══════════════════ */}
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
           <h2 className="text-base font-bold text-slate-800 mb-4">Rapport mensuel</h2>
@@ -817,6 +935,151 @@ export default function Stats() {
 
       </div>
       </main>
+
+      {/* ══════════════════════════════════════════════
+          MODAL RAPPORT MENSUEL PDF
+      ══════════════════════════════════════════════ */}
+      {showReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+
+            {/* Header modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">📊 Rapport mensuel</h2>
+                <p className="text-xs text-slate-400">
+                  {profile?.nom_agence || 'Votre agence'} ·{' '}
+                  {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                >
+                  🖨️ Imprimer / PDF
+                </button>
+                <button
+                  onClick={() => setShowReport(false)}
+                  className="px-3 py-2 text-slate-400 hover:text-slate-600 text-xl leading-none"
+                >×</button>
+              </div>
+            </div>
+
+            {/* Contenu rapport — scrollable */}
+            <div ref={reportRef} className="overflow-auto p-6 space-y-5 print:p-0">
+
+              {/* Résumé KPI */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Leads ce mois',   value: stats.leadsThisMonth,    icon: '📊', color: '#3b82f6' },
+                  { label: isSmma ? 'Signés'  : 'Gagnés', value: leads.filter(l => l.statut === 'Gagné').length, icon: '✅', color: '#10b981' },
+                  { label: 'Leads chauds',    value: `${stats.hotLeadsPercentage}%`, icon: '🔥', color: '#f59e0b' },
+                  { label: 'Taux closing',    value: `${stats.conversionRate}%`, icon: '🎯', color: '#8b5cf6' },
+                ].map(k => (
+                  <div key={k.label} className="rounded-xl p-4 text-center border"
+                    style={{ borderColor: k.color + '33', background: k.color + '11' }}>
+                    <p className="text-2xl">{k.icon}</p>
+                    <p className="text-2xl font-black mt-1" style={{ color: k.color }}>{k.value}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{k.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Revenu */}
+              <div className="rounded-xl border border-slate-100 p-5 bg-slate-50">
+                <p className="text-xs font-bold text-slate-500 uppercase mb-3">
+                  {isSmma ? 'Chiffre d\'affaires' : 'Commissions'}
+                </p>
+                <div className="flex gap-6 flex-wrap">
+                  <div>
+                    <p className="text-xs text-slate-400">Ce mois</p>
+                    <p className="text-xl font-black text-green-600">
+                      {fmtEuro(isSmma ? stats.caMoisEnCours : stats.commissionMoisEnCours)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">Total cumulé</p>
+                    <p className="text-xl font-black text-indigo-600">
+                      {fmtEuro(isSmma ? stats.caGenere : stats.commissionRealisee)}
+                    </p>
+                  </div>
+                  {!isSmma && (
+                    <div>
+                      <p className="text-xs text-slate-400">Potentiel pipeline</p>
+                      <p className="text-xl font-black text-blue-600">
+                        {fmtEuro(stats.commissionPotentielle)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tableau mensuel 6 mois */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">Activité 6 derniers mois</p>
+                <table className="min-w-full text-sm border border-slate-100 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      {['Mois', 'Leads', isSmma ? 'Signés' : 'Gagnés', 'Chauds', isSmma ? 'CA' : 'Commission'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {stats.monthlyData?.map((m, i) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 font-medium text-slate-800">{m.month}</td>
+                        <td className="px-3 py-2 text-slate-600">{m.leads}</td>
+                        <td className="px-3 py-2 font-semibold text-green-600">{m.gagnes}</td>
+                        <td className="px-3 py-2 font-semibold text-orange-500">{m.chauds}</td>
+                        <td className="px-3 py-2 font-bold text-slate-800">{fmtEuro(isSmma ? m.ca_smma : m.commission)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ROI par source */}
+              {stats.roiDistribution?.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">ROI par source</p>
+                  <table className="min-w-full text-sm border border-slate-100 rounded-xl overflow-hidden">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {['Source', 'Leads', isSmma ? 'Signés' : 'Gagnés', 'Closing', isSmma ? 'CA généré' : 'Commission'].map(h => (
+                          <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {stats.roiDistribution.map((row) => (
+                        <tr key={row.key}>
+                          <td className="px-3 py-2 font-medium text-slate-800">{row.name}</td>
+                          <td className="px-3 py-2 text-slate-600">{row.leads}</td>
+                          <td className="px-3 py-2 font-semibold text-green-600">{row.gagnes}</td>
+                          <td className="px-3 py-2 text-slate-600">{row.convRate}%</td>
+                          <td className="px-3 py-2 font-bold text-slate-800">{fmtEuro(row.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pied de rapport */}
+              <div className="text-center pt-4 border-t border-slate-100">
+                <p className="text-xs text-slate-400">
+                  Rapport généré par <strong>LeadQualif IA</strong> ·{' '}
+                  {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

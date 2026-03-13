@@ -177,6 +177,9 @@ export default function Settings() {
     facebook_pixel_id: '',
     google_ads_id: '',
     google_ads_label: '',
+    // Alertes notifications
+    notification_email: '',
+    notification_webhook: '',
     // Premium
     show_amount_in_words: false,
     // Formulaire IA
@@ -279,6 +282,8 @@ export default function Settings() {
           facebook_pixel_id: data.facebook_pixel_id || '',
           google_ads_id: data.google_ads_id || '',
           google_ads_label: data.google_ads_label || '',
+          notification_email:   data.notification_email   || '',
+          notification_webhook: data.notification_webhook || '',
           show_amount_in_words: data.show_amount_in_words || false,
           form_settings: sanitizeFormSettings(data.form_settings),
           crm_settings:  sanitizeCrmSettings(data.crm_settings),
@@ -418,9 +423,11 @@ export default function Settings() {
         carte_pro_s: formData.carte_pro_s,
         activite_principale: formData.activite_principale,
         numero_tva: formData.numero_tva,
-        facebook_pixel_id: formData.facebook_pixel_id,
-        google_ads_id: formData.google_ads_id,
-        google_ads_label: formData.google_ads_label,
+        facebook_pixel_id:    formData.facebook_pixel_id,
+        google_ads_id:        formData.google_ads_id,
+        google_ads_label:     formData.google_ads_label,
+        notification_email:   formData.notification_email,
+        notification_webhook: formData.notification_webhook,
         show_amount_in_words: formData.show_amount_in_words,
         form_settings: formData.form_settings,
         crm_settings: formData.crm_settings,
@@ -1016,6 +1023,50 @@ export default function Settings() {
                           formData.facebook_pixel_id && 'Facebook Pixel',
                           formData.google_ads_id && 'Google Ads'
                         ].filter(Boolean).join(' + ')} configuré{(formData.facebook_pixel_id && formData.google_ads_id) ? 's' : ''} — visible sur la page Statistiques.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* ── Alertes & Notifications ── */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">
+                  🔔 Alertes leads chauds
+                </h2>
+                <p className="text-xs text-slate-400 mb-4">
+                  Recevez une alerte instantanée quand un lead avec score ≥ 70 arrive.
+                  Les notifications browser sont activées automatiquement. Configurez
+                  aussi un webhook pour recevoir les alertes sur Slack, email ou tout
+                  autre outil (Make, Zapier, n8n, etc.).
+                </p>
+                <div className="space-y-4">
+                  <Field label="Email de notification" hint="Email qui recevra les alertes si vous connectez un service email à votre webhook.">
+                    <Input
+                      type="email"
+                      name="notification_email"
+                      value={formData.notification_email}
+                      onChange={handleChange}
+                      placeholder="contact@agence.com"
+                    />
+                  </Field>
+                  <Field
+                    label="URL Webhook"
+                    hint="URL POST appelée à chaque lead chaud (Slack Incoming Webhook, Make/n8n endpoint, etc.)"
+                  >
+                    <Input
+                      type="url"
+                      name="notification_webhook"
+                      value={formData.notification_webhook}
+                      onChange={handleChange}
+                      placeholder="https://hooks.slack.com/services/… ou https://hook.eu1.make.com/…"
+                    />
+                  </Field>
+                  {formData.notification_webhook && (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-lg">
+                      <span>✅</span>
+                      <p className="text-xs text-green-700 font-medium">
+                        Webhook configuré — les leads avec score ≥ 70 déclencheront une alerte en temps réel.
                       </p>
                     </div>
                   )}

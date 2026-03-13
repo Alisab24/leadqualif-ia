@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ProfileManager from '../services/profileManager';
 import LeadForm from '../components/LeadForm';
 import ImportLeadsModal from '../components/ImportLeadsModal';
+import useHotLeadAlerts from '../hooks/useHotLeadAlerts';
 import DocumentGenerator from '../components/DocumentGenerator';
 import { aiService } from '../services/ai';
 import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate } from '../components/PlanGuard';
@@ -83,6 +84,11 @@ export default function Dashboard() {
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+
+  // ── Alertes leads chauds temps réel ─────────────────────
+  const hotLeadWebhook = agencyProfile?.notification_webhook || ''
+  const hotLeadAgencyId = agencyProfile?.agency_id || null
+  useHotLeadAlerts(hotLeadAgencyId, hotLeadWebhook)
 
   // Refs
   const scrollContainerRef = useRef(null);
