@@ -96,8 +96,11 @@ export default function Dashboard() {
 
   // === HELPER: Score IA Badge ===
   const getScoreBadge = (lead) => {
-    const score = lead.score || lead.score_ia || 0;
-    const q = lead.qualification || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
+    // Priorité : score_qualification (champ principal) → score_ia → score → 0
+    const score = lead.score_qualification || lead.score_ia || lead.score || 0;
+    // Priorité : niveau_interet (champ principal) → qualification → calculé depuis score
+    const rawNiveau = (lead.niveau_interet || lead.qualification || '').toLowerCase().replace('tiède','tiede');
+    const q = rawNiveau || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
     if (q === 'chaud') return { label: '🟢 Chaud', bg: 'bg-green-100', text: 'text-green-700', score };
     if (q === 'tiede') return { label: '🟡 Tiède', bg: 'bg-yellow-100', text: 'text-yellow-700', score };
     return { label: '🔴 Froid', bg: 'bg-red-100', text: 'text-red-700', score };
@@ -110,8 +113,9 @@ export default function Dashboard() {
       lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.telephone?.includes(searchQuery);
 
-    const score = lead.score || lead.score_ia || 0;
-    const q = lead.qualification || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
+    const score = lead.score_qualification || lead.score_ia || lead.score || 0;
+    const rawNiveau = (lead.niveau_interet || lead.qualification || '').toLowerCase().replace('tiède','tiede');
+    const q = rawNiveau || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
     const matchesFilter = filterQualification === 'all' || q === filterQualification;
 
     // Archivés : masqués par défaut, visibles si showArchived
@@ -174,9 +178,15 @@ export default function Dashboard() {
         || (recs.length > 0 ? recs.join(' — ') : null)
         || (resume ? `${niveau} (${scoreLabel}%) — ${resume}` : `Score : ${scoreLabel}% — Niveau : ${niveau}`)
       setAiSuggestion(suggestion);
-      // Sauvegarder la suggestion en base
+      // Sauvegarder la suggestion + score + niveau en base (cohérence avec LeadDetails)
       await supabase.from('leads')
-        .update({ suggestion_ia: suggestion, ia_processed_at: new Date().toISOString() })
+        .update({
+          suggestion_ia: suggestion,
+          resume_ia: suggestion,
+          score_qualification: scoreLabel,
+          niveau_interet: niveau,
+          ia_processed_at: new Date().toISOString(),
+        })
         .eq('id', lead.id);
       await logCrmEvent(lead.id, 'ia_suggestion', 'Suggestion IA générée', suggestion);
     } catch (error) {

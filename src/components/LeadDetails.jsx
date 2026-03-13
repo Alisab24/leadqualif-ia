@@ -355,7 +355,7 @@ const LeadDetails = () => {
               )}
 
               {/* Points forts / attention / recommandations */}
-              {(lead.points_forts?.length || lead.points_attention?.length || lead.recommandations?.length) && (
+              {!!(lead.points_forts?.length || lead.points_attention?.length || lead.recommandations?.length) && (
                 <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
                     Analyse de qualification
