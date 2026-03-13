@@ -85,11 +85,12 @@ ALTER TABLE documents
 
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 
--- Supprimer les anciennes politiques qui référençaient la table profiles
+-- Supprimer TOUTES les politiques existantes sur documents (évite les conflits)
 DROP POLICY IF EXISTS "Les utilisateurs peuvent voir les documents de leur agence" ON documents;
 DROP POLICY IF EXISTS "Les utilisateurs peuvent créer des documents pour leur agence" ON documents;
 DROP POLICY IF EXISTS "Les utilisateurs peuvent mettre à jour les documents de leur agence" ON documents;
 DROP POLICY IF EXISTS "Agency members can manage their documents" ON documents;
+DROP POLICY IF EXISTS "Users manage own documents" ON documents;
 
 -- Nouvelle politique unique : l'utilisateur gère ses propres documents
 CREATE POLICY "Users manage own documents"
