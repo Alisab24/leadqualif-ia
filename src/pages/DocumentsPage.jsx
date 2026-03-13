@@ -391,15 +391,16 @@ const DocumentsPage = () => {
     const colors = {
       'généré':  'bg-blue-100 text-blue-800',
       'émise':   'bg-indigo-100 text-indigo-800',
+      'émis':    'bg-indigo-100 text-indigo-800',
       'envoyé':  'bg-amber-100 text-amber-800',
+      'envoyée': 'bg-amber-100 text-amber-800',
       'signé':   'bg-teal-100 text-teal-800',
       'validé':  'bg-green-100 text-green-800',
-      'converti':'bg-purple-100 text-purple-800',
-      'validé': 'bg-green-100 text-green-800',
       'facturé': 'bg-purple-100 text-purple-800',
-      'émis': 'bg-yellow-100 text-yellow-800',
-      'payé': 'bg-emerald-100 text-emerald-800',
-      'annulé': 'bg-red-100 text-red-800'
+      'converti':'bg-purple-100 text-purple-800',
+      'payé':    'bg-emerald-100 text-emerald-800',
+      'payée':   'bg-emerald-100 text-emerald-800',
+      'annulé':  'bg-red-100 text-red-800',
     };
     return colors[statut] || 'bg-gray-100 text-gray-800';
   };
