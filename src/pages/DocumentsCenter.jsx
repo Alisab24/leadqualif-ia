@@ -87,18 +87,18 @@ export default function DocumentsCenter() {
     }
   };
 
-  // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────
   // Filtrage local
-  // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────
   const filteredDocs = documents.filter(doc => {
     const typeOk = filterType === 'tous' || doc.type_document === filterType;
     const statutOk = filterStatut === 'tous' || doc.statut === filterStatut;
     return typeOk && statutOk;
   });
 
-  // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────
   // Helpers UI
-  // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────
   const getDocumentIcon = (type) => DOC_TYPE_ICON[type] ?? '📄';
   const getDocumentLabel = (type) => DOC_TYPE_LABEL[type] ?? type;
 
@@ -129,9 +129,9 @@ export default function DocumentsCenter() {
   const countByType = (type) => documents.filter(d => d.type_document === type).length;
   const countByStatut = (statut) => documents.filter(d => d.statut === statut).length;
 
-  // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────
   // Render
-  // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
