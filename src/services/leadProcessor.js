@@ -17,7 +17,7 @@
  */
 function analyzePurchaseIntent(message) {
   if (!message || typeof message !== 'string') {
-    return { hasIntent: false, keywords: [], urgency: false }
+    return { hasIntent: false, hotKeywords: [], warmKeywords: [], coldKeywords: [], urgency: false, messageLength: 0 }
   }
 
   const messageLower = message.toLowerCase()
