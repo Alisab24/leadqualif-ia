@@ -353,6 +353,7 @@ const DocumentTemplate = forwardRef(function DocumentTemplate({
   /* Parties */
   agency = {},              // profil agence depuis Supabase profiles
   lead = {},                // lead depuis Supabase leads
+  agencyType,              // type d'agence depuis Dashboard ('immobilier' | 'smma')
 
   /* Lignes */
   items = [],               // [{ designation, description, quantite, prix_unitaire }]
@@ -373,7 +374,8 @@ const DocumentTemplate = forwardRef(function DocumentTemplate({
   const couleur = agency?.couleur_primaire || '#2563eb';
   const sym = symbole || agency?.symbole_devise || '€';
   const dev = devise || agency?.devise || 'EUR';
-  const isImmo = agency?.type_agence === 'immobilier';
+  // 🎯 PRIORITÉ : agencyType transmis > agency.type_agence > fallback 'immobilier'
+  const isImmo = agencyType === 'immobilier' || agency?.type_agence === 'immobilier';
   const isMandatType = ['mandat', 'bon_de_visite', 'offre_achat'].includes(type);
 
   // Dates automatiques si non fournies

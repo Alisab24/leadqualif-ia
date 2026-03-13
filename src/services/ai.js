@@ -9,15 +9,34 @@ import { processLead } from './leadProcessor'
  */
 async function callQualifyEndpoint(lead) {
   try {
-    const res = await fetch('/api/qualify', {
+    console.log('[aiService] Appel à /api/qualify avec:', lead);
+    
+    // En production, utiliser l'API backend, en local utiliser le middleware Vite
+    const apiUrl = window.location.hostname === 'www.leadqualif.com' 
+      ? 'https://leadqualif-backend.onrender.com/api/qualify'  // Production
+      : '/api/qualify';  // Développement local
+    
+    console.log('[aiService] URL utilisée:', apiUrl);
+    
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(lead)
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    console.log('[aiService] Response status:', res.status, res.statusText);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[aiService] Error response:', errorText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    
+    const result = await res.json();
+    console.log('[aiService] Response data:', result);
+    return result;
   } catch (err) {
-    console.warn('[aiService] /api/qualify indisponible, fallback automatique:', err.message);
+    console.error('[aiService] /api/qualify indisponible, fallback automatique:', err.message);
+    console.error('[aiService] Stack trace:', err.stack);
     return null;
   }
 }
@@ -66,7 +85,7 @@ export const aiService = {
         type_bien_recherche: 'autre',
         localisation_souhaitee: null,
         points_forts: [],
-        points_attention: ['Qualification automatique (IA non disponible)'],
+        points_attention: ['Qualification automatique en cours'],
         recommandations: [fallbackEvaluation2.recommandations?.action_immediate],
         resume: fallbackEvaluation2.raison_classification,
         evaluation_complete: fallbackEvaluation2,
