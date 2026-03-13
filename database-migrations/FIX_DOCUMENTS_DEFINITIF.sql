@@ -64,6 +64,10 @@ BEGIN
   END IF;
 END $$;
 
+-- Supprimer la contrainte CHECK sur statut (bloque 'généré')
+ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_statut_check;
+ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_status_check;
+
 -- Ajouter une contrainte permissive sur type
 ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_type_check;
 ALTER TABLE documents
@@ -71,6 +75,15 @@ ALTER TABLE documents
   CHECK (type IN (
     'devis','facture','mandat','bon_visite','bon_de_visite',
     'compromis','contrat_gestion','contrat','rapport','autre'
+  ));
+
+-- Ajouter une contrainte statut acceptant toutes les valeurs utilisées par le code
+ALTER TABLE documents
+  ADD CONSTRAINT documents_statut_check
+  CHECK (statut IN (
+    'brouillon','généré','genere','émis','émise',
+    'envoyé','envoyée','signé','signée','validé',
+    'facturé','converti','payé','payée','annulé'
   ));
 
 
