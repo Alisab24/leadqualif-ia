@@ -5,7 +5,7 @@
  */
 import React from 'react';
 
-// ─── Configuration des statuts ────────────────────────────────────────────────
+// ─── Configuration des statuts ──────────────────────────────
 export const WATERMARK_CONFIG = {
   brouillon: {
     text: 'BROUILLON',
@@ -34,7 +34,7 @@ export const WATERMARK_CONFIG = {
   },
 };
 
-// ─── Composant ────────────────────────────────────────────────────────────────
+// ─── Composant ──────────────────────────────────────────────
 /**
  * @param {string} statut  - Statut du document (brouillon | généré | envoyé | signé | annulé)
  * @param {boolean} print  - true = position fixed (répété sur chaque page PDF)
@@ -84,7 +84,7 @@ export default function DocumentWatermark({ statut, print = true }) {
   );
 }
 
-// ─── Utilitaire CSS pour generateDocumentHtml.js ─────────────────────────────
+// ─── Utilitaire CSS pour generateDocumentHtml.js ──────────────
 /**
  * Retourne le bloc CSS + HTML du filigrane pour injection dans du HTML pur.
  * @param {string} statut

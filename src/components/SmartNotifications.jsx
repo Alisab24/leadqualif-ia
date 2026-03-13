@@ -24,9 +24,9 @@ function markSeen(id) {
   }
 }
 
-// ─────────────────────────────────────────────
+// ────────// ──────────────────────────────
 // Hook : construire la liste des notifications
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function useSmartNotifications(agencyId) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -147,9 +147,9 @@ export function useSmartNotifications(agencyId) {
   return { notifications, loading, dismiss, refresh: buildNotifications };
 }
 
-// ─────────────────────────────────────────────
+// ──// ──────────────────────────────
 // Composant : Cloche de notifications (icône dans le header)
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function NotificationBell({ agencyId }) {
   const { notifications, dismiss } = useSmartNotifications(agencyId);
   const [open, setOpen] = useState(false);
@@ -235,9 +235,9 @@ export function NotificationBell({ agencyId }) {
   );
 }
 
-// ─────────────────────────────────────────────
+// ────────// ──────────────────────────────
 // Composant : Bannières inline dans le Dashboard
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function NotificationBanners({ agencyId }) {
   const { notifications, dismiss } = useSmartNotifications(agencyId);
 

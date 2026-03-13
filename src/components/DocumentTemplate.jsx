@@ -162,7 +162,7 @@ const AddressBlock = ({ agency, lead, docType, dateValidite, dateEcheance, coule
   );
 };
 
-/* ─── Tableau des lignes ─────────────────────────────────── */
+/* ── Tableau des lignes ───────────────────── */
 const LignesTable = ({ items, tvaEnabled, tvaRate, symbole, couleur }) => {
   const sousTotal = items.reduce((s, i) => s + (parseFloat(i.prix_unitaire || i.price || 0) * parseFloat(i.quantite || i.quantity || 1)), 0);
   const montantTva = tvaEnabled ? sousTotal * (tvaRate / 100) : 0;

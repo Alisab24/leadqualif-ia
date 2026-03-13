@@ -212,7 +212,7 @@ export default function Stats() {
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
-      {/* ── HEADER fixe ──────────────────────────────────── */}
+      {/* ── HEADER fixe ───────────────────── */}
       <header className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm z-10">
         <div className="flex items-center justify-between h-16">
           <div className="min-w-0">
@@ -234,7 +234,7 @@ export default function Stats() {
         </div>
       </header>
 
-      {/* ── CONTENU scrollable ───────────────────────────── */}
+      {/* ── CONTENU scrollable ────────────────── */}
       <main className="flex-1 overflow-auto p-6">
       <div className="max-w-7xl mx-auto space-y-6">
 

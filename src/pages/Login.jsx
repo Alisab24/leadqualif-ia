@@ -37,7 +37,7 @@ export default function Login() {
     ? `/signup?returnTo=${searchParams.get('returnTo')}`
     : '/signup'
 
-  // ── LOGIN ────────────────────────────────────────────────────────────────
+  // ── LOGIN ──────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
@@ -56,7 +56,7 @@ export default function Login() {
     }
   }
 
-  // ── MOT DE PASSE OUBLIÉ ──────────────────────────────────────────────────
+  // ── MOT DE PASSE OUBLIÉ ──────────────────────────────
   const handleForgotPassword = async (e) => {
     e.preventDefault()
     setForgotLoading(true)

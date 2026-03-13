@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/core';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 
-// ── Labels SMMA pour l'affichage ─────────────────────────────
+// ── Labels SMMA ─────────────────────
 const TYPE_SERVICE_LABELS = {
   social_media:      'Social Media',
   meta_ads:          'Meta Ads',

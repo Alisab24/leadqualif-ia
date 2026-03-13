@@ -14,7 +14,7 @@ import {
   STATUS_LABELS,
 } from '../services/stripeService';
 
-/* ─── Toast interne (sans dépendance) ──────────────────────── */
+/* ─── Toast interne ──────────────── */
 const Toast = ({ message, type = 'success', onClose }) => (
   <div className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3.5
     rounded-xl shadow-xl text-sm font-semibold transition-all
@@ -25,7 +25,7 @@ const Toast = ({ message, type = 'success', onClose }) => (
   </div>
 );
 
-/* ─── Toggle Switch ─────────────────────────────────────────── */
+/* ─── Toggle Switch ──────────── */
 const Toggle = ({ checked, onChange, disabled = false }) => (
   <button
     type="button"
@@ -40,7 +40,7 @@ const Toggle = ({ checked, onChange, disabled = false }) => (
   </button>
 );
 
-/* ─── Champ formulaire générique ────────────────────────────── */
+/* ─── Champ formulaire ────────────────── */
 const Field = ({ label, hint, children, required }) => (
   <div>
     <label className="block text-xs font-bold text-slate-600 mb-1.5">
@@ -80,7 +80,7 @@ const Textarea = ({ className = '', ...props }) => (
   />
 );
 
-/* ─── Palettes couleurs prédéfinies ─────────────────────────── */
+/* ─── Palettes couleurs ─────────────────── */
 const COLOR_PRESETS = [
   '#2563eb', '#7c3aed', '#db2777', '#dc2626',
   '#ea580c', '#ca8a04', '#16a34a', '#0891b2',

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // Limites par plan
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export const PLAN_LIMITS = {
   free:       { leads_per_month: 10,  docs: false, stats: false, ia: false, multiUsers: false },
   starter:    { leads_per_month: 100, docs: true,  stats: false, ia: false, multiUsers: false },
@@ -26,9 +26,9 @@ export const PLAN_PRICES = {
   enterprise: 'Sur devis',
 }
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // Hook principal usePlanGuard
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function usePlanGuard() {
   const [profile, setProfile]               = useState(null)
   const [userPlan, setUserPlan]             = useState('free')
@@ -150,9 +150,9 @@ export function usePlanGuard() {
   }
 }
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // Bannière : Essai gratuit en cours
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function TrialBanner() {
   const { status, trialDaysLeft } = usePlanGuard()
   if (status !== 'trialing') return null
@@ -183,9 +183,9 @@ export function TrialBanner() {
   )
 }
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // Bannière : Quota leads Starter / Free
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function LeadQuotaBanner() {
   const { userPlan, leadsThisMonth, leadsUsagePercent, canAddLead } = usePlanGuard()
 
@@ -234,9 +234,9 @@ export function LeadQuotaBanner() {
   )
 }
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // Bannière : Plan Free (upgrade générique)
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function UpgradeBanner({ feature } = {}) {
   const { userPlan } = usePlanGuard()
   if (userPlan !== 'free') return null
@@ -268,9 +268,9 @@ export function UpgradeBanner({ feature } = {}) {
   )
 }
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // FeatureGate — verrouiller un composant selon le plan
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function FeatureGate({ feature, children, fallback }) {
   const { canAccess, loading, userPlan } = usePlanGuard()
 
@@ -305,9 +305,9 @@ export function FeatureGate({ feature, children, fallback }) {
   return children
 }
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 // AddLeadGate — bloquer la création de lead si quota atteint
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────
 export function AddLeadGate({ children, onBlocked }) {
   const { canAddLead, userPlan, leadsThisMonth } = usePlanGuard()
   const limit = PLAN_LIMITS[userPlan]?.leads_per_month
