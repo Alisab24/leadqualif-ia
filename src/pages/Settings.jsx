@@ -298,7 +298,7 @@ export default function Settings() {
     setLoading(false);
   };
 
-  /* ── Handlers ────────────────────────────────────────── */
+  /* ── Handlers ───────────────────── */
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const val = type === 'checkbox' ? checked : value;
@@ -434,7 +434,7 @@ export default function Settings() {
     }
   };
 
-  /* ── Stripe handlers ─────────────────────────────────── */
+  /* ── Stripe handlers ─────────────────── */
   const handleSubscribeWithEmail = async (plan, email, uid) => {
     setStripeLoading(true); setStripeError('');
     const r = await redirectToCheckout({ plan, userId: uid || userId, userEmail: email, agencyName: formData.nom_agence });
@@ -465,7 +465,7 @@ export default function Settings() {
 
   const isImmo = formData.type_agence === 'immobilier';
 
-  /* ── Onglets ─────────────────────────────────────────── */
+  /* ── Onglets ───────────────────── */
   const TABS = [
     { key: 'general',     icon: '🏢', label: 'Agence' },
     { key: 'visuel',      icon: '🎨', label: 'Apparence' },
@@ -475,7 +475,7 @@ export default function Settings() {
     { key: 'facturation', icon: '💳', label: 'Abonnement' },
   ];
 
-  /* ── Loading ──────────────────────────────────────────── */
+  /* ── Loading ───────────────────── */
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-slate-400">
       <div className="text-center">
@@ -487,17 +487,18 @@ export default function Settings() {
 
   /* ════════════════════════════════════════════════════════ */
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
-      {/* Toast */}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      const isImmo = formData.type_agence === 'immobilier';
 
-      {/* ── HEADER ─────────────────────────────────────── */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm z-10">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="text-xl shrink-0">⚙️</span>
-            <div className="min-w-0">
+      /* ── Onglets ───────────────────── */
+      const TABS = [
+        { key: 'general',     icon: '🏢', label: 'Agence' },
+        { key: 'visuel',      icon: '🎨', label: 'Apparence' },
+        { key: 'form',        icon: '🤖', label: 'Formulaire IA' },
+        { key: 'legal',       icon: '📋', label: 'Légal & Documents' },
+        { key: 'crm',         icon: '⚙️', label: 'CRM' },
+        { key: 'facturation', icon: '💳', label: 'Abonnement' },
+      ];
               <h1 className="text-base font-bold text-slate-900 truncate">Paramètres</h1>
               <p className="text-xs text-slate-400 truncate">
                 {formData.nom_agence || 'Agence'} · {isImmo ? '🏠 Immobilier' : '📱 SMMA'}
@@ -524,7 +525,7 @@ export default function Settings() {
         </div>
       </header>
 
-      {/* ── ONGLETS ─────────────────────────────────────── */}
+      {/* ── ONGLETS ─────────────────── */}
       <div className="flex-none flex border-b border-slate-200 bg-white px-6 overflow-x-auto">
         {TABS.map(t => (
           <button
@@ -545,7 +546,7 @@ export default function Settings() {
         ))}
       </div>
 
-      {/* ── CONTENU ─────────────────────────────────────── */}
+      {/* ── CONTENU ───────────────────── */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-3xl mx-auto">
 

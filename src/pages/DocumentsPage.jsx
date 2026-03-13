@@ -407,13 +407,18 @@ const DocumentsPage = () => {
 
   const getTypeIcon = (type) => {
     const icons = {
-      'devis': '📄',
-      'facture': '🧾',
-      'mandat': '📋',
-      'rapport': '📊',
-      'contrat': '📝',
-      'attestation': '✅',
-      'convention': '🤝'
+      'devis':            '💰',
+      'facture':          '🧾',
+      'mandat':           '📋',
+      'rapport':          '📊',
+      'contrat':          '📝',
+      'compromis':        '🤝',
+      'bon_visite':       '🏠',
+      'bon_de_visite':    '🏠',
+      'contrat_gestion':  '📑',
+      'offre_achat':      '🏷️',
+      'attestation':      '✅',
+      'convention':       '🤝',
     };
     return icons[type] || '📄';
   };
@@ -479,9 +484,12 @@ const DocumentsPage = () => {
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none bg-slate-50"
             >
               <option value="tous">Tous les types</option>
-              <option value="devis">📄 Devis</option>
+              <option value="devis">💰 Devis</option>
               <option value="facture">🧾 Factures</option>
               <option value="mandat">📋 Mandats</option>
+              <option value="compromis">🤝 Compromis</option>
+              <option value="bon_visite">🏠 Bons de visite</option>
+              <option value="contrat_gestion">📑 Contrats gestion</option>
               <option value="rapport">📊 Rapports</option>
               <option value="contrat">📝 Contrats</option>
             </select>
@@ -520,7 +528,7 @@ const DocumentsPage = () => {
       </div>
 
       {/* ── Bandeau CA ── */}
-      {(caStats.total > 0 || caStats.countEnvoye > 0 || caStats.countPaye > 0) && (
+      {(caStats.total > 0 || caStats.countEnvoye > 0 || caStats.countPaye > 0) ? (
         <div className="flex-none bg-white border-b border-slate-100 px-6 py-3">
           <div className="flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
@@ -539,6 +547,12 @@ const DocumentsPage = () => {
               </span>
             )}
           </div>
+        </div>
+      ) : documents.length > 0 && !documents.some(d => d.type === 'facture') && (
+        <div className="flex-none bg-amber-50 border-b border-amber-100 px-6 py-2.5">
+          <p className="text-xs text-amber-700">
+            💡 <strong>Suivi CA</strong> — Convertissez un devis en facture (bouton 🔄) puis marquez-la envoyée 📤 ou payée 💰 pour activer le suivi du chiffre d'affaires.
+          </p>
         </div>
       )}
 
