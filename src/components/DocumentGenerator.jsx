@@ -51,6 +51,55 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     showAmountInWords: true
   });
 
+  // États supplémentaires par type de document (mandat, contrat_gestion, bon_visite, compromis, contrat SMMA, rapport)
+  const [documentExtraSettings, setDocumentExtraSettings] = useState({
+    // ─── IMMO : Mandat ───
+    adresseBien: lead.adresse || '',
+    typeBienMandat: lead.type_bien_recherche || lead.type_bien || 'Appartement',
+    surfaceBien: '',
+    prixVenteMandat: lead.budget || 0,
+    tauxCommissionMandat: 5,
+    dureeMandat: 3,
+    mandatExclusif: true,
+    // ─── IMMO : Contrat de gestion locative ───
+    adresseBienGestion: lead.adresse || '',
+    typeBienGestion: lead.type_bien || 'Appartement',
+    loyerMensuel: '',
+    tauxGestion: 8,
+    dureeContratGestion: 12,
+    // ─── IMMO : Bon de visite ───
+    adresseBienVisite: lead.adresse || '',
+    dateVisite: new Date().toISOString().split('T')[0],
+    heureVisite: '10:00',
+    agentNom: '',
+    observationsVisite: '',
+    // ─── IMMO : Compromis ───
+    nomVendeur: '',
+    adresseVendeur: '',
+    prixVenteCompromis: lead.budget || 0,
+    acompteCompromis: Math.round((lead.budget || 0) * 0.1),
+    // ─── SMMA : Contrat de prestation ───
+    prixMensuelContrat: Math.round(((lead.budget_marketing ? parseInt(lead.budget_marketing) : (lead.budget || 0)) * 0.05)) || 1500,
+    dureeContratSMMA: 6,
+    servicesContrat: 'Stratégie marketing digitale personnalisée\nGestion réseaux sociaux (3 plateformes)\nCréation de contenu mensuel (15 publications)\nCampagnes publicitaires mensuelles\nReporting et analyse mensuelle\nOptimisation continue',
+    plateformesContrat: 'Instagram, Facebook, LinkedIn',
+    // ─── SMMA : Rapport de performance ───
+    periodeDateDebut: '',
+    periodeDateFin: '',
+    kpiInstagramAbonnes: '',
+    kpiInstagramEngagement: '',
+    kpiInstagramPortee: '',
+    kpiFacebookAbonnes: '',
+    kpiFacebookEngagement: '',
+    kpiFacebookPortee: '',
+    kpiLinkedInAbonnes: '',
+    kpiLinkedInEngagement: '',
+    kpiConversion: '',
+    kpiLeads: '',
+    kpiCA: '',
+    recommandationsRapport: 'Optimisation du contenu existant\nNouvelles campagnes publicitaires ciblées\nAnalyse concurrentielle approfondie',
+  });
+
   // États pour la modale de pré-génération
   const [documentSettings, setDocumentSettings] = useState({
     // Champs IMMO
@@ -380,16 +429,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   };
 
   const generateDocument = async (docType) => {
-    // Pour les documents financiers, ouvrir la modale de pré-génération
-    if (docType.id === 'devis' || docType.id === 'facture') {
-      setPendingDocType(docType);
-      setShowPreGenerationModal(true);
-      return;
-    }
-    
-    // Pour les autres documents, afficher le popup de métadonnées
+    // Tous les types de documents passent par la modale de pré-génération
+    // (formulaire adapté selon docType.id)
     setPendingDocType(docType);
-    setShowMetadataModal(true);
+    setShowPreGenerationModal(true);
   };
 
   // Convertir le montant en lettres
@@ -531,15 +574,159 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
       console.log('📄 Numéro de document généré:', documentNumber);
       
+      // ─── Construire le contenu du corps du document selon le type ───
+      const buildBodyContent = () => {
+        const ex = documentExtraSettings;
+        const fmtAmt = (v) => formatAmount(v, agencyProfile?.devise || 'EUR');
+        const agencyName = agencyProfile?.name || 'Agence';
+        const today = new Date().toLocaleDateString('fr-FR');
+
+        switch (docType.id) {
+          case 'mandat': {
+            const commission = ex.tauxCommissionMandat
+              ? `${ex.tauxCommissionMandat}% du prix de vente HT`
+              : '5% du prix de vente HT';
+            const prixVente = ex.prixVenteMandat ? fmtAmt(ex.prixVenteMandat) : fmtAmt(lead.budget || 0);
+            return [
+              { heading: 'MANDAT EXCLUSIF DE VENTE', type: 'title' },
+              { heading: 'Entre les soussignés', type: 'section' },
+              { text: `Vendeur(s) : ${lead.nom}${lead.adresse ? ' — ' + lead.adresse : ''}\nMandataire : ${agencyName}${agencyProfile?.address ? ', ' + agencyProfile.address : ''}` },
+              { heading: 'Objet du mandat', type: 'section' },
+              { text: `Le vendeur donne ${ex.mandatExclusif ? 'mandat exclusif' : 'mandat simple'} à ${agencyName} pour la vente du bien suivant :\n\nAdresse : ${ex.adresseBien || '[adresse du bien]'}\nType : ${ex.typeBienMandat}${ex.surfaceBien ? ' — Surface : ' + ex.surfaceBien + ' m²' : ''}\nPrix de vente souhaité : ${prixVente}` },
+              { heading: 'Article 1 — Durée du mandat', type: 'section' },
+              { text: `Le présent mandat est conclu pour une durée de ${ex.dureeMandat} mois à compter de la date de signature. À défaut de dénonciation par lettre recommandée avec AR au moins 15 jours avant l'échéance, il se renouvelle par tacite reconduction, sauf si la réglementation impose une limite.` },
+              { heading: 'Article 2 — Commission', type: 'section' },
+              { text: `Une commission de ${commission} (toutes taxes comprises) sera due par le vendeur exclusivement lors de la signature de l'acte authentique de vente.\n\n${ex.mandatExclusif ? 'Dans le cadre de ce mandat exclusif, le vendeur s\'engage à ne pas confier de mandat à une autre agence pendant toute la durée du présent mandat.' : ''}` },
+              { heading: 'Article 3 — Engagements de l\'agence', type: 'section' },
+              { text: `${agencyName} s\'engage à :\n• Assurer la promotion active du bien sur les principaux portails immobiliers et son propre réseau\n• Organiser les visites selon les disponibilités du vendeur\n• Rendre compte régulièrement de ses démarches\n• Présenter toute offre d\'achat sans délai` },
+              { heading: 'Article 4 — Résiliation', type: 'section' },
+              { text: `Le mandat peut être résilié par anticipation par lettre recommandée avec AR moyennant un préavis de 15 jours calendaires.\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { type: 'signature' },
+            ];
+          }
+
+          case 'contrat_gestion': {
+            const loyer = ex.loyerMensuel ? fmtAmt(parseFloat(ex.loyerMensuel)) : '[loyer mensuel]';
+            return [
+              { heading: 'CONTRAT DE GESTION LOCATIVE', type: 'title' },
+              { heading: 'Parties contractantes', type: 'section' },
+              { text: `Propriétaire (Mandant) : ${lead.nom}\nEmail : ${lead.email || '—'}  |  Tél : ${lead.telephone || '—'}\n\nMandataire : ${agencyName}\n${agencyProfile?.legalName || agencyName}${agencyProfile?.address ? '\n' + agencyProfile.address : ''}${agencyProfile?.registrationNumber ? '\nN° ' + agencyProfile.registrationNumber : ''}` },
+              { heading: 'Bien concerné', type: 'section' },
+              { text: `Adresse : ${ex.adresseBienGestion || '[adresse du bien]'}\nType : ${ex.typeBienGestion}\nLoyer mensuel charges comprises : ${loyer}` },
+              { heading: 'Article 1 — Objet du contrat', type: 'section' },
+              { text: `Le présent contrat a pour objet de confier au Mandataire la gestion locative complète du bien désigné ci-dessus, conformément aux dispositions de la loi Hoguet du 2 janvier 1970 et de son décret d\'application.` },
+              { heading: 'Article 2 — Missions du mandataire', type: 'section' },
+              { text: `• Recherche et sélection des locataires (vérification des dossiers, solvabilité)\n• Rédaction et signature des baux d\'habitation conformes à la loi Alur\n• Réalisation des états des lieux d\'entrée et de sortie\n• Perception des loyers et charges, quittancement mensuel\n• Gestion des travaux courants et suivi des sinistres\n• Représentation auprès des organismes (assurances, syndic, administrations)\n• Reporting mensuel : relevé de gérance et justificatifs` },
+              { heading: 'Article 3 — Honoraires de gestion', type: 'section' },
+              { text: `Honoraires de gestion courante : ${ex.tauxGestion}% des loyers encaissés hors charges\nHonoraires de remise en location : 1 mois de loyer hors charges\nÉtats des lieux (entrée/sortie) : conformément au barème en vigueur\n\nLes honoraires sont prélevés directement sur les loyers encaissés et décomptés sur le relevé mensuel.` },
+              { heading: 'Article 4 — Durée et résiliation', type: 'section' },
+              { text: `Le présent mandat est conclu pour une durée de ${ex.dureeContratGestion} mois renouvelable par tacite reconduction. Il peut être résilié par l\'une ou l\'autre des parties avec un préavis de 3 mois avant la date anniversaire, par lettre recommandée avec AR.\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { type: 'signature' },
+            ];
+          }
+
+          case 'compromis': {
+            const prixVente = fmtAmt(ex.prixVenteCompromis || lead.budget || 0);
+            const acompte = fmtAmt(ex.acompteCompromis || Math.round((ex.prixVenteCompromis || lead.budget || 0) * 0.1));
+            const solde = fmtAmt((ex.prixVenteCompromis || lead.budget || 0) - (ex.acompteCompromis || Math.round((ex.prixVenteCompromis || lead.budget || 0) * 0.1)));
+            return [
+              { heading: 'COMPROMIS DE VENTE', type: 'title' },
+              { heading: 'Parties', type: 'section' },
+              { text: `Vendeur : ${ex.nomVendeur || '[Nom et prénom du vendeur]'}${ex.adresseVendeur ? '\nAdresse : ' + ex.adresseVendeur : ''}\n\nAcquéreur : ${lead.nom}\nEmail : ${lead.email || '—'}  |  Tél : ${lead.telephone || '—'}` },
+              { heading: 'Bien vendu', type: 'section' },
+              { text: `Le vendeur s\'engage à vendre à l\'acquéreur, qui accepte :\n\nAdresse : ${documentExtraSettings.adresseBien || '[adresse du bien]'}\nType : ${ex.typeBienMandat || lead.type_bien_recherche || lead.type_bien || '[type du bien]'}${ex.surfaceBien ? '\nSurface habitable : ' + ex.surfaceBien + ' m²' : ''}\n\nPrix de vente convenu : ${prixVente}` },
+              { heading: 'Conditions financières', type: 'section' },
+              { text: `Prix de vente : ${prixVente}\nAcompte (séquestre) à la signature : ${acompte}\nSolde à régler à l\'acte notarié définitif : ${solde}\n\nMode de financement : ☐ Comptant  ☐ Prêt bancaire (clause suspensive)` },
+              { heading: 'Clauses suspensives', type: 'section' },
+              { text: `La présente vente est conclue sous les conditions suspensives suivantes :\n• Obtention d\'un prêt bancaire d\'un montant minimum de ______ € au taux maximum de ______ %\n• Absence de servitude d\'urbanisme ou administrative incompatible avec l\'usage prévu\n• Accord de préemption de la commune ou de tout organisme disposant du droit de préemption\n\nDélai de réalisation des conditions suspensives : 45 jours à compter de la signature` },
+              { heading: 'Délais', type: 'section' },
+              { text: `Droit de rétractation de l\'acquéreur : 10 jours calendaires à compter du lendemain de la première présentation de la notification\nDate prévisionnelle de signature de l\'acte authentique : ______ / ______ / ______\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { type: 'signature' },
+            ];
+          }
+
+          case 'bon_visite': {
+            return [
+              { heading: 'BON DE VISITE', type: 'title' },
+              { heading: 'Informations de la visite', type: 'section' },
+              { text: `Visiteur : ${lead.nom}\nEmail : ${lead.email || '—'}  |  Tél : ${lead.telephone || '—'}\n\nBien visité : ${ex.adresseBienVisite || '[adresse du bien]'}\nDate de visite : ${ex.dateVisite ? new Date(ex.dateVisite).toLocaleDateString('fr-FR') : today}\nHeure : ${ex.heureVisite || '[heure]'}\n\nAgent organisateur : ${ex.agentNom || agencyName} — ${agencyName}` },
+              { heading: 'Attestation de visite', type: 'section' },
+              { text: `Je soussigné(e) ${lead.nom} atteste avoir visité le bien mentionné ci-dessus en présence d\'un représentant de l\'agence ${agencyName}.\n\nJe reconnais avoir pris connaissance :\n• Des caractéristiques principales du bien (surface, état général, équipements)\n• Du prix de présentation et des conditions de vente\n• Des informations disponibles sur les diagnostics obligatoires` },
+              { heading: 'Obligations légales', type: 'section' },
+              { text: `Le présent bon de visite confirme l\'intervention de l\'agence ${agencyName} dans le cadre de la présentation de ce bien. En cas d\'acquisition directe du bien présenté, sans passer par cette agence, le visiteur s\'expose à des poursuites pour contournement d\'agence.\n\n${ex.observationsVisite ? 'Observations :\n' + ex.observationsVisite : ''}` },
+              { heading: 'Prochaines étapes', type: 'section' },
+              { text: `• Retour du visiteur sous 48h\n• Proposition d\'offre (si intérêt confirmé)\n• Mise en relation avec le propriétaire vendeur\n• Préparation du compromis de vente (si accord)\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { type: 'signature' },
+            ];
+          }
+
+          case 'contrat': {
+            const prixMensuel = fmtAmt(ex.prixMensuelContrat || 1500);
+            const services = ex.servicesContrat.split('\n').filter(s => s.trim());
+            return [
+              { heading: 'CONTRAT DE PRESTATION DE SERVICES MARKETING DIGITAL', type: 'title' },
+              { heading: 'Entre les soussignés', type: 'section' },
+              { text: `Client : ${lead.nom}\nEmail : ${lead.email || '—'}  |  Tél : ${lead.telephone || '—'}${lead.type_service ? '\nSecteur : ' + lead.type_service : ''}${lead.secteur_activite ? ' — ' + lead.secteur_activite : ''}\n\nPrestataire : ${agencyName}\n${agencyProfile?.legalName || agencyName}${agencyProfile?.address ? '\n' + agencyProfile.address : ''}${agencyProfile?.registrationNumber ? '\nSIRET : ' + agencyProfile.registrationNumber : ''}` },
+              { heading: 'Article 1 — Objet du contrat', type: 'section' },
+              { text: `Le présent contrat a pour objet de définir les conditions dans lesquelles ${agencyName} (ci-après "le Prestataire") fournira au Client des services de marketing digital et de communication sur les réseaux sociaux.` },
+              { heading: 'Article 2 — Prestations incluses', type: 'section' },
+              { text: services.map(s => '• ' + s).join('\n') + `\n\nPlateformes couvertes : ${ex.plateformesContrat}` },
+              { heading: 'Article 3 — Durée et conditions financières', type: 'section' },
+              { text: `Durée du contrat : ${ex.dureeContratSMMA} mois à compter de la date de signature\nMontant mensuel : ${prixMensuel} HT/mois\n\nFacturation : mensuelle, en début de mois\nConditions de paiement : ${documentSettings.conditionsPaiementSMMA || 'À réception de facture, sous 30 jours'}\n\nEn cas de retard de paiement, des pénalités de 1,5% par mois seront appliquées conformément aux dispositions légales.` },
+              { heading: 'Article 4 — Propriété intellectuelle', type: 'section' },
+              { text: `Les contenus créés par le Prestataire dans le cadre de ce contrat restent sa propriété intellectuelle jusqu\'au complet paiement des honoraires correspondants. Le Client bénéficie d\'une licence d\'utilisation non exclusive sur lesdits contenus pour la durée du contrat.` },
+              { heading: 'Article 5 — Résiliation', type: 'section' },
+              { text: `En cas de souhait de résiliation anticipée, un préavis de 30 jours calendaires doit être adressé par email ou courrier recommandé avec AR. Les prestations déjà réalisées restent dues.\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { type: 'signature' },
+            ];
+          }
+
+          case 'rapport': {
+            const periode = ex.periodeDateDebut && ex.periodeDateFin
+              ? `Du ${new Date(ex.periodeDateDebut).toLocaleDateString('fr-FR')} au ${new Date(ex.periodeDateFin).toLocaleDateString('fr-FR')}`
+              : `Mois de ${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+            const recommandations = ex.recommandationsRapport.split('\n').filter(r => r.trim());
+            return [
+              { heading: 'RAPPORT DE PERFORMANCE MARKETING DIGITAL', type: 'title' },
+              { heading: 'Informations générales', type: 'section' },
+              { text: `Client : ${lead.nom}  |  ${lead.email || '—'}\nAgence : ${agencyName}\nPériode d\'analyse : ${periode}` },
+              { heading: 'Indicateurs clés de performance (KPIs)', type: 'section' },
+              { text: `TAUX D'ENGAGEMENT GLOBAL : ${ex.kpiConversion ? ex.kpiConversion + '%' : '—'}\nLEADS GÉNÉRÉS : ${ex.kpiLeads || '—'}\nCHIFFRE D\'AFFAIRES ESTIMÉ : ${ex.kpiCA ? fmtAmt(parseFloat(ex.kpiCA)) : '—'}` },
+              { heading: 'Performances par plateforme', type: 'section' },
+              { text: [
+                '─ Instagram ─',
+                `Abonnés : ${ex.kpiInstagramAbonnes || '—'}  |  Engagement : ${ex.kpiInstagramEngagement ? ex.kpiInstagramEngagement + '%' : '—'}  |  Portée : ${ex.kpiInstagramPortee || '—'} personnes`,
+                '',
+                '─ Facebook ─',
+                `Abonnés : ${ex.kpiFacebookAbonnes || '—'}  |  Engagement : ${ex.kpiFacebookEngagement ? ex.kpiFacebookEngagement + '%' : '—'}  |  Portée : ${ex.kpiFacebookPortee || '—'} personnes`,
+                '',
+                '─ LinkedIn ─',
+                `Abonnés : ${ex.kpiLinkedInAbonnes || '—'}  |  Engagement : ${ex.kpiLinkedInEngagement ? ex.kpiLinkedInEngagement + '%' : '—'}`,
+              ].join('\n') },
+              { heading: 'Recommandations stratégiques', type: 'section' },
+              { text: recommandations.map(r => '• ' + r).join('\n') },
+              { heading: 'Prochaines actions', type: 'section' },
+              { text: `• Mise en place des recommandations dès la semaine prochaine\n• Révision du budget publicitaire si besoin\n• Prochain point de performance : dans 30 jours\n\nRapport établi par ${agencyName}, le ${today}` },
+            ];
+          }
+
+          default:
+            return null;
+        }
+      };
+
       // Préparer les données du document
+      const bodyContent = buildBodyContent();
       let documentData = {
         type: docType,
         number: documentNumber, // 🎯 Numéro légal (string direct)
         settings: documentSettings,
+        extraSettings: documentExtraSettings,
+        bodyContent,
         metadata: {
           ...metadataSettings,
-          amountInWords: metadataSettings.showAmountInWords ? 
-            DocumentCounterService.formatAmountInWords(documentSettings.bienPrice || 0) : 
+          amountInWords: metadataSettings.showAmountInWords ?
+            DocumentCounterService.formatAmountInWords(documentSettings.bienPrice || 0) :
             null
         },
         financialData: null
@@ -1386,214 +1573,413 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             </div>
             
             <div className="p-6 space-y-6">
-              {agencyType === 'immobilier' ? (
-                /* ===== CHAMPS IMMO ===== */
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Prix du bien (€) *
-                      </label>
-                      <input
-                        type="number"
-                        value={documentSettings.bienPrice}
-                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, bienPrice: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                        placeholder="Ex: 250000"
-                        min="0"
-                      />
-                    </div>
+              {/* ════════════════════════════════════════════
+                  FORMULAIRES SELON TYPE DE DOCUMENT
+                  ════════════════════════════════════════════ */}
 
+              {/* ── DEVIS / FACTURE IMMO ── */}
+              {(pendingDocType?.id === 'devis' || pendingDocType?.id === 'facture') && agencyType === 'immobilier' && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Type de commission *
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix du bien (€) *</label>
+                      <input type="number" value={documentSettings.bienPrice}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, bienPrice: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 250000" min="0" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Type de commission *</label>
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'percentage' }))}
-                          className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
-                            documentSettings.commissionType === 'percentage'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-slate-300 bg-white text-slate-700'
-                          }`}
-                        >
-                          Pourcentage (%)
-                        </button>
-                        <button
-                          onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'fixed' }))}
-                          className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
-                            documentSettings.commissionType === 'fixed'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-slate-300 bg-white text-slate-700'
-                          }`}
-                        >
-                          Montant fixe (€)
-                        </button>
+                        <button onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'percentage' }))}
+                          className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors text-sm ${documentSettings.commissionType === 'percentage' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'}`}>%</button>
+                        <button onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'fixed' }))}
+                          className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors text-sm ${documentSettings.commissionType === 'fixed' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'}`}>€ fixe</button>
                       </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        {documentSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission (€)'} *
-                      </label>
-                      <input
-                        type="number"
-                        value={documentSettings.commissionValue}
+                      <label className="block text-sm font-medium text-slate-700 mb-1">{documentSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission (€)'}</label>
+                      <input type="number" value={documentSettings.commissionValue}
                         onChange={(e) => setDocumentSettings(prev => ({ ...prev, commissionValue: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder={documentSettings.commissionType === 'percentage' ? 'Ex: 5' : 'Ex: 10000'}
-                        min="0"
-                        step={documentSettings.commissionType === 'percentage' ? '0.1' : '100'}
-                      />
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" step={documentSettings.commissionType === 'percentage' ? '0.1' : '100'} />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Taux de TVA (%)
-                      </label>
-                      <select
-                        value={documentSettings.tva}
-                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="0">0%</option>
-                        <option value="5.5">5.5%</option>
-                        <option value="10">10%</option>
-                        <option value="20">20%</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Honoraires supplémentaires (€)
-                      </label>
-                      <input
-                        type="number"
-                        value={documentSettings.honoraires}
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Honoraires sup. (€)</label>
+                      <input type="number" value={documentSettings.honoraires}
                         onChange={(e) => setDocumentSettings(prev => ({ ...prev, honoraires: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ex: 500"
-                        min="0"
-                      />
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Frais annexes (€)
-                      </label>
-                      <input
-                        type="number"
-                        value={documentSettings.frais}
-                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, frais: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ex: 200"
-                        min="0"
-                      />
+                      <label className="block text-sm font-medium text-slate-700 mb-1">TVA (%)</label>
+                      <select value={documentSettings.tva} onChange={(e) => setDocumentSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="0">0%</option><option value="5.5">5.5%</option><option value="10">10%</option><option value="20">20%</option>
+                      </select>
                     </div>
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Conditions de paiement
-                    </label>
-                    <textarea
-                      value={documentSettings.conditionsPaiement}
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Conditions de paiement</label>
+                    <textarea value={documentSettings.conditionsPaiement}
                       onChange={(e) => setDocumentSettings(prev => ({ ...prev, conditionsPaiement: e.target.value }))}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      rows={3}
-                      placeholder="Ex: 50% à la signature, 50% à la livraison"
-                    />
-                  </div>
-                </>
-              ) : (
-                /* ===== CHAMPS SMMA ===== */
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Désignation de la prestation *
-                    </label>
-                    <input
-                      type="text"
-                      value={documentSettings.designationPrestation}
-                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, designationPrestation: e.target.value }))}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Ex: Stratégie marketing digitale complète"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Prix HT (€) *
-                      </label>
-                      <input
-                        type="number"
-                        value={documentSettings.prixHT}
-                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, prixHT: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ex: 2000"
-                        min="0"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Taux de TVA (%)
-                      </label>
-                      <select
-                        value={documentSettings.tva}
-                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="0">0%</option>
-                        <option value="5.5">5.5%</option>
-                        <option value="10">10%</option>
-                        <option value="20">20%</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Périodicité *
-                      </label>
-                      <select
-                        value={documentSettings.periodicite}
-                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, periodicite: e.target.value }))}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="one-shot">One-shot</option>
-                        <option value="mensuel">Mensuel</option>
-                        <option value="trimestriel">Trimestriel</option>
-                        <option value="annuel">Annuel</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Conditions de paiement
-                    </label>
-                    <textarea
-                      value={documentSettings.conditionsPaiementSMMA}
-                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, conditionsPaiementSMMA: e.target.value }))}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      rows={3}
-                      placeholder="Ex: Paiement à réception de facture"
-                    />
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none" rows={2} />
                   </div>
                 </>
               )}
 
-              {/* ===== RÉCAPITULATIF FINANCIER ===== */}
+              {/* ── DEVIS / FACTURE SMMA ── */}
+              {(pendingDocType?.id === 'devis' || pendingDocType?.id === 'facture') && agencyType === 'smma' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Désignation de la prestation *</label>
+                    <input type="text" value={documentSettings.designationPrestation}
+                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, designationPrestation: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Stratégie marketing digitale complète" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix HT (€) *</label>
+                      <input type="number" value={documentSettings.prixHT}
+                        onChange={(e) => setDocumentSettings(prev => ({ ...prev, prixHT: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">TVA (%)</label>
+                      <select value={documentSettings.tva} onChange={(e) => setDocumentSettings(prev => ({ ...prev, tva: parseFloat(e.target.value) }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="0">0%</option><option value="5.5">5.5%</option><option value="10">10%</option><option value="20">20%</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Périodicité</label>
+                      <select value={documentSettings.periodicite} onChange={(e) => setDocumentSettings(prev => ({ ...prev, periodicite: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="one-shot">One-shot</option><option value="mensuel">Mensuel</option><option value="trimestriel">Trimestriel</option><option value="annuel">Annuel</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Conditions de paiement</label>
+                    <textarea value={documentSettings.conditionsPaiementSMMA}
+                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, conditionsPaiementSMMA: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none" rows={2} />
+                  </div>
+                </>
+              )}
+
+              {/* ── MANDAT DE VENTE ── */}
+              {pendingDocType?.id === 'mandat' && (
+                <>
+                  <div className="bg-blue-50 rounded-lg px-4 py-2 text-xs text-blue-700 font-medium">🏠 Mandat exclusif de vente</div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Adresse du bien *</label>
+                    <input type="text" value={documentExtraSettings.adresseBien}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, adresseBien: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 12 rue des Lilas, 75010 Paris" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Type de bien</label>
+                      <input type="text" value={documentExtraSettings.typeBienMandat}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, typeBienMandat: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Appartement / Maison" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Surface (m²)</label>
+                      <input type="text" value={documentExtraSettings.surfaceBien}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, surfaceBien: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 85" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix de vente (€) *</label>
+                      <input type="number" value={documentExtraSettings.prixVenteMandat}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, prixVenteMandat: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Commission agence (%)</label>
+                      <input type="number" value={documentExtraSettings.tauxCommissionMandat}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, tauxCommissionMandat: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" step="0.1" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Durée du mandat (mois)</label>
+                      <input type="number" value={documentExtraSettings.dureeMandat}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, dureeMandat: parseInt(e.target.value) || 3 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="1" max="12" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" id="exclusif" checked={documentExtraSettings.mandatExclusif}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, mandatExclusif: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 rounded" />
+                    <label htmlFor="exclusif" className="text-sm text-slate-700">Mandat exclusif (le propriétaire ne peut pas confier à une autre agence)</label>
+                  </div>
+                </>
+              )}
+
+              {/* ── CONTRAT DE GESTION LOCATIVE ── */}
+              {pendingDocType?.id === 'contrat_gestion' && (
+                <>
+                  <div className="bg-green-50 rounded-lg px-4 py-2 text-xs text-green-700 font-medium">🏘️ Gestion locative</div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Adresse du bien *</label>
+                    <input type="text" value={documentExtraSettings.adresseBienGestion}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, adresseBienGestion: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 5 avenue Victor Hugo, 69006 Lyon" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Type de bien</label>
+                      <input type="text" value={documentExtraSettings.typeBienGestion}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, typeBienGestion: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Appartement / Maison" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Loyer mensuel charges comprises (€)</label>
+                      <input type="number" value={documentExtraSettings.loyerMensuel}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, loyerMensuel: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 850" min="0" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Honoraires de gestion (%)</label>
+                      <input type="number" value={documentExtraSettings.tauxGestion}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, tauxGestion: parseFloat(e.target.value) || 8 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" step="0.5" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Durée du contrat (mois)</label>
+                      <input type="number" value={documentExtraSettings.dureeContratGestion}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, dureeContratGestion: parseInt(e.target.value) || 12 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="1" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── COMPROMIS DE VENTE ── */}
+              {pendingDocType?.id === 'compromis' && (
+                <>
+                  <div className="bg-purple-50 rounded-lg px-4 py-2 text-xs text-purple-700 font-medium">🤝 Compromis de vente</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nom du vendeur *</label>
+                      <input type="text" value={documentExtraSettings.nomVendeur}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, nomVendeur: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Nom Prénom du vendeur" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Adresse du vendeur</label>
+                      <input type="text" value={documentExtraSettings.adresseVendeur}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, adresseVendeur: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Adresse complète" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Adresse du bien *</label>
+                    <input type="text" value={documentExtraSettings.adresseBien}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, adresseBien: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Adresse complète du bien" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix de vente (€) *</label>
+                      <input type="number" value={documentExtraSettings.prixVenteCompromis}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, prixVenteCompromis: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Acompte / séquestre (€)</label>
+                      <input type="number" value={documentExtraSettings.acompteCompromis}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, acompteCompromis: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── BON DE VISITE ── */}
+              {pendingDocType?.id === 'bon_visite' && (
+                <>
+                  <div className="bg-orange-50 rounded-lg px-4 py-2 text-xs text-orange-700 font-medium">🏠 Bon de visite</div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Adresse du bien visité *</label>
+                    <input type="text" value={documentExtraSettings.adresseBienVisite}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, adresseBienVisite: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Adresse complète du bien" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Date de visite</label>
+                      <input type="date" value={documentExtraSettings.dateVisite}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, dateVisite: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Heure</label>
+                      <input type="time" value={documentExtraSettings.heureVisite}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, heureVisite: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Agent présent</label>
+                      <input type="text" value={documentExtraSettings.agentNom}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, agentNom: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Nom de l'agent" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Observations / remarques</label>
+                    <textarea value={documentExtraSettings.observationsVisite}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, observationsVisite: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none" rows={3}
+                      placeholder="État général du bien, points d'attention, retours du visiteur..." />
+                  </div>
+                </>
+              )}
+
+              {/* ── CONTRAT DE PRESTATION SMMA ── */}
+              {pendingDocType?.id === 'contrat' && agencyType === 'smma' && (
+                <>
+                  <div className="bg-indigo-50 rounded-lg px-4 py-2 text-xs text-indigo-700 font-medium">📝 Contrat de prestation marketing</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix mensuel HT (€) *</label>
+                      <input type="number" value={documentExtraSettings.prixMensuelContrat}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, prixMensuelContrat: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Durée du contrat (mois) *</label>
+                      <input type="number" value={documentExtraSettings.dureeContratSMMA}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, dureeContratSMMA: parseInt(e.target.value) || 6 }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="1" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Plateformes gérées</label>
+                    <input type="text" value={documentExtraSettings.plateformesContrat}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, plateformesContrat: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ex: Instagram, Facebook, LinkedIn, TikTok" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Prestations incluses (une par ligne) *</label>
+                    <textarea value={documentExtraSettings.servicesContrat}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, servicesContrat: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y font-mono text-sm" rows={6}
+                      placeholder="Stratégie marketing digitale&#10;Gestion réseaux sociaux&#10;Création de contenu (15 publications)&#10;..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Conditions de paiement</label>
+                    <input type="text" value={documentSettings.conditionsPaiementSMMA}
+                      onChange={(e) => setDocumentSettings(prev => ({ ...prev, conditionsPaiementSMMA: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="À réception de facture, sous 30 jours" />
+                  </div>
+                </>
+              )}
+
+              {/* ── RAPPORT DE PERFORMANCE SMMA ── */}
+              {pendingDocType?.id === 'rapport' && agencyType === 'smma' && (
+                <>
+                  <div className="bg-rose-50 rounded-lg px-4 py-2 text-xs text-rose-700 font-medium">📊 Rapport de performance</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Période — Début</label>
+                      <input type="date" value={documentExtraSettings.periodeDateDebut}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, periodeDateDebut: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Période — Fin</label>
+                      <input type="date" value={documentExtraSettings.periodeDateFin}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, periodeDateFin: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">📸 Instagram</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div><label className="block text-xs text-slate-500 mb-1">Abonnés</label>
+                        <input type="text" value={documentExtraSettings.kpiInstagramAbonnes}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiInstagramAbonnes: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 4 280" /></div>
+                      <div><label className="block text-xs text-slate-500 mb-1">Engagement (%)</label>
+                        <input type="text" value={documentExtraSettings.kpiInstagramEngagement}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiInstagramEngagement: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 3.2" /></div>
+                      <div><label className="block text-xs text-slate-500 mb-1">Portée</label>
+                        <input type="text" value={documentExtraSettings.kpiInstagramPortee}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiInstagramPortee: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 18 500" /></div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">📘 Facebook</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div><label className="block text-xs text-slate-500 mb-1">Abonnés</label>
+                        <input type="text" value={documentExtraSettings.kpiFacebookAbonnes}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiFacebookAbonnes: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 2 100" /></div>
+                      <div><label className="block text-xs text-slate-500 mb-1">Engagement (%)</label>
+                        <input type="text" value={documentExtraSettings.kpiFacebookEngagement}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiFacebookEngagement: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 1.8" /></div>
+                      <div><label className="block text-xs text-slate-500 mb-1">Portée</label>
+                        <input type="text" value={documentExtraSettings.kpiFacebookPortee}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiFacebookPortee: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 9 200" /></div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">💼 LinkedIn</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="block text-xs text-slate-500 mb-1">Abonnés</label>
+                        <input type="text" value={documentExtraSettings.kpiLinkedInAbonnes}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiLinkedInAbonnes: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 850" /></div>
+                      <div><label className="block text-xs text-slate-500 mb-1">Engagement (%)</label>
+                        <input type="text" value={documentExtraSettings.kpiLinkedInEngagement}
+                          onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiLinkedInEngagement: e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" placeholder="Ex: 4.5" /></div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Leads générés</label>
+                      <input type="text" value={documentExtraSettings.kpiLeads}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiLeads: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 24" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Taux de conversion (%)</label>
+                      <input type="text" value={documentExtraSettings.kpiConversion}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiConversion: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 2.4" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">CA estimé (€)</label>
+                      <input type="text" value={documentExtraSettings.kpiCA}
+                        onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiCA: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 12000" /></div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Recommandations stratégiques (une par ligne)</label>
+                    <textarea value={documentExtraSettings.recommandationsRapport}
+                      onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, recommandationsRapport: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-sm" rows={4}
+                      placeholder="Optimisation du contenu existant&#10;Nouvelles campagnes ciblées&#10;Analyse concurrentielle..." />
+                  </div>
+                </>
+              )}
+
+              {/* ═══ RÉCAPITULATIF FINANCIER (devis/facture seulement) ═══ */}
+              {(pendingDocType?.id === 'devis' || pendingDocType?.id === 'facture') && (
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   📊 Récapitulatif financier
                 </h3>
-                
+
                 <div className="space-y-3">
                   {agencyType === 'immobilier' ? (
                     <>
@@ -1603,12 +1989,12 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                           {formatAmount(calculateCommission())}
                         </span>
                       </div>
-                      
+
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Honoraires:</span>
                         <span className="font-medium text-slate-900">{formatAmount(documentSettings.honoraires)}</span>
                       </div>
-                      
+
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Frais annexes:</span>
                         <span className="font-medium text-slate-900">{formatAmount(documentSettings.frais)}</span>
@@ -1645,6 +2031,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   </div>
                 </div>
               </div>
+              )}
+
             </div>
 
             {/* Actions */}
@@ -2040,30 +2428,64 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   </div>
                 )}
 
-                {/* Métadonnées */}
+                {/* Corps structuré du document (mandat, contrat, rapport…) */}
+                {docData.document?.bodyContent && docData.document.bodyContent.length > 0 && (
+                  <div style={{ marginTop: '24px' }}>
+                    {docData.document.bodyContent.map((block, idx) => {
+                      if (block.type === 'title') {
+                        return <div key={idx} style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a5f', textAlign: 'center', margin: '0 0 20px 0', paddingBottom: '10px', borderBottom: '2px solid #3b82f6', letterSpacing: '0.04em' }}>{block.heading}</div>;
+                      } else if (block.type === 'section') {
+                        return <div key={idx} style={{ fontSize: '12px', fontWeight: '700', color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '18px 0 4px 0', paddingBottom: '4px', borderBottom: '1px solid #dbeafe' }}>{block.heading}</div>;
+                      } else if (block.type === 'signature') {
+                        return (
+                          <div key={idx} className="signature-section" style={{ marginTop: '28px' }}>
+                            <div className="signature-block">
+                              <div className="signature-label">Signature de l'agence</div>
+                              <div className="signature-line"></div>
+                              <div className="signature-label" style={{ fontWeight: '600' }}>{docData.agencyProfile?.name || 'Agence'}</div>
+                            </div>
+                            <div className="signature-block">
+                              <div className="signature-label">Signature du client</div>
+                              <div className="signature-line"></div>
+                              <div className="signature-label" style={{ fontWeight: '600' }}>{docData.lead?.nom || 'Client'}</div>
+                            </div>
+                          </div>
+                        );
+                      } else if (block.text) {
+                        return <div key={idx} style={{ fontSize: '13px', color: '#374151', whiteSpace: 'pre-line', lineHeight: '1.7', margin: '4px 0' }}>{block.text}</div>;
+                      }
+                      return null;
+                    })}
+                  </div>
+                )}
+
+                {/* Métadonnées (montant en lettres — devis/facture) */}
                 {docData.document?.metadata?.amountInWords && (
                   <div className="metadata-content" style={{ marginTop: '10px', fontStyle: 'italic', textAlign: 'center', fontSize: '14px' }}>
                     <strong>{docData.document.metadata.amountInWords}</strong>
                   </div>
                 )}
 
-                {/* Signature */}
-                <div className="signature-section">
-                  <div className="signature-block">
-                    <div className="signature-label">Signature agence</div>
-                    <div className="signature-line"></div>
-                    <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
-                  </div>
-                  <div className="signature-block">
-                    <div className="signature-label">Signature client</div>
-                    <div className="signature-line"></div>
-                    <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
-                  </div>
-                </div>
-                
-                <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: '#6b7280' }}>
-                  Fait à Paris, le {new Date().toLocaleDateString('fr-FR')}
-                </div>
+                {/* Signature par défaut si pas de bodyContent (devis/facture) */}
+                {(!docData.document?.bodyContent || docData.document.bodyContent.length === 0) && (
+                  <>
+                    <div className="signature-section">
+                      <div className="signature-block">
+                        <div className="signature-label">Signature agence</div>
+                        <div className="signature-line"></div>
+                        <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
+                      </div>
+                      <div className="signature-block">
+                        <div className="signature-label">Signature client</div>
+                        <div className="signature-line"></div>
+                        <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: '#6b7280' }}>
+                      Fait le {new Date().toLocaleDateString('fr-FR')}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             

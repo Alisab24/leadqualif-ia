@@ -26,7 +26,8 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
     number,
     metadata,
     financialData,
-    items
+    items,
+    bodyContent    // ← contenu structuré des documents non-financiers
   } = document;
 
   const {
@@ -341,6 +342,64 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
             }
         }
 
+        /* ── Corps du document (mandat, contrat, rapport…) ── */
+        .doc-body {
+            margin: 24px 0;
+        }
+        .doc-body-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #1e3a5f;
+            text-align: center;
+            margin-bottom: 24px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3b82f6;
+            letter-spacing: 0.04em;
+        }
+        .doc-section-heading {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1d4ed8;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin: 20px 0 6px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #dbeafe;
+        }
+        .doc-section-text {
+            font-size: 13px;
+            color: #374151;
+            white-space: pre-line;
+            line-height: 1.7;
+        }
+        .doc-signature-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .doc-signature-block {
+            flex: 1;
+            text-align: center;
+        }
+        .doc-signature-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+        .doc-signature-line {
+            height: 1px;
+            background: #9ca3af;
+            margin: 40px 10px 8px 10px;
+        }
+        .doc-signature-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+        }
+
         /* ── Cartes professionnelles ── */
         .carte-pro-badges {
             display: flex;
@@ -420,6 +479,36 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
                 </div>
             </div>
         </section>
+
+        <!-- Corps structuré du document (mandat, contrat, rapport…) -->
+        ${bodyContent && bodyContent.length > 0 ? `
+        <section class="doc-body">
+            ${bodyContent.map(block => {
+              if (block.type === 'title') {
+                return `<div class="doc-body-title">${block.heading}</div>`;
+              } else if (block.type === 'section') {
+                return `<div class="doc-section-heading">${block.heading}</div>`;
+              } else if (block.type === 'signature') {
+                return `
+                <div class="doc-signature-row">
+                    <div class="doc-signature-block">
+                        <div class="doc-signature-label">Signature de l'agence</div>
+                        <div class="doc-signature-line"></div>
+                        <div class="doc-signature-name">${nom_legal || nom_agence || 'Agence'}</div>
+                    </div>
+                    <div class="doc-signature-block">
+                        <div class="doc-signature-label">Signature du client</div>
+                        <div class="doc-signature-line"></div>
+                        <div class="doc-signature-name">${clientNom}</div>
+                    </div>
+                </div>`;
+              } else if (block.text) {
+                return `<div class="doc-section-text">${block.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>`;
+              }
+              return '';
+            }).join('\n')}
+        </section>
+        ` : ''}
 
         <!-- Articles -->
         ${items && items.length > 0 ? `
