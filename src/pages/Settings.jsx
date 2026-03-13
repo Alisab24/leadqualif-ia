@@ -487,18 +487,17 @@ export default function Settings() {
 
   /* ════════════════════════════════════════════════════════ */
   return (
+    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
-      const isImmo = formData.type_agence === 'immobilier';
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      /* ── Onglets ───────────────────── */
-      const TABS = [
-        { key: 'general',     icon: '🏢', label: 'Agence' },
-        { key: 'visuel',      icon: '🎨', label: 'Apparence' },
-        { key: 'form',        icon: '🤖', label: 'Formulaire IA' },
-        { key: 'legal',       icon: '📋', label: 'Légal & Documents' },
-        { key: 'crm',         icon: '⚙️', label: 'CRM' },
-        { key: 'facturation', icon: '💳', label: 'Abonnement' },
-      ];
+      {/* ── HEADER ─────────────────────────────────────── */}
+      <header className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm z-10">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-xl shrink-0">⚙️</span>
+            <div className="min-w-0">
               <h1 className="text-base font-bold text-slate-900 truncate">Paramètres</h1>
               <p className="text-xs text-slate-400 truncate">
                 {formData.nom_agence || 'Agence'} · {isImmo ? '🏠 Immobilier' : '📱 SMMA'}
