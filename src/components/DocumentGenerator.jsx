@@ -2517,7 +2517,19 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               <button
                 type="button"
                 onClick={() => {
-                  // Imprimer le HTML preview avec window.print()
+                  // 🎯 Nom de fichier dynamique : Type_Client_Ref (ex: Mandat_Jean_Dupont_MAN-2026-001)
+                  const docLabel = (docData?.document?.type?.label || 'Document').replace(/\s+/g, '_');
+                  const clientNom = (docData?.lead?.nom || 'Client').replace(/\s+/g, '_');
+                  const docRef = docData?.document?.number || '';
+                  const printTitle = [docLabel, clientNom, docRef].filter(Boolean).join('_');
+                  const prevTitle = document.title;
+                  document.title = printTitle;
+                  // Restaurer le titre après impression (événement afterprint)
+                  const restoreTitle = () => {
+                    document.title = prevTitle;
+                    window.removeEventListener('afterprint', restoreTitle);
+                  };
+                  window.addEventListener('afterprint', restoreTitle);
                   window.print();
                 }}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
