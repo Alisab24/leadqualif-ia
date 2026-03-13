@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import ProfileManager from '../services/profileManager';
 import LeadForm from '../components/LeadForm';
+import ImportLeadsModal from '../components/ImportLeadsModal';
 import DocumentGenerator from '../components/DocumentGenerator';
 import { aiService } from '../services/ai';
 import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate } from '../components/PlanGuard';
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
   const [agencyType, setAgencyType] = useState('immobilier');
   const [showLeadForm, setShowLeadForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
 
   // === NOUVEAUX ÉTATS ===
@@ -513,6 +515,16 @@ export default function Dashboard() {
                 <span className="md:hidden">☰</span>
               </button>
             </div>
+
+            {/* Import leads */}
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium shadow-sm"
+              title="Importer depuis CSV / Excel"
+            >
+              <span>📥</span>
+              <span className="hidden sm:inline">Importer</span>
+            </button>
 
             {/* Nouveau lead — action principale */}
             <AddLeadGate>
@@ -1092,6 +1104,20 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ===== MODAL IMPORT LEADS ===== */}
+        {showImportModal && (
+          <ImportLeadsModal
+            onClose={() => setShowImportModal(false)}
+            onSuccess={(count) => {
+              setShowImportModal(false)
+              fetchLeads()
+              fetchStats && fetchStats()
+            }}
+            agencyId={agencyProfile?.agency_id || agencyProfile?.id || session?.user?.id}
+            agencyType={agencyProfile?.type_agence || 'immobilier'}
+          />
         )}
 
         {/* ===== MODAL NOUVEAU LEAD ===== */}
