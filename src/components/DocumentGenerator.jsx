@@ -804,15 +804,23 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           // la disparition du preview sans message d'erreur visible.
           const resolvedAgencyId = agencyProfile?.agency_id || agencyId || user.id;
 
-          // 🎯 CALCULER LES MONTANTS
-          const commissionAmount = documentSettings.commissionType === 'percentage' 
-            ? (documentSettings.commissionValue / 100) * documentSettings.bienPrice
-            : documentSettings.commissionValue;
-          
-          const baseAmount = commissionAmount + documentSettings.honoraires + documentSettings.frais;
-          const tvaAmount = baseAmount * (documentSettings.tva / 100);
-          const totalTTC = baseAmount + tvaAmount;
-          
+          // 🎯 CALCULER LES MONTANTS — respecte SMMA vs IMMO
+          // Pour SMMA : baseAmount = prixHT saisi par l'utilisateur (pas de logique commission)
+          // Pour IMMO : baseAmount = commission + honoraires + frais
+          let insertBaseAmount, insertTvaAmount, insertTotalTTC;
+          if (agencyType === 'smma') {
+            insertBaseAmount = documentSettings.prixHT || 0;
+            insertTvaAmount  = insertBaseAmount * (documentSettings.tva / 100);
+            insertTotalTTC   = insertBaseAmount + insertTvaAmount;
+          } else {
+            const insertCommission = documentSettings.commissionType === 'percentage'
+              ? (documentSettings.commissionValue / 100) * documentSettings.bienPrice
+              : documentSettings.commissionValue;
+            insertBaseAmount = insertCommission + documentSettings.honoraires + documentSettings.frais;
+            insertTvaAmount  = insertBaseAmount * (documentSettings.tva / 100);
+            insertTotalTTC   = insertBaseAmount + insertTvaAmount;
+          }
+
           // 🎯 INSÉRER AVEC HTML PERSISTÉ (COMME STRIPE)
           // Note: si la table 'documents' a une contrainte CHECK sur 'type',
           // les nouveaux types (bon_visite, compromis, contrat_gestion…) peuvent échouer.
@@ -825,12 +833,20 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             titre: `${docType.label} - ${lead.nom}`,
             statut: 'généré',  // ✅ Français — cohérent avec DocumentsPage.jsx
             preview_html: documentHtml,  // 🎯 HTML PERSISTÉ (STRIPE-LIKE)
-            total_ttc: totalTTC,
-            total_ht: baseAmount,
-            tva_amount: tvaAmount,
+            total_ttc: insertTotalTTC,
+            total_ht: insertBaseAmount,
+            tva_amount: insertTvaAmount,
             devise: agencyProfile.devise || 'EUR',
             client_nom: lead.nom,
             client_email: lead.email,
+            // 🎯 content_json — nécessaire pour la conversion devis→facture
+            content_json: documentData.financialData ? {
+              type_document: docType.id,
+              items: documentData.financialData.items,
+              totals: documentData.financialData.totals,
+              devise: agencyProfile.devise || 'EUR',
+              agency_type: agencyType
+            } : null,
             created_at: new Date().toISOString()
           };
 

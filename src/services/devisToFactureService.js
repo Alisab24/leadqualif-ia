@@ -134,15 +134,22 @@ class DevisToFactureService {
       }
       
       // Vérifier qu'une facture n'existe pas déjà pour ce devis
-      const { data: existingFacture } = await supabase
-        .from('documents')
-        .select('id, reference')
-        .eq('parent_document_id', devisId)
-        .eq('type', 'facture')
-        .single();
-      
-      if (existingFacture) {
-        throw new Error(`Une facture existe déjà pour ce devis: ${existingFacture.reference}`);
+      // Note: parent_document_id peut ne pas exister si FIX_DOCUMENTS_DEFINITIF.sql n'a pas été exécuté
+      // → on ignore l'erreur 406 (colonne inconnue) pour ne pas bloquer la première conversion
+      try {
+        const { data: existingFacture, error: checkError } = await supabase
+          .from('documents')
+          .select('id, reference')
+          .eq('parent_document_id', devisId)
+          .eq('type', 'facture')
+          .single();
+
+        if (!checkError && existingFacture) {
+          throw new Error(`Une facture existe déjà pour ce devis: ${existingFacture.reference}`);
+        }
+      } catch (checkErr) {
+        if (checkErr.message?.includes('Une facture existe déjà')) throw checkErr;
+        console.warn('⚠️ Impossible de vérifier facture existante (colonne parent_document_id absente ?):', checkErr.message);
       }
       
       return devis;
@@ -157,22 +164,26 @@ class DevisToFactureService {
    * Validation du devis pour conversion
    */
   static validateDevisForConversion(devis) {
-    if (!devis.content_json) {
-      throw new Error('Le devis ne contient pas de données structurées');
+    // content_json est optionnel — les documents générés avant la mise à jour
+    // n'ont pas ce champ. La conversion fonctionne avec total_ht/total_ttc seuls.
+    if (devis.content_json) {
+      console.log('✅ content_json présent, conversion enrichie');
+    } else {
+      console.warn('⚠️ content_json absent — conversion en mode simplifié (total_ht/total_ttc)');
     }
-    
-    if (!devis.total_ht || !devis.total_ttc) {
-      throw new Error('Le devis ne contient pas de montants valides');
+
+    if (!devis.total_ht && !devis.total_ttc) {
+      throw new Error('Le devis ne contient pas de montants valides (total_ht et total_ttc sont nuls)');
     }
-    
+
     if (!devis.client_nom) {
-      throw new Error('Le devis ne contient pas d\'informations client');
+      throw new Error('Le devis ne contient pas d\'informations client (client_nom manquant)');
     }
-    
-    // Vérifier que le devis est dans un statut convertible
-    const statutsConvertibles = ['validé', 'accepté', 'signé', 'approuvé'];
+
+    // Avertissement statut non-bloquant
+    const statutsConvertibles = ['validé', 'accepté', 'signé', 'approuvé', 'généré', 'genere', 'émis', 'émise', 'envoyé', 'envoyée'];
     if (devis.statut && !statutsConvertibles.includes(devis.statut)) {
-      console.warn(`⚠️ Devis avec statut non convertible: ${devis.statut}`);
+      console.warn(`⚠️ Devis avec statut "${devis.statut}" — conversion autorisée`);
     }
   }
   
@@ -225,8 +236,9 @@ class DevisToFactureService {
       mode_paiement: 'Virement bancaire',
       
       // Contenu structuré (copie + enrichissement)
+      // devis.content_json peut être null pour les anciens documents → spread sur {} par défaut
       content_json: {
-        ...devis.content_json,
+        ...(devis.content_json || {}),
         type_document: 'facture',
         reference_facture: referenceFacture,
         reference_devis: devis.reference,
@@ -392,21 +404,20 @@ class DevisToFactureService {
    */
   static async updateDevisWithFactureLink(devisId, factureId) {
     try {
+      // Mise à jour du statut du devis — on NE touche PAS content_json
       const { error } = await supabase
         .from('documents')
         .update({
           statut: 'facturé',
-          updated_at: new Date().toISOString(),
-          content_json: supabase.raw(`content_json || '{}' || '{}'`)
-            .then(() => ({})) // Pas de modification du content_json
+          updated_at: new Date().toISOString()
         })
         .eq('id', devisId);
-      
+
       if (error) {
         console.warn('⚠️ Erreur mise à jour devis:', error);
         // Non bloquant pour la conversion
       }
-      
+
     } catch (error) {
       console.error('❌ Erreur mise à jour devis:', error);
       // Non bloquant pour la conversion
@@ -478,31 +489,35 @@ class DevisToFactureService {
     console.log(`🔄 Rollback conversion [${transactionId}]: ${devisId}`);
     
     try {
-      // Supprimer la facture si elle a été créée
-      const { data: facture } = await supabase
-        .from('documents')
-        .select('id')
-        .eq('parent_document_id', devisId)
-        .eq('type', 'facture')
-        .single();
-      
-      if (facture) {
-        await supabase
+      // Supprimer la facture si elle a été créée (parent_document_id peut ne pas exister)
+      try {
+        const { data: facture } = await supabase
           .from('documents')
-          .delete()
-          .eq('id', facture.id);
-        
-        console.log(`🗑️ Facture supprimée: ${facture.id}`);
+          .select('id')
+          .eq('parent_document_id', devisId)
+          .eq('type', 'facture')
+          .single();
+
+        if (facture) {
+          await supabase
+            .from('documents')
+            .delete()
+            .eq('id', facture.id);
+
+          console.log(`🗑️ Facture supprimée: ${facture.id}`);
+        }
+      } catch (lookupErr) {
+        console.warn('⚠️ Rollback: impossible de trouver facture liée:', lookupErr.message);
       }
-      
-      // Restaurer le statut du devis
+
+      // Restaurer le statut du devis (non bloquant)
       await supabase
         .from('documents')
-        .update({ statut: 'validé' })
+        .update({ statut: 'généré' })
         .eq('id', devisId);
-      
+
       console.log(`✅ Rollback terminé [${transactionId}]`);
-      
+
     } catch (error) {
       console.error(`❌ Erreur rollback [${transactionId}]:`, error);
     }
