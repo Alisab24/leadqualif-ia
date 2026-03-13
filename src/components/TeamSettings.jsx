@@ -28,27 +28,58 @@ const ROLE_DESC = {
   viewer: 'Lecture seule — ne peut pas modifier les données',
 }
 
-export default function TeamSettings({ agencyId, currentUserId }) {
+export default function TeamSettings() {
   const { userPlan, canAccess } = usePlanGuard()
-  const [members, setMembers]       = useState([])
+  const [members, setMembers]         = useState([])
   const [invitations, setInvitations] = useState([])
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading]         = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole]  = useState('agent')
-  const [inviting, setInviting]      = useState(false)
+  const [inviteRole, setInviteRole]   = useState('agent')
+  const [inviting, setInviting]       = useState(false)
   const [copiedToken, setCopiedToken] = useState(null)
-  const [toast, setToast]            = useState(null)
+  const [toast, setToast]             = useState(null)
+  // Résolu depuis Supabase Auth — pas de props
+  const [agencyId, setAgencyId]         = useState(null)
+  const [currentUserId, setCurrentUserId] = useState(null)
 
-  const limit    = TEAM_LIMITS[userPlan] ?? 0
-  const canInvite = canAccess('multiUsers') || limit > 0
+  const limit       = TEAM_LIMITS[userPlan] ?? 0
+  const canInvite   = canAccess('multiUsers') || limit > 0
   const activeMembers = members.filter(m => m.role !== 'owner')
-  const hasRoom  = limit === null || activeMembers.length < limit
+  const hasRoom     = limit === null || activeMembers.length < limit
 
+  // Récupérer agencyId + userId une seule fois au montage
   useEffect(() => {
-    if (agencyId) {
-      fetchTeam()
+    let cancelled = false
+    async function resolveUser() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user || cancelled) return
+
+        setCurrentUserId(user.id)
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (cancelled) return
+        const aid = profile?.agency_id || null
+        setAgencyId(aid)
+      } catch (err) {
+        console.error('[TeamSettings] resolveUser:', err)
+        if (!cancelled) setLoading(false)
+      }
     }
-  }, [agencyId])
+    resolveUser()
+    return () => { cancelled = true }
+  }, [])
+
+  // Charger l'équipe dès que agencyId est connu
+  useEffect(() => {
+    if (agencyId) fetchTeam()
+    else if (agencyId === null && currentUserId !== null) setLoading(false)
+  }, [agencyId, currentUserId])
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
