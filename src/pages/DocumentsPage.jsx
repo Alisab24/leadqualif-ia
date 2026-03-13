@@ -46,6 +46,8 @@ const DocumentsPage = () => {
   const [convertingId, setConvertingId] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(null); // docId en cours de mise à jour
+  const [caStats, setCaStats] = useState({ total: 0, countEnvoye: 0, countPaye: 0 });
 
   // Récupération du profil agence
   useEffect(() => {
@@ -157,6 +159,17 @@ const DocumentsPage = () => {
 
       setDocuments(data || []);
       setTotalCount(count || 0);
+
+      // 💰 Calcul du CA : factures envoyées + payées + émises
+      const caDocuments = (data || []).filter(d =>
+        d.type === 'facture' &&
+        ['envoyé', 'envoyée', 'payé', 'payée', 'émise', 'émis'].includes(d.statut?.toLowerCase())
+      );
+      setCaStats({
+        total: caDocuments.reduce((sum, d) => sum + (parseFloat(d.total_ttc) || 0), 0),
+        countEnvoye: caDocuments.filter(d => ['envoyé','envoyée','émise','émis'].includes(d.statut?.toLowerCase())).length,
+        countPaye:   caDocuments.filter(d => ['payé','payée'].includes(d.statut?.toLowerCase())).length,
+      });
     } catch (error) {
       console.error('❌ Erreur chargement documents:', error);
     } finally {
@@ -198,13 +211,22 @@ const DocumentsPage = () => {
       });
 
       if (result.success) {
-        // Rafraîchir la liste
+        // 🎯 Logger la conversion dans crm_events (historique CRM + CA en cours)
+        if (document.lead_id) {
+          await supabase.from('crm_events').insert({
+            lead_id: document.lead_id,
+            agency_id: document.agency_id,
+            type: 'document',
+            title: `🔄 Devis converti en facture`,
+            description: `${result.metadata.devisReference} → ${result.metadata.factureReference} — Montant : ${result.metadata.montantTTC ? result.metadata.montantTTC.toLocaleString('fr-FR') + ' €' : '—'} — Client : ${document.client_nom}`,
+            statut: 'complété',
+            created_at: new Date().toISOString(),
+          });
+        }
         await fetchDocuments();
         setShowConversionModal(false);
         setSelectedDocument(null);
-        
-        // Notification de succès
-        alert(`✅ Facture créée avec succès !\nRéférence: ${result.metadata.factureReference}`);
+        alert(`✅ Facture créée !\nRéférence : ${result.metadata.factureReference}`);
       } else {
         alert(`❌ Erreur lors de la conversion: ${result.error}`);
       }
@@ -213,6 +235,40 @@ const DocumentsPage = () => {
       alert(`❌ Erreur lors de la conversion: ${error.message}`);
     } finally {
       setConvertingId(null);
+    }
+  };
+
+  // 💰 Mise à jour du statut d'une facture + log CA dans crm_events
+  const handleStatusChange = async (doc, newStatus) => {
+    setUpdatingStatus(doc.id);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ statut: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', doc.id);
+      if (error) throw error;
+
+      // Logguer en CRM si la facture passe à "envoyé" ou "payé" → c'est du CA
+      if (['envoyé', 'payé'].includes(newStatus) && doc.lead_id) {
+        const isCA = newStatus === 'payé';
+        await supabase.from('crm_events').insert({
+          lead_id: doc.lead_id,
+          agency_id: doc.agency_id,
+          type: isCA ? 'ca_realise' : 'document',
+          title: isCA
+            ? `💰 Facture payée — CA réalisé`
+            : `📤 Facture envoyée — CA en cours`,
+          description: `Facture ${doc.reference} — ${(doc.total_ttc || 0).toLocaleString('fr-FR')} € — Client : ${doc.client_nom}`,
+          statut: 'complété',
+          created_at: new Date().toISOString(),
+        });
+      }
+      await fetchDocuments();
+    } catch (err) {
+      console.error('❌ Erreur mise à jour statut:', err);
+      alert('Erreur lors de la mise à jour du statut');
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -318,9 +374,27 @@ const DocumentsPage = () => {
     }
   };
 
+  // Normaliser les statuts mixtes (anglais hérité ou français)
+  const normalizeStatut = (s) => {
+    if (!s) return 'généré';
+    const map = {
+      'generated': 'généré', 'draft': 'généré', 'brouillon': 'généré',
+      'sent': 'envoyé', 'emitted': 'envoyé', 'émis': 'envoyé', 'émise': 'envoyé',
+      'paid': 'payé', 'payée': 'payé',
+      'signed': 'signé', 'validated': 'validé',
+    };
+    return map[s.toLowerCase()] || s.toLowerCase();
+  };
+
   const getStatusColor = (statut) => {
+    statut = normalizeStatut(statut);
     const colors = {
-      'généré': 'bg-blue-100 text-blue-800',
+      'généré':  'bg-blue-100 text-blue-800',
+      'émise':   'bg-indigo-100 text-indigo-800',
+      'envoyé':  'bg-amber-100 text-amber-800',
+      'signé':   'bg-teal-100 text-teal-800',
+      'validé':  'bg-green-100 text-green-800',
+      'converti':'bg-purple-100 text-purple-800',
       'validé': 'bg-green-100 text-green-800',
       'facturé': 'bg-purple-100 text-purple-800',
       'émis': 'bg-yellow-100 text-yellow-800',
@@ -444,6 +518,29 @@ const DocumentsPage = () => {
         </div>
       </div>
 
+      {/* ── Bandeau CA ── */}
+      {(caStats.total > 0 || caStats.countEnvoye > 0 || caStats.countPaye > 0) && (
+        <div className="flex-none bg-white border-b border-slate-100 px-6 py-3">
+          <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold text-emerald-700">
+                💰 CA total : {caStats.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+              </span>
+            </div>
+            {caStats.countEnvoye > 0 && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                📤 {caStats.countEnvoye} facture{caStats.countEnvoye > 1 ? 's' : ''} envoyée{caStats.countEnvoye > 1 ? 's' : ''} (en attente)
+              </span>
+            )}
+            {caStats.countPaye > 0 && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                ✅ {caStats.countPaye} facture{caStats.countPaye > 1 ? 's' : ''} payée{caStats.countPaye > 1 ? 's' : ''} (CA réalisé)
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Contenu principal scrollable ── */}
       <div className="flex-1 overflow-auto px-6 py-5">
         {loading ? (
@@ -478,14 +575,39 @@ const DocumentsPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {documents.map((doc) => (
+                    {(() => {
+                      // Carte de conversion : devis_id → référence facture
+                      const conversionMap = {};
+                      documents.forEach(d => {
+                        if (d.parent_document_id) conversionMap[d.parent_document_id] = d.reference;
+                      });
+                      return documents.map((doc) => {
+                        const convertedTo   = conversionMap[doc.id];           // devis déjà converti → ref facture
+                        const convertedFrom = doc.parent_document_id
+                          ? documents.find(d => d.id === doc.parent_document_id)?.reference
+                          : doc.content_json?.conversion_info?.devis_reference; // facture venant d'un devis
+                        const isFacture = doc.type === 'facture';
+                        const statutNorm = normalizeStatut(doc.statut);
+                        const canMarkEnvoye = isFacture && !['envoyé','payé'].includes(statutNorm);
+                        const canMarkPaye   = isFacture && statutNorm !== 'payé';
+                        return (
                       <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-3.5 whitespace-nowrap">
+                        <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
                             <span className="text-xl shrink-0">{getTypeIcon(doc.type)}</span>
                             <div>
                               <div className="text-sm font-semibold text-slate-800">{doc.reference}</div>
                               <div className="text-xs text-slate-400 truncate max-w-[160px]">{doc.titre}</div>
+                              {convertedTo && (
+                                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-xs bg-purple-50 text-purple-700 font-medium">
+                                  🔄 → {convertedTo}
+                                </span>
+                              )}
+                              {convertedFrom && (
+                                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-xs bg-indigo-50 text-indigo-700 font-medium">
+                                  ← {convertedFrom}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -502,7 +624,7 @@ const DocumentsPage = () => {
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(doc.statut)}`}>
-                            {doc.statut}
+                            {normalizeStatut(doc.statut)}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-400 hidden sm:table-cell">
@@ -520,17 +642,35 @@ const DocumentsPage = () => {
                               className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                               title="Télécharger"
                             >⬇️</button>
-                            {doc.type === 'devis' && (
+                            {doc.type === 'devis' && !convertedTo && (
                               <button
                                 onClick={() => { setSelectedDocument(doc); setShowConversionModal(true); }}
                                 className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
                                 title="Convertir en facture"
                               >🔄</button>
                             )}
+                            {canMarkEnvoye && (
+                              <button
+                                onClick={() => handleStatusChange(doc, 'envoyé')}
+                                disabled={updatingStatus === doc.id}
+                                className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-40"
+                                title="Marquer comme envoyée"
+                              >{updatingStatus === doc.id ? '⏳' : '📤'}</button>
+                            )}
+                            {canMarkPaye && (
+                              <button
+                                onClick={() => handleStatusChange(doc, 'payé')}
+                                disabled={updatingStatus === doc.id}
+                                className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-40"
+                                title="Marquer comme payée → CA réalisé"
+                              >{updatingStatus === doc.id ? '⏳' : '💰'}</button>
+                            )}
                           </div>
                         </td>
                       </tr>
-                    ))}
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
