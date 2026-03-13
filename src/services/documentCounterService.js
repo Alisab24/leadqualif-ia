@@ -4,13 +4,16 @@ import { supabase } from "../supabaseClient";
 // 🔢 Correspondance type → préfixe de numérotation
 // ============================================================
 export const DOC_TYPE_PREFIX = {
-  facture:       'FAC',
-  devis:         'DEV',
-  mandat:        'MAN',
-  bon_de_visite: 'BDV',
-  offre_achat:   'OFF',
-  rapport:       'RAP',
-  contrat:       'CTR',
+  facture:          'FAC',
+  devis:            'DEV',
+  mandat:           'MAN',
+  bon_visite:       'BDV',   // ← clé utilisée dans DocumentGenerator
+  bon_de_visite:    'BDV',   // ← alias pour compatibilité ascendante
+  compromis:        'CMP',
+  contrat_gestion:  'CGE',
+  offre_achat:      'OFF',
+  rapport:          'RAP',
+  contrat:          'CTR',
 };
 
 // Label humain pour chaque type
@@ -62,8 +65,13 @@ export const DocumentCounterService = {
     });
 
     if (error || !data) {
-      console.error("❌ Erreur RPC generate_document_number:", error);
-      throw new Error("Impossible de générer le numéro du document");
+      console.warn("⚠️ RPC generate_document_number indisponible, fallback local:", error);
+      // Fallback local : génère un numéro unique sans base de données
+      const year = new Date().getFullYear();
+      const seq  = String(Date.now()).slice(-6);   // 6 derniers chiffres du timestamp
+      const localNumber = `${docType}-${year}-${seq}`;
+      console.log("📄 Numéro généré localement:", localNumber);
+      return localNumber;
     }
 
     console.log("📄 Numéro de document généré:", data);

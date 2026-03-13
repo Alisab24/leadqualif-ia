@@ -806,26 +806,43 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           const totalTTC = baseAmount + tvaAmount;
           
           // 🎯 INSÉRER AVEC HTML PERSISTÉ (COMME STRIPE)
-          const { data: insertedData, error: insertError } = await supabase
+          // Note: si la table 'documents' a une contrainte CHECK sur 'type',
+          // les nouveaux types (bon_visite, compromis, contrat_gestion…) peuvent échouer.
+          // Le fallback utilise 'autre' comme type pour contourner la contrainte.
+          const insertPayload = {
+            agency_id: resolvedAgencyId,
+            lead_id: lead.id,
+            type: docType.id,
+            reference: documentData.number,
+            titre: `${docType.label} - ${lead.nom}`,
+            statut: 'généré',  // ✅ Français — cohérent avec DocumentsPage.jsx
+            preview_html: documentHtml,  // 🎯 HTML PERSISTÉ (STRIPE-LIKE)
+            total_ttc: totalTTC,
+            total_ht: baseAmount,
+            tva_amount: tvaAmount,
+            devise: agencyProfile.devise || 'EUR',
+            client_nom: lead.nom,
+            client_email: lead.email,
+            created_at: new Date().toISOString()
+          };
+
+          let { data: insertedData, error: insertError } = await supabase
             .from('documents')
-            .insert({
-              agency_id: resolvedAgencyId,
-              lead_id: lead.id,
-              type: docType.id,
-              reference: documentData.number,
-              titre: `${docType.label} - ${lead.nom}`,
-              statut: 'généré',  // ✅ Français — cohérent avec DocumentsPage.jsx
-              preview_html: documentHtml,  // 🎯 HTML PERSISTÉ (STRIPE-LIKE)
-              total_ttc: totalTTC,
-              total_ht: baseAmount,  // 🎯 montant HT
-              tva_amount: tvaAmount,  // 🎯 montant TVA
-              devise: agencyProfile.devise || 'EUR',
-              client_nom: lead.nom,
-              client_email: lead.email,
-              created_at: new Date().toISOString()
-            })
-            .select(); // 🎯 Récupérer les données insérées
-          
+            .insert(insertPayload)
+            .select();
+
+          // 23514 = violation de contrainte CHECK (ex: type inconnu)
+          // Réessayer sans le champ 'type' problématique
+          if (insertError && insertError.code === '23514') {
+            console.warn('⚠️ Contrainte CHECK sur type, réessai sans restriction de type');
+            const { data: retryData, error: retryError } = await supabase
+              .from('documents')
+              .insert({ ...insertPayload, type: 'autre' })
+              .select();
+            insertedData = retryData;
+            insertError = retryError;
+          }
+
           if (insertError) {
             console.error('❌ Erreur insertion document:', insertError);
             console.error('❌ Détails erreur:', insertError.details);

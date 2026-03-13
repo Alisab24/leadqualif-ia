@@ -121,7 +121,7 @@ function analyzeCompleteness(leadData) {
   const message = (leadData.message || '').toLowerCase()
   
   // Budget mentionné (10 points) - Utiliser le champ budget si disponible, sinon chercher dans le message
-  if (leadData.budget && leadData.budget.trim() !== '' && !isNaN(parseFloat(leadData.budget))) {
+  if (leadData.budget && String(leadData.budget).trim() !== '' && !isNaN(parseFloat(leadData.budget))) {
     completenessScore += 10
     details.completeFields.push('budget')
   } else if (/\d+/.test(message) && (message.includes('€') || message.includes('euro') || message.includes('budget') || message.includes('prix'))) {
@@ -256,7 +256,7 @@ export function classifyLeadInterest(leadData, aiQualification = null) {
 
   // Critères pour LEAD CHAUD
   // Prendre en compte les nouveaux champs : budget, type_de_bien, delai_achat
-  const hasBudget = leadData.budget && leadData.budget.trim() !== '' && !isNaN(parseFloat(leadData.budget))
+  const hasBudget = leadData.budget && String(leadData.budget).trim() !== '' && !isNaN(parseFloat(leadData.budget))
   const hasTypeBien = leadData.type_de_bien && leadData.type_de_bien.trim() !== ''
   const hasDelaiUrgent = leadData.delai_achat === 'immediat' || leadData.delai_achat === 'court'
   
@@ -331,7 +331,7 @@ function calculateManualScore(intentAnalysis, completenessAnalysis, leadData) {
 
   // Bonus pour les nouveaux champs spécifiques (20%)
   // Budget spécifié = indicateur fort d'intention
-  if (leadData.budget && leadData.budget.trim() !== '' && !isNaN(parseFloat(leadData.budget))) {
+  if (leadData.budget && String(leadData.budget).trim() !== '' && !isNaN(parseFloat(leadData.budget))) {
     score += 10
   }
 
