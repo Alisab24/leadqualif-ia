@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 
 // Imports Pages
 import Login from './pages/Login';
@@ -59,9 +59,7 @@ function DocumentsCenterRedirect() {
 
 // Redirection /join/:token → /signup?invite=TOKEN
 function JoinInviteRedirect() {
-  const location = useLocation();
-  // Extraire le token depuis /join/TOKEN
-  const token = location.pathname.replace('/join/', '');
+  const { token } = useParams();
   return <Navigate to={`/signup?invite=${token}`} replace />;
 }
 
