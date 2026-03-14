@@ -1326,18 +1326,57 @@ export default function Settings() {
                 </div>
               )}
 
-              {/* Plans */}
+              {/* ── Cartes plans ─────────────────────────── */}
               <div>
                 <h3 className="text-sm font-bold text-slate-700 mb-3">
                   {subscriptionInfo.status === 'active' ? 'Changer de plan' : 'Choisir votre plan'}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
-                    { key: 'starter',    name: 'Starter',    price: '49€',      features: ['100 leads/mois', 'Qualification IA', 'Pipeline Kanban', 'Documents basiques', 'Support email'], border: 'border-slate-200', badge: '', btnCls: 'border border-slate-300 text-slate-700 hover:bg-slate-50' },
-                    { key: 'growth',     name: 'Growth',     price: '149€',     features: ['Leads illimités', 'IA avancée + suggestions', 'CRM & historique', 'Documents Pro', 'Stats & Analytics', 'Support prioritaire'], border: 'border-blue-400 ring-2 ring-blue-200', badge: '⭐ Recommandé', btnCls: 'bg-blue-600 text-white hover:bg-blue-700' },
-                    { key: 'enterprise', name: 'Enterprise', price: 'Sur devis', features: ['Multi-agents', 'API dédiée', 'Onboarding prioritaire', 'Formation équipe', 'SLA 99.9%'], border: 'border-purple-200', badge: '', btnCls: 'border border-purple-300 text-purple-700 hover:bg-purple-50' },
+                    {
+                      key: 'starter', name: 'Starter', price: '49€',
+                      color: 'blue', border: 'border-slate-200', badge: '',
+                      btnCls: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
+                      features: [
+                        '📊 100 leads / mois',
+                        '🤖 Qualification IA des leads',
+                        '📋 Pipeline Kanban',
+                        '📄 Devis & Factures PDF',
+                        '📥 Import CSV / Excel',
+                        '👥 Équipe jusqu\'à 3 utilisateurs',
+                        '📧 Support email',
+                      ],
+                    },
+                    {
+                      key: 'growth', name: 'Growth', price: '149€',
+                      color: 'blue', border: 'border-blue-400 ring-2 ring-blue-200', badge: '⭐ Recommandé',
+                      btnCls: 'bg-blue-600 text-white hover:bg-blue-700',
+                      features: [
+                        '♾️ Leads illimités',
+                        '🤖 IA avancée + score automatique',
+                        '📊 Stats & ROI par source',
+                        '📄 Rapport mensuel PDF',
+                        '🔔 Alertes leads chauds (webhook)',
+                        '👥 Équipe jusqu\'à 5 utilisateurs',
+                        '🚀 Support prioritaire',
+                      ],
+                    },
+                    {
+                      key: 'enterprise', name: 'Enterprise', price: 'Sur devis',
+                      color: 'purple', border: 'border-purple-200', badge: '',
+                      btnCls: 'border border-purple-300 text-purple-700 hover:bg-purple-50',
+                      features: [
+                        '✅ Tout le plan Growth',
+                        '👥 Utilisateurs illimités',
+                        '🔌 API dédiée',
+                        '🎓 Onboarding & formation équipe',
+                        '🛡️ SLA 99,9% garanti',
+                        '📞 Account manager dédié',
+                      ],
+                    },
                   ].map(plan => {
-                    const isCurrent = subscriptionInfo.plan === plan.key && subscriptionInfo.status === 'active';
+                    const isCurrent = subscriptionInfo.plan === plan.key &&
+                      ['active', 'trialing'].includes(subscriptionInfo.status);
                     return (
                       <div key={plan.key} className={`border-2 rounded-xl p-4 relative ${plan.border}`}>
                         {plan.badge && (
@@ -1351,20 +1390,20 @@ export default function Settings() {
                         <p className="font-bold text-slate-800 text-lg">{plan.name}</p>
                         <p className="text-2xl font-bold text-blue-600 mt-1">
                           {plan.price}
-                          {plan.key !== 'enterprise' && <span className="text-sm text-slate-400 font-normal">/mois</span>}
+                          {plan.key !== 'enterprise' && <span className="text-sm text-slate-400 font-normal">/mois HT</span>}
                         </p>
                         <p className="text-xs text-green-600 font-medium mt-1">🎯 7 jours offerts</p>
-                        <ul className="mt-3 space-y-1 mb-4">
+                        <ul className="mt-3 space-y-1.5 mb-4">
                           {plan.features.map(f => (
-                            <li key={f} className="text-xs text-slate-600 flex items-center gap-1.5">
-                              <span className="text-green-500 shrink-0">✓</span>{f}
+                            <li key={f} className="text-xs text-slate-600 flex items-start gap-1.5">
+                              <span className="text-green-500 shrink-0 mt-0.5">✓</span>{f}
                             </li>
                           ))}
                         </ul>
                         {plan.key === 'enterprise' ? (
                           <a href="mailto:contact@nexapro.tech?subject=LeadQualif Enterprise"
                             className={`w-full mt-2 py-2 px-4 rounded-lg text-sm font-semibold transition text-center block ${plan.btnCls}`}>
-                            Nous contacter
+                            Nous contacter →
                           </a>
                         ) : (
                           <button onClick={() => handleSubscribe(plan.key)} disabled={stripeLoading || isCurrent}
@@ -1381,9 +1420,58 @@ export default function Settings() {
                 </p>
               </div>
 
+              {/* ── Tableau comparatif fonctionnalités ──── */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
+                  <h3 className="text-sm font-bold text-slate-700">📋 Comparatif détaillé des fonctionnalités</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="px-4 py-3 text-left font-semibold text-slate-500 w-1/2">Fonctionnalité</th>
+                        <th className="px-3 py-3 text-center font-semibold text-slate-500">Free</th>
+                        <th className="px-3 py-3 text-center font-semibold text-blue-600">Starter</th>
+                        <th className="px-3 py-3 text-center font-semibold text-indigo-600">Growth</th>
+                        <th className="px-3 py-3 text-center font-semibold text-purple-600">Enterprise</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {[
+                        { label: 'Leads / mois',              free: '10',         starter: '100',         growth: 'Illimité',    enterprise: 'Illimité' },
+                        { label: 'Pipeline Kanban',            free: '✅',         starter: '✅',          growth: '✅',           enterprise: '✅' },
+                        { label: 'Qualification IA + score',   free: '✅',         starter: '✅',          growth: '✅ avancée',   enterprise: '✅ avancée' },
+                        { label: 'Devis & Factures PDF',       free: '—',          starter: '✅',          growth: '✅',           enterprise: '✅' },
+                        { label: 'Import leads CSV / Excel',   free: '—',          starter: '✅',          growth: '✅',           enterprise: '✅' },
+                        { label: 'Stats & ROI par source',     free: '—',          starter: '—',           growth: '✅',           enterprise: '✅' },
+                        { label: 'Rapport mensuel PDF',        free: '—',          starter: '—',           growth: '✅',           enterprise: '✅' },
+                        { label: 'Alertes leads chauds',       free: '—',          starter: '—',           growth: '✅ webhook',   enterprise: '✅ webhook' },
+                        { label: 'Pixels FB / Google Ads',    free: '✅',          starter: '✅',          growth: '✅',           enterprise: '✅' },
+                        { label: 'Multi-utilisateurs',         free: '1 seul',     starter: '3 max',       growth: '5 max',       enterprise: 'Illimité' },
+                        { label: 'Support',                    free: 'Communauté', starter: 'Email',       growth: 'Prioritaire', enterprise: 'Dédié' },
+                        { label: 'API dédiée',                 free: '—',          starter: '—',           growth: '—',           enterprise: '✅' },
+                        { label: 'SLA garanti',                free: '—',          starter: '—',           growth: '—',           enterprise: '99,9%' },
+                      ].map((row, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="px-4 py-2.5 font-medium text-slate-700">{row.label}</td>
+                          {[row.free, row.starter, row.growth, row.enterprise].map((val, j) => (
+                            <td key={j} className={`px-3 py-2.5 text-center ${
+                              val === '—' ? 'text-slate-300' :
+                              val?.startsWith('✅') ? 'text-green-600 font-semibold' :
+                              'text-slate-600'
+                            }`}>{val}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ── Portail Stripe ────────────────────── */}
               {subscriptionInfo.stripe_customer_id && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <h3 className="text-sm font-bold text-slate-700 mb-2">⚙️ Portail de gestion</h3>
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">⚙️ Portail de gestion Stripe</h3>
                   <p className="text-xs text-slate-500 mb-3">Modifiez votre plan, téléchargez vos factures, changez de carte ou annulez.</p>
                   <button onClick={handleOpenPortal} disabled={stripeLoading}
                     className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition disabled:opacity-50">

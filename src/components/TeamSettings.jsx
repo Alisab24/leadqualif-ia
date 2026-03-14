@@ -42,10 +42,12 @@ export default function TeamSettings() {
   const [agencyId, setAgencyId]         = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
 
-  const limit       = TEAM_LIMITS[userPlan] ?? 0
-  const canInvite   = canAccess('multiUsers') || limit > 0
+  const limit         = TEAM_LIMITS[userPlan] ?? 0
+  const canInvite     = canAccess('multiUsers') || limit > 0
   const activeMembers = members.filter(m => m.role !== 'owner')
-  const hasRoom     = limit === null || activeMembers.length < limit
+  const hasRoom       = limit === null || activeMembers.length < limit
+  // L'owner voit toujours ses membres (la liste est accessible sur tous les plans)
+  const showMembers   = true
 
   // Récupérer agencyId + userId une seule fois au montage
   useEffect(() => {
@@ -89,24 +91,57 @@ export default function TeamSettings() {
   const fetchTeam = async () => {
     setLoading(true)
     try {
-      // Membres actuels (profiles avec même agency_id)
-      const { data: membersData } = await supabase
+      // Membres actuels — essai avec colonne role, fallback sans si migration non exécutée
+      let membersData = null
+      const { data: withRole, error: roleErr } = await supabase
         .from('profiles')
         .select('id, user_id, nom_agence, nom_complet, email, role, created_at')
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: true })
 
-      setMembers(membersData || [])
+      if (!roleErr) {
+        membersData = withRole
+      } else {
+        // Colonne role absente (migration pas encore exécutée) → requête sans role
+        console.warn('[TeamSettings] Colonne role absente, fallback sans role:', roleErr.message)
+        const { data: withoutRole } = await supabase
+          .from('profiles')
+          .select('id, user_id, nom_agence, nom_complet, email, created_at')
+          .eq('agency_id', agencyId)
+          .order('created_at', { ascending: true })
+        membersData = (withoutRole || []).map(m => ({
+          ...m,
+          role: m.user_id === currentUserId ? 'owner' : 'agent'
+        }))
+      }
 
-      // Invitations en cours
-      const { data: invitesData } = await supabase
-        .from('agency_invitations')
-        .select('*')
-        .eq('agency_id', agencyId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+      // S'assurer que l'utilisateur courant est toujours dans la liste
+      const list = membersData || []
+      const selfInList = list.some(m => m.user_id === currentUserId)
+      if (!selfInList && currentUserId) {
+        const { data: selfProfile } = await supabase
+          .from('profiles')
+          .select('id, user_id, nom_agence, nom_complet, email, created_at')
+          .eq('user_id', currentUserId)
+          .maybeSingle()
+        if (selfProfile) {
+          list.unshift({ ...selfProfile, role: 'owner' })
+        }
+      }
 
-      setInvitations(invitesData || [])
+      setMembers(list)
+
+      // Invitations en cours (silencieux si table absente)
+      try {
+        const { data: invitesData } = await supabase
+          .from('agency_invitations')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+        setInvitations(invitesData || [])
+      } catch { setInvitations([]) }
+
     } catch (err) {
       console.error('Erreur chargement équipe:', err)
     } finally {
