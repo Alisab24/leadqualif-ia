@@ -210,24 +210,28 @@ export default function TeamSettings() {
       if (error) throw error
 
       const inviteLink = `${window.location.origin}/join/${invitation.token}`
+      const agencyName = members.find(m => m.role === 'owner')?.nom_agence || 'LeadQualif'
+      
+      // Envoyer l'email d'invitation avec Resend
       const emailResponse = await fetch('/api/send-invitation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: inviteEmail.trim(),
-          agencyName: members.find(m => m.role === 'owner')?.nom_agence || 'LeadQualif',
-          inviteLink,
-          role: inviteRole
+          nom: agencyName,
+          lienInvitation: inviteLink
         })
       })
 
       if (!emailResponse.ok) {
         console.warn('Email non envoyé:', await emailResponse.text())
+        showToast('Invitation créée mais email non envoyé')
+      } else {
+        showToast(`Invitation envoyée à ${inviteEmail}`)
       }
 
       setInviteEmail('')
       await fetchTeam()
-      showToast(`Invitation envoyée à ${inviteEmail}`)
     } catch (err) {
       console.error('Erreur invitation:', err)
       showToast('Erreur lors de la création de l\'invitation', 'error')
