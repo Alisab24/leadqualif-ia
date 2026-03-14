@@ -185,6 +185,7 @@ export default function TeamSettings() {
       const alreadyInvited = invitations.some(i => i.email?.toLowerCase() === inviteEmail.toLowerCase())
       if (alreadyInvited) { showToast('Une invitation est déjà en attente pour cet email', 'error'); return }
 
+      // 1. Créer l'invitation en base
       const { data, error } = await supabase
         .from('agency_invitations')
         .insert({
@@ -198,12 +199,34 @@ export default function TeamSettings() {
 
       if (error) throw error
 
+      // 2. Envoyer l'email automatiquement via Edge Function
+      const owner = members.find(m => m.role === 'owner')
+      const agencyName  = owner?.nom_agence || owner?.nom_complet || 'votre agence'
+      const inviterName = owner?.nom_complet || owner?.nom_agence || agencyName
+      const inviteLink  = `${window.location.origin}/join/${data.token}`
+
+      try {
+        await supabase.functions.invoke('send-invitation-email', {
+          body: {
+            inviteEmail: data.email,
+            agencyName,
+            inviterName,
+            inviteLink,
+            role: inviteRole,
+          },
+        })
+        showToast(`✉️ Invitation envoyée à ${data.email}`)
+      } catch (emailErr) {
+        // Email non bloquant — l'invitation est créée même si l'email échoue
+        console.warn('Email non envoyé (Edge Function):', emailErr)
+        showToast(`Invitation créée — copiez le lien pour l'envoyer manuellement`)
+      }
+
       setInviteEmail('')
       await fetchTeam()
-      showToast(`Invitation créée pour ${data.email}`)
     } catch (err) {
       console.error('Erreur invitation:', err)
-      showToast('Erreur lors de la création de l\'invitation', 'error')
+      showToast("Erreur lors de la création de l'invitation", 'error')
     } finally {
       setInviting(false)
     }
