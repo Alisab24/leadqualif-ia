@@ -397,6 +397,47 @@ export class DocumentGenerationService {
             <p>Total TTC: {{total_ttc}} {{devise}}</p>
           </section>
         </div>
+      `,
+      smma_facture_template: `
+        <div class="document">
+          <header>
+            <h1>FACTURE - {{agency.nom_agence}}</h1>
+            <p>Référence: {{reference}}</p>
+          </header>
+          <section>
+            <h2>Prestations réalisées</h2>
+            <p>Services: {{services_inclus}}</p>
+            <p>Période de facturation: {{periode_facturation}}</p>
+            <p>Budget mensuel: {{budget_mensuel}} {{devise}}</p>
+          </section>
+          <section>
+            <h2>Montant facturé</h2>
+            <p>Total HT: {{total_ht}} {{devise}}</p>
+            <p>TVA (20%): {{tva}} {{devise}}</p>
+            <p>Total TTC: {{total_ttc}} {{devise}}</p>
+          </section>
+        </div>
+      `,
+      immobilier_facture_template: `
+        <div class="document">
+          <header>
+            <h1>FACTURE - {{agency.nom_agence}}</h1>
+            <p>Référence: {{reference}}</p>
+          </header>
+          <section>
+            <h2>Informations du bien</h2>
+            <p>Type: {{bien_type}}</p>
+            <p>Surface: {{surface}} m²</p>
+            <p>Adresse: {{adresse}}</p>
+            <p>Prix de vente: {{prix_vente}} {{devise}}</p>
+          </section>
+          <section>
+            <h2>Honoraires facturés</h2>
+            <p>Honoraires: {{honoraires}} {{devise}}</p>
+            <p>TVA (20%): {{tva}} {{devise}}</p>
+            <p>Total TTC: {{total_ttc}} {{devise}}</p>
+          </section>
+        </div>
       `
     };
     

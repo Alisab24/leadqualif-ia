@@ -104,8 +104,8 @@ class DocumentHtmlService {
       throw new Error('agencyProfile.agency_id est requis pour la génération');
     }
     
-    if (!agencyProfile?.nom_agence && !agencyProfile?.nom_legal) {
-      throw new Error('agencyProfile.nom_agence ou nom_legal est requis');
+    if (!agencyProfile?.nom_agence && !agencyProfile?.nom_legal && !agencyProfile?.name) {
+      throw new Error('agencyProfile.nom_agence, nom_legal ou name est requis');
     }
     
     if (!documentType || typeof documentType !== 'string') {
@@ -205,14 +205,14 @@ class DocumentHtmlService {
     const baseData = {
       // Agence
       agency: {
-        nom_agence: agencyProfile.nom_agence || 'Agence',
-        adresse_legale: agencyProfile.adresse_legale || '',
-        telephone: agencyProfile.telephone || '',
+        nom_agence: agencyProfile.nom_agence || agencyProfile.name || agencyProfile.nom_legal || 'Agence',
+        adresse_legale: agencyProfile.adresse_legale || agencyProfile.address || '',
+        telephone: agencyProfile.telephone || agencyProfile.phone || '',
         email: agencyProfile.email || '',
-        siret: agencyProfile.numero_siret || '',
+        siret: agencyProfile.numero_siret || agencyProfile.siret || agencyProfile.registrationNumber || '',
         logo_url: agencyProfile.logo_url || '',
         type_agence: agencyType,
-        mentions_legales: agencyProfile.mentions_legales || ''
+        mentions_legales: agencyProfile.mentions_legales || agencyProfile.legalMention || ''
       },
       
       // Document
@@ -454,7 +454,7 @@ class DocumentHtmlService {
     const fallbackTemplate = this.getFallbackTemplate(documentType);
     const fallbackData = {
       agency: {
-        nom_agence: agencyProfile?.nom_agence || 'Agence',
+        nom_agence: agencyProfile?.nom_agence || agencyProfile?.name || agencyProfile?.nom_legal || 'Agence',
         type_agence: agencyProfile?.type_agence || 'immobilier'
       },
       document: {
@@ -494,110 +494,145 @@ class DocumentHtmlService {
    * Template fallback par défaut
    */
   static getFallbackTemplate(documentType) {
+    const sharedStyles = `
+      <style>
+        .doc-fallback { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1a1a1a; }
+        .doc-fallback header { border-bottom: 2px solid #e5e7eb; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; }
+        .doc-fallback h1 { font-size: 22px; font-weight: 700; color: #111827; }
+        .doc-fallback .doc-meta { text-align: right; font-size: 13px; color: #6b7280; }
+        .doc-fallback section { margin-bottom: 20px; }
+        .doc-fallback h2 { font-size: 13px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #dbeafe; }
+        .doc-fallback p { font-size: 14px; color: #374151; margin: 4px 0; }
+        .doc-fallback footer { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 32px; font-size: 12px; color: #9ca3af; text-align: center; }
+      </style>
+    `;
     const templates = {
       devis: `
-        <div class="document">
+        ${sharedStyles}
+        <div class="doc-fallback">
           <header>
-            <h1>DEVIS - {{agency.nom_agence}}</h1>
-            <p>Référence: {{document.reference}}</p>
-            <p>Date: {{document.date_generation}}</p>
+            <div>
+              <h1>{{agency.nom_agence}}</h1>
+              <p style="font-size:13px;color:#6b7280;">{{agency.adresse_legale}}</p>
+            </div>
+            <div class="doc-meta">
+              <div style="font-size:20px;font-weight:700;color:#111827;">DEVIS</div>
+              <div>Réf: {{document.reference}}</div>
+              <div>Date: {{document.date_generation}}</div>
+            </div>
           </header>
           <section>
             <h2>Client</h2>
-            <p>{{client.nom}}</p>
+            <p><strong>{{client.nom}}</strong></p>
           </section>
           <section>
-            <h2>Détails</h2>
+            <h2>Prestations</h2>
             <p>Type d'agence: {{agency.type_agence}}</p>
-            <p>Type de document: {{document.type}}</p>
           </section>
           <footer>
-            <p>Template fallback - Erreur: {{error}}</p>
+            <p>Document généré par {{agency.nom_agence}} — {{document.date_generation}}</p>
           </footer>
         </div>
       `,
       facture: `
-        <div class="document">
+        ${sharedStyles}
+        <div class="doc-fallback">
           <header>
-            <h1>FACTURE - {{agency.nom_agence}}</h1>
-            <p>Référence: {{document.reference}}</p>
-            <p>Date: {{document.date_generation}}</p>
+            <div>
+              <h1>{{agency.nom_agence}}</h1>
+              <p style="font-size:13px;color:#6b7280;">{{agency.adresse_legale}}</p>
+            </div>
+            <div class="doc-meta">
+              <div style="font-size:20px;font-weight:700;color:#111827;">FACTURE</div>
+              <div>Réf: {{document.reference}}</div>
+              <div>Date: {{document.date_generation}}</div>
+            </div>
           </header>
           <section>
             <h2>Client</h2>
-            <p>{{client.nom}}</p>
+            <p><strong>{{client.nom}}</strong></p>
           </section>
           <section>
             <h2>Montant</h2>
-            <p>À définir selon les besoins</p>
+            <p>Montant défini lors de la génération du document.</p>
           </section>
           <footer>
-            <p>Template fallback - Erreur: {{error}}</p>
+            <p>Document généré par {{agency.nom_agence}} — {{document.date_generation}}</p>
           </footer>
         </div>
       `,
       mandat: `
-        <div class="document">
+        ${sharedStyles}
+        <div class="doc-fallback">
           <header>
-            <h1>MANDAT - {{agency.nom_agence}}</h1>
-            <p>Référence: {{document.reference}}</p>
-            <p>Date: {{document.date_generation}}</p>
+            <div>
+              <h1>{{agency.nom_agence}}</h1>
+              <p style="font-size:13px;color:#6b7280;">{{agency.adresse_legale}}</p>
+            </div>
+            <div class="doc-meta">
+              <div style="font-size:20px;font-weight:700;color:#111827;">MANDAT</div>
+              <div>Réf: {{document.reference}}</div>
+              <div>Date: {{document.date_generation}}</div>
+            </div>
           </header>
           <section>
-            <h2>Client</h2>
-            <p>{{client.nom}}</p>
-          </section>
-          <section>
-            <h2>Conditions</h2>
-            <p>À définir selon les besoins</p>
+            <h2>Mandant</h2>
+            <p><strong>{{client.nom}}</strong></p>
           </section>
           <footer>
-            <p>Template fallback - Erreur: {{error}}</p>
+            <p>Document généré par {{agency.nom_agence}} — {{document.date_generation}}</p>
           </footer>
         </div>
       `,
       rapport: `
-        <div class="document">
+        ${sharedStyles}
+        <div class="doc-fallback">
           <header>
-            <h1>RAPPORT - {{agency.nom_agence}}</h1>
-            <p>Référence: {{document.reference}}</p>
-            <p>Date: {{document.date_generation}}</p>
+            <div>
+              <h1>{{agency.nom_agence}}</h1>
+              <p style="font-size:13px;color:#6b7280;">{{agency.adresse_legale}}</p>
+            </div>
+            <div class="doc-meta">
+              <div style="font-size:20px;font-weight:700;color:#111827;">RAPPORT DE PERFORMANCE</div>
+              <div>Réf: {{document.reference}}</div>
+              <div>Date: {{document.date_generation}}</div>
+            </div>
           </header>
           <section>
-            <h2>Période</h2>
-            <p>À définir selon les besoins</p>
-          </section>
-          <section>
-            <h2>Résultats</h2>
-            <p>À définir selon les besoins</p>
+            <h2>Client</h2>
+            <p><strong>{{client.nom}}</strong></p>
           </section>
           <footer>
-            <p>Template fallback - Erreur: {{error}}</p>
+            <p>Document généré par {{agency.nom_agence}} — {{document.date_generation}}</p>
           </footer>
         </div>
       `,
       contrat: `
-        <div class="document">
+        ${sharedStyles}
+        <div class="doc-fallback">
           <header>
-            <h1>CONTRAT - {{agency.nom_agence}}</h1>
-            <p>Référence: {{document.reference}}</p>
-            <p>Date: {{document.date_generation}}</p>
+            <div>
+              <h1>{{agency.nom_agence}}</h1>
+              <p style="font-size:13px;color:#6b7280;">{{agency.adresse_legale}}</p>
+            </div>
+            <div class="doc-meta">
+              <div style="font-size:20px;font-weight:700;color:#111827;">CONTRAT DE PRESTATION</div>
+              <div>Réf: {{document.reference}}</div>
+              <div>Date: {{document.date_generation}}</div>
+            </div>
           </header>
           <section>
             <h2>Parties</h2>
-            <p>{{client.nom}}</p>
-          </section>
-          <section>
-            <h2>Conditions</h2>
-            <p>À définir selon les besoins</p>
+            <p><strong>{{client.nom}}</strong></p>
+            <p>Prestataire: {{agency.nom_agence}}</p>
           </section>
           <footer>
-            <p>Template fallback - Erreur: {{error}}</p>
+            <p>Document généré par {{agency.nom_agence}} — {{document.date_generation}}</p>
           </footer>
         </div>
       `
     };
-    
+
     return templates[documentType] || templates.devis;
   }
   
