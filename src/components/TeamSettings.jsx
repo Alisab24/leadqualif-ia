@@ -49,105 +49,108 @@ export default function TeamSettings() {
   // L'owner voit toujours ses membres (la liste est accessible sur tous les plans)
   const showMembers   = true
 
-  // Récupérer agencyId + userId une seule fois au montage
+  // Init unique au montage : résoudre user + charger équipe en une seule passe
   useEffect(() => {
     let cancelled = false
-    async function resolveUser() {
+    async function init() {
       try {
+        // 1. Récupérer l'utilisateur connecté
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user || cancelled) return
+        if (!user || cancelled) { setLoading(false); return }
 
-        setCurrentUserId(user.id)
+        const uid = user.id
+        setCurrentUserId(uid)
 
+        // 2. Récupérer son profil pour obtenir agency_id
         const { data: profile } = await supabase
           .from('profiles')
           .select('agency_id')
-          .eq('user_id', user.id)
+          .eq('user_id', uid)
           .maybeSingle()
 
         if (cancelled) return
         const aid = profile?.agency_id || null
         setAgencyId(aid)
+
+        // 3. Charger l'équipe directement (valeurs locales, pas depuis le state)
+        await loadTeam(aid, uid)
       } catch (err) {
-        console.error('[TeamSettings] resolveUser:', err)
+        console.error('[TeamSettings] init:', err)
         if (!cancelled) setLoading(false)
       }
     }
-    resolveUser()
+    init()
     return () => { cancelled = true }
-  }, [])
-
-  // Charger l'équipe dès que agencyId est connu
-  useEffect(() => {
-    if (agencyId) fetchTeam()
-    else if (agencyId === null && currentUserId !== null) setLoading(false)
-  }, [agencyId, currentUserId])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3500)
   }
 
-  const fetchTeam = async () => {
+  // Chargement équipe — reçoit les valeurs directement pour éviter les closures stale
+  const loadTeam = async (aid, uid) => {
     setLoading(true)
     try {
-      // Membres actuels — essai avec colonne role, fallback sans si migration non exécutée
-      let membersData = null
-      const { data: withRole, error: roleErr } = await supabase
+      // ── 1. Toujours charger son propre profil en premier ─────────────
+      const { data: selfProfile } = await supabase
         .from('profiles')
-        .select('id, user_id, nom_agence, nom_complet, email, role, created_at')
-        .eq('agency_id', agencyId)
-        .order('created_at', { ascending: true })
+        .select('id, user_id, nom_agence, nom_complet, email, created_at')
+        .eq('user_id', uid)
+        .maybeSingle()
 
-      if (!roleErr) {
-        membersData = withRole
-      } else {
-        // Colonne role absente (migration pas encore exécutée) → requête sans role
-        console.warn('[TeamSettings] Colonne role absente, fallback sans role:', roleErr.message)
-        const { data: withoutRole } = await supabase
+      const self = selfProfile ? { ...selfProfile, role: 'owner' } : null
+
+      // ── 2. Autres membres de l'agence (si agency_id connu) ───────────
+      let others = []
+      if (aid) {
+        // Essai avec colonne role
+        const { data: withRole, error: roleErr } = await supabase
           .from('profiles')
-          .select('id, user_id, nom_agence, nom_complet, email, created_at')
-          .eq('agency_id', agencyId)
+          .select('id, user_id, nom_agence, nom_complet, email, role, created_at')
+          .eq('agency_id', aid)
+          .neq('user_id', uid)
           .order('created_at', { ascending: true })
-        membersData = (withoutRole || []).map(m => ({
-          ...m,
-          role: m.user_id === currentUserId ? 'owner' : 'agent'
-        }))
-      }
 
-      // S'assurer que l'utilisateur courant est toujours dans la liste
-      const list = membersData || []
-      const selfInList = list.some(m => m.user_id === currentUserId)
-      if (!selfInList && currentUserId) {
-        const { data: selfProfile } = await supabase
-          .from('profiles')
-          .select('id, user_id, nom_agence, nom_complet, email, created_at')
-          .eq('user_id', currentUserId)
-          .maybeSingle()
-        if (selfProfile) {
-          list.unshift({ ...selfProfile, role: 'owner' })
+        if (!roleErr) {
+          others = withRole || []
+        } else {
+          // Fallback sans role (migration ADD_MULTI_USERS.sql pas encore exécutée)
+          console.warn('[TeamSettings] fallback sans colonne role:', roleErr.message)
+          const { data: withoutRole } = await supabase
+            .from('profiles')
+            .select('id, user_id, nom_agence, nom_complet, email, created_at')
+            .eq('agency_id', aid)
+            .neq('user_id', uid)
+            .order('created_at', { ascending: true })
+          others = (withoutRole || []).map(m => ({ ...m, role: 'agent' }))
         }
       }
 
-      setMembers(list)
+      // ── 3. Liste finale : self toujours en premier ────────────────────
+      setMembers([...(self ? [self] : []), ...others])
 
-      // Invitations en cours (silencieux si table absente)
-      try {
-        const { data: invitesData } = await supabase
-          .from('agency_invitations')
-          .select('*')
-          .eq('agency_id', agencyId)
-          .eq('status', 'pending')
-          .order('created_at', { ascending: false })
-        setInvitations(invitesData || [])
-      } catch { setInvitations([]) }
-
+      // ── 4. Invitations en attente ─────────────────────────────────────
+      if (aid) {
+        try {
+          const { data: invites } = await supabase
+            .from('agency_invitations')
+            .select('*')
+            .eq('agency_id', aid)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+          setInvitations(invites || [])
+        } catch { setInvitations([]) }
+      }
     } catch (err) {
-      console.error('Erreur chargement équipe:', err)
+      console.error('[TeamSettings] loadTeam:', err)
     } finally {
       setLoading(false)
     }
   }
+
+  // Wrapper pour le bouton "rafraîchir" (utilise les states courants)
+  const fetchTeam = () => loadTeam(agencyId, currentUserId)
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return
