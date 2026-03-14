@@ -11,6 +11,21 @@ const COLORS_STATUT  = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '
 const COLORS_QUALIF  = ['#ef4444', '#f59e0b', '#10b981']
 const COLORS_SOURCE  = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316', '#84cc16']
 
+// ── Utilitaire : parse un budget string/number en nombre ──────────
+// Gère : nombre brut, fourchette "500-1500" (→ moyenne), chaîne "1 500 €"
+const parseBudget = (v) => {
+  if (!v) return 0
+  const str = String(v).trim()
+  const rangeMatch = str.match(/^(\d[\d\s]*)[-–](\d[\d\s]*)$/)
+  if (rangeMatch) {
+    const min = parseInt(rangeMatch[1].replace(/\s/g, ''))
+    const max = parseInt(rangeMatch[2].replace(/\s/g, ''))
+    if (!isNaN(min) && !isNaN(max)) return Math.round((min + max) / 2)
+  }
+  const n = parseInt(str.replace(/[^0-9]/g, ''))
+  return isNaN(n) ? 0 : n
+}
+
 // Labels lisibles pour les sources de trafic
 const SOURCE_LABELS = {
   facebook_ads:   '🔵 Facebook Ads',
@@ -231,24 +246,6 @@ export default function Stats() {
         .reduce((sum, l) => sum + calcCommission(l.budget), 0)
 
       // ── SMMA : CA & budget marketing ─────────────────────
-      // Parse un budget qui peut être :
-      // - un nombre : 1500
-      // - une fourchette SMMA : "500-1500" → moyenne = 1000
-      // - une chaîne avec unité : "1 500 €" → 1500
-      const parseBudget = (v) => {
-        if (!v) return 0
-        const str = String(v).trim()
-        // Fourchette "500-1500" ou "500 - 1 500"
-        const rangeMatch = str.match(/^(\d[\d\s]*)[-–](\d[\d\s]*)$/)
-        if (rangeMatch) {
-          const min = parseInt(rangeMatch[1].replace(/\s/g, ''))
-          const max = parseInt(rangeMatch[2].replace(/\s/g, ''))
-          if (!isNaN(min) && !isNaN(max)) return Math.round((min + max) / 2)
-        }
-        // Nombre simple (retire tout sauf chiffres)
-        const n = parseInt(str.replace(/[^0-9]/g, ''))
-        return isNaN(n) ? 0 : n
-      }
       const caGenere = gagneLeads.reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
       const budgetMarketing = leadsData
         .filter(l => l.statut === 'Gagné')
