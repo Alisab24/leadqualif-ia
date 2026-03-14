@@ -13,15 +13,21 @@ const COLORS_SOURCE  = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '
 
 // ── Utilitaire : parse un budget string/number en nombre ──────────
 // Gère : nombre brut, fourchette "500-1500" (→ moyenne), chaîne "1 500 €"
+// Aussi : "1500-3000€", "500 - 1 500 €/mois", "1500–3000 EUR", etc.
 const parseBudget = (v) => {
   if (!v) return 0
+  if (typeof v === 'number') return v
   const str = String(v).trim()
-  const rangeMatch = str.match(/^(\d[\d\s]*)[-–](\d[\d\s]*)$/)
+  // Nettoyer : retirer symboles monétaires, unités, texte en fin de chaîne
+  const cleaned = str.replace(/[€$£]/g, '').replace(/\s*(EUR|USD|\/mois|par\s*mois)\s*/gi, '').trim()
+  // Détecter une fourchette : "500-1500", "500 - 1500", "1 500–3 000"
+  const rangeMatch = cleaned.match(/([\d][\d\s]*)\s*[-–]\s*([\d][\d\s]*)/)
   if (rangeMatch) {
     const min = parseInt(rangeMatch[1].replace(/\s/g, ''))
     const max = parseInt(rangeMatch[2].replace(/\s/g, ''))
-    if (!isNaN(min) && !isNaN(max)) return Math.round((min + max) / 2)
+    if (!isNaN(min) && !isNaN(max) && max > min) return Math.round((min + max) / 2)
   }
+  // Nombre simple (retire tout sauf chiffres)
   const n = parseInt(str.replace(/[^0-9]/g, ''))
   return isNaN(n) ? 0 : n
 }
@@ -843,10 +849,16 @@ export default function Stats() {
                     const badgeClass = q === 'chaud' ? 'bg-green-100 text-green-700'
                       : q === 'tiede' ? 'bg-yellow-100 text-yellow-700'
                       : 'bg-red-100 text-red-700'
-                    const budget   = isSmma
+                    const budgetParsed = isSmma
                       ? parseBudget(lead.budget_marketing || lead.budget)
                       : (lead.budget || 0)
-                    const retainer = isSmma ? budget : calcCommission(lead.budget)
+                    const retainer = isSmma ? budgetParsed : calcCommission(lead.budget)
+                    // Pour SMMA : afficher la fourchette brute si c'est un range, sinon le montant formaté
+                    const rawBudget = isSmma ? (lead.budget_marketing || lead.budget) : null
+                    const isRange = rawBudget && String(rawBudget).match(/\d\s*[-–]\s*\d/)
+                    const budgetDisplay = isSmma && isRange
+                      ? String(rawBudget).trim().replace(/[€$£]/g, '').trim() + ' €'
+                      : fmtEuro(budgetParsed)
                     return (
                       <tr key={lead.id}>
                         <td className="py-3 text-sm font-medium text-slate-800">
@@ -864,7 +876,7 @@ export default function Stats() {
                           </td>
                         )}
                         <td className="py-3 text-right text-sm font-bold text-slate-800">
-                          {fmtEuro(budget)}
+                          {budgetDisplay}
                         </td>
                         <td className="py-3 text-right text-sm font-bold text-green-600">
                           {fmtEuro(retainer)}
