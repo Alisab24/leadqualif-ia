@@ -99,6 +99,37 @@ export default function Stats() {
     setRefreshing(false)
   }
 
+  const handlePrintReport = () => {
+    const style = document.createElement('style')
+    style.id = '__report-print-style'
+    style.innerHTML = `
+      @media print {
+        body * { visibility: hidden !important; }
+        #report-print-area,
+        #report-print-area * { visibility: visible !important; }
+        #report-print-area {
+          position: fixed !important;
+          top: 0 !important; left: 0 !important;
+          width: 100% !important;
+          padding: 24px !important;
+          background: white !important;
+          z-index: 99999 !important;
+        }
+        @page { margin: 1cm; }
+      }
+    `
+    document.head.appendChild(style)
+    window.print()
+    // Nettoyer après impression (le dialog print bloque, donc on attend)
+    const cleanup = () => {
+      document.getElementById('__report-print-style')?.remove()
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+    // Fallback si afterprint ne se déclenche pas (Safari)
+    setTimeout(() => document.getElementById('__report-print-style')?.remove(), 3000)
+  }
+
   const fetchStats = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -954,7 +985,7 @@ export default function Stats() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={handlePrintReport}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors"
                 >
                   🖨️ Imprimer / PDF
@@ -967,7 +998,7 @@ export default function Stats() {
             </div>
 
             {/* Contenu rapport — scrollable */}
-            <div ref={reportRef} className="overflow-auto p-6 space-y-5 print:p-0">
+            <div ref={reportRef} id="report-print-area" className="overflow-auto p-6 space-y-5">
 
               {/* Résumé KPI */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
