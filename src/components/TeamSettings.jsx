@@ -39,22 +39,19 @@ export default function TeamSettings() {
   const [copiedToken, setCopiedToken] = useState(null)
   const [toast, setToast]             = useState(null)
   // Résolu depuis Supabase Auth — pas de props
-  const [agencyId, setAgencyId]         = useState(null)
+  const [agencyId, setAgencyId]           = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
 
   const limit         = TEAM_LIMITS[userPlan] ?? 0
   const canInvite     = canAccess('multiUsers') || limit > 0
   const activeMembers = members.filter(m => m.role !== 'owner')
   const hasRoom       = limit === null || activeMembers.length < limit
-  // L'owner voit toujours ses membres (la liste est accessible sur tous les plans)
-  const showMembers   = true
 
-  // Init unique au montage : résoudre user + charger équipe en une seule passe
+  // ─── Init unique au montage ──────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     async function init() {
       try {
-        // 1. Récupérer l'utilisateur connecté
         const { data: authData, error: authErr } = await supabase.auth.getUser()
         if (authErr) console.error('[TeamSettings] auth error:', authErr)
         const user = authData?.user
@@ -64,7 +61,6 @@ export default function TeamSettings() {
         console.log('[TeamSettings] uid:', uid)
         setCurrentUserId(uid)
 
-        // 2. Récupérer son profil pour obtenir agency_id
         const { data: profile, error: profileErr } = await supabase
           .from('profiles')
           .select('agency_id')
@@ -78,7 +74,6 @@ export default function TeamSettings() {
         console.log('[TeamSettings] agency_id:', aid)
         setAgencyId(aid)
 
-        // 3. Charger l'équipe directement (valeurs locales, pas depuis le state)
         await loadTeam(aid, uid, user)
       } catch (err) {
         console.error('[TeamSettings] init:', err)
@@ -94,36 +89,43 @@ export default function TeamSettings() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  // Chargement équipe — reçoit les valeurs directement pour éviter les closures stale
-  // authUser optionnel : utilisé comme fallback si le profil Supabase n'existe pas
+  // ─── Chargement équipe ───────────────────────────────────────────────────────
+  // Note: profiles n'a pas de colonne `id` — on utilise user_id comme clé primaire
   const loadTeam = async (aid, uid, authUser = null) => {
     if (!uid) { setLoading(false); return }
     setLoading(true)
     try {
-      // ── 1. Toujours charger son propre profil en premier ─────────────
+      // 1. Propre profil en premier (toujours accessible via user_id)
       const { data: selfProfile, error: selfErr } = await supabase
         .from('profiles')
-        .select('id, user_id, nom_agence, nom_complet, email, created_at')
+        .select('user_id, nom_agence, nom_complet, email, created_at')
         .eq('user_id', uid)
         .maybeSingle()
 
       if (selfErr) console.warn('[TeamSettings] selfProfile error:', selfErr)
       console.log('[TeamSettings] selfProfile:', selfProfile)
 
-      // Fallback : construire un objet minimal depuis les infos auth si profil introuvable
+      // Fallback si profil introuvable (utilise les données auth)
       const self = selfProfile
         ? { ...selfProfile, role: 'owner' }
         : authUser
-          ? { id: uid, user_id: uid, email: authUser.email, nom_complet: authUser.user_metadata?.full_name || authUser.email, nom_agence: '', role: 'owner', created_at: authUser.created_at }
+          ? {
+              user_id:     uid,
+              email:       authUser.email,
+              nom_complet: authUser.user_metadata?.full_name || authUser.email,
+              nom_agence:  '',
+              role:        'owner',
+              created_at:  authUser.created_at,
+            }
           : null
 
-      // ── 2. Autres membres de l'agence (si agency_id connu) ───────────
+      // 2. Autres membres de l'agence
       let others = []
       if (aid) {
-        // Essai avec colonne role
+        // Essai avec colonne role (nécessite ADD_MULTI_USERS.sql)
         const { data: withRole, error: roleErr } = await supabase
           .from('profiles')
-          .select('id, user_id, nom_agence, nom_complet, email, role, created_at')
+          .select('user_id, nom_agence, nom_complet, email, role, created_at')
           .eq('agency_id', aid)
           .neq('user_id', uid)
           .order('created_at', { ascending: true })
@@ -131,22 +133,23 @@ export default function TeamSettings() {
         if (!roleErr) {
           others = withRole || []
         } else {
-          // Fallback sans role (migration ADD_MULTI_USERS.sql pas encore exécutée)
+          // Fallback sans role
           console.warn('[TeamSettings] fallback sans colonne role:', roleErr.message)
-          const { data: withoutRole } = await supabase
+          const { data: withoutRole, error: noRoleErr } = await supabase
             .from('profiles')
-            .select('id, user_id, nom_agence, nom_complet, email, created_at')
+            .select('user_id, nom_agence, nom_complet, email, created_at')
             .eq('agency_id', aid)
             .neq('user_id', uid)
             .order('created_at', { ascending: true })
+          if (noRoleErr) console.warn('[TeamSettings] fallback error:', noRoleErr.message)
           others = (withoutRole || []).map(m => ({ ...m, role: 'agent' }))
         }
       }
 
-      // ── 3. Liste finale : self toujours en premier ────────────────────
+      // 3. Liste finale : self toujours en premier
       setMembers([...(self ? [self] : []), ...others])
 
-      // ── 4. Invitations en attente ─────────────────────────────────────
+      // 4. Invitations en attente
       if (aid) {
         try {
           const { data: invites } = await supabase
@@ -165,35 +168,22 @@ export default function TeamSettings() {
     }
   }
 
-  // Wrapper pour le bouton "rafraîchir" (utilise les states courants)
+  // Wrapper bouton "Actualiser"
   const fetchTeam = () => loadTeam(agencyId, currentUserId, null)
 
+  // ─── Inviter ─────────────────────────────────────────────────────────────────
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return
-    if (!inviteEmail.includes('@')) {
-      showToast('Adresse email invalide', 'error')
-      return
-    }
-    if (!hasRoom) {
-      showToast(`Limite de ${limit} membres atteinte pour votre plan`, 'error')
-      return
-    }
+    if (!inviteEmail.includes('@')) { showToast('Adresse email invalide', 'error'); return }
+    if (!hasRoom) { showToast(`Limite de ${limit} membres atteinte pour votre plan`, 'error'); return }
 
     setInviting(true)
     try {
-      // Vérifier si déjà membre
       const alreadyMember = members.some(m => m.email?.toLowerCase() === inviteEmail.toLowerCase())
-      if (alreadyMember) {
-        showToast('Cet utilisateur est déjà membre de votre agence', 'error')
-        return
-      }
+      if (alreadyMember) { showToast('Cet utilisateur est déjà membre de votre agence', 'error'); return }
 
-      // Vérifier si invitation déjà envoyée
       const alreadyInvited = invitations.some(i => i.email?.toLowerCase() === inviteEmail.toLowerCase())
-      if (alreadyInvited) {
-        showToast('Une invitation est déjà en attente pour cet email', 'error')
-        return
-      }
+      if (alreadyInvited) { showToast('Une invitation est déjà en attente pour cet email', 'error'); return }
 
       const { data, error } = await supabase
         .from('agency_invitations')
@@ -240,32 +230,34 @@ export default function TeamSettings() {
     }
   }
 
-  const updateMemberRole = async (profileId, newRole) => {
+  // updateMemberRole et removeMember utilisent user_id (pas id)
+  const updateMemberRole = async (memberUserId, newRole) => {
     const { error } = await supabase
       .from('profiles')
       .update({ role: newRole })
-      .eq('id', profileId)
+      .eq('user_id', memberUserId)
 
     if (!error) {
-      setMembers(prev => prev.map(m => m.id === profileId ? { ...m, role: newRole } : m))
+      setMembers(prev => prev.map(m => m.user_id === memberUserId ? { ...m, role: newRole } : m))
       showToast('Rôle mis à jour')
     }
   }
 
-  const removeMember = async (profileId, email) => {
+  const removeMember = async (memberUserId, email) => {
     if (!window.confirm(`Retirer ${email} de l'équipe ? Leur compte reste actif mais ils n'auront plus accès à vos données.`)) return
 
     const { error } = await supabase
       .from('profiles')
-      .update({ agency_id: null })  // détache de l'agence
-      .eq('id', profileId)
+      .update({ agency_id: null })
+      .eq('user_id', memberUserId)
 
     if (!error) {
-      setMembers(prev => prev.filter(m => m.id !== profileId))
+      setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
       showToast(`${email} retiré de l'équipe`)
     }
   }
 
+  // ─── Rendu ───────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -293,9 +285,7 @@ export default function TeamSettings() {
         <div className="flex-1">
           {canInvite ? (
             <>
-              <p className="text-sm font-bold text-indigo-800">
-                Équipe activée — Plan {userPlan}
-              </p>
+              <p className="text-sm font-bold text-indigo-800">Équipe activée — Plan {userPlan}</p>
               <p className="text-xs text-indigo-600 mt-0.5">
                 {limit === null
                   ? `${members.length} membre${members.length > 1 ? 's' : ''} · membres illimités`
@@ -305,9 +295,7 @@ export default function TeamSettings() {
             </>
           ) : (
             <>
-              <p className="text-sm font-bold text-amber-800">
-                Multi-utilisateurs non disponible sur le plan Free
-              </p>
+              <p className="text-sm font-bold text-amber-800">Multi-utilisateurs non disponible sur le plan Free</p>
               <p className="text-xs text-amber-700 mt-0.5">
                 Passez à un plan payant pour inviter des collègues dans votre espace.
               </p>
@@ -340,8 +328,8 @@ export default function TeamSettings() {
             <p className="text-3xl mb-2">👤</p>
             <p className="text-sm text-slate-500 font-medium">Aucun membre chargé</p>
             <p className="text-xs text-slate-400 mt-1">
-              Si vous êtes connecté, votre profil devrait apparaître ici.
-              Cliquez sur "Actualiser" ou vérifiez que la migration SQL a été exécutée.
+              Si vous êtes connecté, votre profil devrait apparaître ici.<br/>
+              Vérifiez la console (F12) pour diagnostiquer.
             </p>
             <button
               onClick={fetchTeam}
@@ -354,11 +342,11 @@ export default function TeamSettings() {
 
         <div className="divide-y divide-slate-50">
           {members.map((m) => {
-            const isMe      = m.user_id === currentUserId
-            const isOwner   = m.role === 'owner'
-            const roleInfo  = ROLE_LABELS[m.role] || ROLE_LABELS.agent
+            const isMe     = m.user_id === currentUserId
+            const isOwner  = m.role === 'owner'
+            const roleInfo = ROLE_LABELS[m.role] || ROLE_LABELS.agent
             return (
-              <div key={m.id} className="px-5 py-3.5 flex items-center gap-3">
+              <div key={m.user_id} className="px-5 py-3.5 flex items-center gap-3">
                 {/* Avatar */}
                 <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-700 shrink-0">
                   {(m.nom_complet || m.email || '?').charAt(0).toUpperCase()}
@@ -382,7 +370,7 @@ export default function TeamSettings() {
                   ) : (
                     <select
                       value={m.role}
-                      onChange={(e) => updateMemberRole(m.id, e.target.value)}
+                      onChange={(e) => updateMemberRole(m.user_id, e.target.value)}
                       className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     >
                       <option value="admin">🔧 Admin</option>
@@ -395,7 +383,7 @@ export default function TeamSettings() {
                 {/* Retirer */}
                 {!isOwner && !isMe && (
                   <button
-                    onClick={() => removeMember(m.id, m.email)}
+                    onClick={() => removeMember(m.user_id, m.email)}
                     className="shrink-0 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Retirer de l'équipe"
                   >
@@ -433,13 +421,14 @@ export default function TeamSettings() {
           </div>
         )}
 
-        {/* Formulaire — visible toujours, désactivé sur Free */}
+        {/* Limite atteinte (plans payants) */}
         {canInvite && !hasRoom ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
             ⚠️ Vous avez atteint la limite de {limit} membre{limit > 1 ? 's' : ''} pour votre plan.{' '}
             <a href="/settings?tab=facturation" className="font-semibold underline">Upgrader</a> pour en ajouter davantage.
           </div>
         ) : (
+          /* Formulaire — visible toujours, désactivé sur Free */
           <div className={`flex flex-col sm:flex-row gap-3 ${!canInvite ? 'opacity-50 pointer-events-none select-none' : ''}`}>
             <input
               type="email"
@@ -495,9 +484,8 @@ export default function TeamSettings() {
           </div>
           <div className="divide-y divide-slate-50">
             {invitations.map((inv) => {
-              const roleInfo   = ROLE_LABELS[inv.role] || ROLE_LABELS.agent
-              const expiresIn  = Math.max(0, Math.ceil((new Date(inv.expires_at) - new Date()) / 86400000))
-              const inviteLink = `${window.location.origin}/join/${inv.token}`
+              const roleInfo  = ROLE_LABELS[inv.role] || ROLE_LABELS.agent
+              const expiresIn = Math.max(0, Math.ceil((new Date(inv.expires_at) - new Date()) / 86400000))
               return (
                 <div key={inv.id} className="px-5 py-3.5 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-base shrink-0">
