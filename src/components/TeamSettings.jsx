@@ -168,25 +168,35 @@ export default function TeamSettings() {
     }
   }
 
-  // Wrapper bouton "Actualiser"
   const fetchTeam = () => loadTeam(agencyId, currentUserId, null)
 
   // ─── Inviter ─────────────────────────────────────────────────────────────────
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return
-    if (!inviteEmail.includes('@')) { showToast('Adresse email invalide', 'error'); return }
-    if (!hasRoom) { showToast(`Limite de ${limit} membres atteinte pour votre plan`, 'error'); return }
+    if (!inviteEmail.includes('@')) {
+      showToast('Adresse email invalide', 'error')
+      return
+    }
+    if (!hasRoom) {
+      showToast(`Limite de ${limit} membres atteinte pour votre plan`, 'error')
+      return
+    }
 
     setInviting(true)
     try {
       const alreadyMember = members.some(m => m.email?.toLowerCase() === inviteEmail.toLowerCase())
-      if (alreadyMember) { showToast('Cet utilisateur est déjà membre de votre agence', 'error'); return }
+      if (alreadyMember) {
+        showToast('Cet utilisateur est déjà membre de votre agence', 'error')
+        return
+      }
 
       const alreadyInvited = invitations.some(i => i.email?.toLowerCase() === inviteEmail.toLowerCase())
-      if (alreadyInvited) { showToast('Une invitation est déjà en attente pour cet email', 'error'); return }
+      if (alreadyInvited) {
+        showToast('Une invitation est déjà en attente pour cet email', 'error')
+        return
+      }
 
-      // 1. Créer l'invitation en base
-      const { data, error } = await supabase
+      const { data: invitation, error } = await supabase
         .from('agency_invitations')
         .insert({
           agency_id:  agencyId,
@@ -199,34 +209,28 @@ export default function TeamSettings() {
 
       if (error) throw error
 
-      // 2. Envoyer l'email automatiquement via Edge Function
-      const owner = members.find(m => m.role === 'owner')
-      const agencyName  = owner?.nom_agence || owner?.nom_complet || 'votre agence'
-      const inviterName = owner?.nom_complet || owner?.nom_agence || agencyName
-      const inviteLink  = `${window.location.origin}/join/${data.token}`
-
-      try {
-        await supabase.functions.invoke('send-invitation-email', {
-          body: {
-            inviteEmail: data.email,
-            agencyName,
-            inviterName,
-            inviteLink,
-            role: inviteRole,
-          },
+      const inviteLink = `${window.location.origin}/join/${invitation.token}`
+      const emailResponse = await fetch('/api/send-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          agencyName: members.find(m => m.role === 'owner')?.nom_agence || 'LeadQualif',
+          inviteLink,
+          role: inviteRole
         })
-        showToast(`✉️ Invitation envoyée à ${data.email}`)
-      } catch (emailErr) {
-        // Email non bloquant — l'invitation est créée même si l'email échoue
-        console.warn('Email non envoyé (Edge Function):', emailErr)
-        showToast(`Invitation créée — copiez le lien pour l'envoyer manuellement`)
+      })
+
+      if (!emailResponse.ok) {
+        console.warn('Email non envoyé:', await emailResponse.text())
       }
 
       setInviteEmail('')
       await fetchTeam()
+      showToast(`Invitation envoyée à ${inviteEmail}`)
     } catch (err) {
       console.error('Erreur invitation:', err)
-      showToast("Erreur lors de la création de l'invitation", 'error')
+      showToast('Erreur lors de la création de l\'invitation', 'error')
     } finally {
       setInviting(false)
     }
