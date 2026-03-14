@@ -100,6 +100,18 @@ export default function Stats() {
   }
 
   const handlePrintReport = () => {
+    // ── Nom de fichier : _Rap_AGENCE_JJ-MM-AA ─────────────────
+    const now       = new Date()
+    const dd        = String(now.getDate()).padStart(2, '0')
+    const mm        = String(now.getMonth() + 1).padStart(2, '0')
+    const yy        = String(now.getFullYear()).slice(-2)
+    const agenceName = (profile?.nom_agence || profile?.name || 'Agence')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')   // enlève espaces et caractères spéciaux
+      .slice(0, 12)                 // max 12 caractères
+    const filename  = `_Rap_${agenceName}_${dd}-${mm}-${yy}`
+
+    // ── Style print ciblé ──────────────────────────────────────
     const style = document.createElement('style')
     style.id = '__report-print-style'
     style.innerHTML = `
@@ -119,15 +131,25 @@ export default function Stats() {
       }
     `
     document.head.appendChild(style)
+
+    // Changer le titre → utilisé comme nom de fichier par le browser
+    const originalTitle = document.title
+    document.title = filename
+
     window.print()
-    // Nettoyer après impression (le dialog print bloque, donc on attend)
+
+    // Restaurer titre + supprimer style après impression
     const cleanup = () => {
+      document.title = originalTitle
       document.getElementById('__report-print-style')?.remove()
       window.removeEventListener('afterprint', cleanup)
     }
     window.addEventListener('afterprint', cleanup)
-    // Fallback si afterprint ne se déclenche pas (Safari)
-    setTimeout(() => document.getElementById('__report-print-style')?.remove(), 3000)
+    // Fallback Safari (afterprint parfois absent)
+    setTimeout(() => {
+      document.title = originalTitle
+      document.getElementById('__report-print-style')?.remove()
+    }, 3000)
   }
 
   const fetchStats = async () => {
