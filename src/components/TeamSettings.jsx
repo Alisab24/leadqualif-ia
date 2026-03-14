@@ -55,25 +55,31 @@ export default function TeamSettings() {
     async function init() {
       try {
         // 1. Récupérer l'utilisateur connecté
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: authData, error: authErr } = await supabase.auth.getUser()
+        if (authErr) console.error('[TeamSettings] auth error:', authErr)
+        const user = authData?.user
         if (!user || cancelled) { setLoading(false); return }
 
         const uid = user.id
+        console.log('[TeamSettings] uid:', uid)
         setCurrentUserId(uid)
 
         // 2. Récupérer son profil pour obtenir agency_id
-        const { data: profile } = await supabase
+        const { data: profile, error: profileErr } = await supabase
           .from('profiles')
           .select('agency_id')
           .eq('user_id', uid)
           .maybeSingle()
 
+        if (profileErr) console.warn('[TeamSettings] profile fetch error:', profileErr)
         if (cancelled) return
+
         const aid = profile?.agency_id || null
+        console.log('[TeamSettings] agency_id:', aid)
         setAgencyId(aid)
 
         // 3. Charger l'équipe directement (valeurs locales, pas depuis le state)
-        await loadTeam(aid, uid)
+        await loadTeam(aid, uid, user)
       } catch (err) {
         console.error('[TeamSettings] init:', err)
         if (!cancelled) setLoading(false)
@@ -89,17 +95,27 @@ export default function TeamSettings() {
   }
 
   // Chargement équipe — reçoit les valeurs directement pour éviter les closures stale
-  const loadTeam = async (aid, uid) => {
+  // authUser optionnel : utilisé comme fallback si le profil Supabase n'existe pas
+  const loadTeam = async (aid, uid, authUser = null) => {
+    if (!uid) { setLoading(false); return }
     setLoading(true)
     try {
       // ── 1. Toujours charger son propre profil en premier ─────────────
-      const { data: selfProfile } = await supabase
+      const { data: selfProfile, error: selfErr } = await supabase
         .from('profiles')
         .select('id, user_id, nom_agence, nom_complet, email, created_at')
         .eq('user_id', uid)
         .maybeSingle()
 
-      const self = selfProfile ? { ...selfProfile, role: 'owner' } : null
+      if (selfErr) console.warn('[TeamSettings] selfProfile error:', selfErr)
+      console.log('[TeamSettings] selfProfile:', selfProfile)
+
+      // Fallback : construire un objet minimal depuis les infos auth si profil introuvable
+      const self = selfProfile
+        ? { ...selfProfile, role: 'owner' }
+        : authUser
+          ? { id: uid, user_id: uid, email: authUser.email, nom_complet: authUser.user_metadata?.full_name || authUser.email, nom_agence: '', role: 'owner', created_at: authUser.created_at }
+          : null
 
       // ── 2. Autres membres de l'agence (si agency_id connu) ───────────
       let others = []
@@ -150,7 +166,7 @@ export default function TeamSettings() {
   }
 
   // Wrapper pour le bouton "rafraîchir" (utilise les states courants)
-  const fetchTeam = () => loadTeam(agencyId, currentUserId)
+  const fetchTeam = () => loadTeam(agencyId, currentUserId, null)
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return
@@ -311,7 +327,31 @@ export default function TeamSettings() {
           <h3 className="text-sm font-bold text-slate-800">
             Membres de l'équipe ({members.length})
           </h3>
+          <button
+            onClick={fetchTeam}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+            🔄 Actualiser
+          </button>
         </div>
+
+        {members.length === 0 && (
+          <div className="px-5 py-8 text-center">
+            <p className="text-3xl mb-2">👤</p>
+            <p className="text-sm text-slate-500 font-medium">Aucun membre chargé</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Si vous êtes connecté, votre profil devrait apparaître ici.
+              Cliquez sur "Actualiser" ou vérifiez que la migration SQL a été exécutée.
+            </p>
+            <button
+              onClick={fetchTeam}
+              className="mt-3 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              🔄 Recharger l'équipe
+            </button>
+          </div>
+        )}
+
         <div className="divide-y divide-slate-50">
           {members.map((m) => {
             const isMe      = m.user_id === currentUserId
@@ -369,58 +409,78 @@ export default function TeamSettings() {
       </section>
 
       {/* ── Inviter un membre ─────────────────────────────── */}
-      {canInvite && (
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">
-            ✉️ Inviter un nouveau membre
-          </h3>
+      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h3 className="text-sm font-bold text-slate-800 mb-3">
+          ✉️ Inviter un nouveau membre
+        </h3>
 
-          {!hasRoom ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
-              ⚠️ Vous avez atteint la limite de {limit} membre{limit > 1 ? 's' : ''} pour votre plan.{' '}
-              <a href="/settings?tab=facturation" className="font-semibold underline">Upgrader</a> pour en ajouter davantage.
+        {/* Bandeau upgrade si plan Free */}
+        {!canInvite && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-xl shrink-0">🔒</span>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-amber-800">Fonctionnalité réservée aux plans payants</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Passez au plan <strong>Starter</strong> ou supérieur pour inviter jusqu'à 3 collaborateurs dans votre agence.
+              </p>
             </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-                placeholder="prenom@email.com"
-                className="flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                <option value="agent">👤 Agent</option>
-                <option value="admin">🔧 Admin</option>
-                <option value="viewer">👁 Lecture seule</option>
-              </select>
-              <button
-                onClick={handleInvite}
-                disabled={inviting || !inviteEmail.trim()}
-                className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl
-                           hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-              >
-                {inviting ? '…' : '➕ Inviter'}
-              </button>
-            </div>
-          )}
-
-          {/* Description des rôles */}
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {Object.entries(ROLE_DESC).map(([role, desc]) => (
-              <div key={role} className="text-xs text-slate-400 flex items-start gap-1.5">
-                <span>{ROLE_LABELS[role].icon}</span>
-                <span><span className="font-semibold text-slate-600">{ROLE_LABELS[role].label}</span> — {desc}</span>
-              </div>
-            ))}
+            <a
+              href="/settings?tab=facturation"
+              className="shrink-0 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors"
+            >
+              Upgrader →
+            </a>
           </div>
-        </section>
-      )}
+        )}
+
+        {/* Formulaire — visible toujours, désactivé sur Free */}
+        {canInvite && !hasRoom ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+            ⚠️ Vous avez atteint la limite de {limit} membre{limit > 1 ? 's' : ''} pour votre plan.{' '}
+            <a href="/settings?tab=facturation" className="font-semibold underline">Upgrader</a> pour en ajouter davantage.
+          </div>
+        ) : (
+          <div className={`flex flex-col sm:flex-row gap-3 ${!canInvite ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && canInvite && handleInvite()}
+              placeholder="prenom@email.com"
+              disabled={!canInvite}
+              className="flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-slate-50"
+            />
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+              disabled={!canInvite}
+              className="px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-slate-50"
+            >
+              <option value="agent">👤 Agent</option>
+              <option value="admin">🔧 Admin</option>
+              <option value="viewer">👁 Lecture seule</option>
+            </select>
+            <button
+              onClick={canInvite ? handleInvite : undefined}
+              disabled={!canInvite || inviting || !inviteEmail.trim()}
+              className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl
+                         hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              {inviting ? '…' : '➕ Inviter'}
+            </button>
+          </div>
+        )}
+
+        {/* Description des rôles */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {Object.entries(ROLE_DESC).map(([role, desc]) => (
+            <div key={role} className="text-xs text-slate-400 flex items-start gap-1.5">
+              <span>{ROLE_LABELS[role].icon}</span>
+              <span><span className="font-semibold text-slate-600">{ROLE_LABELS[role].label}</span> — {desc}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── Invitations en attente ────────────────────────── */}
       {invitations.length > 0 && (
@@ -481,11 +541,13 @@ export default function TeamSettings() {
         </section>
       )}
 
-      {/* Message si aucun membre ni invitation */}
-      {members.length <= 1 && invitations.length === 0 && canInvite && (
-        <div className="text-center py-6 text-slate-400 text-sm">
+      {/* Message si owner seul + aucune invitation en attente */}
+      {members.length === 1 && invitations.length === 0 && (
+        <div className="text-center py-4 text-slate-400 text-sm">
           <p className="text-3xl mb-2">👥</p>
-          Invitez vos premiers collaborateurs pour travailler en équipe.
+          {canInvite
+            ? 'Invitez vos premiers collaborateurs pour travailler en équipe.'
+            : 'Upgradez votre plan pour collaborer avec votre équipe.'}
         </div>
       )}
     </div>
