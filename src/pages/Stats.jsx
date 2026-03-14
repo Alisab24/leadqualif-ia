@@ -231,9 +231,22 @@ export default function Stats() {
         .reduce((sum, l) => sum + calcCommission(l.budget), 0)
 
       // ── SMMA : CA & budget marketing ─────────────────────
+      // Parse un budget qui peut être :
+      // - un nombre : 1500
+      // - une fourchette SMMA : "500-1500" → moyenne = 1000
+      // - une chaîne avec unité : "1 500 €" → 1500
       const parseBudget = (v) => {
         if (!v) return 0
-        const n = parseInt(String(v).replace(/[^0-9]/g, ''))
+        const str = String(v).trim()
+        // Fourchette "500-1500" ou "500 - 1 500"
+        const rangeMatch = str.match(/^(\d[\d\s]*)[-–](\d[\d\s]*)$/)
+        if (rangeMatch) {
+          const min = parseInt(rangeMatch[1].replace(/\s/g, ''))
+          const max = parseInt(rangeMatch[2].replace(/\s/g, ''))
+          if (!isNaN(min) && !isNaN(max)) return Math.round((min + max) / 2)
+        }
+        // Nombre simple (retire tout sauf chiffres)
+        const n = parseInt(str.replace(/[^0-9]/g, ''))
         return isNaN(n) ? 0 : n
       }
       const caGenere = gagneLeads.reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
@@ -834,7 +847,7 @@ export default function Stats() {
                       : q === 'tiede' ? 'bg-yellow-100 text-yellow-700'
                       : 'bg-red-100 text-red-700'
                     const budget   = isSmma
-                      ? parseInt(String(lead.budget_marketing || lead.budget || '0').replace(/[^0-9]/g, '')) || 0
+                      ? parseBudget(lead.budget_marketing || lead.budget)
                       : (lead.budget || 0)
                     const retainer = isSmma ? budget : calcCommission(lead.budget)
                     return (
