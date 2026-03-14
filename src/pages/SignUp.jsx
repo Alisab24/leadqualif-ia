@@ -57,14 +57,43 @@ export default function SignUp() {
         }
 
         // Récupérer le nom de l'agence qui invite
-        const { data: ownerProfile } = await supabase
+        // Tentative 1 : profil avec role='owner' dans l'agence
+        let agencyName = ''
+        const { data: ownerByRole } = await supabase
           .from('profiles')
           .select('nom_agence, nom_complet')
           .eq('agency_id', inv.agency_id)
           .eq('role', 'owner')
           .maybeSingle()
+        if (ownerByRole) {
+          agencyName = ownerByRole.nom_agence || ownerByRole.nom_complet || ''
+        }
 
-        const agencyName = ownerProfile?.nom_agence || ownerProfile?.nom_complet || 'votre équipe'
+        // Tentative 2 : dans cette app, agency_id = user_id du propriétaire
+        if (!agencyName) {
+          const { data: ownerByUserId } = await supabase
+            .from('profiles')
+            .select('nom_agence, nom_complet')
+            .eq('user_id', inv.agency_id)
+            .maybeSingle()
+          if (ownerByUserId) {
+            agencyName = ownerByUserId.nom_agence || ownerByUserId.nom_complet || ''
+          }
+        }
+
+        // Tentative 3 : n'importe quel profil de l'agence
+        if (!agencyName) {
+          const { data: anyMember } = await supabase
+            .from('profiles')
+            .select('nom_agence, nom_complet')
+            .eq('agency_id', inv.agency_id)
+            .maybeSingle()
+          if (anyMember) {
+            agencyName = anyMember.nom_agence || anyMember.nom_complet || ''
+          }
+        }
+
+        agencyName = agencyName || 'votre agence'
         setInviteInfo({ ...inv, agencyName })
         if (inv.email) setFormData(prev => ({ ...prev, email: inv.email }))
       } catch (err) {
@@ -220,11 +249,16 @@ export default function SignUp() {
           </div>
           {isInvite ? (
             <>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">Rejoindre l'équipe</h1>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
-                <span className="text-indigo-700 font-semibold text-sm">👥 {inviteInfo.agencyName}</span>
-                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium capitalize">
-                  {inviteInfo.role}
+              <h1 className="text-2xl font-bold text-slate-900 mb-1">Vous êtes invité !</h1>
+              {/* Nom de l'agence — bien visible */}
+              <div className="mt-3 mb-1 px-5 py-4 bg-indigo-600 rounded-2xl text-white shadow-md">
+                <p className="text-xs text-indigo-200 mb-1 font-medium tracking-wide uppercase">Agence</p>
+                <p className="text-xl font-bold truncate">🏢 {inviteInfo.agencyName}</p>
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl mt-2">
+                <span className="text-xs text-indigo-600 font-medium">Votre rôle :</span>
+                <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full font-semibold capitalize">
+                  {inviteInfo.role === 'admin' ? '🔧 Admin' : inviteInfo.role === 'viewer' ? '👁 Lecture seule' : '👤 Agent'}
                 </span>
               </div>
               <p className="text-slate-400 text-xs mt-2">Créez votre compte pour rejoindre cette équipe</p>
