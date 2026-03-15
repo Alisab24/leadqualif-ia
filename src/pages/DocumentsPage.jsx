@@ -818,7 +818,10 @@ const DocumentsPage = () => {
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="text-sm font-semibold text-slate-800">
-                            {formatCurrency(doc.total_ttc, doc.devise)}
+                            {/contrat|rapport/i.test(doc.type || '')
+                              ? <span className="text-slate-300 font-normal">—</span>
+                              : formatCurrency(doc.total_ttc, doc.devise)
+                            }
                           </div>
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
