@@ -21,9 +21,15 @@ export const PLAN_LABELS = {
 }
 
 export const PLAN_PRICES = {
-  starter:    '49 €/mois',
-  growth:     '149 €/mois',
-  enterprise: 'Sur devis',
+  starter:    '49 €/mois',     // Solo
+  growth:     '149 €/mois',   // Agence
+  enterprise: '399 €/mois',   // Expert
+}
+
+export const PLAN_ANNUAL_PRICES = {
+  starter:    '39 €/mois',    // facturé 468 €/an
+  growth:     '119 €/mois',   // facturé 1 428 €/an
+  enterprise: '319 €/mois',   // facturé 3 828 €/an
 }
 
 // ──────────────────────────────────────
