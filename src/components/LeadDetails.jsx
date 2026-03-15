@@ -196,11 +196,12 @@ const LeadDetails = () => {
     </div>
   )
 
-  const score   = lead.score_qualification || 0
-  // Aligner avec Dashboard : niveau_interet prime sur le calcul du score numérique
+  // Même logique que Dashboard.getScoreBadge — score_qualification → score_ia → score
+  const score   = lead.score_qualification || lead.score_ia || lead.score || 0
   const rawNiveau = (lead.niveau_interet || '').toLowerCase()
     .replace('tiède', 'tiede').replace('tièd', 'tiede')
-  const effectiveNiveau = rawNiveau || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid')
+  const VALID_N = ['chaud', 'tiede', 'froid']
+  const effectiveNiveau = (VALID_N.includes(rawNiveau) ? rawNiveau : null) || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid')
   const ss = effectiveNiveau === 'chaud'
     ? { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Chaud 🔥' }
     : effectiveNiveau === 'tiede'

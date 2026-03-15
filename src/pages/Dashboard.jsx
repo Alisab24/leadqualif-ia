@@ -136,9 +136,11 @@ export default function Dashboard() {
   const getScoreBadge = (lead) => {
     // Priorité : score_qualification (champ principal) → score_ia → score → 0
     const score = lead.score_qualification || lead.score_ia || lead.score || 0;
-    // Priorité : niveau_interet (champ principal) → qualification → calculé depuis score
-    const rawNiveau = (lead.niveau_interet || lead.qualification || '').toLowerCase().replace('tiède','tiede');
-    const q = rawNiveau || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
+    // niveau_interet UNIQUEMENT — ne pas lire lead.qualification qui contient
+    // le statut pipeline ("À traiter", "Contacté"…) et non la température IA
+    const rawNiveau = (lead.niveau_interet || '').toLowerCase().replace('tiède','tiede').replace('tièd','tiede');
+    const VALID = ['chaud', 'tiede', 'froid'];
+    const q = (VALID.includes(rawNiveau) ? rawNiveau : null) || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
     if (q === 'chaud') return { label: '🟢 Chaud', bg: 'bg-green-100', text: 'text-green-700', score };
     if (q === 'tiede') return { label: '🟡 Tiède', bg: 'bg-yellow-100', text: 'text-yellow-700', score };
     return { label: '🔴 Froid', bg: 'bg-red-100', text: 'text-red-700', score };
@@ -152,8 +154,9 @@ export default function Dashboard() {
       lead.telephone?.includes(searchQuery);
 
     const score = lead.score_qualification || lead.score_ia || lead.score || 0;
-    const rawNiveau = (lead.niveau_interet || lead.qualification || '').toLowerCase().replace('tiède','tiede');
-    const q = rawNiveau || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
+    const rawNiveau = (lead.niveau_interet || '').toLowerCase().replace('tiède','tiede').replace('tièd','tiede');
+    const VALID_N = ['chaud', 'tiede', 'froid'];
+    const q = (VALID_N.includes(rawNiveau) ? rawNiveau : null) || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
     const matchesFilter = filterQualification === 'all' || q === filterQualification;
 
     // Archivés : masqués par défaut, visibles si showArchived
