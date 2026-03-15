@@ -2,15 +2,25 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-export async function POST(request) {
+export default async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: true, message: 'Méthode non autorisée. Utilisez POST.' })
+  }
+
   try {
-    const { email, nom, lienInvitation } = await request.json()
+    const { email, nom, lienInvitation } = req.body
 
     if (!email || !nom || !lienInvitation) {
-      return Response.json(
-        { error: 'Paramètres manquants: email, nom, lienInvitation' },
-        { status: 400 }
-      )
+      return res.status(400).json({
+        error: true,
+        message: 'Paramètres manquants: email, nom, lienInvitation'
+      })
     }
 
     const html = `
@@ -141,18 +151,20 @@ export async function POST(request) {
 
     if (error) {
       console.error('Erreur Resend:', error)
-      return Response.json(
-        { error: 'Erreur envoi email', details: error },
-        { status: 500 }
-      )
+      return res.status(500).json({
+        error: true,
+        message: 'Erreur envoi email',
+        details: error
+      })
     }
 
-    return Response.json({ success: true, data })
+    return res.status(200).json({ success: true, data })
   } catch (err) {
     console.error('Erreur API send-invitation:', err)
-    return Response.json(
-      { error: 'Erreur serveur', details: err.message },
-      { status: 500 }
-    )
+    return res.status(500).json({
+      error: true,
+      message: 'Erreur serveur',
+      details: err.message
+    })
   }
 }
