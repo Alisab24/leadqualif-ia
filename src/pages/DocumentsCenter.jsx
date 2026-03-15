@@ -3,6 +3,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import ProfileManager from '../services/profileManager';
 import { DOC_TYPE_LABEL, DOC_TYPE_ICON } from '../services/documentCounterService';
+import { FeatureGate } from '../components/PlanGuard';
 
 export default function DocumentsCenter() {
   const [searchParams] = useSearchParams();
@@ -157,6 +158,7 @@ export default function DocumentsCenter() {
   }
 
   return (
+    <FeatureGate feature="docs" mode="banner">
     <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
       {/* ── En-tête sticky ── */}
@@ -360,5 +362,6 @@ export default function DocumentsCenter() {
         </div>
       </main>
     </div>
+    </FeatureGate>
   );
 }

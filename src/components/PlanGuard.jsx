@@ -216,7 +216,7 @@ export function LeadQuotaBanner() {
           </p>
           <p className={`text-xs mt-0.5 ${isFull ? 'text-red-500' : 'text-amber-500'}`}>
             {isFull
-              ? 'Passez au plan Growth pour des leads illimités'
+              ? 'Passez au plan Agence pour des leads illimités'
               : `Il vous reste ${limit - leadsThisMonth} leads pour ce mois`
             }
           </p>
@@ -233,7 +233,7 @@ export function LeadQuotaBanner() {
           onClick={() => window.location.href = '/settings?tab=facturation'}
           className={`text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${isFull ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-amber-500 text-white hover:bg-amber-600'}`}
         >
-          Passer au Growth →
+          Passer au plan Agence →
         </button>
       </div>
     </div>

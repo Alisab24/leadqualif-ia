@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { usePlanGuard, PLAN_LIMITS } from './PlanGuard';
 
 /* ─── Icônes SVG ─────────────────────────────────────── */
 const Icons = {
@@ -53,13 +54,88 @@ const Icons = {
   ),
 };
 
-/* ─── Badge plan ─────────────────────────────────────── */
+/* ─── Badge plan — noms alignés landing ─────────────── */
 const PLAN_BADGE = {
-  free:       { label: 'Free',    cls: 'bg-slate-600 text-slate-200' },
-  starter:    { label: 'Starter', cls: 'bg-blue-700 text-blue-100' },
-  pro:        { label: 'Pro',     cls: 'bg-indigo-600 text-white' },
-  enterprise: { label: 'Entpr.',  cls: 'bg-violet-600 text-white' },
+  free:       { label: 'Gratuit',  cls: 'bg-slate-600 text-slate-200' },
+  starter:    { label: 'Solo',     cls: 'bg-blue-700 text-blue-100' },
+  growth:     { label: 'Agence',   cls: 'bg-indigo-600 text-white' },
+  trialing:   { label: 'Essai',    cls: 'bg-green-700 text-green-100' },
+  enterprise: { label: 'Expert',   cls: 'bg-violet-600 text-white' },
 };
+
+/* ─── Plan requis par route ─────────────────────────── */
+// null = accessible à tous, 'starter' = plan Solo+, 'growth' = plan Agence+
+const ROUTE_PLAN = {
+  '/dashboard': null,
+  '/stats':     'growth',
+  '/documents': 'starter',
+  '/settings':  null,
+};
+
+// Vérifie si un plan utilisateur donne accès à une route
+function routeAllowed(userPlan, requiredPlan) {
+  if (!requiredPlan) return true;
+  const order = ['free', 'starter', 'growth', 'enterprise', 'trialing'];
+  const userIdx = order.indexOf(userPlan);
+  const reqIdx  = order.indexOf(requiredPlan);
+  // trialing = accès total
+  if (userPlan === 'trialing') return true;
+  return userIdx >= reqIdx;
+}
+
+/* ─── Mur de suspension abonnement ─────────────────── */
+function SubscriptionWall({ plan, onPortal }) {
+  const planNames = { starter: 'Solo', growth: 'Agence', enterprise: 'Expert' };
+  return (
+    <div className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+        <div className="text-5xl mb-4">🔒</div>
+        <h2 className="text-xl font-extrabold text-slate-900 mb-2">
+          Votre essai gratuit est terminé
+        </h2>
+        <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+          Votre accès au plan <strong>{planNames[plan] || 'Agence'}</strong> a expiré.
+          Pour continuer à utiliser LeadQualif, choisissez un plan.
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={() => window.location.href = '/settings?tab=facturation'}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition"
+          >
+            🚀 Choisir mon plan — 49€/mois
+          </button>
+          <p className="text-xs text-slate-400">
+            7 jours gratuits · Sans engagement · Annulation en 1 clic
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Bannière essai en cours ───────────────────────── */
+function TrialBannerInline({ plan, trialEnd }) {
+  if (!trialEnd) return null;
+  const diff  = new Date(trialEnd) - new Date();
+  const days  = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  const urgent = days <= 3;
+  return (
+    <div className={`flex items-center justify-between px-4 py-2.5 text-sm border-b ${urgent ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+      <span className="font-medium">
+        {urgent
+          ? `⏰ Essai gratuit : ${days === 0 ? 'se termine aujourd\'hui' : `${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`}`
+          : `🎯 Essai gratuit — ${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`
+        }
+      </span>
+      <button
+        onClick={() => window.location.href = '/settings?tab=facturation'}
+        className={`text-xs font-bold px-3 py-1 rounded-lg ${urgent ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-blue-600 text-white hover:bg-blue-700'} transition`}
+      >
+        {urgent ? 'Continuer sans interruption →' : 'Choisir un plan →'}
+      </button>
+    </div>
+  );
+}
 
 /* ──────────────────────────────────────────────────────── */
 
@@ -74,7 +150,19 @@ export default function Layout() {
   const [hovered, setHovered]   = useState(false);
   const [showUserPopup, setShowUserPopup] = useState(false);
 
+  // Plan guard — récupère le plan + statut de l'utilisateur connecté
+  const { userPlan, status, loading: planLoading, trialEnd } = usePlanGuard();
+
   const expanded = pinned || hovered;
+
+  // Abonnement suspendu : essai expiré sans paiement (inactive/canceled après un trialing)
+  const isWalled = !planLoading &&
+    ['inactive', 'canceled'].includes(status) &&
+    profile?.stripe_subscription_id !== null &&
+    profile?.stripe_subscription_id !== undefined &&
+    typeof profile?.stripe_subscription_id === 'string';
+
+  const isTrialing = status === 'trialing';
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -119,13 +207,28 @@ export default function Layout() {
 
   /* ── NavItem ── */
   const NavItem = ({ to, icon, label }) => {
-    const active = isActive(to);
+    const active     = isActive(to);
+    const required   = ROUTE_PLAN[to];
+    const allowed    = routeAllowed(userPlan, required);
+    const locked     = !allowed && !planLoading;
+    const planNames  = { starter: 'Solo', growth: 'Agence' };
+
+    const handleClick = (e) => {
+      if (locked) {
+        e.preventDefault();
+        navigate('/settings?tab=facturation');
+      }
+    };
+
     return (
       <div className="relative group/item mx-2 mb-1">
         <Link
           to={to}
+          onClick={handleClick}
           className={`flex items-center h-11 px-3 rounded-xl transition-all duration-200 ${
-            active
+            locked
+              ? 'text-slate-600 hover:bg-white/5 cursor-pointer opacity-60'
+              : active
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
               : 'text-slate-400 hover:bg-white/10 hover:text-white'
           }`}
@@ -136,7 +239,13 @@ export default function Layout() {
           }`}>
             {label}
           </span>
-          {active && expanded && (
+          {/* Indicateur plan requis */}
+          {locked && expanded && (
+            <span className="ml-auto text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded-full shrink-0">
+              🔒 {planNames[required] || required}
+            </span>
+          )}
+          {!locked && active && expanded && (
             <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />
           )}
         </Link>
@@ -145,7 +254,7 @@ export default function Layout() {
           <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[200]
             px-2.5 py-1.5 bg-slate-900 text-white text-xs rounded-lg shadow-xl whitespace-nowrap
             opacity-0 group-hover/item:opacity-100 transition-opacity duration-150 border border-white/10">
-            {label}
+            {locked ? `🔒 ${label} — Plan ${planNames[required] || required} requis` : label}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
           </div>
         )}
@@ -357,11 +466,25 @@ export default function Layout() {
       </aside>
 
       {/* ══ CONTENU PRINCIPAL ══ */}
-      <div className={`flex-1 transition-all duration-300 min-w-0 overflow-hidden ${
+      <div className={`flex-1 transition-all duration-300 min-w-0 overflow-hidden flex flex-col ${
         expanded ? 'ml-60' : 'ml-16'
       }`}>
-        <Outlet />
+        {/* Bannière essai en cours */}
+        {isTrialing && (
+          <TrialBannerInline
+            plan={userPlan}
+            trialEnd={trialEnd ? trialEnd.toISOString() : profile?.subscription_current_period_end}
+          />
+        )}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <Outlet />
+        </div>
       </div>
+
+      {/* Mur de suspension — par-dessus tout le contenu */}
+      {isWalled && (
+        <SubscriptionWall plan={profile?.subscription_plan || userPlan} />
+      )}
     </div>
   );
 }
