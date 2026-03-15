@@ -89,6 +89,370 @@ const COLOR_PRESETS = [
 ];
 
 /* ════════════════════════════════════════════════════════════ */
+/* ─── BillingTab — Onglet Abonnement complet ────────────── */
+
+// Définition des plans alignée avec PlanGuard + landing
+const BILLING_PLANS = [
+  {
+    key: 'starter',
+    name: 'Solo',
+    monthlyPrice: 49,
+    annualMonthly: 39,
+    annualTotal: 468,
+    border: 'border-slate-200',
+    badge: null,
+    btnCls: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
+    features: [
+      { icon: '👤', text: '1 utilisateur' },
+      { icon: '📊', text: '100 leads / mois' },
+      { icon: '🤖', text: 'Scoring IA 0–10' },
+      { icon: '📋', text: 'Pipeline Kanban' },
+      { icon: '📄', text: 'Factures & devis PDF' },
+      { icon: '📧', text: 'Support email' },
+    ],
+    locked: ['Stats & Analytics', 'Recommandations IA avancées', 'Contrats & rapports', 'Gestion équipe (multi-users)'],
+  },
+  {
+    key: 'growth',
+    name: 'Agence',
+    monthlyPrice: 149,
+    annualMonthly: 119,
+    annualTotal: 1428,
+    border: 'border-blue-400 ring-2 ring-blue-100',
+    badge: '⭐ Le plus populaire',
+    btnCls: 'bg-blue-600 text-white hover:bg-blue-700',
+    features: [
+      { icon: '👥', text: '5 utilisateurs inclus' },
+      { icon: '♾️', text: 'Leads illimités' },
+      { icon: '🤖', text: 'Scoring IA avancé + recommandations' },
+      { icon: '📄', text: 'Documents illimités (factures, devis, contrats, rapports)' },
+      { icon: '📊', text: 'Stats & Analytics (CA, ROI, pipeline)' },
+      { icon: '✉️', text: 'Invitations équipe par email' },
+      { icon: '🚀', text: 'Support prioritaire 24/7' },
+    ],
+    locked: [],
+  },
+  {
+    key: 'enterprise',
+    name: 'Expert',
+    monthlyPrice: 399,
+    annualMonthly: 319,
+    annualTotal: 3828,
+    border: 'border-purple-200',
+    badge: null,
+    btnCls: 'border border-purple-300 text-purple-700 hover:bg-purple-50',
+    features: [
+      { icon: '♾️', text: 'Utilisateurs illimités' },
+      { icon: '♾️', text: 'Leads illimités' },
+      { icon: '✅', text: 'Tout le plan Agence' },
+      { icon: '🏢', text: 'Multi-agences sur un seul compte' },
+      { icon: '🎓', text: 'Onboarding dédié & formation équipe' },
+      { icon: '🛡️', text: 'SLA garanti & support téléphonique' },
+    ],
+    locked: [],
+  },
+]
+
+// Mapping fonctionnalité → plans requis (pour l'affichage du résumé)
+const FEATURE_MAP = [
+  { label: 'Leads / mois',             free: '10',     starter: '100',    growth: '∞',            enterprise: '∞' },
+  { label: 'Pipeline Kanban',           free: '✅',     starter: '✅',     growth: '✅',            enterprise: '✅' },
+  { label: 'Scoring IA + formulaire',   free: '✅',     starter: '✅',     growth: '✅ avancé',     enterprise: '✅ avancé' },
+  { label: 'Factures & devis PDF',      free: '—',      starter: '✅',     growth: '✅',            enterprise: '✅' },
+  { label: 'Contrats & rapports',       free: '—',      starter: '—',      growth: '✅',            enterprise: '✅' },
+  { label: 'Stats & Analytics',         free: '—',      starter: '—',      growth: '✅',            enterprise: '✅' },
+  { label: 'Recommandations IA',        free: '—',      starter: '—',      growth: '✅',            enterprise: '✅' },
+  { label: 'Invitations équipe',        free: '—',      starter: '✅ 3',   growth: '✅ 5',          enterprise: '✅ ∞' },
+  { label: 'Import CSV / Excel',        free: '—',      starter: '✅',     growth: '✅',            enterprise: '✅' },
+  { label: 'Pixels FB / Google Ads',   free: '✅',      starter: '✅',     growth: '✅',            enterprise: '✅' },
+  { label: 'Support',                   free: 'Email',  starter: 'Email',  growth: 'Prioritaire',  enterprise: 'Dédié + tél.' },
+  { label: 'API dédiée',               free: '—',       starter: '—',      growth: '—',             enterprise: '✅' },
+  { label: 'SLA garanti',              free: '—',       starter: '—',      growth: '—',             enterprise: '99,9%' },
+]
+
+// Fonctionnalités actives/bloquées selon le plan
+const PLAN_ACTIVE_FEATURES = {
+  free:       { stats: false, docs: false, ia: false, multiUsers: false, contracts: false, leads: '10/mois' },
+  starter:    { stats: false, docs: true,  ia: false, multiUsers: true,  contracts: false, leads: '100/mois' },
+  growth:     { stats: true,  docs: true,  ia: true,  multiUsers: true,  contracts: true,  leads: 'Illimité' },
+  trialing:   { stats: true,  docs: true,  ia: true,  multiUsers: true,  contracts: true,  leads: 'Illimité' },
+  enterprise: { stats: true,  docs: true,  ia: true,  multiUsers: true,  contracts: true,  leads: 'Illimité' },
+}
+
+const FEATURE_LABELS = {
+  stats:      { icon: '📊', label: 'Stats & Analytics' },
+  docs:       { icon: '📄', label: 'Documents (factures, devis)' },
+  ia:         { icon: '🤖', label: 'Recommandations IA' },
+  multiUsers: { icon: '👥', label: 'Gestion équipe' },
+  contracts:  { icon: '📋', label: 'Contrats & rapports' },
+  leads:      { icon: '🎯', label: 'Leads' },
+}
+
+function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe, onPortal }) {
+  const [billingCycle, setBillingCycle] = React.useState('monthly')
+
+  const isActive = ['active', 'trialing'].includes(subscriptionInfo.status)
+  const isPastDue = subscriptionInfo.status === 'past_due'
+  const currentPlan = subscriptionInfo.plan || 'free'
+  const activeFeatures = PLAN_ACTIVE_FEATURES[currentPlan] || PLAN_ACTIVE_FEATURES.free
+
+  const planDisplay = {
+    free: { label: 'Gratuit', color: 'bg-slate-100 text-slate-600' },
+    starter: { label: 'Solo', color: 'bg-blue-100 text-blue-700' },
+    growth: { label: 'Agence', color: 'bg-indigo-100 text-indigo-700' },
+    trialing: { label: 'Essai gratuit', color: 'bg-green-100 text-green-700' },
+    enterprise: { label: 'Expert', color: 'bg-purple-100 text-purple-700' },
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold text-slate-800 mb-1">💳 Abonnement & Facturation</h2>
+        <p className="text-sm text-slate-500">Gérez votre abonnement LeadQualif — paiements sécurisés via Stripe</p>
+      </div>
+
+      {stripeError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠️ {stripeError}</div>
+      )}
+
+      {isPastDue && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-xl">🚨</span>
+          <div>
+            <p className="font-bold text-red-800">Paiement en échec</p>
+            <p className="text-sm text-red-700 mt-1">Votre accès sera suspendu si le paiement n'est pas régularisé. Mettez à jour votre moyen de paiement.</p>
+            <button onClick={onPortal} disabled={stripeLoading}
+              className="mt-2 px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50">
+              {stripeLoading ? '⏳…' : '🔧 Mettre à jour le paiement'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Plan actuel ─────────────────────────────────────────── */}
+      {isActive ? (
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-6 text-white">
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <p className="text-blue-200 text-xs font-semibold uppercase tracking-widest mb-1">Plan actuel</p>
+              <p className="text-3xl font-extrabold">
+                {planDisplay[currentPlan]?.label || currentPlan}
+              </p>
+              <p className="text-blue-200 text-sm mt-1">
+                {subscriptionInfo.status === 'trialing' ? '🎯 Période d\'essai' : '✅ Abonnement actif'}
+                {subscriptionInfo.current_period_end &&
+                  ` · Renouvellement le ${new Date(subscriptionInfo.current_period_end).toLocaleDateString('fr-FR')}`
+                }
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 shrink-0">
+              <button onClick={onPortal} disabled={stripeLoading}
+                className="px-4 py-2 bg-white text-blue-700 rounded-lg font-semibold text-sm hover:bg-blue-50 disabled:opacity-50 whitespace-nowrap">
+                {stripeLoading ? '⏳…' : '⚙️ Gérer l\'abonnement'}
+              </button>
+              <button onClick={onPortal} disabled={stripeLoading}
+                className="px-4 py-2 bg-white/15 text-white rounded-lg font-semibold text-sm hover:bg-white/25 disabled:opacity-50 whitespace-nowrap">
+                📄 Mes factures
+              </button>
+            </div>
+          </div>
+
+          {/* Fonctionnalités actives */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-white/10 rounded-xl p-4">
+            {Object.entries(activeFeatures).map(([key, val]) => {
+              const feat = FEATURE_LABELS[key]
+              if (!feat) return null
+              const active = val === true || (typeof val === 'string' && val !== '—')
+              return (
+                <div key={key} className="flex items-center gap-2 text-sm">
+                  <span className={active ? 'text-green-300' : 'text-red-400'}>
+                    {active ? '✓' : '✗'}
+                  </span>
+                  <span className={active ? 'text-white' : 'text-blue-300 line-through opacity-60'}>
+                    {feat.icon} {key === 'leads' ? `${feat.label} : ${val}` : feat.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 flex items-start gap-4">
+          <span className="text-2xl mt-0.5">⚡</span>
+          <div>
+            <p className="font-bold text-amber-900 text-base">Aucun abonnement actif</p>
+            <p className="text-sm text-amber-700 mt-1">Choisissez un plan ci-dessous pour débloquer toutes les fonctionnalités</p>
+            <div className="flex flex-wrap gap-3 mt-3 text-xs font-medium text-amber-600">
+              <span>🎯 7 jours d'essai gratuit</span>
+              <span>🚫 Sans engagement</span>
+              <span>🔒 Paiement sécurisé Stripe</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toggle mensuel / annuel ──────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-sm font-bold text-slate-700">
+          {isActive ? 'Changer de plan' : 'Choisir votre plan'}
+        </h3>
+        <div className="flex bg-slate-100 p-1 rounded-lg gap-1">
+          <button
+            onClick={() => setBillingCycle('monthly')}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition ${
+              billingCycle === 'monthly' ? 'bg-white shadow text-slate-900' : 'text-slate-500'
+            }`}>
+            Mensuel
+          </button>
+          <button
+            onClick={() => setBillingCycle('annual')}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
+              billingCycle === 'annual' ? 'bg-white shadow text-slate-900' : 'text-slate-500'
+            }`}>
+            Annuel
+            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+              −20%
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Cartes plans ────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {BILLING_PLANS.map(plan => {
+          const isCurrent = currentPlan === plan.key && isActive
+          const price = billingCycle === 'annual' ? plan.annualMonthly : plan.monthlyPrice
+          const planId = billingCycle === 'annual' ? `${plan.key}_annual` : plan.key
+
+          return (
+            <div key={plan.key} className={`border-2 rounded-xl p-5 relative flex flex-col ${plan.border} ${isCurrent ? 'bg-blue-50/50' : 'bg-white'}`}>
+              {plan.badge && !isCurrent && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[11px] px-3 py-1 rounded-full font-bold whitespace-nowrap">
+                  {plan.badge}
+                </span>
+              )}
+              {isCurrent && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[11px] px-3 py-1 rounded-full font-bold whitespace-nowrap">
+                  ✅ Plan actuel
+                </span>
+              )}
+
+              <p className="font-extrabold text-slate-800 text-base">{plan.name}</p>
+              <div className="flex items-baseline gap-1 mt-1 mb-0.5">
+                <span className="text-2xl font-extrabold text-blue-600">{plan.key === 'enterprise' ? '' : `${price}€`}</span>
+                {plan.key !== 'enterprise' && <span className="text-xs text-slate-400">/mois HT</span>}
+                {plan.key === 'enterprise' && <span className="text-lg font-bold text-slate-600">Sur devis</span>}
+              </div>
+              {billingCycle === 'annual' && plan.key !== 'enterprise' && (
+                <p className="text-[11px] text-green-600 font-semibold">
+                  Facturé {plan.annualTotal}€/an — économie {(plan.monthlyPrice - plan.annualMonthly) * 12}€
+                </p>
+              )}
+              <p className="text-[11px] text-green-600 font-medium mt-0.5">🎯 7 jours offerts</p>
+
+              <ul className="mt-3 space-y-1.5 flex-1 mb-4">
+                {plan.features.map(f => (
+                  <li key={f.text} className="text-xs text-slate-600 flex items-start gap-1.5">
+                    <span className="text-green-500 shrink-0 mt-0.5 font-bold">✓</span>
+                    <span>{f.icon} {f.text}</span>
+                  </li>
+                ))}
+                {plan.locked.map(f => (
+                  <li key={f} className="text-xs text-slate-300 flex items-start gap-1.5">
+                    <span className="shrink-0 mt-0.5">🔒</span>
+                    <span className="line-through">{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {plan.key === 'enterprise' ? (
+                <a href="mailto:contact@nexapro.tech?subject=LeadQualif Expert"
+                  className={`w-full py-2 px-4 rounded-lg text-sm font-semibold transition text-center block ${plan.btnCls}`}>
+                  Nous contacter →
+                </a>
+              ) : (
+                <button
+                  onClick={() => onSubscribe(planId)}
+                  disabled={stripeLoading || isCurrent}
+                  className={`w-full py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${plan.btnCls}`}>
+                  {stripeLoading ? '⏳…' : isCurrent ? '✅ Plan actuel' : "Démarrer l'essai gratuit"}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <p className="text-xs text-center text-slate-400">
+        🔒 Paiement sécurisé via Stripe · Annulation à tout moment · Sans engagement · Données hébergées en Europe
+      </p>
+
+      {/* ── Tableau comparatif ───────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
+          <h3 className="text-sm font-bold text-slate-700">📋 Comparatif complet des fonctionnalités</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="px-4 py-3 text-left font-semibold text-slate-500 w-2/5">Fonctionnalité</th>
+                {['Free', 'Solo', 'Agence', 'Expert'].map((name, i) => (
+                  <th key={name} className={`px-3 py-3 text-center font-bold text-sm ${
+                    i === 0 ? 'text-slate-400' :
+                    i === 1 ? 'text-blue-600' :
+                    i === 2 ? 'text-indigo-600' :
+                    'text-purple-600'
+                  } ${currentPlan === ['free','starter','growth','enterprise'][i] && isActive ? 'bg-blue-50' : ''}`}>
+                    {name}
+                    {currentPlan === ['free','starter','growth','enterprise'][i] && isActive && (
+                      <span className="block text-[10px] text-green-600 font-normal">actuel</span>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {FEATURE_MAP.map((row, i) => (
+                <tr key={i} className="hover:bg-blue-50/30 transition">
+                  <td className="px-4 py-2.5 font-medium text-slate-700">{row.label}</td>
+                  {[row.free, row.starter, row.growth, row.enterprise].map((val, j) => {
+                    const isCur = currentPlan === ['free','starter','growth','enterprise'][j] && isActive
+                    return (
+                      <td key={j} className={`px-3 py-2.5 text-center ${
+                        val === '—' ? 'text-slate-200' :
+                        val?.startsWith('✅') ? 'text-green-600 font-semibold' :
+                        'text-slate-600'
+                      } ${isCur ? 'bg-blue-50 font-semibold' : ''}`}>
+                        {val}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Portail Stripe ────────────────────────────────────── */}
+      {subscriptionInfo.stripe_customer_id && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700">⚙️ Portail de gestion Stripe</h3>
+            <p className="text-xs text-slate-500 mt-1">Changez de plan, mettez à jour votre carte, téléchargez vos factures ou annulez.</p>
+          </div>
+          <button onClick={onPortal} disabled={stripeLoading}
+            className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition disabled:opacity-50 whitespace-nowrap shrink-0">
+            {stripeLoading ? '⏳ Ouverture…' : '→ Ouvrir le portail'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════ */
 export default function Settings() {
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -1278,208 +1642,13 @@ export default function Settings() {
 
           {/* ═══ ONGLET FACTURATION ═════════════════════ */}
           {activeTab === 'facturation' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800 mb-1">💳 Abonnement & Facturation</h2>
-                <p className="text-sm text-slate-500">Gérez votre abonnement LeadQualif — paiements sécurisés via Stripe</p>
-              </div>
-
-              {stripeError && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠️ {stripeError}</div>
-              )}
-
-              {subscriptionInfo.status === 'active' || subscriptionInfo.status === 'trialing' ? (
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-blue-100 text-sm font-medium">Votre plan actuel</p>
-                      <p className="text-2xl font-bold mt-1">{PLAN_LABELS[subscriptionInfo.plan] || subscriptionInfo.plan}</p>
-                    </div>
-                    <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">
-                      {STATUS_LABELS[subscriptionInfo.status] || subscriptionInfo.status}
-                    </span>
-                  </div>
-                  {subscriptionInfo.current_period_end && (
-                    <p className="text-blue-200 text-sm">
-                      Prochain renouvellement : {new Date(subscriptionInfo.current_period_end).toLocaleDateString('fr-FR')}
-                    </p>
-                  )}
-                  <div className="mt-4 flex gap-3">
-                    <button onClick={handleOpenPortal} disabled={stripeLoading}
-                      className="px-4 py-2 bg-white text-blue-700 rounded-lg font-semibold text-sm hover:bg-blue-50 disabled:opacity-50">
-                      {stripeLoading ? '⏳…' : '⚙️ Gérer mon abonnement'}
-                    </button>
-                    <button onClick={handleOpenPortal} disabled={stripeLoading}
-                      className="px-4 py-2 bg-white/20 text-white rounded-lg font-semibold text-sm hover:bg-white/30 disabled:opacity-50">
-                      📄 Mes factures
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-3">
-                  <span className="text-2xl">⚡</span>
-                  <div>
-                    <p className="font-bold text-amber-800">Aucun abonnement actif</p>
-                    <p className="text-sm text-amber-700 mt-1">Choisissez un plan pour débloquer toutes les fonctionnalités</p>
-                    <p className="text-xs text-amber-600 mt-2">7 jours d'essai gratuit • Annulation à tout moment • Paiement sécurisé Stripe</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Cartes plans ─────────────────────────── */}
-              <div>
-                <h3 className="text-sm font-bold text-slate-700 mb-3">
-                  {subscriptionInfo.status === 'active' ? 'Changer de plan' : 'Choisir votre plan'}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[
-                    {
-                      key: 'starter', name: 'Starter', price: '49€',
-                      color: 'blue', border: 'border-slate-200', badge: '',
-                      btnCls: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
-                      features: [
-                        '📊 100 leads / mois',
-                        '🤖 Qualification IA des leads',
-                        '📋 Pipeline Kanban',
-                        '📄 Devis & Factures PDF',
-                        '📥 Import CSV / Excel',
-                        '👥 Équipe jusqu\'à 3 utilisateurs',
-                        '📧 Support email',
-                      ],
-                    },
-                    {
-                      key: 'growth', name: 'Growth', price: '149€',
-                      color: 'blue', border: 'border-blue-400 ring-2 ring-blue-200', badge: '⭐ Recommandé',
-                      btnCls: 'bg-blue-600 text-white hover:bg-blue-700',
-                      features: [
-                        '♾️ Leads illimités',
-                        '🤖 IA avancée + score automatique',
-                        '📊 Stats & ROI par source',
-                        '📄 Rapport mensuel PDF',
-                        '🔔 Alertes leads chauds (webhook)',
-                        '👥 Équipe jusqu\'à 5 utilisateurs',
-                        '🚀 Support prioritaire',
-                      ],
-                    },
-                    {
-                      key: 'enterprise', name: 'Enterprise', price: 'Sur devis',
-                      color: 'purple', border: 'border-purple-200', badge: '',
-                      btnCls: 'border border-purple-300 text-purple-700 hover:bg-purple-50',
-                      features: [
-                        '✅ Tout le plan Growth',
-                        '👥 Utilisateurs illimités',
-                        '🔌 API dédiée',
-                        '🎓 Onboarding & formation équipe',
-                        '🛡️ SLA 99,9% garanti',
-                        '📞 Account manager dédié',
-                      ],
-                    },
-                  ].map(plan => {
-                    const isCurrent = subscriptionInfo.plan === plan.key &&
-                      ['active', 'trialing'].includes(subscriptionInfo.status);
-                    return (
-                      <div key={plan.key} className={`border-2 rounded-xl p-4 relative ${plan.border}`}>
-                        {plan.badge && (
-                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-semibold whitespace-nowrap">
-                            {plan.badge}
-                          </span>
-                        )}
-                        {isCurrent && (
-                          <span className="absolute -top-3 right-4 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">✅ Actif</span>
-                        )}
-                        <p className="font-bold text-slate-800 text-lg">{plan.name}</p>
-                        <p className="text-2xl font-bold text-blue-600 mt-1">
-                          {plan.price}
-                          {plan.key !== 'enterprise' && <span className="text-sm text-slate-400 font-normal">/mois HT</span>}
-                        </p>
-                        <p className="text-xs text-green-600 font-medium mt-1">🎯 7 jours offerts</p>
-                        <ul className="mt-3 space-y-1.5 mb-4">
-                          {plan.features.map(f => (
-                            <li key={f} className="text-xs text-slate-600 flex items-start gap-1.5">
-                              <span className="text-green-500 shrink-0 mt-0.5">✓</span>{f}
-                            </li>
-                          ))}
-                        </ul>
-                        {plan.key === 'enterprise' ? (
-                          <a href="mailto:contact@nexapro.tech?subject=LeadQualif Enterprise"
-                            className={`w-full mt-2 py-2 px-4 rounded-lg text-sm font-semibold transition text-center block ${plan.btnCls}`}>
-                            Nous contacter →
-                          </a>
-                        ) : (
-                          <button onClick={() => handleSubscribe(plan.key)} disabled={stripeLoading || isCurrent}
-                            className={`w-full py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${plan.btnCls}`}>
-                            {stripeLoading ? '⏳…' : isCurrent ? '✅ Plan actuel' : "Démarrer l'essai gratuit"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-center text-slate-400 mt-3">
-                  🔒 Paiement sécurisé via Stripe • Annulation à tout moment • Aucun engagement
-                </p>
-              </div>
-
-              {/* ── Tableau comparatif fonctionnalités ──── */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-                  <h3 className="text-sm font-bold text-slate-700">📋 Comparatif détaillé des fonctionnalités</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="px-4 py-3 text-left font-semibold text-slate-500 w-1/2">Fonctionnalité</th>
-                        <th className="px-3 py-3 text-center font-semibold text-slate-500">Free</th>
-                        <th className="px-3 py-3 text-center font-semibold text-blue-600">Starter</th>
-                        <th className="px-3 py-3 text-center font-semibold text-indigo-600">Growth</th>
-                        <th className="px-3 py-3 text-center font-semibold text-purple-600">Enterprise</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {[
-                        { label: 'Leads / mois',              free: '10',         starter: '100',         growth: 'Illimité',    enterprise: 'Illimité' },
-                        { label: 'Pipeline Kanban',            free: '✅',         starter: '✅',          growth: '✅',           enterprise: '✅' },
-                        { label: 'Qualification IA + score',   free: '✅',         starter: '✅',          growth: '✅ avancée',   enterprise: '✅ avancée' },
-                        { label: 'Devis & Factures PDF',       free: '—',          starter: '✅',          growth: '✅',           enterprise: '✅' },
-                        { label: 'Import leads CSV / Excel',   free: '—',          starter: '✅',          growth: '✅',           enterprise: '✅' },
-                        { label: 'Stats & ROI par source',     free: '—',          starter: '—',           growth: '✅',           enterprise: '✅' },
-                        { label: 'Rapport mensuel PDF',        free: '—',          starter: '—',           growth: '✅',           enterprise: '✅' },
-                        { label: 'Alertes leads chauds',       free: '—',          starter: '—',           growth: '✅ webhook',   enterprise: '✅ webhook' },
-                        { label: 'Pixels FB / Google Ads',    free: '✅',          starter: '✅',          growth: '✅',           enterprise: '✅' },
-                        { label: 'Multi-utilisateurs',         free: '1 seul',     starter: '3 max',       growth: '5 max',       enterprise: 'Illimité' },
-                        { label: 'Support',                    free: 'Communauté', starter: 'Email',       growth: 'Prioritaire', enterprise: 'Dédié' },
-                        { label: 'API dédiée',                 free: '—',          starter: '—',           growth: '—',           enterprise: '✅' },
-                        { label: 'SLA garanti',                free: '—',          starter: '—',           growth: '—',           enterprise: '99,9%' },
-                      ].map((row, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
-                          <td className="px-4 py-2.5 font-medium text-slate-700">{row.label}</td>
-                          {[row.free, row.starter, row.growth, row.enterprise].map((val, j) => (
-                            <td key={j} className={`px-3 py-2.5 text-center ${
-                              val === '—' ? 'text-slate-300' :
-                              val?.startsWith('✅') ? 'text-green-600 font-semibold' :
-                              'text-slate-600'
-                            }`}>{val}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ── Portail Stripe ────────────────────── */}
-              {subscriptionInfo.stripe_customer_id && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <h3 className="text-sm font-bold text-slate-700 mb-2">⚙️ Portail de gestion Stripe</h3>
-                  <p className="text-xs text-slate-500 mb-3">Modifiez votre plan, téléchargez vos factures, changez de carte ou annulez.</p>
-                  <button onClick={handleOpenPortal} disabled={stripeLoading}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition disabled:opacity-50">
-                    {stripeLoading ? '⏳ Ouverture…' : '→ Ouvrir le portail Stripe'}
-                  </button>
-                </div>
-              )}
-            </div>
+            <BillingTab
+              subscriptionInfo={subscriptionInfo}
+              stripeLoading={stripeLoading}
+              stripeError={stripeError}
+              onSubscribe={handleSubscribe}
+              onPortal={handleOpenPortal}
+            />
           )}
 
         </div>

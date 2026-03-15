@@ -277,32 +277,67 @@ export function UpgradeBanner({ feature } = {}) {
 // ──────────────────────────────────────
 // FeatureGate — verrouiller un composant selon le plan
 // ──────────────────────────────────────
-export function FeatureGate({ feature, children, fallback }) {
+
+// Quel plan minimum est requis pour chaque feature
+const FEATURE_REQUIRED_PLAN = {
+  docs:       { name: 'Solo',   key: 'starter' },
+  stats:      { name: 'Agence', key: 'growth'  },
+  ia:         { name: 'Agence', key: 'growth'  },
+  multiUsers: { name: 'Solo',   key: 'starter' },
+}
+
+// Mode : 'blur' (overlay flou) | 'banner' (bannière en haut) | 'hide' (cache le contenu)
+export function FeatureGate({ feature, children, fallback, mode = 'blur' }) {
   const { canAccess, loading, userPlan } = usePlanGuard()
 
   if (loading) {
-    return <div className="animate-pulse bg-gray-200 rounded-lg h-8 w-32" />
+    return <div className="animate-pulse bg-gray-100 rounded-xl h-24 w-full" />
   }
 
   if (!canAccess(feature)) {
     if (fallback) return fallback
 
-    return (
-      <div className="relative w-full">
-        <div className="opacity-40 pointer-events-none select-none">
-          {children}
-        </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[1px] rounded-lg border border-dashed border-gray-300">
-          <span className="text-2xl mb-1">🔒</span>
-          <span className="text-xs font-semibold text-gray-600 mb-2">
-            {feature === 'stats' || feature === 'ia' ? 'Plan Growth requis' : 'Plan Starter requis'}
-          </span>
+    const required = FEATURE_REQUIRED_PLAN[feature]
+    const planName = required?.name || 'supérieur'
+
+    if (mode === 'hide') return null
+
+    if (mode === 'banner') {
+      return (
+        <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+          <span className="text-3xl mb-3 block">🔒</span>
+          <p className="font-bold text-slate-700 text-base mb-1">Fonctionnalité réservée au plan {planName}</p>
+          <p className="text-sm text-slate-500 mb-4">Passez au plan {planName} pour débloquer cette section et bien plus encore.</p>
           <button
             onClick={() => window.location.href = '/settings?tab=facturation'}
-            className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-full hover:bg-indigo-700 transition-colors"
+            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
+          >
+            Débloquer le plan {planName} →
+          </button>
+          <p className="text-xs text-slate-400 mt-3">7 jours gratuits · Sans carte bancaire · Annulation à tout moment</p>
+        </div>
+      )
+    }
+
+    // mode = 'blur' (défaut)
+    return (
+      <div className="relative w-full rounded-xl overflow-hidden">
+        <div className="opacity-30 pointer-events-none select-none blur-[1px]">
+          {children}
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-[2px] rounded-xl">
+          <span className="text-3xl mb-2">🔒</span>
+          <p className="text-sm font-bold text-slate-700 mb-1">Plan {planName} requis</p>
+          <p className="text-xs text-slate-500 mb-3 text-center px-8">
+            Cette fonctionnalité est disponible à partir du plan {planName}.
+          </p>
+          <button
+            onClick={() => window.location.href = '/settings?tab=facturation'}
+            className="text-sm bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
           >
             Débloquer →
           </button>
+          <p className="text-xs text-slate-400 mt-2">7 jours offerts · Sans carte bancaire</p>
         </div>
       </div>
     )

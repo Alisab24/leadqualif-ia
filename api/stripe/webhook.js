@@ -1,6 +1,14 @@
 /**
  * POST /api/stripe/webhook
  * Gère les webhooks Stripe → met à jour Supabase automatiquement
+ *
+ * Événements gérés :
+ *   checkout.session.completed         → activation abonnement
+ *   customer.subscription.updated      → changement plan/statut
+ *   customer.subscription.deleted      → résiliation
+ *   customer.subscription.trial_will_end → alerte fin essai (J-3)
+ *   invoice.payment_succeeded          → confirmation paiement
+ *   invoice.payment_failed             → paiement en échec → past_due
  */
 
 import Stripe from 'stripe';
@@ -13,11 +21,52 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 async function updateProfile(userId, updates) {
-  if (!userId) return;
+  if (!userId) { console.warn('[webhook] updateProfile: userId manquant'); return; }
   const { error } = await supabase.from('profiles').update(updates).eq('user_id', userId);
-  if (error) console.error('Supabase update error:', error);
+  if (error) console.error('[webhook] Supabase update error:', error.message);
+  else console.log('[webhook] Profile mis à jour:', userId, Object.keys(updates).join(', '));
 }
+
+/**
+ * Résout userId depuis les métadonnées d'un objet Stripe.
+ * Cherche dans sub.metadata, puis dans le customer Stripe (fallback).
+ */
+async function resolveUserId(obj) {
+  if (obj.metadata?.userId) return obj.metadata.userId;
+  // Fallback : chercher dans le customer Stripe
+  if (obj.customer) {
+    try {
+      const customer = await stripe.customers.retrieve(obj.customer);
+      return customer.metadata?.userId || null;
+    } catch (e) {
+      console.error('[webhook] Impossible de récupérer le customer:', e.message);
+    }
+  }
+  return null;
+}
+
+/**
+ * Extrait le plan de base depuis les métadonnées Stripe.
+ * Ex: "growth_annual" → "growth"
+ */
+function extractBasePlan(metadata) {
+  const raw = metadata?.plan || '';
+  return raw.replace('_annual', '') || 'growth';
+}
+
+/**
+ * Extrait le cycle de facturation depuis les métadonnées ou l'intervalle de l'abonnement.
+ */
+function extractBillingCycle(metadata, subscription) {
+  if (metadata?.billingCycle) return metadata.billingCycle;
+  if (subscription?.items?.data?.[0]?.price?.recurring?.interval === 'year') return 'annual';
+  return 'monthly';
+}
+
+// ── Handler principal ─────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -30,73 +79,149 @@ export default async function handler(req, res) {
     if (webhookSecret && sig) {
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else {
+      // Dev/test : pas de vérification de signature
       event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      console.warn('[webhook] ⚠️ STRIPE_WEBHOOK_SECRET absent — signature non vérifiée');
     }
   } catch (err) {
+    console.error('[webhook] Signature invalide:', err.message);
     return res.status(400).json({ error: `Webhook error: ${err.message}` });
   }
+
+  console.log(`[webhook] Événement reçu: ${event.type}`);
 
   try {
     switch (event.type) {
 
+      // ── Paiement checkout finalisé ──────────────────────────────────────────
       case 'checkout.session.completed': {
         const session = event.data.object;
-        const userId = session.metadata?.userId;
-        const plan = session.metadata?.plan;
+        const userId  = session.metadata?.userId;
+        const plan    = extractBasePlan(session.metadata);
+        const cycle   = session.metadata?.billingCycle || 'monthly';
+
         if (userId) {
+          // Récupérer les détails de l'abonnement pour la date de fin
+          let periodEnd = null;
+          if (session.subscription) {
+            try {
+              const sub = await stripe.subscriptions.retrieve(session.subscription);
+              periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+            } catch (e) { /* non bloquant */ }
+          }
+
           await updateProfile(userId, {
-            stripe_customer_id: session.customer,
-            stripe_subscription_id: session.subscription,
-            subscription_status: 'active',
-            subscription_plan: plan || 'growth',
+            stripe_customer_id:              session.customer,
+            stripe_subscription_id:          session.subscription,
+            subscription_status:             'active',
+            subscription_plan:               plan,
+            subscription_billing_cycle:      cycle,
+            subscription_current_period_end: periodEnd,
           });
         }
         break;
       }
 
+      // ── Abonnement modifié (upgrade/downgrade/renouvellement/trial→active) ──
       case 'customer.subscription.updated': {
-        const sub = event.data.object;
-        const userId = sub.metadata?.userId;
+        const sub    = event.data.object;
+        const userId = await resolveUserId(sub);
+        const plan   = extractBasePlan(sub.metadata);
+        const cycle  = extractBillingCycle(sub.metadata, sub);
+
         if (userId) {
           await updateProfile(userId, {
-            stripe_subscription_id: sub.id,
-            subscription_status: sub.status,
-            subscription_plan: sub.metadata?.plan || 'growth',
+            stripe_subscription_id:          sub.id,
+            subscription_status:             sub.status,           // active | trialing | past_due | canceled
+            subscription_plan:               plan,
+            subscription_billing_cycle:      cycle,
             subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
           });
         }
         break;
       }
 
+      // ── Abonnement résilié ──────────────────────────────────────────────────
       case 'customer.subscription.deleted': {
-        const sub = event.data.object;
-        const userId = sub.metadata?.userId;
+        const sub    = event.data.object;
+        const userId = await resolveUserId(sub);
+
         if (userId) {
           await updateProfile(userId, {
-            subscription_status: 'inactive',
-            subscription_plan: 'free',
-            stripe_subscription_id: null,
+            subscription_status:             'inactive',
+            subscription_plan:               'free',
+            stripe_subscription_id:          null,
+            subscription_billing_cycle:      null,
+            subscription_current_period_end: null,
           });
         }
         break;
       }
 
-      case 'invoice.payment_failed': {
+      // ── Essai gratuit se termine dans 3 jours ──────────────────────────────
+      // Stripe envoie cet événement 3 jours avant la fin du trial
+      case 'customer.subscription.trial_will_end': {
+        const sub    = event.data.object;
+        const userId = await resolveUserId(sub);
+        const trialEnd = sub.trial_end
+          ? new Date(sub.trial_end * 1000).toISOString()
+          : null;
+
+        console.log(`[webhook] Essai se termine bientôt pour userId=${userId}, trial_end=${trialEnd}`);
+        // On met à jour la date de fin d'essai pour que l'app puisse afficher le compte à rebours
+        if (userId && trialEnd) {
+          await updateProfile(userId, {
+            subscription_current_period_end: trialEnd,
+            subscription_status:             'trialing',
+          });
+        }
+        break;
+      }
+
+      // ── Paiement facture réussi ─────────────────────────────────────────────
+      case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
-        const customer = await stripe.customers.retrieve(invoice.customer);
-        const userId = customer.metadata?.userId;
-        if (userId) await updateProfile(userId, { subscription_status: 'past_due' });
+        // Seulement pour les renouvellements (pas la première facture gérée par checkout.session.completed)
+        if (invoice.billing_reason === 'subscription_cycle') {
+          const userId = await resolveUserId({ customer: invoice.customer, metadata: {} });
+          if (userId) {
+            // Récupérer l'abonnement pour les données à jour
+            if (invoice.subscription) {
+              const sub  = await stripe.subscriptions.retrieve(invoice.subscription);
+              const plan = extractBasePlan(sub.metadata);
+              const cycle = extractBillingCycle(sub.metadata, sub);
+              await updateProfile(userId, {
+                subscription_status:             'active',
+                subscription_plan:               plan,
+                subscription_billing_cycle:      cycle,
+                subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+              });
+            }
+          }
+        }
+        break;
+      }
+
+      // ── Paiement facture échoué ─────────────────────────────────────────────
+      case 'invoice.payment_failed': {
+        const invoice  = event.data.object;
+        const userId   = await resolveUserId({ customer: invoice.customer, metadata: {} });
+
+        console.warn(`[webhook] Paiement échoué pour customer=${invoice.customer}`);
+        if (userId) {
+          await updateProfile(userId, { subscription_status: 'past_due' });
+        }
         break;
       }
 
       default:
-        console.log(`Event non traité: ${event.type}`);
+        console.log(`[webhook] Événement non traité: ${event.type}`);
     }
 
-    return res.status(200).json({ received: true });
+    return res.status(200).json({ received: true, type: event.type });
 
   } catch (error) {
-    console.error('Webhook error:', error.message);
+    console.error('[webhook] Erreur interne:', error.message);
     return res.status(500).json({ error: error.message });
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import ProfileManager from '../services/profileManager'
+import { FeatureGate } from '../components/PlanGuard'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, AreaChart, Area
@@ -453,6 +454,7 @@ export default function Stats() {
   }
 
   return (
+    <FeatureGate feature="stats" mode="banner">
     <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
       {/* ── HEADER ─────────────────────────────────────── */}
@@ -1321,5 +1323,6 @@ export default function Stats() {
       )}
 
     </div>
+    </FeatureGate>
   )
 }
