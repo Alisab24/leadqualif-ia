@@ -271,7 +271,7 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link
-              to="/login"
+              to={`/login?returnTo=${encodeURIComponent('/settings?tab=facturation&plan=growth')}`}
               className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200 group"
             >
               Démarrer mon essai gratuit
@@ -539,7 +539,7 @@ export default function Landing() {
                     </a>
                   ) : (
                     <Link
-                      to="/login"
+                      to={`/login?returnTo=${encodeURIComponent(`/settings?tab=facturation&plan=${plan.id}${annual ? `_annual` : ''}`)}`}
                       className={`w-full text-center px-6 py-3.5 rounded-xl font-bold transition block ${
                         isPrimary
                           ? 'bg-white text-blue-600 hover:bg-blue-50'
@@ -647,7 +647,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              to="/login"
+              to={`/login?returnTo=${encodeURIComponent('/settings?tab=facturation&plan=growth')}`}
               className="bg-white text-blue-600 px-10 py-5 rounded-xl font-extrabold text-lg hover:bg-blue-50 transition flex items-center justify-center gap-2 shadow-xl group"
             >
               Démarrer gratuitement — 7 jours

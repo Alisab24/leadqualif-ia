@@ -486,13 +486,14 @@ export default function Settings() {
     }
     if (params.get('tab')) setActiveTab(params.get('tab'));
     const planParam = params.get('plan');
-    if (planParam && ['starter', 'growth', 'enterprise'].includes(planParam)) {
+    const VALID_PLANS = ['starter', 'growth', 'enterprise', 'starter_annual', 'growth_annual', 'enterprise_annual'];
+    if (planParam && VALID_PLANS.includes(planParam)) {
       setPendingPlan(planParam);
       setActiveTab('facturation');
       window.history.replaceState({}, '', '/settings?tab=facturation');
     }
     const storedPlan = sessionStorage.getItem('pendingPlan');
-    if (storedPlan && ['starter', 'growth', 'enterprise'].includes(storedPlan)) {
+    if (storedPlan && VALID_PLANS.includes(storedPlan)) {
       setPendingPlan(storedPlan);
       sessionStorage.removeItem('pendingPlan');
       setActiveTab('facturation');
