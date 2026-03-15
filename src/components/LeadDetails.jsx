@@ -135,24 +135,25 @@ const LeadDetails = () => {
     try {
       const result = await aiService.qualifyLead(lead)
       const evaluation = result?.evaluation_complete || result
-      const actionImmediate = evaluation?.recommandations?.action_immediate
+      const scoreLabel = result?.score_qualification ?? result?.score ?? lead.score ?? lead.score_ia ?? 0
       const niveau = result?.niveau_interet_final || result?.niveau_interet || evaluation?.niveau_interet || 'FROID'
-      const score = result?.score_qualification ?? result?.score ?? 0
       const resume = result?.resume || evaluation?.raison_classification || ''
-      const recs = Array.isArray(result?.recommandations) ? result.recommandations : []
-      const suggestion = actionImmediate
-        || (recs.length > 0 ? recs.join(' ') : null)
-        || (resume ? `${niveau} (${score}%) — ${resume}` : `Score : ${score}% — Niveau : ${niveau}`)
+      // Recommandation dynamique basée sur le score IA réel
+      const enrichedLead = { ...lead, score: scoreLabel, score_ia: scoreLabel, niveau_interet: niveau }
+      const smartRec = getSmartRecommendation(enrichedLead)
+      const suggestion = resume ? `${smartRec}\n\n📝 Analyse IA : ${resume}` : smartRec
 
-      setAiSuggestion(suggestion || '')
+      setAiSuggestion(suggestion)
       await supabase.from('leads').update({
-        resume_ia: suggestion,
-        suggestion_ia: suggestion,
-        score_qualification: score,
+        resume_ia: resume || smartRec,
+        suggestion_ia: smartRec,
+        score_qualification: scoreLabel,
+        score: scoreLabel,
         niveau_interet: niveau,
       }).eq('id', id)
     } catch (err) {
       console.error('fetchAI error:', err)
+      setAiSuggestion(getSmartRecommendation(lead))
     }
     setLoadingAI(false)
   }
@@ -611,14 +612,26 @@ const LeadDetails = () => {
                       </span>
                     )}
                   </div>
-                  <p className={`text-sm leading-relaxed ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>{displayRec}</p>
+                  {(() => {
+                    const parts = displayRec.split('\n\n📝 Analyse IA : ')
+                    return (
+                      <>
+                        <p className={`text-sm leading-relaxed font-medium ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>{parts[0]}</p>
+                        {parts[1] && (
+                          <p className={`text-xs mt-3 leading-relaxed opacity-80 ${isLive ? 'text-purple-700' : 'text-indigo-700'}`}>
+                            📝 {parts[1]}
+                          </p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </section>
               )
             })()}
 
-            {/* Résumé IA distinct */}
+            {/* Résumé IA distinct — affiché seulement s'il apporte du contenu nouveau */}
             {typeof lead.resume_ia === 'string' && lead.resume_ia.trim() &&
-              lead.resume_ia !== aiSuggestion && lead.resume_ia !== lead.suggestion_ia && (
+              !aiSuggestion && lead.resume_ia !== lead.suggestion_ia && (
               <section className="bg-slate-50 border border-slate-200 rounded-xl p-5">
                 <p className="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wide">
                   📝 Résumé IA

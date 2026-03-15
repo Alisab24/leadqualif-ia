@@ -204,30 +204,33 @@ export default function Dashboard() {
     setAiSuggestion('');
     try {
       const result = await aiService.qualifyLead(lead);
-      // Extraire la recommandation depuis les différents niveaux de réponse
+      // Extraire score et niveau depuis le résultat IA
       const evaluation = result?.evaluation_complete || result
-      const actionImmediate = evaluation?.recommandations?.action_immediate
-      const scoreLabel = result?.score_qualification ?? result?.score ?? 0
+      const scoreLabel = result?.score_qualification ?? result?.score ?? lead.score ?? lead.score_ia ?? 0
       const niveau = result?.niveau_interet_final || result?.niveau_interet || evaluation?.niveau_interet || 'FROID'
       const resume = result?.resume || evaluation?.raison_classification || ''
-      const recs = Array.isArray(result?.recommandations) ? result.recommandations : []
-      const suggestion = actionImmediate
-        || (recs.length > 0 ? recs.join(' — ') : null)
-        || (resume ? `${niveau} (${scoreLabel}%) — ${resume}` : `Score : ${scoreLabel}% — Niveau : ${niveau}`)
+      // Construire un objet lead enrichi avec le score/niveau IA pour la recommandation dynamique
+      const enrichedLead = { ...lead, score: scoreLabel, score_ia: scoreLabel, niveau_interet: niveau }
+      // Recommandation dynamique basée sur le score réel IA + résumé contextuel si disponible
+      const smartRec = getSmartRecommendation(enrichedLead)
+      const suggestion = resume
+        ? `${smartRec}\n\n📝 Analyse IA : ${resume}`
+        : smartRec
       setAiSuggestion(suggestion);
-      // Sauvegarder la suggestion + score + niveau en base (cohérence avec LeadDetails)
+      // Sauvegarder score + niveau + recommandation en base
       await supabase.from('leads')
         .update({
-          suggestion_ia: suggestion,
-          resume_ia: suggestion,
+          suggestion_ia: smartRec,          // stocker la version courte (sans résumé)
+          resume_ia: resume || smartRec,
           score_qualification: scoreLabel,
+          score: scoreLabel,
           niveau_interet: niveau,
           ia_processed_at: new Date().toISOString(),
         })
         .eq('id', lead.id);
-      await logCrmEvent(lead.id, 'ia_suggestion', 'Suggestion IA générée', suggestion);
+      await logCrmEvent(lead.id, 'ia_suggestion', 'Analyse IA', `Score: ${scoreLabel}% — ${niveau}`);
     } catch (error) {
-      setAiSuggestion(lead.suggestion_ia || 'Erreur lors de la génération de la suggestion IA.');
+      setAiSuggestion(getSmartRecommendation(lead));
     } finally {
       setLoadingAI(false);
     }
@@ -1113,15 +1116,27 @@ export default function Dashboard() {
                               </span>
                             )}
                           </div>
-                          <p className={`text-xs leading-relaxed ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>
-                            {displayRec}
-                          </p>
+                          {(() => {
+                            const parts = displayRec.split('\n\n📝 Analyse IA : ')
+                            return (
+                              <>
+                                <p className={`text-xs leading-relaxed font-medium ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>
+                                  {parts[0]}
+                                </p>
+                                {parts[1] && (
+                                  <p className={`text-xs mt-2 leading-relaxed opacity-75 ${isLive ? 'text-purple-700' : 'text-indigo-700'}`}>
+                                    📝 {parts[1]}
+                                  </p>
+                                )}
+                              </>
+                            )
+                          })()}
                         </div>
                       )
                     })()}
 
-                    {/* Résumé IA */}
-                    {selectedLead.resume_ia && selectedLead.resume_ia !== selectedLead.suggestion_ia && (
+                    {/* Résumé IA — seulement si pas déjà affiché dans la recommandation */}
+                    {!aiSuggestion && selectedLead.resume_ia && selectedLead.resume_ia !== selectedLead.suggestion_ia && (
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                         <p className="text-xs font-bold text-slate-600 mb-2">📝 Résumé IA</p>
                         <p className="text-xs text-slate-700 leading-relaxed">{selectedLead.resume_ia}</p>
