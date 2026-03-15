@@ -113,6 +113,23 @@ function SubscriptionWall({ plan, onPortal }) {
   );
 }
 
+/* ─── Bannière paiement rejeté (past_due) ───────────── */
+function PastDueBanner() {
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 text-sm border-b bg-red-50 border-red-200 text-red-800">
+      <span className="font-medium">
+        ⚠️ Paiement en échec — Votre accès sera suspendu si aucune action n'est prise
+      </span>
+      <button
+        onClick={() => window.location.href = '/settings?tab=facturation'}
+        className="text-xs font-bold px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+      >
+        Mettre à jour ma carte →
+      </button>
+    </div>
+  );
+}
+
 /* ─── Bannière essai en cours ───────────────────────── */
 function TrialBannerInline({ plan, trialEnd }) {
   if (!trialEnd) return null;
@@ -162,7 +179,8 @@ export default function Layout() {
     profile?.stripe_subscription_id !== undefined &&
     typeof profile?.stripe_subscription_id === 'string';
 
-  const isTrialing = status === 'trialing';
+  const isTrialing  = status === 'trialing';
+  const isPastDue   = status === 'past_due';
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -469,6 +487,9 @@ export default function Layout() {
       <div className={`flex-1 transition-all duration-300 min-w-0 overflow-hidden flex flex-col ${
         expanded ? 'ml-60' : 'ml-16'
       }`}>
+        {/* Bannière paiement rejeté */}
+        {isPastDue && <PastDueBanner />}
+
         {/* Bannière essai en cours */}
         {isTrialing && (
           <TrialBannerInline

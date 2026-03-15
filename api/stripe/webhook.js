@@ -101,19 +101,22 @@ export default async function handler(req, res) {
         const cycle   = session.metadata?.billingCycle || 'monthly';
 
         if (userId) {
-          // Récupérer les détails de l'abonnement pour la date de fin
+          // Récupérer les détails de l'abonnement pour le statut réel et la date de fin
+          // (le sub peut être "trialing" si trial_period_days est configuré)
           let periodEnd = null;
+          let actualStatus = 'active';
           if (session.subscription) {
             try {
               const sub = await stripe.subscriptions.retrieve(session.subscription);
-              periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+              periodEnd    = new Date(sub.current_period_end * 1000).toISOString();
+              actualStatus = sub.status; // trialing | active | past_due | ...
             } catch (e) { /* non bloquant */ }
           }
 
           await updateProfile(userId, {
             stripe_customer_id:              session.customer,
             stripe_subscription_id:          session.subscription,
-            subscription_status:             'active',
+            subscription_status:             actualStatus,
             subscription_plan:               plan,
             subscription_billing_cycle:      cycle,
             subscription_current_period_end: periodEnd,
@@ -181,22 +184,20 @@ export default async function handler(req, res) {
       // ── Paiement facture réussi ─────────────────────────────────────────────
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
-        // Seulement pour les renouvellements (pas la première facture gérée par checkout.session.completed)
-        if (invoice.billing_reason === 'subscription_cycle') {
+        // Gérer : renouvellement périodique, changement de plan, et réactivation après past_due
+        const handledReasons = ['subscription_cycle', 'subscription_update', 'manual'];
+        if (handledReasons.includes(invoice.billing_reason) && invoice.subscription) {
           const userId = await resolveUserId({ customer: invoice.customer, metadata: {} });
           if (userId) {
-            // Récupérer l'abonnement pour les données à jour
-            if (invoice.subscription) {
-              const sub  = await stripe.subscriptions.retrieve(invoice.subscription);
-              const plan = extractBasePlan(sub.metadata);
-              const cycle = extractBillingCycle(sub.metadata, sub);
-              await updateProfile(userId, {
-                subscription_status:             'active',
-                subscription_plan:               plan,
-                subscription_billing_cycle:      cycle,
-                subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-              });
-            }
+            const sub   = await stripe.subscriptions.retrieve(invoice.subscription);
+            const plan  = extractBasePlan(sub.metadata);
+            const cycle = extractBillingCycle(sub.metadata, sub);
+            await updateProfile(userId, {
+              subscription_status:             'active',
+              subscription_plan:               plan,
+              subscription_billing_cycle:      cycle,
+              subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+            });
           }
         }
         break;
