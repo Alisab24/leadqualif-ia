@@ -277,6 +277,190 @@ const DocumentsPage = () => {
     setShowPreviewModal(true);
   };
 
+  // ── Rendu professionnel du document (remplace dangerouslySetInnerHTML) ──
+  const renderDocumentPreview = (doc) => {
+    if (!doc) return null;
+
+    const fmtEur = (v) =>
+      (v || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
+
+    const fmtDate = (d) =>
+      d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+    const agency  = agencyProfile || {};
+    const cj      = doc.content_json || {};
+    const typeLabel = (doc.type || 'Document').toUpperCase().replace('_', ' ');
+    const isFacture = /factur/i.test(doc.type || '');
+    const isDevis   = /devis/i.test(doc.type || '');
+    const isContrat = /contrat/i.test(doc.type || '');
+    const totalTTC  = parseFloat(doc.total_ttc) || 0;
+    const totalHT   = parseFloat(doc.total_ht)  || 0;
+    const tva       = parseFloat(doc.tva_amount) || 0;
+    const devise    = doc.devise || '€';
+
+    // Description de la prestation (depuis content_json)
+    const description = cj.services_inclus || cj.description_travaux || cj.description || null;
+    const periode     = cj.periode_facturation || cj.periodeFacturation || null;
+    const budgetM     = cj.budget_mensuel || null;
+    const duree       = cj.duree_contrat || null;
+    const conditions  = cj.conditions_paiement || cj.conditionsPaiement || 'À réception de facture';
+    const notes       = cj.notes || cj.metadata?.notes || null;
+
+    return (
+      <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: 720, margin: '0 auto', background: '#fff', padding: 0 }}>
+
+        {/* Header agence + type document */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '32px 40px 24px', borderBottom: '2px solid #e2e8f0' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#1e293b', marginBottom: 4 }}>
+              {agency.nom_agence || agency.name || 'Agence'}
+            </div>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
+              {agency.adresse_legale || agency.adresse || agency.address || ''}
+              {(agency.adresse_legale || agency.adresse || agency.address) && <br />}
+              {agency.email || ''}{agency.email && agency.telephone ? ' · ' : ''}{agency.telephone || ''}
+              {(agency.siret || agency.registrationNumber) && (
+                <><br /><span style={{ fontSize: 11, color: '#94a3b8' }}>
+                  SIRET : {agency.siret || agency.registrationNumber}
+                </span></>
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 28, fontWeight: 900, color: '#1e293b', letterSpacing: 1 }}>
+              {typeLabel}
+            </div>
+            <div style={{ fontSize: 13, color: '#475569', marginTop: 6, lineHeight: 1.8 }}>
+              <div><strong>Réf :</strong> {doc.reference || doc.numero_document || '—'}</div>
+              <div><strong>Date :</strong> {fmtDate(doc.created_at)}</div>
+              {(isFacture || isDevis) && (
+                <div><strong>Échéance :</strong> 30 jours</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* CLIENT */}
+        <div style={{ padding: '20px 40px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Client
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>
+            {doc.client_nom || cj.client_nom || '—'}
+          </div>
+          {(doc.client_email || cj.client_email) && (
+            <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
+              {doc.client_email || cj.client_email}
+            </div>
+          )}
+          {cj.client_telephone && (
+            <div style={{ fontSize: 13, color: '#64748b' }}>{cj.client_telephone}</div>
+          )}
+        </div>
+
+        {/* DÉTAIL PRESTATION */}
+        <div style={{ padding: '24px 40px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f1f5f9' }}>
+                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                  Description
+                </th>
+                <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', width: 80 }}>
+                  Qté
+                </th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', width: 130 }}>
+                  Montant HT
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '14px', fontSize: 14, color: '#1e293b' }}>
+                  {description || (isContrat ? 'Contrat de prestation de services' : isDevis ? 'Prestation selon devis' : 'Prestation de services')}
+                  {periode && <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Période : {periode}</div>}
+                  {budgetM && duree && (
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                      {budgetM} {devise} × {duree} mois
+                    </div>
+                  )}
+                </td>
+                <td style={{ padding: '14px', fontSize: 14, color: '#475569', textAlign: 'center' }}>1</td>
+                <td style={{ padding: '14px', fontSize: 14, fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>
+                  {totalHT > 0 ? fmtEur(totalHT) : totalTTC > 0 ? fmtEur(totalTTC) : '—'}
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              {totalHT > 0 && (
+                <tr style={{ borderTop: '1px solid #e2e8f0' }}>
+                  <td colSpan={2} style={{ padding: '10px 14px', fontSize: 13, color: '#64748b', textAlign: 'right' }}>Total HT</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, color: '#1e293b', textAlign: 'right' }}>{fmtEur(totalHT)}</td>
+                </tr>
+              )}
+              {tva > 0 && (
+                <tr>
+                  <td colSpan={2} style={{ padding: '6px 14px', fontSize: 13, color: '#64748b', textAlign: 'right' }}>TVA (20%)</td>
+                  <td style={{ padding: '6px 14px', fontSize: 13, color: '#1e293b', textAlign: 'right' }}>{fmtEur(tva)}</td>
+                </tr>
+              )}
+              <tr style={{ background: '#eff6ff', borderTop: '2px solid #bfdbfe' }}>
+                <td colSpan={2} style={{ padding: '12px 14px', fontSize: 15, fontWeight: 800, color: '#1d4ed8', textAlign: 'right' }}>
+                  TOTAL TTC
+                </td>
+                <td style={{ padding: '12px 14px', fontSize: 15, fontWeight: 800, color: '#1d4ed8', textAlign: 'right' }}>
+                  {totalTTC > 0 ? fmtEur(totalTTC) : '—'}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* CONDITIONS & NOTES */}
+        <div style={{ padding: '0 40px 24px', borderTop: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16 }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                Conditions de paiement
+              </div>
+              <div style={{ fontSize: 13, color: '#475569' }}>{conditions}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                Statut
+              </div>
+              <span style={{
+                display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                background: doc.statut === 'payé' ? '#dcfce7' : doc.statut === 'envoyé' ? '#dbeafe' : '#f1f5f9',
+                color:      doc.statut === 'payé' ? '#15803d' : doc.statut === 'envoyé' ? '#1d4ed8' : '#475569',
+              }}>
+                {doc.statut || 'brouillon'}
+              </span>
+            </div>
+          </div>
+          {notes && (
+            <div style={{ marginTop: 16, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>Notes</div>
+              <div style={{ fontSize: 13, color: '#78350f' }}>{notes}</div>
+            </div>
+          )}
+        </div>
+
+        {/* FOOTER */}
+        <div style={{ padding: '16px 40px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+            Document généré par <strong>{agency.nom_agence || agency.name || 'LeadQualif IA'}</strong> — {fmtDate(doc.created_at)}
+          </div>
+          {(agency.siret || agency.registrationNumber) && (
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>
+              SIRET {agency.siret || agency.registrationNumber}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /**
    * 🛡️ FONCTION DE TÉLÉCHARGEMENT PDF - DOM Natif
    * Corrige l'erreur "createElement is not a function"
@@ -772,27 +956,43 @@ const DocumentsPage = () => {
         </div>
       )}
 
-      {/* Modal de preview */}
+      {/* Modal de preview — rendu propre avec vraies données */}
       {showPreviewModal && previewDocument && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 h-5/6 shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Aperçu : {previewDocument.reference}
-              </h3>
+        <div className="fixed inset-0 bg-black/50 overflow-y-auto z-50 flex items-start justify-center py-8 px-4">
+          <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+
+            {/* Header modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 flex-none">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Aperçu : {previewDocument.reference}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {(previewDocument.type || '').toUpperCase()} · {previewDocument.client_nom || '—'} ·{' '}
+                  <span className={`font-semibold ${
+                    previewDocument.statut === 'payé' ? 'text-green-600'
+                    : previewDocument.statut === 'envoyé' ? 'text-blue-600'
+                    : 'text-slate-500'
+                  }`}>
+                    {previewDocument.statut || 'brouillon'}
+                  </span>
+                </p>
+              </div>
               <button
-                onClick={() => {
-                  setShowPreviewModal(false);
-                  setPreviewDocument(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={() => { setShowPreviewModal(false); setPreviewDocument(null); }}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 text-xl transition"
               >
-                ✕
+                ×
               </button>
             </div>
-            <div className="h-5/6 overflow-auto border rounded">
-              <div dangerouslySetInnerHTML={{ __html: previewDocument.preview_html }} />
+
+            {/* Contenu */}
+            <div className="flex-1 overflow-auto p-4 bg-slate-50">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100">
+                {renderDocumentPreview(previewDocument)}
+              </div>
             </div>
+
           </div>
         </div>
       )}
