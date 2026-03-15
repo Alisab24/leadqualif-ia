@@ -143,7 +143,7 @@ export default async function handler(req, res) {
     `
 
     const { data, error } = await resend.emails.send({
-      from: 'noreply@send.leadqualif.com',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Invitation à rejoindre ${nom} sur LeadQualif`,
       html,
