@@ -259,22 +259,19 @@ export default function Stats() {
         .filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth)
         .reduce((sum, l) => sum + calcCommission(l.budget), 0)
 
-      // ── SMMA : CA & budget marketing ─────────────────────
-      const caGenere = gagneLeads.reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
-      const budgetMarketing = leadsData
-        .filter(l => l.statut === 'Gagné')
-        .reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
-      const caMoisEnCours = leadsData
-        .filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth)
-        .reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
-
       // ── CA réel encaissé (factures payées) ───────────────
+      // Pour SMMA : source unique de vérité, jamais parseBudget
       const facturesPayees = facturesPay || []
       const caFacturesPaye = facturesPayees.reduce((sum, f) => sum + (f.total_ttc || 0), 0)
       const caFacturesPayeMois = facturesPayees
         .filter(f => new Date(f.created_at) >= thisMonth)
         .reduce((sum, f) => sum + (f.total_ttc || 0), 0)
       const nbFacturesPayees = facturesPayees.length
+
+      // ── SMMA : CA = factures uniquement (pas parseBudget) ─
+      const caGenere       = type === 'smma' ? caFacturesPaye     : gagneLeads.reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
+      const budgetMarketing = type === 'smma' ? caFacturesPaye    : leadsData.filter(l => l.statut === 'Gagné').reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
+      const caMoisEnCours  = type === 'smma' ? caFacturesPayeMois : leadsData.filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth).reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
 
       // ── Données mensuelles (6 mois) ───────────────────────
       const monthlyData = []
@@ -288,7 +285,12 @@ export default function Stats() {
         const gagneMonth  = monthLeads.filter(l => l.statut === 'Gagné')
         const hotMonth    = monthLeads.filter(l => (l.score || l.score_ia || 0) >= 70).length
         const commission  = gagneMonth.reduce((sum, l) => sum + calcCommission(l.budget), 0)
-        const caSmma      = gagneMonth.reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
+        // SMMA : CA mensuel depuis les factures payées ce mois (jamais parseBudget)
+        const caSmma = type === 'smma'
+          ? facturesPayees
+              .filter(f => { const d = new Date(f.created_at); return d >= mStart && d <= mEnd })
+              .reduce((sum, f) => sum + (f.total_ttc || 0), 0)
+          : gagneMonth.reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
 
         monthlyData.push({
           month:      mStart.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
@@ -345,9 +347,8 @@ export default function Stats() {
         roiMap[src].leads++
         if (l.statut === 'Gagné') {
           roiMap[src].gagnes++
-          const rev = type === 'smma'
-            ? parseBudget(l.budget_marketing || l.budget)
-            : calcCommission(l.budget)
+          // SMMA : le CA vient des factures (pas des leads), revenue = 0 ici
+          const rev = type === 'smma' ? 0 : calcCommission(l.budget)
           roiMap[src].revenue += rev
         }
       })
@@ -373,34 +374,15 @@ export default function Stats() {
       const leadsChaudsNonTraites = leadsData.filter(l =>
         (l.score || l.score_ia || 0) >= 70 && l.statut !== 'Gagné' && l.statut !== 'Perdu'
       )
-      const gagnesAvecBudget = gagneLeads.filter(l => parseBudget(l.budget_marketing || l.budget) > 0)
-      const retainerMoyen = gagnesAvecBudget.length > 0
-        ? Math.round(gagnesAvecBudget.reduce((s, l) => s + parseBudget(l.budget_marketing || l.budget), 0) / gagnesAvecBudget.length)
+      // Rétainer moyen SMMA : moyenne des factures payées (source fiable)
+      // IMMO : pas utilisé ici
+      const retainerMoyen = type === 'smma' && nbFacturesPayees > 0
+        ? Math.round(caFacturesPaye / nbFacturesPayees)
         : 0
-      // Affichage "fourchette" : min – max parmi les budgets des clients signés
-      const retainerDisplay = (() => {
-        if (!gagnesAvecBudget.length) return null
-        const allMins = [], allMaxs = []
-        gagnesAvecBudget.forEach(l => {
-          const raw = l.budget_marketing || l.budget
-          if (!raw) return
-          if (typeof raw === 'number') { allMins.push(raw); allMaxs.push(raw); return }
-          const cleaned = String(raw).replace(/[€$£]/g, '').replace(/\s*(EUR|USD|\/mois|par\s*mois)\s*/gi, '').trim()
-          const m = cleaned.match(/([\d][\d\s]*)\s*[-–]\s*([\d][\d\s]*)/)
-          if (m) {
-            const mn = parseInt(m[1].replace(/\s/g, ''))
-            const mx = parseInt(m[2].replace(/\s/g, ''))
-            if (!isNaN(mn) && !isNaN(mx)) { allMins.push(mn); allMaxs.push(mx) }
-          } else {
-            const n = parseInt(String(raw).replace(/[^0-9]/g, ''))
-            if (!isNaN(n) && n > 0) { allMins.push(n); allMaxs.push(n) }
-          }
-        })
-        if (!allMins.length) return null
-        const gMin = Math.min(...allMins)
-        const gMax = Math.max(...allMaxs)
-        return gMin === gMax ? fmtEuro(gMin) : `${fmtEuro(gMin)} – ${fmtEuro(gMax)}`
-      })()
+      // Affichage rétainer : si factures → montant moyen ; sinon "—"
+      const retainerDisplay = type === 'smma'
+        ? (retainerMoyen > 0 ? fmtEuro(retainerMoyen) : null)
+        : null
       // Top 5 leads SMMA par score IA (pas par budget → évite problèmes de parsing)
       const topSmmaLeads = [...leadsData]
         .sort((a, b) => (b.score || b.score_ia || 0) - (a.score || a.score_ia || 0))
@@ -1067,9 +1049,16 @@ export default function Stats() {
               <h2 className="text-base font-bold text-slate-800">
                 💰 ROI par source de trafic
               </h2>
-              <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                {isSmma ? 'CA rétainer' : 'Commission estimée'} des leads Gagnés
-              </span>
+              {!isSmma && (
+                <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                  Commission estimée des leads Gagnés
+                </span>
+              )}
+              {isSmma && (
+                <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                  Taux closing par source · CA total : {fmtEuro(stats.caFacturesPaye || 0)}
+                </span>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
@@ -1079,8 +1068,8 @@ export default function Stats() {
                     <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">Leads</th>
                     <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">{isSmma ? 'Signés' : 'Gagnés'}</th>
                     <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">Taux closing</th>
-                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">{isSmma ? 'CA généré' : 'Commission est.'}</th>
-                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Part du CA</th>
+                    {!isSmma && <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Commission est.</th>}
+                    {!isSmma && <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Part du CA</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -1102,23 +1091,27 @@ export default function Stats() {
                               {row.convRate}%
                             </span>
                           </td>
-                          <td className="py-3 text-right text-sm font-bold text-slate-800">
-                            {fmtEuro(row.revenue)}
-                          </td>
-                          <td className="py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="h-2 rounded-full"
-                                  style={{
-                                    width: `${pct}%`,
-                                    background: COLORS_SOURCE[i % COLORS_SOURCE.length]
-                                  }}
-                                />
+                          {!isSmma && (
+                            <td className="py-3 text-right text-sm font-bold text-slate-800">
+                              {fmtEuro(row.revenue)}
+                            </td>
+                          )}
+                          {!isSmma && (
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="h-2 rounded-full"
+                                    style={{
+                                      width: `${pct}%`,
+                                      background: COLORS_SOURCE[i % COLORS_SOURCE.length]
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-xs font-semibold text-slate-600 w-8 text-right">{pct}%</span>
                               </div>
-                              <span className="text-xs font-semibold text-slate-600 w-8 text-right">{pct}%</span>
-                            </div>
-                          </td>
+                            </td>
+                          )}
                         </tr>
                       )
                     })
@@ -1130,10 +1123,12 @@ export default function Stats() {
                     <td className="pt-3 text-center text-sm font-bold text-slate-800">{stats.totalLeads}</td>
                     <td className="pt-3 text-center text-sm font-bold text-green-700">{leads.filter(l => l.statut === 'Gagné').length}</td>
                     <td className="pt-3 text-center text-sm font-bold text-indigo-700">{stats.conversionRate}%</td>
-                    <td className="pt-3 text-right text-sm font-bold text-green-700">
-                      {fmtEuro(stats.roiDistribution.reduce((s, r) => s + r.revenue, 0))}
-                    </td>
-                    <td className="pt-3 text-right text-xs font-semibold text-slate-400">100%</td>
+                    {!isSmma && (
+                      <td className="pt-3 text-right text-sm font-bold text-green-700">
+                        {fmtEuro(stats.roiDistribution.reduce((s, r) => s + r.revenue, 0))}
+                      </td>
+                    )}
+                    {!isSmma && <td className="pt-3 text-right text-xs font-semibold text-slate-400">100%</td>}
                   </tr>
                 </tfoot>
               </table>
