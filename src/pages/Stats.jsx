@@ -377,6 +377,30 @@ export default function Stats() {
       const retainerMoyen = gagnesAvecBudget.length > 0
         ? Math.round(gagnesAvecBudget.reduce((s, l) => s + parseBudget(l.budget_marketing || l.budget), 0) / gagnesAvecBudget.length)
         : 0
+      // Affichage "fourchette" : min – max parmi les budgets des clients signés
+      const retainerDisplay = (() => {
+        if (!gagnesAvecBudget.length) return null
+        const allMins = [], allMaxs = []
+        gagnesAvecBudget.forEach(l => {
+          const raw = l.budget_marketing || l.budget
+          if (!raw) return
+          if (typeof raw === 'number') { allMins.push(raw); allMaxs.push(raw); return }
+          const cleaned = String(raw).replace(/[€$£]/g, '').replace(/\s*(EUR|USD|\/mois|par\s*mois)\s*/gi, '').trim()
+          const m = cleaned.match(/([\d][\d\s]*)\s*[-–]\s*([\d][\d\s]*)/)
+          if (m) {
+            const mn = parseInt(m[1].replace(/\s/g, ''))
+            const mx = parseInt(m[2].replace(/\s/g, ''))
+            if (!isNaN(mn) && !isNaN(mx)) { allMins.push(mn); allMaxs.push(mx) }
+          } else {
+            const n = parseInt(String(raw).replace(/[^0-9]/g, ''))
+            if (!isNaN(n) && n > 0) { allMins.push(n); allMaxs.push(n) }
+          }
+        })
+        if (!allMins.length) return null
+        const gMin = Math.min(...allMins)
+        const gMax = Math.max(...allMaxs)
+        return gMin === gMax ? fmtEuro(gMin) : `${fmtEuro(gMin)} – ${fmtEuro(gMax)}`
+      })()
       // Top 5 leads SMMA par score IA (pas par budget → évite problèmes de parsing)
       const topSmmaLeads = [...leadsData]
         .sort((a, b) => (b.score || b.score_ia || 0) - (a.score || a.score_ia || 0))
@@ -417,6 +441,7 @@ export default function Stats() {
         leadsActifs: leadsActifs.length,
         leadsChaudsNonTraites: leadsChaudsNonTraites.length,
         retainerMoyen,
+        retainerDisplay,
         topSmmaLeads,
         pipelineFunnel,
         // CA factures payées (réel encaissé)
@@ -892,7 +917,7 @@ export default function Stats() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard icon="🔥" label="Leads chauds actifs" value={stats.leadsChaudsNonTraites ?? 0} color="orange" sub="Score IA ≥ 70, non conclus" />
               <KPICard icon="📂" label="En cours de traitement" value={stats.leadsActifs ?? 0} color="blue" sub="Hors Gagné / Perdu" />
-              <KPICard icon="💰" label="Rétainer moyen" value={stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—'} color="green" sub="Clients signés" />
+              <KPICard icon="💰" label="Rétainer moyen" value={stats.retainerDisplay || (stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—')} color="green" sub="Clients signés" />
               <KPICard icon="✅" label="Clients signés" value={stats.clientsActifs ?? 0} color="purple" sub={`Taux ${stats.conversionRate ?? 0}%`} />
             </div>
 
