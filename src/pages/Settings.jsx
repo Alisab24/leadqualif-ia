@@ -469,14 +469,40 @@ export default function Settings() {
   });
   const [pendingPlan, setPendingPlan] = useState(null);
 
-  // Détecter params URL
+  // Détecter params URL — et vérifier la session Stripe si retour de checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('subscription') === 'success') {
-      const plan = params.get('plan') || 'growth';
-      showToast(`Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif.`);
-      window.history.replaceState({}, '', '/settings?tab=facturation');
+      const plan      = params.get('plan') || 'growth';
+      const sessionId = params.get('session_id');
       setActiveTab('facturation');
+      window.history.replaceState({}, '', '/settings?tab=facturation');
+
+      // Vérification directe via Stripe — fallback si le webhook n'a pas encore tiré
+      if (sessionId) {
+        fetch('/api/stripe/verify-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              showToast(`✅ Abonnement ${plan.toUpperCase()} activé ! Rechargement…`);
+              // Recharger la page pour que PlanGuard relise le profil mis à jour
+              setTimeout(() => window.location.reload(), 1500);
+            } else {
+              showToast(`Plan activé — rechargement dans un instant…`);
+              setTimeout(() => window.location.reload(), 2000);
+            }
+          })
+          .catch(() => {
+            showToast(`Abonnement activé ! Actualisez la page si les fonctionnalités ne s'affichent pas.`);
+          });
+      } else {
+        showToast(`Abonnement ${plan.toUpperCase()} activé ! Bienvenue sur LeadQualif.`);
+        setTimeout(() => window.location.reload(), 1500);
+      }
       return;
     }
     if (params.get('canceled') === 'true') {

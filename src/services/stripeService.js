@@ -35,7 +35,8 @@ export const redirectToCheckout = async ({ plan, userId, userEmail, agencyName }
         userId,
         userEmail,
         agencyName,
-        successUrl: `${window.location.origin}/dashboard?subscription=success&plan=${plan}`,
+        // {CHECKOUT_SESSION_ID} est remplacé automatiquement par Stripe avec l'ID réel
+        successUrl: `${window.location.origin}/settings?tab=facturation&subscription=success&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${window.location.origin}/settings?tab=facturation&canceled=true`,
       }),
     });
