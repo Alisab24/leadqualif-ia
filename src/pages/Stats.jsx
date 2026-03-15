@@ -346,15 +346,31 @@ export default function Stats() {
           convRate:  data.leads > 0 ? Math.round((data.gagnes / data.leads) * 100) : 0,
         }))
 
-      // ── Top 5 leads ───────────────────────────────────────
+      // ── Top 5 leads IMMO (par budget) ────────────────────
       const topLeads = [...leadsData]
-        .filter(l => parseBudget(type === 'smma' ? (l.budget_marketing || l.budget) : l.budget) > 0)
-        .sort((a, b) => {
-          const va = type === 'smma' ? parseBudget(a.budget_marketing || a.budget) : (a.budget || 0)
-          const vb = type === 'smma' ? parseBudget(b.budget_marketing || b.budget) : (b.budget || 0)
-          return vb - va
-        })
+        .filter(l => (l.budget || 0) > 0)
+        .sort((a, b) => (b.budget || 0) - (a.budget || 0))
         .slice(0, 5)
+
+      // ── SMMA : métriques pipeline ─────────────────────────
+      const leadsActifs = leadsData.filter(l => l.statut !== 'Perdu' && l.statut !== 'Gagné')
+      const leadsChaudsNonTraites = leadsData.filter(l =>
+        (l.score || l.score_ia || 0) >= 70 && l.statut !== 'Gagné' && l.statut !== 'Perdu'
+      )
+      const gagnesAvecBudget = gagneLeads.filter(l => parseBudget(l.budget_marketing || l.budget) > 0)
+      const retainerMoyen = gagnesAvecBudget.length > 0
+        ? Math.round(gagnesAvecBudget.reduce((s, l) => s + parseBudget(l.budget_marketing || l.budget), 0) / gagnesAvecBudget.length)
+        : 0
+      // Top 5 leads SMMA par score IA (pas par budget → évite problèmes de parsing)
+      const topSmmaLeads = [...leadsData]
+        .sort((a, b) => (b.score || b.score_ia || 0) - (a.score || a.score_ia || 0))
+        .slice(0, 5)
+      // Répartition du pipeline par statut
+      const pipelineStages = ['À traiter', 'En cours', 'Devis envoyé', 'Négociation', 'Gagné', 'Perdu']
+      const pipelineFunnel = pipelineStages.map(stage => ({
+        stage,
+        count: leadsData.filter(l => (l.statut || 'À traiter') === stage).length,
+      })).filter(s => s.count > 0)
 
       setStats({
         totalLeads: leadsData.length,
@@ -381,6 +397,12 @@ export default function Stats() {
         topSource,
         topLeads,
         roiDistribution,
+        // SMMA pipeline
+        leadsActifs: leadsActifs.length,
+        leadsChaudsNonTraites: leadsChaudsNonTraites.length,
+        retainerMoyen,
+        topSmmaLeads,
+        pipelineFunnel,
       })
 
     } catch (error) {
@@ -821,26 +843,122 @@ export default function Stats() {
           )}
         </div>
 
-        {/* ═══════════ TOP LEADS ════════════════════════ */}
-        {stats.topLeads?.length > 0 && (
+        {/* ═══════════ SMMA : PIPELINE & LEADS PRIORITAIRES ══════ */}
+        {isSmma && (
+          <div className="space-y-4">
+            {/* KPI pipeline SMMA */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <KPICard icon="🔥" label="Leads chauds actifs" value={stats.leadsChaudsNonTraites ?? 0} color="orange" sub="Score IA ≥ 70, non conclus" />
+              <KPICard icon="📂" label="En cours de traitement" value={stats.leadsActifs ?? 0} color="blue" sub="Hors Gagné / Perdu" />
+              <KPICard icon="💰" label="Rétainer moyen" value={stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—'} color="green" sub="Clients signés" />
+              <KPICard icon="✅" label="Clients signés" value={stats.clientsActifs ?? 0} color="purple" sub={`Taux ${stats.conversionRate ?? 0}%`} />
+            </div>
+
+            {/* Funnel pipeline */}
+            {stats.pipelineFunnel?.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                <h2 className="text-base font-bold text-slate-800 mb-4">📊 Répartition du pipeline</h2>
+                <div className="flex gap-2 items-end flex-wrap">
+                  {stats.pipelineFunnel.map((s, i) => {
+                    const totalFunnel = stats.pipelineFunnel.reduce((acc, x) => acc + x.count, 0)
+                    const pct = totalFunnel > 0 ? Math.round((s.count / totalFunnel) * 100) : 0
+                    const stageColors = {
+                      'À traiter': 'bg-slate-200 text-slate-700',
+                      'En cours': 'bg-blue-100 text-blue-700',
+                      'Devis envoyé': 'bg-indigo-100 text-indigo-700',
+                      'Négociation': 'bg-orange-100 text-orange-700',
+                      'Gagné': 'bg-green-100 text-green-700',
+                      'Perdu': 'bg-red-100 text-red-700',
+                    }
+                    const cls = stageColors[s.stage] || 'bg-slate-100 text-slate-600'
+                    return (
+                      <div key={s.stage} className={`flex-1 min-w-[100px] rounded-xl p-3 text-center ${cls}`}>
+                        <p className="text-2xl font-bold">{s.count}</p>
+                        <p className="text-xs font-medium mt-0.5">{s.stage}</p>
+                        <p className="text-xs opacity-70">{pct}%</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Top leads par score IA */}
+            {stats.topSmmaLeads?.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                <h2 className="text-base font-bold text-slate-800 mb-4">🏆 Top leads par score IA</h2>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Client</th>
+                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Score IA</th>
+                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Qualification</th>
+                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Statut</th>
+                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Source</th>
+                        <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Budget déclaré</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {stats.topSmmaLeads.map((lead, i) => {
+                        const q = getQualif(lead)
+                        const badgeClass = q === 'chaud' ? 'bg-green-100 text-green-700'
+                          : q === 'tiede' ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-red-100 text-red-700'
+                        const score = lead.score || lead.score_ia || 0
+                        const rawBudget = lead.budget_marketing || lead.budget
+                        return (
+                          <tr key={lead.id}>
+                            <td className="py-3 text-sm font-medium text-slate-800">
+                              <span className="text-slate-400 mr-2">#{i + 1}</span>{lead.nom}
+                            </td>
+                            <td className="py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${score >= 70 ? 'bg-green-500' : score >= 40 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                                    style={{ width: `${score}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700">{score}</span>
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${badgeClass}`}>
+                                {q === 'chaud' ? '🟢 Chaud' : q === 'tiede' ? '🟡 Tiède' : '🔴 Froid'}
+                              </span>
+                            </td>
+                            <td className="py-3 text-xs text-slate-500">{lead.statut || '—'}</td>
+                            <td className="py-3 text-xs text-slate-500">
+                              {SOURCE_LABELS[lead.source] || lead.source || '—'}
+                            </td>
+                            <td className="py-3 text-right text-xs text-slate-500">
+                              {rawBudget ? String(rawBudget) : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════ IMMO : TOP LEADS PAR BUDGET ════════════ */}
+        {!isSmma && stats.topLeads?.length > 0 && (
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <h2 className="text-base font-bold text-slate-800 mb-4">
-              🏆 Top {isSmma ? 'clients par budget mensuel' : 'leads par budget'}
-            </h2>
+            <h2 className="text-base font-bold text-slate-800 mb-4">🏆 Top leads par budget</h2>
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">{isSmma ? 'Client' : 'Lead'}</th>
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Lead</th>
                     <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Score IA</th>
                     <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Statut</th>
-                    {isSmma && <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Source</th>}
-                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">
-                      {isSmma ? 'Budget mensuel' : 'Budget'}
-                    </th>
-                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">
-                      {isSmma ? 'Rétainer' : 'Commission est.'}
-                    </th>
+                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Budget</th>
+                    <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Commission est.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -849,16 +967,6 @@ export default function Stats() {
                     const badgeClass = q === 'chaud' ? 'bg-green-100 text-green-700'
                       : q === 'tiede' ? 'bg-yellow-100 text-yellow-700'
                       : 'bg-red-100 text-red-700'
-                    const budgetParsed = isSmma
-                      ? parseBudget(lead.budget_marketing || lead.budget)
-                      : (lead.budget || 0)
-                    const retainer = isSmma ? budgetParsed : calcCommission(lead.budget)
-                    // Pour SMMA : afficher la fourchette brute si c'est un range, sinon le montant formaté
-                    const rawBudget = isSmma ? (lead.budget_marketing || lead.budget) : null
-                    const isRange = rawBudget && String(rawBudget).match(/\d\s*[-–]\s*\d/)
-                    const budgetDisplay = isSmma && isRange
-                      ? String(rawBudget).trim().replace(/[€$£]/g, '').trim() + ' €'
-                      : fmtEuro(budgetParsed)
                     return (
                       <tr key={lead.id}>
                         <td className="py-3 text-sm font-medium text-slate-800">
@@ -870,16 +978,11 @@ export default function Stats() {
                           </span>
                         </td>
                         <td className="py-3 text-xs text-slate-500">{lead.statut || '—'}</td>
-                        {isSmma && (
-                          <td className="py-3 text-xs text-slate-500">
-                            {SOURCE_LABELS[lead.source] || lead.source || '—'}
-                          </td>
-                        )}
                         <td className="py-3 text-right text-sm font-bold text-slate-800">
-                          {budgetDisplay}
+                          {fmtEuro(lead.budget || 0)}
                         </td>
                         <td className="py-3 text-right text-sm font-bold text-green-600">
-                          {fmtEuro(retainer)}
+                          {fmtEuro(calcCommission(lead.budget))}
                         </td>
                       </tr>
                     )
