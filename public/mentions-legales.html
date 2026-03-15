@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mentions légales - NexaPro</title>
+<meta name="description" content="Mentions légales de NexaPro - AWFI GROUP SARL">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="shortcut icon" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue: #2563EB;
+  --blue-light: #3B82F6;
+  --bg: #07090F;
+  --bg2: #0C1120;
+  --text: #E2E8F0;
+  --text2: #8FA3BF;
+  --text3: #64748B;
+  --border: #1E293B;
+  --border2: #334155;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-weight: 400;
+  letter-spacing: -0.1px;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 120px 2rem 80px;
+  min-height: 100vh;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+  transition: color 0.2s;
+}
+
+.back-link:hover {
+  color: var(--blue-light);
+}
+
+h1 {
+  font-family: 'Inter', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 2rem;
+  letter-spacing: -2px;
+}
+
+h2 {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 2.5rem 0 1rem;
+  letter-spacing: -1px;
+}
+
+h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 1.5rem 0 0.8rem;
+  letter-spacing: -0.5px;
+}
+
+p {
+  margin-bottom: 1rem;
+  color: var(--text2);
+}
+
+ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+  color: var(--text2);
+}
+
+a {
+  color: var(--blue-light);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--text);
+}
+
+.legal-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 1.5rem 0;
+}
+
+.legal-info {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.legal-info-item {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.legal-label {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 140px;
+}
+
+.legal-value {
+  color: var(--text2);
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 100px 1rem 60px;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+  
+  h2 {
+    font-size: 1.3rem;
+  }
+  
+  .legal-section {
+    padding: 1.5rem;
+  }
+  
+  .legal-label {
+    min-width: 120px;
+  }
+}
+
+/* FOOTER */
+footer {
+  padding: 3rem 2rem;
+  background: var(--bg-dark);
+  border-top: none;
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.footer-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 3rem;
+}
+
+.footer-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.footer-brand p {
+  color: var(--text3);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 300px;
+  margin-top: 1rem;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-col h4 {
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.footer-col ul { 
+  list-style: none; 
+}
+
+.footer-col ul li {
+  margin-bottom: 8px;
+}
+
+.footer-col ul li a {
+  font-size: 0.875rem;
+  color: var(--text3);
+  text-decoration: none;
+  transition: color 0.2s;
+  font-weight: 300;
+}
+
+.footer-col ul li a:hover { color: var(--text2); }
+
+/* Style badges "Bientôt" */
+.footer-col ul li a span {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  cursor: default;
+}
+
+.footer-col ul li a:hover span {
+  opacity: 1;
+}
+
+.footer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-copy span:first-child {
+  font-size: 0.82rem;
+  color: var(--text3);
+  font-weight: 400;
+}
+
+.footer-entity {
+  font-size: 0.70rem;
+  color: var(--text2);
+  font-weight: 300;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.footer-links a {
+  font-size: 0.80rem;
+  color: var(--text3);
+  text-decoration: none;
+  font-weight: 400;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.footer-links a:hover {
+  color: var(--text2);
+}
+
+.footer-sep {
+  color: var(--text2);
+  font-size: 0.75rem;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .footer-legal {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.2rem;
+  }
+  .footer-links {
+    gap: 8px;
+  }
+  footer {
+    padding: 2rem 1rem;
+  }
+  .footer-top {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .legal-info-item {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .legal-label {
+    min-width: unset;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.6rem;
+    letter-spacing: -1px;
+  }
+  .container {
+    padding: 80px 1rem 40px;
+  }
+  .legal-section {
+    padding: 1rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="https://www.leadqualif.com" class="back-link">← Retour à leadqualif.com</a>
+  
+  <h1>Mentions légales</h1>
+  
+  <div class="legal-section">
+    <h2>1. ÉDITEUR DU SITE</h2>
+    <div class="legal-info">
+      <div class="legal-info-item">
+        <span class="legal-label">Raison sociale :</span>
+        <span class="legal-value">ALIDJOLAN, LLC</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Forme juridique :</span>
+        <span class="legal-value">Limited Liability Company (LLC)</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Adresse :</span>
+        <span class="legal-value">3825 Lancaster Pike Ste 3, Wilmington, DE 19805, United States</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Pays :</span>
+        <span class="legal-value">United States of America</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Email :</span>
+        <span class="legal-value">contact@leadqualif.com</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">DPO :</span>
+        <span class="legal-value">dpo@leadqualif.com</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Directeur de la publication :</span>
+        <span class="legal-value">Aliou DJANARI</span>
+      </div>
+    </div>
+    
+    <p style="margin-top: 1.5rem;">
+      NexaPro is a commercial brand and product of ALIDJOLAN, LLC.<br>
+      LeadQualif is a SaaS product published under the NexaPro brand by ALIDJOLAN, LLC.
+    </p>
+  </div>
+
+  <div class="legal-section">
+    <h2>2. HÉBERGEMENT</h2>
+    
+    <h3>2.1 Site corporate nexapro.tech</h3>
+    <div class="legal-info">
+      <div class="legal-info-item">
+        <span class="legal-label">Hébergeur :</span>
+        <span class="legal-value">Vercel Inc.</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Adresse :</span>
+        <span class="legal-value">340 Pine Street, Suite 1200<br>San Francisco, CA 94104, États-Unis</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Site web :</span>
+        <span class="legal-value"><a href="https://vercel.com" target="_blank">https://vercel.com</a></span>
+      </div>
+    </div>
+
+    <h3>2.2 Application LeadQualif & données</h3>
+    <div class="legal-info">
+      <div class="legal-info-item">
+        <span class="legal-label">Sous-traitant technique :</span>
+        <span class="legal-value">Supabase Inc.</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Serveurs de données :</span>
+        <span class="legal-value">Région Europe (AWS eu-west)</span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Site web :</span>
+        <span class="legal-value"><a href="https://supabase.com" target="_blank">https://supabase.com</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="legal-section">
+    <h2>3. PROPRIÉTÉ INTELLECTUELLE</h2>
+    <p>
+      The "NexaPro" and "LeadQualif" brands are commercial trademarks of ALIDJOLAN, LLC. 
+      Any reproduction, imitation or use without prior written permission is prohibited.
+    </p>
+    <p>
+      LeadQualif's AI scoring algorithms, source code and interfaces constitute 
+      proprietary intellectual property of ALIDJOLAN, LLC, protected under intellectual property law.
+    </p>
+  </div>
+
+  <div class="legal-section">
+    <h2>4. DROIT APPLICABLE</h2>
+    <p>
+      These legal notices are governed by Delaware law, United States of America. 
+      Any dispute will be submitted to the exclusive jurisdiction of the competent courts of Delaware, United States.
+    </p>
+    <p>
+      As a US company operating internationally, ALIDJOLAN, LLC commits to 
+      respecting GDPR (EU Regulation 2016/679) provisions for its European clients, 
+      as well as the California Consumer Privacy Act (CCPA) for US clients.
+    </p>
+  </div>
+
+  <div class="legal-section">
+    <h2>5. CONTACT</h2>
+    <div class="legal-info">
+      <div class="legal-info-item">
+        <span class="legal-label">Email général :</span>
+        <span class="legal-value"><a href="mailto:contact@leadqualif.com">contact@leadqualif.com</a></span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">DPO / Protection données :</span>
+        <span class="legal-value"><a href="mailto:dpo@leadqualif.com">dpo@leadqualif.com</a></span>
+      </div>
+      <div class="legal-info-item">
+        <span class="legal-label">Site web :</span>
+        <span class="legal-value"><a href="https://nexapro.tech" target="_blank">https://nexapro.tech</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="legal-section">
+    <h2>6. STRUCTURE CORPORATIVE</h2>
+    <p>
+      NexaPro operates as a product line of ALIDJOLAN, LLC,
+      a Delaware-registered Limited Liability Company.
+      The Delaware LLC structure provides optimal framework for:
+      - International business operations
+      - Investor relations and fundraising
+      - US market access and payment processing (Stripe/PayPal)
+      - Intellectual property protection under US law
+    </p>
+  </div>
+
+  <div class="legal-section">
+    <h2>7. MISE À JOUR</h2>
+    <p>
+      These legal notices have been updated on <span id="currentDate"></span>. 
+      ALIDJOLAN, LLC reserves the right to modify these notices at any time.
+    </p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer style="background:#07090F;border-top:1px solid #1E293B;padding:2rem;text-align:center;font-family:'Inter',sans-serif;">
+  <div style="max-width:800px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1rem;">
+      <div style="background:#2563EB;padding:6px 10px;border-radius:8px;font-weight:800;color:white;font-size:0.9rem;">LQ</div>
+      <span style="color:#E2E8F0;font-weight:700;">LeadQualif</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:center;margin-bottom:1rem;">
+      <a href="/mentions-legales.html" style="color:#8FA3BF;font-size:0.85rem;text-decoration:none;">Mentions légales</a>
+      <a href="/cgu.html" style="color:#8FA3BF;font-size:0.85rem;text-decoration:none;">CGU</a>
+      <a href="/cgv.html" style="color:#8FA3BF;font-size:0.85rem;text-decoration:none;">CGV</a>
+      <a href="/politique-confidentialite.html" style="color:#8FA3BF;font-size:0.85rem;text-decoration:none;">Confidentialité</a>
+      <a href="mailto:contact@leadqualif.com" style="color:#8FA3BF;font-size:0.85rem;text-decoration:none;">Contact</a>
+    </div>
+    <p style="color:#4B5563;font-size:0.8rem;">© 2025 LeadQualif · Édité par ALIDJOLAN, LLC · Wilmington, DE, United States</p>
+  </div>
+</footer>
+
+<script>
+  // Date dynamique
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+</script>
+</body>
+</html>

@@ -681,9 +681,10 @@ export default function Landing() {
           <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
             <span>© {new Date().getFullYear()} LeadQualif — Tous droits réservés</span>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-white transition">Mentions légales</a>
-              <a href="#" className="hover:text-white transition">CGU</a>
-              <a href="#" className="hover:text-white transition">Politique de confidentialité</a>
+              <a href="/mentions-legales.html" className="hover:text-white transition">Mentions légales</a>
+              <a href="/cgu.html" className="hover:text-white transition">CGU</a>
+              <a href="/cgv.html" className="hover:text-white transition">CGV</a>
+              <a href="/politique-confidentialite.html" className="hover:text-white transition">Confidentialité</a>
             </div>
           </div>
         </div>
