@@ -348,10 +348,10 @@ export default function Stats() {
 
       // ── Top 5 leads ───────────────────────────────────────
       const topLeads = [...leadsData]
-        .filter(l => (type === 'smma' ? parseBudget(l.budget_marketing) : l.budget) > 0)
+        .filter(l => parseBudget(type === 'smma' ? (l.budget_marketing || l.budget) : l.budget) > 0)
         .sort((a, b) => {
-          const va = type === 'smma' ? parseBudget(a.budget_marketing) : (a.budget || 0)
-          const vb = type === 'smma' ? parseBudget(b.budget_marketing) : (b.budget || 0)
+          const va = type === 'smma' ? parseBudget(a.budget_marketing || a.budget) : (a.budget || 0)
+          const vb = type === 'smma' ? parseBudget(b.budget_marketing || b.budget) : (b.budget || 0)
           return vb - va
         })
         .slice(0, 5)
