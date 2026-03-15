@@ -13,6 +13,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { sendTransactional } from '../emails/send.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
@@ -44,6 +45,27 @@ async function resolveUserId(obj) {
     } catch (e) {
       console.error('[webhook] Impossible de récupérer le customer:', e.message);
     }
+  }
+  return null;
+}
+
+/**
+ * Résout l'adresse email d'un utilisateur depuis Supabase (auth) ou le customer Stripe.
+ */
+async function resolveEmail(userId, customerId) {
+  // 1. Depuis Supabase auth
+  if (userId) {
+    try {
+      const { data } = await supabase.auth.admin.getUserById(userId);
+      if (data?.user?.email) return data.user.email;
+    } catch (e) { /* fallback */ }
+  }
+  // 2. Depuis le customer Stripe
+  if (customerId) {
+    try {
+      const customer = await stripe.customers.retrieve(customerId);
+      if (customer.email) return customer.email;
+    } catch (e) { /* non bloquant */ }
   }
   return null;
 }
@@ -121,6 +143,10 @@ export default async function handler(req, res) {
             subscription_billing_cycle:      cycle,
             subscription_current_period_end: periodEnd,
           });
+
+          // Email de bienvenue — trial démarré
+          const email = await resolveEmail(userId, session.customer);
+          if (email) await sendTransactional('welcome', { email, plan });
         }
         break;
       }
@@ -171,12 +197,17 @@ export default async function handler(req, res) {
           : null;
 
         console.log(`[webhook] Essai se termine bientôt pour userId=${userId}, trial_end=${trialEnd}`);
-        // On met à jour la date de fin d'essai pour que l'app puisse afficher le compte à rebours
         if (userId && trialEnd) {
           await updateProfile(userId, {
             subscription_current_period_end: trialEnd,
             subscription_status:             'trialing',
           });
+
+          // Email J-3 avant fin d'essai
+          const daysLeft = Math.max(0, Math.ceil((new Date(trialEnd) - new Date()) / (1000 * 60 * 60 * 24)));
+          const plan     = extractBasePlan(sub.metadata);
+          const email    = await resolveEmail(userId, sub.customer);
+          if (email) await sendTransactional('trial_ending', { email, plan, daysLeft });
         }
         break;
       }
@@ -189,15 +220,22 @@ export default async function handler(req, res) {
         if (handledReasons.includes(invoice.billing_reason) && invoice.subscription) {
           const userId = await resolveUserId({ customer: invoice.customer, metadata: {} });
           if (userId) {
-            const sub   = await stripe.subscriptions.retrieve(invoice.subscription);
-            const plan  = extractBasePlan(sub.metadata);
-            const cycle = extractBillingCycle(sub.metadata, sub);
+            const sub       = await stripe.subscriptions.retrieve(invoice.subscription);
+            const plan      = extractBasePlan(sub.metadata);
+            const cycle     = extractBillingCycle(sub.metadata, sub);
+            const periodEnd = new Date(sub.current_period_end * 1000).toISOString();
             await updateProfile(userId, {
               subscription_status:             'active',
               subscription_plan:               plan,
               subscription_billing_cycle:      cycle,
-              subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+              subscription_current_period_end: periodEnd,
             });
+
+            // Email de confirmation de paiement (renouvellement seulement)
+            if (invoice.billing_reason === 'subscription_cycle') {
+              const email = await resolveEmail(userId, invoice.customer);
+              if (email) await sendTransactional('payment_ok', { email, plan, periodEnd });
+            }
           }
         }
         break;
@@ -210,7 +248,19 @@ export default async function handler(req, res) {
 
         console.warn(`[webhook] Paiement échoué pour customer=${invoice.customer}`);
         if (userId) {
+          // Récupérer le plan actuel pour personnaliser l'email
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('subscription_plan')
+            .eq('user_id', userId)
+            .single();
+          const plan = profile?.subscription_plan || 'growth';
+
           await updateProfile(userId, { subscription_status: 'past_due' });
+
+          // Email d'alerte paiement échoué
+          const email = await resolveEmail(userId, invoice.customer);
+          if (email) await sendTransactional('payment_failed', { email, plan });
         }
         break;
       }
