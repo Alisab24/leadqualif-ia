@@ -7,7 +7,7 @@ import ImportLeadsModal from '../components/ImportLeadsModal';
 import useHotLeadAlerts from '../hooks/useHotLeadAlerts';
 import DocumentGenerator from '../components/DocumentGenerator';
 import { aiService } from '../services/ai';
-import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate } from '../components/PlanGuard';
+import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate, usePlanGuard } from '../components/PlanGuard';
 import OnboardingGuide from '../components/OnboardingGuide';
 import { NotificationBell, NotificationBanners } from '../components/SmartNotifications';
 import {
@@ -83,6 +83,7 @@ const getSmartRecommendation = (lead) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { canAccess } = usePlanGuard();
   const [viewMode, setViewMode] = useState('kanban');
 
   const [session, setSession] = useState(null);
@@ -554,15 +555,26 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* Import leads */}
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium shadow-sm"
-              title="Importer depuis CSV / Excel"
-            >
-              <span>📥</span>
-              <span className="hidden sm:inline">Importer</span>
-            </button>
+            {/* Import leads — verrouillé sur plan gratuit */}
+            {canAccess('docs') ? (
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium shadow-sm"
+                title="Importer depuis CSV / Excel"
+              >
+                <span>📥</span>
+                <span className="hidden sm:inline">Importer</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/settings?tab=facturation')}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-slate-50 text-sm font-medium shadow-sm opacity-70"
+                title="Fonctionnalité Solo+ — Passer à un plan supérieur"
+              >
+                <span>🔒</span>
+                <span className="hidden sm:inline">Importer</span>
+              </button>
+            )}
 
             {/* Nouveau lead — action principale */}
             <AddLeadGate>
