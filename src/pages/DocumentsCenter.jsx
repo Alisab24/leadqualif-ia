@@ -17,6 +17,14 @@ export default function DocumentsCenter() {
     fetchDocuments();
   }, [filteredLeadId]);
 
+  // Réinitialise le filtre type si le type sélectionné disparaît des docs chargés
+  useEffect(() => {
+    if (filterType !== 'tous' && documents.length > 0) {
+      const hasType = documents.some(d => d.type_document === filterType);
+      if (!hasType) setFilterType('tous');
+    }
+  }, [documents]);
+
   const fetchDocuments = async () => {
     setLoading(true);
     try {
@@ -129,6 +137,11 @@ export default function DocumentsCenter() {
   const countByType = (type) => documents.filter(d => d.type_document === type).length;
   const countByStatut = (statut) => documents.filter(d => d.statut === statut).length;
 
+  // Types de documents uniques présents dans les docs de cette agence
+  const availableTypes = Array.from(
+    new Set(documents.map(d => d.type_document).filter(Boolean))
+  ).sort();
+
   // ──────────────────────────────────
   // Render
   // ──────────────────────────────────
@@ -211,8 +224,10 @@ export default function DocumentsCenter() {
               className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="tous">Tous les types</option>
-              {Object.entries(DOC_TYPE_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {availableTypes.map(k => (
+                <option key={k} value={k}>
+                  {getDocumentIcon(k)} {getDocumentLabel(k)}
+                </option>
               ))}
             </select>
           </div>
