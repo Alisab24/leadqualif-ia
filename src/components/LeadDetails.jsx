@@ -43,6 +43,22 @@ const QUALIFICATION_COLOR = {
   FROID:    'bg-red-100    text-red-800    border-red-200',
 }
 
+/** Recommandation dynamique selon le score réel du lead */
+const getSmartRecommendation = (lead) => {
+  const score = lead.score || lead.score_ia || lead.score_qualification || 0
+  const niveau = (lead.niveau_interet || '').toUpperCase()
+  const statut = lead.statut || ''
+  if (statut === 'Gagné') return '✅ Client signé. Préparer le onboarding et le premier rapport de performance.'
+  if (statut === 'Perdu') return '❌ Lead perdu. Analyser la raison pour améliorer le processus commercial.'
+  if (statut === 'Devis envoyé') return '📄 Devis envoyé. Relancer sous 48h si pas de réponse. Proposer un appel de clarification.'
+  if (statut === 'Négociation') return '🤝 En négociation. Rester disponible, proposer un ajustement de l\'offre si besoin.'
+  if (score >= 80 || niveau === 'CHAUD') return '🔥 Lead très chaud. Contacter immédiatement — intention claire. Proposer un appel ou une démo aujourd\'hui.'
+  if (score >= 65) return '🟢 Lead chaud. Contacter dans les 24h. Envoyer un devis personnalisé.'
+  if (score >= 45 || niveau === 'TIÈDE' || niveau === 'TIEDE') return '🟡 Lead tiède. Contacter sous 48h. Nourrir avec des témoignages ou une étude de cas pertinente.'
+  if (score >= 25) return '🟠 Lead froid mais qualifiable. Relancer avec un email de présentation.'
+  return '❄️ Lead froid ou peu qualifié. Ajouter au suivi longue durée et automatiser les relances.'
+}
+
 const CRM_ICONS = {
   edit: '✏️', rdv: '📅', whatsapp: '💬', email: '📧',
   call: '📞', document: '📄', ia_suggestion: '🧠', note: '📝',
@@ -573,21 +589,31 @@ const LeadDetails = () => {
               </div>
             </section>
 
-            {/* Suggestion IA — on vérifie que c'est une string non-vide */}
+            {/* Recommandation IA — dynamique par score, ou résultat du bouton Analyser */}
             {(() => {
-              const txt = typeof aiSuggestion === 'string' && aiSuggestion.trim()
-                ? aiSuggestion
-                : typeof lead.suggestion_ia === 'string' && lead.suggestion_ia.trim()
-                  ? lead.suggestion_ia
-                  : null
-              return txt ? (
-                <section className="bg-purple-50 border border-purple-200 rounded-xl p-5">
-                  <p className="text-xs font-bold text-purple-700 mb-3 uppercase tracking-wide">
-                    💡 Recommandation IA
-                  </p>
-                  <p className="text-sm text-purple-800 leading-relaxed">{txt}</p>
+              const GENERIC_FROID = 'Ajouter à la liste de suivi longue durée. Peut devenir intéressant plus tard.'
+              const stored = typeof lead.suggestion_ia === 'string' ? lead.suggestion_ia.trim() : ''
+              const isGeneric = !stored || stored === GENERIC_FROID
+              const displayRec = (typeof aiSuggestion === 'string' && aiSuggestion.trim())
+                || (!isGeneric ? stored : null)
+                || getSmartRecommendation(lead)
+              const isLive = typeof aiSuggestion === 'string' && aiSuggestion.trim()
+              const score = lead.score || lead.score_ia || lead.score_qualification || 0
+              return (
+                <section className={`border rounded-xl p-5 ${isLive ? 'bg-purple-50 border-purple-200' : 'bg-indigo-50 border-indigo-200'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className={`text-xs font-bold uppercase tracking-wide ${isLive ? 'text-purple-700' : 'text-indigo-700'}`}>
+                      💡 Recommandation IA
+                    </p>
+                    {!isLive && (
+                      <span className="text-xs text-indigo-400 bg-white px-2 py-0.5 rounded-full border border-indigo-100">
+                        Score {score}/100
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-sm leading-relaxed ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>{displayRec}</p>
                 </section>
-              ) : null
+              )
             })()}
 
             {/* Résumé IA distinct */}
@@ -606,13 +632,6 @@ const LeadDetails = () => {
                 <div className="animate-spin text-3xl mb-3">⚙️</div>
                 <p className="text-sm">Analyse en cours…</p>
               </div>
-            )}
-
-            {!loadingAI && !(typeof aiSuggestion === 'string' && aiSuggestion.trim()) &&
-              !(typeof lead.suggestion_ia === 'string' && lead.suggestion_ia.trim()) && (
-              <p className="text-sm text-slate-400 text-center py-8">
-                Cliquez sur "Analyser" pour générer une analyse IA de ce lead
-              </p>
             )}
           </div>
         )}

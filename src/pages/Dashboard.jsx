@@ -52,6 +52,35 @@ const getLeadBudget = (lead, isSmma) => {
   return lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : null;
 };
 
+/**
+ * Génère une recommandation dynamique basée sur le score réel du lead.
+ * Utilisé en fallback si suggestion_ia absente ou générique.
+ */
+const getSmartRecommendation = (lead) => {
+  const score = lead.score || lead.score_ia || lead.score_qualification || 0;
+  const niveau = (lead.niveau_interet || '').toUpperCase();
+  const statut = lead.statut || '';
+
+  if (statut === 'Gagné') return '✅ Client signé. Préparer le onboarding et le premier rapport de performance.';
+  if (statut === 'Perdu') return '❌ Lead perdu. Analyser la raison pour améliorer le processus commercial.';
+  if (statut === 'Devis envoyé') return '📄 Devis envoyé. Relancer sous 48h si pas de réponse. Proposer un appel de clarification.';
+  if (statut === 'Négociation') return '🤝 En négociation. Rester disponible, proposer un ajustement de l\'offre si besoin.';
+
+  if (score >= 80 || niveau === 'CHAUD') {
+    return '🔥 Lead très chaud. Contacter immédiatement — intention d\'achat claire. Proposer un appel ou une démo aujourd\'hui.';
+  }
+  if (score >= 65) {
+    return '🟢 Lead chaud. Contacter dans les 24h. Envoyer un devis personnalisé et répondre aux éventuelles questions.';
+  }
+  if (score >= 45 || niveau === 'TIÈDE') {
+    return '🟡 Lead tiède. Contacter sous 48h. Nourrir avec des témoignages clients ou une étude de cas pertinente.';
+  }
+  if (score >= 25) {
+    return '🟠 Lead froid mais qualifiable. Relancer avec un email de présentation et ajouter au suivi automatique.';
+  }
+  return '❄️ Lead froid ou peu qualifié. Ajouter à la liste de suivi longue durée. Automatiser les relances.';
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState('kanban');
@@ -1062,18 +1091,37 @@ export default function Dashboard() {
                       );
                     })()}
 
-                    {/* Suggestion IA */}
-                    {(aiSuggestion || selectedLead.suggestion_ia) && (
-                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                        <p className="text-xs font-bold text-purple-700 mb-2">💡 Recommandation IA</p>
-                        <p className="text-xs text-purple-800 leading-relaxed">
-                          {aiSuggestion || selectedLead.suggestion_ia}
-                        </p>
-                      </div>
-                    )}
+                    {/* Suggestion IA — dynamique par score, ou résultat du bouton Analyser */}
+                    {(() => {
+                      // Priorité : résultat frais du bouton "Analyser" → stored suggestion_ia → fallback dynamique par score
+                      const GENERIC_FROID = 'Ajouter à la liste de suivi longue durée. Peut devenir intéressant plus tard.'
+                      const storedSuggestion = selectedLead.suggestion_ia
+                      const isGeneric = !storedSuggestion || storedSuggestion.trim() === GENERIC_FROID
+                      const displayRec = aiSuggestion
+                        || (!isGeneric ? storedSuggestion : null)
+                        || getSmartRecommendation(selectedLead)
+                      const isLive = !!aiSuggestion
+                      return (
+                        <div className={`border rounded-xl p-4 ${isLive ? 'bg-purple-50 border-purple-200' : 'bg-indigo-50 border-indigo-200'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className={`text-xs font-bold ${isLive ? 'text-purple-700' : 'text-indigo-700'}`}>
+                              💡 Recommandation IA
+                            </p>
+                            {!isLive && (
+                              <span className="text-xs text-indigo-400 bg-indigo-100 px-2 py-0.5 rounded-full">
+                                Basée sur score {selectedLead.score || selectedLead.score_ia || 0}/100
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-xs leading-relaxed ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>
+                            {displayRec}
+                          </p>
+                        </div>
+                      )
+                    })()}
 
                     {/* Résumé IA */}
-                    {selectedLead.resume_ia && (
+                    {selectedLead.resume_ia && selectedLead.resume_ia !== selectedLead.suggestion_ia && (
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                         <p className="text-xs font-bold text-slate-600 mb-2">📝 Résumé IA</p>
                         <p className="text-xs text-slate-700 leading-relaxed">{selectedLead.resume_ia}</p>
@@ -1085,10 +1133,6 @@ export default function Dashboard() {
                         <div className="animate-spin text-2xl mb-2">⚙️</div>
                         Analyse en cours…
                       </div>
-                    )}
-
-                    {!loadingAI && !aiSuggestion && !selectedLead.suggestion_ia && (
-                      <p className="text-xs text-slate-400 text-center py-4">Cliquez sur "Analyser" pour générer une suggestion IA</p>
                     )}
                   </div>
                 )}

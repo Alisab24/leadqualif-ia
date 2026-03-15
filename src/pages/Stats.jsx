@@ -215,6 +215,14 @@ export default function Stats() {
       if (!leadsData) return
       setLeads(leadsData)
 
+      // ── Factures payées (CA réel encaissé) ────────────────
+      const { data: facturesPay } = await supabase
+        .from('documents')
+        .select('total_ttc, created_at')
+        .eq('agency_id', agencyId)
+        .eq('statut', 'payé')
+        .in('type', ['facture', 'smma_facture', 'smma_facture_template', 'facture_template', 'immobilier_facture'])
+
       const now = new Date()
       const thisMonth  = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonth  = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -259,6 +267,14 @@ export default function Stats() {
       const caMoisEnCours = leadsData
         .filter(l => l.statut === 'Gagné' && new Date(l.updated_at || l.created_at) >= thisMonth)
         .reduce((sum, l) => sum + parseBudget(l.budget_marketing || l.budget), 0)
+
+      // ── CA réel encaissé (factures payées) ───────────────
+      const facturesPayees = facturesPay || []
+      const caFacturesPaye = facturesPayees.reduce((sum, f) => sum + (f.total_ttc || 0), 0)
+      const caFacturesPayeMois = facturesPayees
+        .filter(f => new Date(f.created_at) >= thisMonth)
+        .reduce((sum, f) => sum + (f.total_ttc || 0), 0)
+      const nbFacturesPayees = facturesPayees.length
 
       // ── Données mensuelles (6 mois) ───────────────────────
       const monthlyData = []
@@ -403,6 +419,10 @@ export default function Stats() {
         retainerMoyen,
         topSmmaLeads,
         pipelineFunnel,
+        // CA factures payées (réel encaissé)
+        caFacturesPaye,
+        caFacturesPayeMois,
+        nbFacturesPayees,
       })
 
     } catch (error) {
@@ -470,17 +490,31 @@ export default function Stats() {
           <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm font-medium">CA ce mois</p>
-                <p className="text-4xl font-bold mt-1">{fmtEuro(stats.caMoisEnCours)}</p>
-                <p className="text-purple-200 text-sm mt-2">
-                  {stats.clientsActifs} client{stats.clientsActifs > 1 ? 's' : ''} actif{stats.clientsActifs > 1 ? 's' : ''} ·{' '}
-                  Budget géré total : {fmtEuro(stats.budgetMarketing)}/mois
-                </p>
+                {/* Afficher le CA réel (factures payées) s'il existe, sinon CA leads gagnés */}
+                {stats.caFacturesPaye > 0 ? (
+                  <>
+                    <p className="text-purple-100 text-sm font-medium">✅ CA encaissé (factures payées)</p>
+                    <p className="text-4xl font-bold mt-1">{fmtEuro(stats.caFacturesPaye)}</p>
+                    <p className="text-purple-200 text-sm mt-2">
+                      {stats.nbFacturesPayees} facture{stats.nbFacturesPayees > 1 ? 's' : ''} payée{stats.nbFacturesPayees > 1 ? 's' : ''} ·{' '}
+                      Ce mois : {fmtEuro(stats.caFacturesPayeMois)}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-purple-100 text-sm font-medium">CA ce mois</p>
+                    <p className="text-4xl font-bold mt-1">{fmtEuro(stats.caMoisEnCours)}</p>
+                    <p className="text-purple-200 text-sm mt-2">
+                      {stats.clientsActifs} client{stats.clientsActifs > 1 ? 's' : ''} actif{stats.clientsActifs > 1 ? 's' : ''} ·{' '}
+                      Aucune facture marquée payée
+                    </p>
+                  </>
+                )}
               </div>
               <div className="text-right space-y-3">
                 <div className="bg-white/15 rounded-xl px-4 py-3">
-                  <p className="text-purple-100 text-xs font-medium">CA total généré</p>
-                  <p className="text-2xl font-bold">{fmtEuro(stats.caGenere)}</p>
+                  <p className="text-purple-100 text-xs font-medium">Clients signés</p>
+                  <p className="text-2xl font-bold">{stats.clientsActifs ?? 0}</p>
                 </div>
                 {stats.topSource && (
                   <p className="text-purple-200 text-xs">
@@ -531,15 +565,23 @@ export default function Stats() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {isSmma ? (
             <>
-              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                <p className="text-sm text-slate-500 font-medium">CA total généré</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{fmtEuro(stats.caGenere)}</p>
-                <p className="text-xs text-slate-400 mt-1">Rétainers clients signés (cumulé)</p>
+              <div className={`rounded-2xl p-6 border shadow-sm ${stats.caFacturesPaye > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100'}`}>
+                <p className="text-sm text-slate-500 font-medium">
+                  {stats.caFacturesPaye > 0 ? '✅ CA encaissé (factures payées)' : 'CA clients signés'}
+                </p>
+                <p className={`text-3xl font-bold mt-1 ${stats.caFacturesPaye > 0 ? 'text-green-700' : 'text-green-600'}`}>
+                  {fmtEuro(stats.caFacturesPaye > 0 ? stats.caFacturesPaye : stats.caGenere)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {stats.caFacturesPaye > 0
+                    ? `${stats.nbFacturesPayees} facture${stats.nbFacturesPayees > 1 ? 's' : ''} payée${stats.nbFacturesPayees > 1 ? 's' : ''} · Ce mois : ${fmtEuro(stats.caFacturesPayeMois)}`
+                    : 'Rétainers clients signés (cumulé)'}
+                </p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                <p className="text-sm text-slate-500 font-medium">Budget marketing géré / mois</p>
-                <p className="text-3xl font-bold text-purple-600 mt-1">{fmtEuro(stats.budgetMarketing)}</p>
-                <p className="text-xs text-slate-400 mt-1">{stats.clientsActifs} client{stats.clientsActifs > 1 ? 's' : ''} actif{stats.clientsActifs > 1 ? 's' : ''}</p>
+                <p className="text-sm text-slate-500 font-medium">Clients signés</p>
+                <p className="text-3xl font-bold text-purple-600 mt-1">{stats.clientsActifs ?? 0}</p>
+                <p className="text-xs text-slate-400 mt-1">Rétainer moyen : {stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—'}</p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                 <p className="text-sm text-slate-500 font-medium">Taux de closing</p>
