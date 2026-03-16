@@ -101,10 +101,10 @@ const LeadDetails = () => {
       if (data.resume_ia)    setAiSuggestion(data.resume_ia)
       if (data.suggestion_ia) setAiSuggestion(data.suggestion_ia)
 
-      // profil agence
+      // profil agence — requête sur user_id pour obtenir le profil exact du propriétaire
       if (data.agency_id) {
         const { data: prof } = await supabase
-          .from('profiles').select('*').eq('agency_id', data.agency_id).single()
+          .from('profiles').select('*').eq('user_id', data.agency_id).single()
         setAgencyProfile(prof || { agency_id: data.agency_id })
       }
     } catch (err) {
@@ -210,7 +210,7 @@ const LeadDetails = () => {
   const niveau  = lead.niveau_interet?.toLowerCase()
   const qualCls = QUALIFICATION_COLOR[niveau] || 'bg-slate-100 text-slate-700 border-slate-200'
   const agencyId = agencyProfile?.agency_id || agencyProfile?.id
-  const agencyType = agencyProfile?.type_agence || 'immobilier'
+  const agencyType = agencyProfile?.type_agence || null
 
   /* ───────────────────────────────────────────────────────── */
   return (

@@ -129,12 +129,18 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         { id: 'bon_visite', label: 'Bon de visite', icon: '🏠', category: 'IMMO' },
         { id: 'contrat_gestion', label: 'Contrat de gestion', icon: '📑', category: 'IMMO' }
       ];
-    } else {
+    } else if (agencyType === 'smma') {
       return [
         { id: 'devis', label: 'Devis', icon: '📋', category: 'SMMA' },
         { id: 'contrat', label: 'Contrat de prestation', icon: '📝', category: 'SMMA' },
         { id: 'facture', label: 'Facture', icon: '🧾', category: 'SMMA' },
         { id: 'rapport', label: 'Rapport de performance', icon: '📊', category: 'SMMA' }
+      ];
+    } else {
+      // type_agence non défini : afficher les types communs uniquement
+      return [
+        { id: 'devis', label: 'Devis', icon: '📋', category: 'COMMUN' },
+        { id: 'facture', label: 'Facture', icon: '🧾', category: 'COMMUN' },
       ];
     }
   };

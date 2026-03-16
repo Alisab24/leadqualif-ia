@@ -670,12 +670,16 @@ const DocumentsPage = () => {
               <option value="tous">Tous les types</option>
               <option value="devis">💰 Devis</option>
               <option value="facture">🧾 Factures</option>
-              <option value="mandat">📋 Mandats</option>
-              <option value="compromis">🤝 Compromis</option>
-              <option value="bon_visite">🏠 Bons de visite</option>
-              <option value="contrat_gestion">📑 Contrats gestion</option>
-              <option value="rapport">📊 Rapports</option>
-              <option value="contrat">📝 Contrats</option>
+              {agencyProfile?.type_agence === 'immobilier' && <>
+                <option value="mandat">📋 Mandats</option>
+                <option value="compromis">🤝 Compromis</option>
+                <option value="bon_visite">🏠 Bons de visite</option>
+                <option value="contrat_gestion">📑 Contrats gestion</option>
+              </>}
+              {agencyProfile?.type_agence === 'smma' && <>
+                <option value="rapport">📊 Rapports</option>
+                <option value="contrat">📝 Contrats</option>
+              </>}
             </select>
           </div>
 
