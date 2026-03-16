@@ -7,7 +7,7 @@ import ImportLeadsModal from '../components/ImportLeadsModal';
 import useHotLeadAlerts from '../hooks/useHotLeadAlerts';
 import DocumentGenerator from '../components/DocumentGenerator';
 import { aiService } from '../services/ai';
-import { TrialBanner, LeadQuotaBanner, UpgradeBanner, AddLeadGate, usePlanGuard } from '../components/PlanGuard';
+import { LeadQuotaBanner, UpgradeBanner, AddLeadGate, usePlanGuard } from '../components/PlanGuard';
 import OnboardingGuide from '../components/OnboardingGuide';
 import { NotificationBell, NotificationBanners } from '../components/SmartNotifications';
 import {
@@ -652,7 +652,6 @@ export default function Dashboard() {
 
         {/* ===== BANNIÈRES PLAN + NOTIFICATIONS URGENTES ===== */}
         <div className="px-6 pt-2 space-y-1">
-          <TrialBanner />
           <LeadQuotaBanner />
           <UpgradeBanner feature="docs" />
           <NotificationBanners agencyId={agencyProfile?.agency_id || agencyProfile?.id} />

@@ -52,16 +52,38 @@ export function usePlanGuard() {
       // subscription_plan est mis à jour par le webhook Stripe
       const { data: p } = await supabase
         .from('profiles')
-        .select('subscription_plan, subscription_status, subscription_current_period_end, stripe_subscription_id, agency_id, plan')
+        .select('subscription_plan, subscription_status, subscription_current_period_end, stripe_subscription_id, agency_id, plan, role')
         .eq('user_id', user.id)
         .single()
 
       if (!p) { setLoading(false); return }
       setProfile(p)
 
+      // ── Héritage de plan pour les membres invités ──────────────────────────
+      // Un membre a : role != 'owner' OU agency_id != user.id
+      // Dans ce cas, on lit l'abonnement du propriétaire de l'agence
+      let planSource = p  // par défaut : profil de l'utilisateur courant
+      const isMember = p.role && p.role !== 'owner'
+      const hasOwnerAgency = p.agency_id && p.agency_id !== user.id
+
+      if (isMember || hasOwnerAgency) {
+        const ownerAgencyId = p.agency_id
+        if (ownerAgencyId) {
+          const { data: ownerProfile } = await supabase
+            .from('profiles')
+            .select('subscription_plan, subscription_status, subscription_current_period_end, stripe_subscription_id, plan')
+            .eq('user_id', ownerAgencyId)
+            .single()
+
+          if (ownerProfile) {
+            planSource = { ...ownerProfile, agency_id: p.agency_id }
+          }
+        }
+      }
+
       // Résoudre le plan effectif
-      let effectivePlan   = p.subscription_plan || p.plan || 'free'
-      let effectiveStatus = p.subscription_status || 'inactive'
+      let effectivePlan   = planSource.subscription_plan || planSource.plan || 'free'
+      let effectiveStatus = planSource.subscription_status || 'inactive'
 
       // Normaliser les anciens noms de plans
       if (effectivePlan === 'pro')    effectivePlan = 'growth'
@@ -71,7 +93,7 @@ export function usePlanGuard() {
       if (effectiveStatus === 'trialing') effectivePlan = 'trialing'
 
       // Si inactive/canceled sans plan actif → forcer free
-      if (['inactive', 'canceled'].includes(effectiveStatus) && !p.stripe_subscription_id) {
+      if (['inactive', 'canceled'].includes(effectiveStatus) && !planSource.stripe_subscription_id) {
         effectivePlan = 'free'
       }
 
@@ -79,8 +101,8 @@ export function usePlanGuard() {
       setStatus(effectiveStatus)
 
       // Date de fin de période (essai ou abonnement)
-      if (p.subscription_current_period_end) {
-        setTrialEnd(new Date(p.subscription_current_period_end))
+      if (planSource.subscription_current_period_end) {
+        setTrialEnd(new Date(planSource.subscription_current_period_end))
       }
 
       // Compteur leads du mois (seulement pour les plans limités)
