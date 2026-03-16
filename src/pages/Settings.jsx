@@ -659,7 +659,7 @@ export default function Settings() {
           logo_url: data.logo_url || '',
           couleur_primaire: data.couleur_primaire || '#2563eb',
           couleur_secondaire: data.couleur_secondaire || '#7c3aed',
-          type_agence: data.type_agence || 'immobilier',
+          type_agence: data.type_agence || null,
           nom_legal: data.nom_legal || '',
           statut_juridique: data.statut_juridique || '',
           numero_enregistrement: data.numero_enregistrement || '',
@@ -964,11 +964,14 @@ export default function Settings() {
             <div className="space-y-6">
 
               {/* Sélecteur type agence — cartes visuelles */}
-              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
+              <section className={`bg-white rounded-xl border shadow-sm p-5 ${!formData.type_agence ? 'border-orange-300 ring-2 ring-orange-100' : 'border-slate-100'}`}>
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">
                   Type d'agence
                 </h2>
-                <div className="grid grid-cols-2 gap-3">
+                {!formData.type_agence && (
+                  <p className="text-xs text-orange-600 font-medium mb-3">⚠️ Sélectionnez votre type d'agence pour accéder aux bons modèles de documents</p>
+                )}
+                <div className={`grid grid-cols-2 gap-3 ${formData.type_agence ? 'mt-4' : ''}`}>
                   {[
                     { value: 'immobilier', icon: '🏠', title: 'Immobilier', desc: 'Mandats, devis, suivi acquéreurs/vendeurs', color: 'indigo' },
                     { value: 'smma',       icon: '📱', title: 'SMMA',       desc: 'Propositions commerciales, suivi clients marketing', color: 'purple' },
