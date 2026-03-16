@@ -214,6 +214,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           siret: profileData.siret || null,
           tva: profileData.tva || null,
           pays: profileData.pays || 'France',
+          show_amount_in_words: profileData.show_amount_in_words ?? false,
           source: 'profiles'
         };
 
@@ -249,6 +250,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
     fetchAgencyProfile();
   }, [agencyId]);
+
+  // Initialiser showAmountInWords depuis le paramètre agence (Settings → show_amount_in_words)
+  useEffect(() => {
+    if (agencyProfile && agencyProfile.show_amount_in_words !== undefined) {
+      setMetadataSettings(prev => ({ ...prev, showAmountInWords: agencyProfile.show_amount_in_words }));
+    }
+  }, [agencyProfile]);
 
   // 🎯 VALIDATION PRÉVENTIVE (ZÉRO BUG, ZÉRO FRUSTRATION)
   useEffect(() => {
@@ -2485,16 +2493,18 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                         return <div key={idx} style={{ fontSize: '12px', fontWeight: '700', color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '18px 0 4px 0', paddingBottom: '4px', borderBottom: '1px solid #dbeafe' }}>{block.heading}</div>;
                       } else if (block.type === 'signature') {
                         return (
-                          <div key={idx} className="signature-section" style={{ marginTop: '28px' }}>
+                          <div key={idx} className="signature-section">
                             <div className="signature-block">
-                              <div className="signature-label">Signature de l'agence</div>
+                              <div className="signature-title">Signature agence</div>
                               <div className="signature-line"></div>
-                              <div className="signature-label" style={{ fontWeight: '600' }}>{docData.agencyProfile?.name || 'Agence'}</div>
+                              <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
+                              <div className="signature-date">Fait à __________, le {new Date().toLocaleDateString('fr-FR')}</div>
                             </div>
                             <div className="signature-block">
-                              <div className="signature-label">Signature du client</div>
+                              <div className="signature-title">Signature client</div>
                               <div className="signature-line"></div>
-                              <div className="signature-label" style={{ fontWeight: '600' }}>{docData.lead?.nom || 'Client'}</div>
+                              <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
+                              <div className="signature-date">Fait à __________, le ___________</div>
                             </div>
                           </div>
                         );
@@ -2518,18 +2528,17 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   <>
                     <div className="signature-section">
                       <div className="signature-block">
-                        <div className="signature-label">Signature agence</div>
+                        <div className="signature-title">Signature agence</div>
                         <div className="signature-line"></div>
                         <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
+                        <div className="signature-date">Fait à __________, le {new Date().toLocaleDateString('fr-FR')}</div>
                       </div>
                       <div className="signature-block">
-                        <div className="signature-label">Signature client</div>
+                        <div className="signature-title">Signature client</div>
                         <div className="signature-line"></div>
                         <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
+                        <div className="signature-date">Fait à __________, le ___________</div>
                       </div>
-                    </div>
-                    <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: '#6b7280' }}>
-                      Fait le {new Date().toLocaleDateString('fr-FR')}
                     </div>
                   </>
                 )}
