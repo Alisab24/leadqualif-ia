@@ -280,7 +280,11 @@ const DocumentsPage = () => {
 
   // ── Partage WhatsApp ──────────────────────────────────────────────────────────
   const handleShareWhatsApp = (doc) => {
-    const phone = (doc.client_telephone || '').replace(/[\s\-().+]/g, '');
+    const rawPhone = doc.client_telephone
+      || doc.content_json?.telephone
+      || doc.content_json?.client_telephone
+      || '';
+    const phone = rawPhone.replace(/[\s\-().+]/g, '');
     if (!phone) {
       alert('❌ Aucun numéro de téléphone pour ce prospect.');
       return;
@@ -293,7 +297,44 @@ const DocumentsPage = () => {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // ── Envoi email via Resend ────────────────────────────────────────────────────
+  // ── Génère un PDF base64 depuis le preview_html stocké en DB ─────────────────
+  const generatePdfBase64FromHtml = async (htmlContent, filename) => {
+    // Monter le HTML dans un conteneur hors-écran
+    const container = window.document.createElement('div');
+    container.innerHTML = htmlContent;
+    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;background:white;font-family:Arial,sans-serif;';
+    window.document.body.appendChild(container);
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const { jsPDF } = await import('jspdf');
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const pageWidth  = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight  = (canvas.height * pageWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position  = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      return pdf.output('datauristring').split(',')[1]; // base64 uniquement
+    } finally {
+      window.document.body.removeChild(container);
+    }
+  };
+
+  // ── Envoi email via Resend (avec PDF en pièce jointe) ─────────────────────────
   const handleSendEmail = async (doc) => {
     if (!doc.client_email) {
       alert('❌ Aucun email pour ce prospect.');
@@ -302,10 +343,22 @@ const DocumentsPage = () => {
     if (!window.confirm(`Envoyer le document à ${doc.client_email} ?`)) return;
     setSendingEmail(doc.id);
     try {
+      // Générer le PDF côté client depuis le HTML persisté
+      let pdfBase64 = null;
+      if (doc.preview_html) {
+        try {
+          pdfBase64 = await generatePdfBase64FromHtml(
+            doc.preview_html,
+            `${doc.reference || 'document'}.pdf`
+          );
+        } catch (pdfErr) {
+          console.warn('[handleSendEmail] Génération PDF échouée, envoi sans PDF:', pdfErr.message);
+        }
+      }
       const res = await fetch('/api/documents/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: doc.id }),
+        body: JSON.stringify({ documentId: doc.id, pdfBase64 }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -510,6 +563,31 @@ const DocumentsPage = () => {
    * Corrige l'erreur "createElement is not a function"
    * Utilise document.createElement natif au lieu des objets React
    */
+  // CSS embarqué pour que les signatures et styles s'affichent dans le fichier téléchargé
+  const INLINE_DOC_CSS = `
+    body{margin:0;padding:20px;font-family:Arial,sans-serif;background:#fff;color:#111827;}
+    .signature-section{margin-top:40px;display:flex;justify-content:space-between;gap:40px;padding-top:20px;border-top:1px solid #e5e7eb;}
+    .signature-block{flex:1;text-align:left;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;}
+    .signature-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;margin-bottom:4px;display:block;}
+    .signature-line{border-bottom:1px solid #9ca3af;height:44px;margin:8px 0 6px 0;position:relative;}
+    .signature-label{font-size:11px;color:#374151;font-weight:600;display:block;}
+    .signature-date{font-size:10px;color:#9ca3af;margin-top:4px;display:block;}
+    .financial-table{width:100%;border-collapse:collapse;font-size:11px;margin:16px 0;}
+    .financial-table th,.financial-table td{padding:10px;text-align:left;border-bottom:1px solid #eee;}
+    .financial-table th{background:#f5f5f5;font-weight:600;color:#374151;}
+    .financial-table td:last-child{text-align:right;font-weight:600;}
+    .total-ttc{background:#f0f9ff;border-top:2px solid #3b82f6;}
+    .total-ttc td{font-weight:bold;color:#1d4ed8;font-size:14px;}
+    .client-section{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:15px;margin:20px 0;}
+    .header-section{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
+    .agency-info h2{font-size:18px;font-weight:bold;margin:0 0 5px;color:#111827;}
+    .agency-info p{font-size:11px;color:#6b7280;margin:2px 0;}
+    .document-title{font-size:24px;font-weight:bold;margin-bottom:10px;color:#111827;text-align:right;}
+    .document-meta{font-size:11px;color:#6b7280;line-height:1.4;text-align:right;}
+    .metadata-section{background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:15px;margin:20px 0;}
+    .amount{font-family:'Courier New',monospace;white-space:nowrap;}
+  `;
+
   const downloadDocument = (document) => {
     try {
       // 🎯 Vérification des données requises
@@ -526,13 +604,27 @@ const DocumentsPage = () => {
       }
 
       // 🎯 Récupérer le contenu HTML
-      const htmlContent = document.preview_html || 
-                        (document.content_json?.html_content) || 
-                        `<html><body><h1>${document.reference || 'Document'}</h1></body></html>`;
+      const rawHtml = document.preview_html ||
+                      (document.content_json?.html_content) ||
+                      `<div><h1>${document.reference || 'Document'}</h1></div>`;
+
+      // 🎯 Envelopper dans un document HTML complet avec CSS inline (signatures visibles)
+      const htmlContent = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>${document.reference || 'Document'}</title>
+  <style>${INLINE_DOC_CSS}</style>
+</head>
+<body>
+${rawHtml}
+</body>
+</html>`;
 
       // 🎯 Créer un Blob à partir du HTML
-      const blob = new Blob([htmlContent], { 
-        type: 'text/html;charset=utf-8' 
+      const blob = new Blob([htmlContent], {
+        type: 'text/html;charset=utf-8'
       });
 
       // 🎯 Créer une URL temporaire
@@ -902,11 +994,11 @@ const DocumentsPage = () => {
                               >{sendingEmail === doc.id ? '⏳' : '📧'}</button>
                             )}
                             {/* Partager par WhatsApp */}
-                            {doc.client_telephone && (
+                            {(doc.client_telephone || doc.content_json?.telephone || doc.content_json?.client_telephone) && (
                               <button
                                 onClick={() => handleShareWhatsApp(doc)}
                                 className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors"
-                                title={`Envoyer par WhatsApp à ${doc.client_telephone}`}
+                                title={`Envoyer par WhatsApp à ${doc.client_telephone || doc.content_json?.telephone || doc.content_json?.client_telephone}`}
                               >
                                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
                                   <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>

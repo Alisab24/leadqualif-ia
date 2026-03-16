@@ -853,6 +853,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             devise: agencyProfile.devise || 'EUR',
             client_nom: lead.nom,
             client_email: lead.email,
+            client_telephone: lead.telephone || lead.phone || null,
             // 🎯 content_json — nécessaire pour la conversion devis→facture
             content_json: documentData.financialData ? {
               type_document: docType.id,

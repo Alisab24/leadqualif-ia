@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { documentId } = req.body || {};
+  const { documentId, pdfBase64 } = req.body || {};
   if (!documentId) {
     return res.status(400).json({ error: 'documentId manquant' });
   }
@@ -113,37 +113,76 @@ export default async function handler(req, res) {
     const agencyName  = agency?.nom_agence  || 'Votre agence';
     const agencyEmail = agency?.email       || null;
 
-    // ── 3. Extraire le HTML du document ───────────────────────────────────────
-    let docHtml = '';
-    if (doc.html_content) {
-      docHtml = doc.html_content;
-    } else if (doc.content_json) {
-      // Fallback : rendu basique depuis content_json
-      const cj = typeof doc.content_json === 'string' ? JSON.parse(doc.content_json) : doc.content_json;
-      docHtml = `<pre style="font-size:12px;white-space:pre-wrap;">${JSON.stringify(cj, null, 2)}</pre>`;
-    }
-
-    // ── 4. Construire & envoyer l'email ───────────────────────────────────────
+    // ── 3. Construire le corps de l'email ─────────────────────────────────────
     const label   = TYPE_LABELS[doc.type] || 'Document';
     const subject = `${agencyName} — Votre ${label.toLowerCase()}${doc.reference ? ' ' + doc.reference : ''}`;
 
-    const html = wrapDocumentHtml({
-      clientNom:  doc.client_nom,
-      docType:    doc.type,
-      reference:  doc.reference,
-      agencyName,
-      agencyEmail,
-      docHtml,
-      totalTtc:   doc.total_ttc,
-      devise:     doc.devise || '€',
-    });
+    let html;
+    let attachments = [];
 
-    const { error: sendErr } = await resend.emails.send({
-      from:    FROM,
-      to:      doc.client_email,
-      subject,
-      html,
-    });
+    if (pdfBase64) {
+      // ── 3a. PDF fourni par le client → email sobre + PDF en pièce jointe ───
+      const montant = doc.total_ttc
+        ? Number(doc.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' ' + (doc.devise || '€')
+        : null;
+      html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"/>
+<style>
+  body{margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;}
+  .wrap{max-width:600px;margin:0 auto;padding:24px 16px;}
+  .hdr{background:#1e3a5f;color:#fff;padding:20px 28px;border-radius:12px 12px 0 0;}
+  .hdr h1{margin:0;font-size:20px;font-weight:700;}
+  .hdr p{margin:6px 0 0;font-size:13px;opacity:.75;}
+  .body{background:#fff;padding:24px 28px;border-radius:0 0 12px 12px;}
+  .body p{margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6;}
+  .badge{display:inline-block;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;margin-bottom:16px;}
+  .footer{padding:16px;font-size:12px;color:#9ca3af;text-align:center;}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>📄 ${label}${doc.reference ? ' — ' + doc.reference : ''}</h1>
+    <p>De la part de ${agencyName}</p>
+  </div>
+  <div class="body">
+    <p>Bonjour <strong>${doc.client_nom || 'Madame, Monsieur'}</strong>,</p>
+    <p>Veuillez trouver en pièce jointe votre <strong>${label.toLowerCase()}</strong>${doc.reference ? ' (réf.&nbsp;<strong>' + doc.reference + '</strong>)' : ''}${montant ? ', d\'un montant de <strong>' + montant + '</strong>' : ''}.</p>
+    ${agencyEmail ? `<p style="font-size:13px;color:#6b7280;">Pour toute question, contactez-nous à <a href="mailto:${agencyEmail}">${agencyEmail}</a>.</p>` : ''}
+    <span class="badge">📎 ${label}${doc.reference ? ' ' + doc.reference : ''}.pdf</span>
+  </div>
+  <div class="footer">Envoyé automatiquement par <strong>LeadQualif</strong> · © ${new Date().getFullYear()} ${agencyName}</div>
+</div>
+</body></html>`;
+      attachments = [{
+        filename: `${label}${doc.reference ? '-' + doc.reference : ''}.pdf`,
+        content:  pdfBase64,
+      }];
+    } else {
+      // ── 3b. Fallback : HTML inline (si pas de PDF disponible) ──────────────
+      let docHtml = '';
+      if (doc.preview_html) {
+        docHtml = doc.preview_html;
+      } else if (doc.content_json) {
+        const cj = typeof doc.content_json === 'string' ? JSON.parse(doc.content_json) : doc.content_json;
+        docHtml = `<pre style="font-size:12px;white-space:pre-wrap;">${JSON.stringify(cj, null, 2)}</pre>`;
+      }
+      html = wrapDocumentHtml({
+        clientNom:  doc.client_nom,
+        docType:    doc.type,
+        reference:  doc.reference,
+        agencyName,
+        agencyEmail,
+        docHtml,
+        totalTtc:   doc.total_ttc,
+        devise:     doc.devise || '€',
+      });
+    }
+
+    // ── 4. Envoyer l'email ────────────────────────────────────────────────────
+    const emailPayload = { from: FROM, to: doc.client_email, subject, html };
+    if (attachments.length > 0) emailPayload.attachments = attachments;
+
+    const { error: sendErr } = await resend.emails.send(emailPayload);
 
     if (sendErr) {
       console.error('[send-email] Resend error:', sendErr);
