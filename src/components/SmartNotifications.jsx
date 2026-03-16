@@ -39,25 +39,61 @@ export function useSmartNotifications(agencyId) {
       const now = new Date();
       const notifs = [];
 
-      // ── 1. Leads chauds sans contact depuis 48h ──
       const since48h = new Date(now - 48 * 60 * 60 * 1000).toISOString();
-      const { data: hotLeads } = await supabase
+
+      // ── 1. Leads chauds "À traiter" sans contact depuis 48h ──
+      // Utilise niveau_interet (température IA) et score_qualification, PAS qualification (= statut pipeline)
+      const { data: hotUntouched } = await supabase
         .from('leads')
-        .select('id, nom, qualification, updated_at')
+        .select('id, nom, niveau_interet, score_qualification, score_ia, score, statut, updated_at')
         .eq('agency_id', agencyId)
-        .eq('qualification', 'chaud')
+        .eq('statut', 'À traiter')
         .lt('updated_at', since48h)
-        .not('statut', 'in', '("Gagné","Perdu")')
         .limit(5);
 
-      if (hotLeads && hotLeads.length > 0) {
-        const id = `hot_no_contact_${hotLeads.map(l => l.id).join('_')}`;
+      // Filtrer côté client : chauds = niveau_interet chaud OU score >= 70
+      const hotNotContacted = (hotUntouched || []).filter(l => {
+        const niv = (l.niveau_interet || '').toLowerCase().replace('tiède','tiede');
+        const score = l.score_qualification || l.score_ia || l.score || 0;
+        return niv === 'chaud' || score >= 70;
+      });
+
+      if (hotNotContacted.length > 0) {
+        const id = `hot_not_contacted_${hotNotContacted.map(l => l.id).join('_')}`;
         notifs.push({
           id,
           type: 'warning',
           icon: '🔥',
-          title: `${hotLeads.length} lead${hotLeads.length > 1 ? 's' : ''} chaud${hotLeads.length > 1 ? 's' : ''} sans contact depuis 48h`,
-          body: hotLeads.slice(0, 3).map(l => l.nom).join(', ') + (hotLeads.length > 3 ? `… +${hotLeads.length - 3}` : ''),
+          title: `${hotNotContacted.length} lead${hotNotContacted.length > 1 ? 's' : ''} chaud${hotNotContacted.length > 1 ? 's' : ''} non contacté${hotNotContacted.length > 1 ? 's' : ''} depuis 48h`,
+          body: hotNotContacted.slice(0, 3).map(l => l.nom).join(', ') + (hotNotContacted.length > 3 ? ` +${hotNotContacted.length - 3}` : '') + ' — Contactez-les maintenant !',
+          action: { label: 'Voir le pipeline', href: '/dashboard' },
+          priority: 1,
+        });
+      }
+
+      // ── 1b. Leads chauds "Contacté" bloqués depuis 48h (pas avancés vers Négociation) ──
+      const { data: hotStalled } = await supabase
+        .from('leads')
+        .select('id, nom, niveau_interet, score_qualification, score_ia, score, statut, updated_at')
+        .eq('agency_id', agencyId)
+        .in('statut', ['Contacté', 'Offre en cours'])
+        .lt('updated_at', since48h)
+        .limit(5);
+
+      const hotStalledFiltered = (hotStalled || []).filter(l => {
+        const niv = (l.niveau_interet || '').toLowerCase().replace('tiède','tiede');
+        const score = l.score_qualification || l.score_ia || l.score || 0;
+        return niv === 'chaud' || score >= 70;
+      });
+
+      if (hotStalledFiltered.length > 0) {
+        const id = `hot_stalled_${hotStalledFiltered.map(l => l.id).join('_')}`;
+        notifs.push({
+          id,
+          type: 'alert',
+          icon: '⚡',
+          title: `${hotStalledFiltered.length} lead${hotStalledFiltered.length > 1 ? 's' : ''} chaud${hotStalledFiltered.length > 1 ? 's' : ''} sans avancement depuis 48h`,
+          body: hotStalledFiltered.slice(0, 3).map(l => `${l.nom} (${l.statut})`).join(', ') + (hotStalledFiltered.length > 3 ? ` +${hotStalledFiltered.length - 3}` : '') + ' — Relancez pour passer en Négociation.',
           action: { label: 'Voir le pipeline', href: '/dashboard' },
           priority: 1,
         });

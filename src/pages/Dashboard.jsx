@@ -96,6 +96,13 @@ export default function Dashboard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
 
+  // Toast notifications
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, type = 'success') => {
+    setToast({ message: msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
   // === NOUVEAUX ÉTATS ===
   const [searchQuery, setSearchQuery] = useState('');
   const [filterQualification, setFilterQualification] = useState('all');
@@ -181,6 +188,24 @@ export default function Dashboard() {
       });
     } catch (error) {
       console.error('Erreur log CRM:', error);
+    }
+  };
+
+  // ── Action de contact : log + auto-avancement Kanban ─────────────────────────
+  // Si le lead est encore "À traiter", le déplacer vers "Contacté" automatiquement
+  const handleContactAction = async (lead, actionType) => {
+    const eventMap = {
+      whatsapp: { type: 'whatsapp', title: 'Message WhatsApp envoyé' },
+      call:     { type: 'call',     title: 'Appel téléphonique'      },
+      email:    { type: 'email',    title: 'Email envoyé'            },
+    };
+    const ev = eventMap[actionType];
+    if (ev) await logCrmEvent(lead.id, ev.type, ev.title);
+
+    if (lead.statut === 'À traiter') {
+      await supabase.from('leads').update({ statut: 'Contacté', updated_at: new Date().toISOString() }).eq('id', lead.id);
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, statut: 'Contacté' } : l));
+      showToast(`✅ ${lead.nom} déplacé vers "Contacté"`);
     }
   };
 
@@ -823,9 +848,9 @@ export default function Dashboard() {
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-center space-x-1">
                               <button onClick={(e) => { e.stopPropagation(); navigate(`/lead/${lead.id}`); }} className="text-green-600 hover:text-green-800 p-1" title="Voir">👁</button>
-                              <a href={`https://wa.me/${lead.telephone?.replace(/\D/g, '')}`} target="_blank" className="text-green-600 hover:text-green-800 p-1" title="WhatsApp" onClick={e => { e.stopPropagation(); logCrmEvent(lead.id, 'whatsapp', 'Message WhatsApp envoyé'); }}>💬</a>
-                              <a href={`tel:${lead.telephone}`} className="text-blue-600 hover:text-blue-800 p-1" title="Appeler" onClick={e => { e.stopPropagation(); logCrmEvent(lead.id, 'call', 'Appel téléphonique'); }}>📞</a>
-                              <a href={`mailto:${lead.email}`} className="text-orange-600 hover:text-orange-800 p-1" title="Email" onClick={e => { e.stopPropagation(); logCrmEvent(lead.id, 'email', 'Email envoyé'); }}>📧</a>
+                              <a href={`https://wa.me/${lead.telephone?.replace(/\D/g, '')}`} target="_blank" className="text-green-600 hover:text-green-800 p-1" title="WhatsApp" onClick={e => { e.stopPropagation(); handleContactAction(lead, 'whatsapp'); }}>💬</a>
+                              <a href={`tel:${lead.telephone}`} className="text-blue-600 hover:text-blue-800 p-1" title="Appeler" onClick={e => { e.stopPropagation(); handleContactAction(lead, 'call'); }}>📞</a>
+                              <a href={`mailto:${lead.email}`} className="text-orange-600 hover:text-orange-800 p-1" title="Email" onClick={e => { e.stopPropagation(); handleContactAction(lead, 'email'); }}>📧</a>
                               <button className="text-purple-600 hover:text-purple-800 p-1" title="RDV" onClick={e => { e.stopPropagation(); handleRendezVous(lead); }}>📅</button>
                               <button className="text-amber-500 hover:text-amber-700 p-1" title="Archiver" onClick={e => { e.stopPropagation(); handleArchiveLead(lead.id); }}>📁</button>
                               <button className="text-red-500 hover:text-red-700 p-1" title="Supprimer" onClick={e => { e.stopPropagation(); setConfirmDelete(lead.id); }}>🗑</button>
@@ -876,19 +901,19 @@ export default function Dashboard() {
                 {/* Actions rapides */}
                 <div className="grid grid-cols-4 gap-2">
                   <button
-                    onClick={() => { window.open(`https://wa.me/${selectedLead.telephone?.replace(/\D/g, '')}`, '_blank'); logCrmEvent(selectedLead.id, 'whatsapp', 'Message WhatsApp envoyé'); }}
+                    onClick={() => { window.open(`https://wa.me/${selectedLead.telephone?.replace(/\D/g, '')}`, '_blank'); handleContactAction(selectedLead, 'whatsapp'); }}
                     className="flex flex-col items-center justify-center p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold transition-colors"
                   >
                     <span className="text-lg mb-1">💬</span>WhatsApp
                   </button>
                   <button
-                    onClick={() => { window.open(`tel:${selectedLead.telephone}`, '_blank'); logCrmEvent(selectedLead.id, 'call', 'Appel téléphonique'); }}
+                    onClick={() => { window.open(`tel:${selectedLead.telephone}`, '_blank'); handleContactAction(selectedLead, 'call'); }}
                     className="flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
                   >
                     <span className="text-lg mb-1">📞</span>Appeler
                   </button>
                   <button
-                    onClick={() => { window.open(`mailto:${selectedLead.email}`, '_blank'); logCrmEvent(selectedLead.id, 'email', 'Email envoyé'); }}
+                    onClick={() => { window.open(`mailto:${selectedLead.email}`, '_blank'); handleContactAction(selectedLead, 'email'); }}
                     className="flex flex-col items-center justify-center p-2 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold transition-colors"
                   >
                     <span className="text-lg mb-1">📧</span>Email
@@ -1316,6 +1341,16 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Toast auto-avancement Kanban ── */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold text-white transition-all ${
+          toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
+        }`}>
+          {toast.message}
+          <button onClick={() => setToast(null)} className="ml-2 opacity-70 hover:opacity-100 text-lg leading-none">×</button>
         </div>
       )}
 
