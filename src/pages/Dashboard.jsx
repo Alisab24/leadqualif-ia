@@ -229,32 +229,26 @@ export default function Dashboard() {
   // ── Avancement automatique du statut pipeline ────────────────────────────────
   // Règle : on n'avance JAMAIS en arrière et on ne touche pas Négociation/Gagné/Perdu/Archivé
   const PIPELINE_ORDER = ['À traiter', 'Contacté', 'RDV fixé', 'Offre en cours', 'Négociation', 'Gagné', 'Perdu', 'Archivé'];
-  const advanceLeadTo = async (lead, targetStatut) => {
-    console.log('[advanceLeadTo] appelé:', lead?.nom, '| statut actuel:', lead?.statut, '| cible:', targetStatut);
+  const advanceLeadTo = async (lead, targetStatut, force = false) => {
     try {
-      const currentIdx = PIPELINE_ORDER.indexOf(lead.statut);
-      const targetIdx  = PIPELINE_ORDER.indexOf(targetStatut);
-      console.log('[advanceLeadTo] idx:', currentIdx, '→', targetIdx, '| blocage Négo:', PIPELINE_ORDER.indexOf('Négociation'));
-      // Ne pas rétrograder, ne pas toucher Négociation/Gagné/Perdu/Archivé
-      if (currentIdx >= targetIdx || currentIdx >= PIPELINE_ORDER.indexOf('Négociation')) {
-        console.log('[advanceLeadTo] BLOQUÉ (déjà avancé ou statut terminal)');
-        return;
-      }
-      const { error } = await supabase.from('leads')
-        .update({ statut: targetStatut })
-        .eq('id', lead.id);
-      if (error) { console.error('[advanceLeadTo] Supabase erreur:', error.message); return; }
-      console.log('[advanceLeadTo] ✅ Supabase OK → setLeads');
-      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, statut: targetStatut } : l));
-      if (selectedLead?.id === lead.id) setSelectedLead(prev => ({ ...prev, statut: targetStatut }));
-      showToast(`📊 ${lead.nom} → "${targetStatut}"`);
+      // Utilise la fonction RPC Supabase — atomique, contourne les problèmes RLS
+      const { data: newStatut, error } = await supabase
+        .rpc('advance_lead_statut', {
+          p_lead_id: lead.id,
+          p_target:  targetStatut,
+          p_force:   force,
+        });
+      if (error) { console.error('[advanceLeadTo] RPC erreur:', error.message); return; }
+      if (!newStatut || newStatut === lead.statut) return; // pas de changement
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, statut: newStatut } : l));
+      if (selectedLead?.id === lead.id) setSelectedLead(prev => ({ ...prev, statut: newStatut }));
+      showToast(`📊 ${lead.nom} → "${newStatut}"`);
     } catch (err) {
       console.error('[advanceLeadTo] exception:', err?.message);
     }
   };
 
   const handleContactAction = async (lead, actionType) => {
-    console.log('[handleContactAction] type:', actionType, '| lead:', lead?.nom, '| statut:', lead?.statut);
     const eventMap = {
       whatsapp: { type: 'whatsapp', title: 'Message WhatsApp envoyé' },
       call:     { type: 'call',     title: 'Appel téléphonique'      },
@@ -350,7 +344,6 @@ export default function Dashboard() {
 
     logCrmEvent(lead.id, 'rdv', 'RDV planifié', `Rendez-vous créé pour ${lead.nom}`);
     // RDV ouvert → avance automatiquement vers "RDV fixé"
-    console.log('[handleRendezVous] avancement RDV fixé pour:', lead?.nom, '| statut:', lead?.statut);
     await advanceLeadTo(lead, 'RDV fixé');
   };
 

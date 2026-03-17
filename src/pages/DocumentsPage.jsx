@@ -30,19 +30,16 @@ const PIPELINE_ORDER_DOCS = ['À traiter', 'Contacté', 'RDV fixé', 'Offre en c
 async function advanceLeadPipeline(leadId, targetStatut, force = false) {
   if (!leadId) return;
   try {
-    const targetIdx = PIPELINE_ORDER_DOCS.indexOf(targetStatut);
-    // Statuts depuis lesquels on autorise l'avancement
-    const eligibleStatuts = force
-      ? PIPELINE_ORDER_DOCS.slice(0, targetIdx)          // tout ce qui est avant la cible
-      : PIPELINE_ORDER_DOCS.slice(0, Math.min(targetIdx, PIPELINE_ORDER_DOCS.indexOf('Négociation')));
-    if (eligibleStatuts.length === 0) return;
-    await supabase
-      .from('leads')
-      .update({ statut: targetStatut })
-      .eq('id', leadId)
-      .in('statut', eligibleStatuts);
+    // Utilise la fonction RPC Supabase — atomique, contourne les problèmes RLS
+    const { error } = await supabase
+      .rpc('advance_lead_statut', {
+        p_lead_id: leadId,
+        p_target:  targetStatut,
+        p_force:   force,
+      });
+    if (error) console.warn('[advanceLeadPipeline] RPC erreur:', error.message);
   } catch (err) {
-    console.warn('[advanceLeadPipeline] erreur silencieuse:', err?.message);
+    console.warn('[advanceLeadPipeline] exception:', err?.message);
   }
 }
 
