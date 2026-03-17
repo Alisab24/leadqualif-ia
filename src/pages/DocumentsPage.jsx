@@ -587,12 +587,102 @@ const DocumentsPage = () => {
     );
   };
 
+  // ── Génère un HTML complet pour devis/facture depuis les données du doc ──────
+  // Miroir client du buildDocumentHtmlForPdf serveur — utilisé pour le téléchargement
+  const buildCompleteDocumentHtml = (doc) => {
+    const TYPE_LABELS = { devis: 'Devis', facture: 'Facture', contrat: 'Contrat de prestation', rapport: 'Rapport de performance', mandat: 'Mandat immobilier', compromis: 'Compromis de vente', bon_visite: 'Bon de visite', contrat_gestion: 'Contrat de gestion' };
+    const label  = TYPE_LABELS[doc.type] || 'Document';
+    const cj     = typeof doc.content_json === 'string' ? JSON.parse(doc.content_json) : (doc.content_json || {});
+    const items  = Array.isArray(cj.items)  ? cj.items  : [];
+    const totals = Array.isArray(cj.totals) ? cj.totals : [];
+    const devise = doc.devise || cj.devise || '€';
+    const fmt    = (v) => Number(v || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+    const date   = doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    const ap     = agencyProfile || {};
+    const agencyName  = ap.nom_agence  || ap.name  || 'Votre agence';
+    const agencyEmail = ap.email       || '';
+    const agencyTel   = ap.telephone   || ap.phone || '';
+    const agencyAddr  = ap.adresse_legale || ap.adresse || ap.address || '';
+    const agencySiret = ap.siret || ap.numero_enregistrement || ap.registrationNumber || '';
+    const agencyLegal = ap.mention_legale || ap.legalMention || '';
+    const conditions  = ap.conditions_paiement || ap.paymentConditions || '';
+    const cartePT     = ap.carte_pro_t || '';
+    const cartePS     = ap.carte_pro_s || '';
+
+    const itemsHtml = items.map(item => `
+      <tr>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827;">${item.description || ''}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280;text-align:center;">${item.quantity || 1}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#111827;text-align:right;">${fmt(item.amount ?? item.unitPrice ?? item.total)} ${devise}</td>
+      </tr>`).join('');
+
+    const totalsHtml = totals.map(t => {
+      const isTtc = (t.label || '').toUpperCase().includes('TOTAL TTC');
+      return `<tr style="${isTtc ? 'background:#eff6ff;' : ''}">
+        <td colspan="2" style="padding:8px 14px;font-size:${isTtc ? '15' : '13'}px;font-weight:${isTtc ? '700' : '400'};color:${isTtc ? '#1d4ed8' : '#6b7280'};text-align:right;border-top:1px solid #e5e7eb;">${t.label}</td>
+        <td style="padding:8px 14px;font-size:${isTtc ? '15' : '13'}px;font-weight:${isTtc ? '700' : '600'};color:${isTtc ? '#1d4ed8' : '#374151'};text-align:right;border-top:1px solid #e5e7eb;">${fmt(t.amount)} ${devise}</td>
+      </tr>`;
+    }).join('');
+
+    const carteBadges = [
+      cartePT ? `<span style="display:inline-block;padding:2px 8px;border:1.5px solid #3b82f6;border-radius:4px;color:#3b82f6;font-size:10px;font-weight:600;margin-right:4px;">Carte Pro Transaction n° ${cartePT}</span>` : '',
+      cartePS ? `<span style="display:inline-block;padding:2px 8px;border:1.5px solid #3b82f6;border-radius:4px;color:#3b82f6;font-size:10px;font-weight:600;">Carte Pro Syndic n° ${cartePS}</span>` : '',
+    ].filter(Boolean).join('');
+
+    return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"/><title>${label} ${doc.reference || ''}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111827;background:#fff;line-height:1.5;}.page{max-width:800px;margin:0 auto;padding:40px 36px;}table{border-collapse:collapse;width:100%;}</style>
+</head><body><div class="page">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e5e7eb;padding-bottom:24px;margin-bottom:28px;">
+    <div>
+      <div style="font-size:22px;font-weight:800;color:#1e3a5f;">${agencyName}</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:4px;line-height:1.6;">
+        ${agencyAddr  ? `<div>${agencyAddr}</div>`              : ''}
+        ${agencyEmail ? `<div>Email : ${agencyEmail}</div>`    : ''}
+        ${agencyTel   ? `<div>Tél : ${agencyTel}</div>`        : ''}
+        ${agencySiret ? `<div>N° ${agencySiret}</div>`         : ''}
+      </div>
+      ${carteBadges ? `<div style="margin-top:8px;">${carteBadges}</div>` : ''}
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:22px;font-weight:700;color:#1e3a5f;">${label}</div>
+      <div style="font-size:14px;color:#6b7280;margin-top:4px;">${doc.reference ? `Réf : ${doc.reference}` : ''}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:2px;">Date : ${date}</div>
+    </div>
+  </div>
+  <div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:6px;padding:16px 20px;margin-bottom:28px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:8px;">Client</div>
+    <div style="font-size:16px;font-weight:700;color:#111827;">${doc.client_nom || '—'}</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:4px;line-height:1.6;">
+      ${doc.client_email     ? `<div>Email : ${doc.client_email}</div>`     : ''}
+      ${doc.client_telephone ? `<div>Tél : ${doc.client_telephone}</div>` : ''}
+    </div>
+  </div>
+  ${items.length > 0 ? `
+  <div style="margin-bottom:28px;">
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;border-bottom:2px solid #e5e7eb;padding-bottom:8px;">Détail des prestations</div>
+    <table><thead><tr style="background:#f3f4f6;">
+      <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Description</th>
+      <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:80px;">Qté</th>
+      <th style="padding:10px 14px;text-align:right;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:140px;">Montant</th>
+    </tr></thead><tbody>${itemsHtml}</tbody><tfoot>${totalsHtml}</tfoot></table>
+  </div>` : ''}
+  <div style="display:flex;gap:32px;margin-top:48px;padding-top:20px;border-top:1px solid #e5e7eb;">
+    <div style="flex:1;text-align:center;"><div style="font-size:11px;color:#6b7280;margin-bottom:40px;">Signature de l'agence</div><div style="border-top:1px solid #9ca3af;padding-top:6px;font-size:12px;font-weight:600;color:#374151;">${agencyName}</div></div>
+    <div style="flex:1;text-align:center;"><div style="font-size:11px;color:#6b7280;margin-bottom:40px;">Signature du client</div><div style="border-top:1px solid #9ca3af;padding-top:6px;font-size:12px;font-weight:600;color:#374151;">${doc.client_nom || ''}</div></div>
+  </div>
+  <div style="margin-top:36px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;">
+    ${agencyLegal ? `<div>${agencyLegal}</div>` : ''}
+    ${conditions  ? `<div>${conditions}</div>`  : ''}
+    <div style="margin-top:4px;">Document généré par <strong>NexaPro</strong></div>
+  </div>
+</div></body></html>`;
+  };
+
   /**
-   * 🛡️ FONCTION DE TÉLÉCHARGEMENT PDF - DOM Natif
-   * Corrige l'erreur "createElement is not a function"
-   * Utilise document.createElement natif au lieu des objets React
+   * 🛡️ FONCTION DE TÉLÉCHARGEMENT HTML - DOM Natif
    */
-  // CSS embarqué pour que les signatures et styles s'affichent dans le fichier téléchargé
+  // CSS embarqué (utilisé seulement pour les docs preview_html anciens)
   const INLINE_DOC_CSS = `
     body{margin:0;padding:20px;font-family:Arial,sans-serif;background:#fff;color:#111827;}
     .signature-section{margin-top:40px;display:flex;justify-content:space-between;gap:40px;padding-top:20px;border-top:1px solid #e5e7eb;}
@@ -632,13 +722,17 @@ const DocumentsPage = () => {
         return;
       }
 
-      // 🎯 Récupérer le contenu HTML
-      const rawHtml = document.preview_html ||
-                      (document.content_json?.html_content) ||
-                      `<div><h1>${document.reference || 'Document'}</h1></div>`;
-
-      // 🎯 Envelopper dans un document HTML complet avec CSS inline (signatures visibles)
-      const htmlContent = `<!DOCTYPE html>
+      // Pour devis/facture : HTML régénéré depuis content_json (complet + info agence)
+      // Pour les autres types : preview_html avec CSS inline
+      const FINANCIAL_TYPES = ['devis', 'facture'];
+      let htmlContent;
+      if (FINANCIAL_TYPES.includes(document.type) && document.content_json) {
+        htmlContent = buildCompleteDocumentHtml(document);
+      } else {
+        const rawHtml = document.preview_html ||
+                        (document.content_json?.html_content) ||
+                        `<div><h1>${document.reference || 'Document'}</h1></div>`;
+        htmlContent = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8"/>
@@ -650,6 +744,7 @@ const DocumentsPage = () => {
 ${rawHtml}
 </body>
 </html>`;
+      }
 
       // 🎯 Créer un Blob à partir du HTML
       const blob = new Blob([htmlContent], {

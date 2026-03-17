@@ -361,12 +361,17 @@ export default async function handler(req, res) {
     }
 
     // ── 2. Récupérer le profil agence ─────────────────────────────────────────
-    const { data: agency } = await supabase
+    // On ne filtre PAS sur role='owner' car certains comptes ont un rôle différent.
+    // On prend le premier profil correspondant à l'agency_id (propriétaire ou admin).
+    const { data: agencyRaw } = await supabase
       .from('profiles')
-      .select('nom_agence, email, telephone, adresse_legale, adresse, siret, numero_enregistrement, mention_legale, conditions_paiement, carte_pro_t, carte_pro_s')
+      .select('nom_agence, email, telephone, adresse_legale, adresse, siret, numero_enregistrement, mention_legale, conditions_paiement, carte_pro_t, carte_pro_s, role')
       .eq('agency_id', doc.agency_id)
-      .eq('role', 'owner')
-      .maybeSingle();
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    const agency = Array.isArray(agencyRaw) ? agencyRaw[0] : agencyRaw;
+    console.log('[send-email] Profil agence:', agency ? { nom: agency.nom_agence, role: agency.role } : 'NON TROUVÉ (agency_id=' + doc.agency_id + ')');
 
     const agencyName  = agency?.nom_agence || 'Votre agence';
     const agencyEmail = agency?.email      || null;
