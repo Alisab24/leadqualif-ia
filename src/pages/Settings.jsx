@@ -1110,7 +1110,7 @@ export default function Settings() {
               {/* Calendly */}
               <section className="bg-white rounded-xl border border-indigo-100 shadow-sm p-5">
                 <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">📅 Lien prise de RDV</h2>
-                <p className="text-xs text-slate-400 mb-4">Utilisé pour le bouton "Proposer un RDV" sur la fiche lead et dans la Phase 3 (Calendly)</p>
+                <p className="text-xs text-slate-400 mb-4">Utilisé pour le bouton "Proposer un RDV" sur la fiche lead.</p>
                 <Input
                   name="calendly_link"
                   value={formData.calendly_link}
@@ -1648,8 +1648,8 @@ export default function Settings() {
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
                 <span className="text-lg shrink-0">⚙️</span>
                 <div>
-                  <p className="text-sm font-bold text-green-800">Paramètres CRM avancés</p>
-                  <p className="text-xs text-green-600 mt-0.5">Prépare le futur scoring IA et les automatisations Phase 3.</p>
+                  <p className="text-sm font-bold text-green-800">Paramètres CRM</p>
+                  <p className="text-xs text-green-600 mt-0.5">Configurez les règles de priorité, la source principale et le pipeline de votre agence.</p>
                 </div>
               </div>
 
@@ -1673,8 +1673,8 @@ export default function Settings() {
                       <option value="formulaire_ia">🤖 Formulaire IA</option>
                       <option value="whatsapp">💬 WhatsApp</option>
                       <option value="import_manuel">📥 Import manuel</option>
-                      <option value="meta_ads">📘 Meta Ads (Phase 4)</option>
-                      <option value="google_ads">🔍 Google Ads (Phase 4)</option>
+                      <option value="meta_ads">📘 Meta Ads</option>
+                      <option value="google_ads">🔍 Google Ads</option>
                     </Select>
                   </Field>
                   <Field label="Pipeline utilisé" hint="Doit correspondre à votre type d'agence">
@@ -1689,21 +1689,6 @@ export default function Settings() {
                 </div>
               </section>
 
-              <section className="bg-slate-50 rounded-xl border border-slate-200 p-5">
-                <h3 className="text-sm font-bold text-slate-700 mb-3">🚀 Préparation IA (Phase 3)</h3>
-                <ul className="space-y-2 text-sm text-slate-600">
-                  {[
-                    'Priorité automatique basée sur le budget et l\'urgence',
-                    'Score de qualité selon la source du lead',
-                    'Recommandations de suivi personnalisées',
-                    'Prédiction de taux de conversion par agent',
-                  ].map(item => (
-                    <li key={item} className="flex items-start gap-2">
-                      <span className="text-indigo-500 shrink-0 mt-0.5">→</span>{item}
-                    </li>
-                  ))}
-                </ul>
-              </section>
             </div>
           )}
 
