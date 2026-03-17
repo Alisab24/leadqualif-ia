@@ -18,16 +18,15 @@ import { Resend } from 'resend';
 
 export const config = {
   api: {
-    bodyParser: { sizeLimit: '1mb' }, // Body léger : juste { documentId }
+    bodyParser: { sizeLimit: '1mb' },
   },
 };
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM   = process.env.RESEND_FROM_EMAIL || 'NexaPro <contact@nexapro.tech>';
+// ⚠️ NE PAS initialiser supabase/resend au niveau module — les env vars
+// ne sont pas toutes disponibles à l'import sur Vercel Edge.
+// On les crée à l'intérieur du handler.
+
+const FROM = process.env.RESEND_FROM_EMAIL || 'LeadQualif <contact@leadqualif.com>';
 
 // ── Labels par type de document ────────────────────────────────────────────────
 const TYPE_LABELS = {
@@ -41,7 +40,7 @@ const TYPE_LABELS = {
   contrat_gestion: 'Contrat de gestion',
 };
 
-// ── Génère un PDF en binaire (Buffer) via l'API pdfshift.io ───────────────────
+// ── Génère un PDF base64 via l'API pdfshift.io ────────────────────────────────
 async function generatePdfWithPdfshift(htmlContent) {
   const apiKey = process.env.PDFSHIFT_API_KEY;
   if (!apiKey) throw new Error('PDFSHIFT_API_KEY non configuré');
@@ -53,11 +52,9 @@ async function generatePdfWithPdfshift(htmlContent) {
       'Content-Type':  'application/json',
     },
     body: JSON.stringify({
-      source:     htmlContent,
-      format:     'A4',
-      margin:     { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
-      use_print:  false,
-      javascript: false,  // Pas besoin de JS pour des documents statiques
+      source:    htmlContent,
+      format:    'A4',
+      margin:    { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
     }),
   });
 
@@ -66,8 +63,10 @@ async function generatePdfWithPdfshift(htmlContent) {
     throw new Error(`pdfshift ${response.status}: ${errText}`);
   }
 
+  // Convertir en base64 string (format attendu par Resend v6)
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer); // Retourne un Buffer binaire
+  const uint8 = new Uint8Array(arrayBuffer);
+  return Buffer.from(uint8).toString('base64');
 }
 
 // ── Email sobre (avec PDF en pièce jointe) ────────────────────────────────────
@@ -182,6 +181,35 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── Init clients ici (pas au niveau module) ───────────────────────────────
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY
+    || process.env.SUPABASE_ANON_KEY
+    || process.env.VITE_SUPABASE_ANON_KEY
+    || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // Log de diagnostic (visible dans Vercel Logs)
+  console.log('[send-email] ENV check:', {
+    SUPABASE_URL:            !!process.env.SUPABASE_URL,
+    VITE_SUPABASE_URL:       !!process.env.VITE_SUPABASE_URL,
+    SUPABASE_SERVICE_KEY:    !!process.env.SUPABASE_SERVICE_KEY,
+    SUPABASE_ANON_KEY:       !!process.env.SUPABASE_ANON_KEY,
+    VITE_SUPABASE_ANON_KEY:  !!process.env.VITE_SUPABASE_ANON_KEY,
+    RESEND_API_KEY:          !!process.env.RESEND_API_KEY,
+    PDFSHIFT_API_KEY:        !!process.env.PDFSHIFT_API_KEY,
+  });
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[send-email] ❌ Variables Supabase manquantes sur Vercel');
+    return res.status(500).json({
+      error: 'Configuration serveur manquante',
+      hint: 'Ajouter SUPABASE_URL et SUPABASE_ANON_KEY dans Vercel → Settings → Environment Variables'
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const resend   = new Resend(process.env.RESEND_API_KEY);
+
   const { documentId } = req.body || {};
   if (!documentId) {
     return res.status(400).json({ error: 'documentId manquant' });
@@ -216,17 +244,17 @@ export default async function handler(req, res) {
     const subject     = `${agencyName} — Votre ${label.toLowerCase()}${doc.reference ? ' ' + doc.reference : ''}`;
 
     // ── 3. Essayer de générer le PDF côté serveur via pdfshift.io ─────────────
-    let pdfBuffer  = null;
+    let pdfBase64  = null;
     let attachments = [];
 
     if (doc.preview_html && process.env.PDFSHIFT_API_KEY) {
       try {
         console.log('[send-email] Génération PDF via pdfshift...');
-        pdfBuffer = await generatePdfWithPdfshift(doc.preview_html);
-        console.log(`[send-email] PDF généré : ${Math.round(pdfBuffer.length / 1024)} Ko`);
+        pdfBase64 = await generatePdfWithPdfshift(doc.preview_html);
+        console.log(`[send-email] PDF généré : ${Math.round(pdfBase64.length * 0.75 / 1024)} Ko`);
       } catch (pdfErr) {
         console.warn('[send-email] pdfshift échoué, fallback HTML inline:', pdfErr.message);
-        pdfBuffer = null;
+        pdfBase64 = null;
       }
     } else if (!process.env.PDFSHIFT_API_KEY) {
       console.log('[send-email] PDFSHIFT_API_KEY absent → email HTML inline');
@@ -235,7 +263,7 @@ export default async function handler(req, res) {
     // ── 4. Construire le corps de l'email ─────────────────────────────────────
     let html;
 
-    if (pdfBuffer) {
+    if (pdfBase64) {
       // PDF disponible → email sobre + pièce jointe
       html = buildEmailWithPdf({
         clientNom:  doc.client_nom,
@@ -248,7 +276,7 @@ export default async function handler(req, res) {
       });
       attachments = [{
         filename: `${label}${doc.reference ? '-' + doc.reference : ''}.pdf`,
-        content:  pdfBuffer,
+        content:  pdfBase64,   // base64 string — format attendu par Resend v4+
       }];
     } else {
       // Fallback : document HTML inline dans l'email
@@ -275,12 +303,14 @@ export default async function handler(req, res) {
     const emailPayload = { from: FROM, to: doc.client_email, subject, html };
     if (attachments.length > 0) emailPayload.attachments = attachments;
 
-    const { error: sendErr } = await resend.emails.send(emailPayload);
+    console.log('[send-email] Envoi Resend à:', doc.client_email, '| from:', FROM, '| pieces jointes:', attachments.length);
+    const { data: sendData, error: sendErr } = await resend.emails.send(emailPayload);
 
     if (sendErr) {
-      console.error('[send-email] Resend error:', sendErr);
-      return res.status(500).json({ error: 'Échec envoi email', detail: sendErr.message });
+      console.error('[send-email] Resend error:', JSON.stringify(sendErr));
+      return res.status(500).json({ error: 'Échec envoi email', detail: sendErr.message || JSON.stringify(sendErr) });
     }
+    console.log('[send-email] Resend OK, id:', sendData?.id);
 
     // ── 6. Marquer le document comme "envoyé" ─────────────────────────────────
     await supabase
@@ -301,12 +331,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const mode = pdfBuffer ? 'PDF en pièce jointe' : 'HTML inline';
+    const mode = pdfBase64 ? 'PDF en pièce jointe' : 'HTML inline';
     console.log(`[send-email] ✅ Envoyé à ${doc.client_email} (${mode})`);
     return res.status(200).json({ ok: true, sentTo: doc.client_email, mode });
 
   } catch (err) {
-    console.error('[send-email] Unexpected error:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('[send-email] Unexpected error:', err?.message, err?.stack);
+    return res.status(500).json({ error: err?.message || 'Erreur serveur inconnue', stack: err?.stack?.split('\n')[0] });
   }
 }

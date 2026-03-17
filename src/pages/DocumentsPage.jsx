@@ -298,11 +298,12 @@ const DocumentsPage = () => {
       alert('❌ Aucun numéro de téléphone pour ce prospect.');
       return;
     }
-    const typeLabel = { devis: 'devis', facture: 'facture', contrat: 'contrat', rapport: 'rapport', mandat: 'mandat' }[doc.type] || 'document';
-    const montant   = doc.total_ttc ? ` (${Number(doc.total_ttc).toLocaleString('fr-FR')} €)` : '';
-    const ref       = doc.reference ? ` réf. ${doc.reference}` : '';
-    const agence    = agencyProfile?.nom_agence || 'Notre agence';
-    const message   = `Bonjour ${doc.client_nom || ''},\n\n${agence} vous fait parvenir votre ${typeLabel}${ref}${montant}.\n\nPour toute question, n'hésitez pas à nous contacter.\n\nCordialement,\n${agence}`;
+    const typeLabel  = { devis: 'Devis', facture: 'Facture', contrat: 'Contrat', rapport: 'Rapport', mandat: 'Mandat' }[doc.type] || 'Document';
+    const agence     = agencyProfile?.nom_agence || 'Notre agence';
+    const ligneRef   = doc.reference ? `\n📋 Référence : ${doc.reference}` : '';
+    const ligneMont  = doc.total_ttc ? `\n💰 Montant TTC : ${Number(doc.total_ttc).toLocaleString('fr-FR')} €` : '';
+    const ligneEmail = doc.client_email ? `\n\n📧 Le document complet vous a également été envoyé par email à ${doc.client_email}.` : '';
+    const message = `Bonjour ${doc.client_nom || ''},\n\n${agence} vous fait parvenir votre *${typeLabel}*.${ligneRef}${ligneMont}${ligneEmail}\n\nPour toute question, n'hésitez pas à nous contacter.\n\nCordialement,\n${agence}`;
     window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
   };
 
