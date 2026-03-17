@@ -105,10 +105,12 @@ const BILLING_PLANS = [
     features: [
       { icon: '👤', text: '1 utilisateur' },
       { icon: '📊', text: '100 leads / mois' },
-      { icon: '🤖', text: 'Scoring IA 0–10' },
+      { icon: '🤖', text: 'Scoring IA 0–100 (chaud / tiède / froid)' },
       { icon: '📋', text: 'Pipeline Kanban' },
       { icon: '📄', text: 'Factures & devis PDF' },
-      { icon: '📧', text: 'Support email' },
+      { icon: '📧', text: 'Envoi documents par email (PDF joint)' },
+      { icon: '💬', text: 'Partage WhatsApp en 1 clic' },
+      { icon: '🙋', text: 'Support email' },
     ],
     locked: ['Stats & Analytics', 'Recommandations IA avancées', 'Contrats & rapports', 'Gestion équipe (multi-users)'],
   },
@@ -126,6 +128,8 @@ const BILLING_PLANS = [
       { icon: '♾️', text: 'Leads illimités' },
       { icon: '🤖', text: 'Scoring IA avancé + recommandations' },
       { icon: '📄', text: 'Documents illimités (factures, devis, contrats, rapports)' },
+      { icon: '📧', text: 'Envoi automatique par email (PDF haute qualité)' },
+      { icon: '💬', text: 'WhatsApp enrichi (réf., montant) + contact en série' },
       { icon: '📊', text: 'Stats & Analytics (CA, ROI, pipeline)' },
       { icon: '✉️', text: 'Invitations équipe par email' },
       { icon: '🚀', text: 'Support prioritaire 24/7' },
@@ -145,6 +149,7 @@ const BILLING_PLANS = [
       { icon: '♾️', text: 'Utilisateurs illimités' },
       { icon: '♾️', text: 'Leads illimités' },
       { icon: '✅', text: 'Tout le plan Agence' },
+      { icon: '📧', text: 'Envoi email & WhatsApp à volume illimité' },
       { icon: '🏢', text: 'Multi-agences sur un seul compte' },
       { icon: '🎓', text: 'Onboarding dédié & formation équipe' },
       { icon: '🛡️', text: 'SLA garanti & support téléphonique' },
@@ -155,28 +160,31 @@ const BILLING_PLANS = [
 
 // Mapping fonctionnalité → plans requis (pour l'affichage du résumé)
 const FEATURE_MAP = [
-  { label: 'Leads / mois',             free: '10',     starter: '100',    growth: '∞',            enterprise: '∞' },
-  { label: 'Pipeline Kanban',           free: '✅',     starter: '✅',     growth: '✅',            enterprise: '✅' },
-  { label: 'Scoring IA + formulaire',   free: '✅',     starter: '✅',     growth: '✅ avancé',     enterprise: '✅ avancé' },
-  { label: 'Factures & devis PDF',      free: '—',      starter: '✅',     growth: '✅',            enterprise: '✅' },
-  { label: 'Contrats & rapports',       free: '—',      starter: '—',      growth: '✅',            enterprise: '✅' },
-  { label: 'Stats & Analytics',         free: '—',      starter: '—',      growth: '✅',            enterprise: '✅' },
-  { label: 'Recommandations IA',        free: '—',      starter: '—',      growth: '✅',            enterprise: '✅' },
-  { label: 'Invitations équipe',        free: '—',      starter: '✅ 3',   growth: '✅ 5',          enterprise: '✅ ∞' },
-  { label: 'Import CSV / Excel',        free: '—',      starter: '✅',     growth: '✅',            enterprise: '✅' },
-  { label: 'Pixels FB / Google Ads',   free: '✅',      starter: '✅',     growth: '✅',            enterprise: '✅' },
-  { label: 'Support',                   free: 'Email',  starter: 'Email',  growth: 'Prioritaire',  enterprise: 'Dédié + tél.' },
-  { label: 'API dédiée',               free: '—',       starter: '—',      growth: '—',             enterprise: '✅' },
-  { label: 'SLA garanti',              free: '—',       starter: '—',      growth: '—',             enterprise: '99,9%' },
+  { label: 'Leads / mois',                    free: '10',     starter: '100',    growth: '∞',             enterprise: '∞' },
+  { label: 'Pipeline Kanban',                  free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Scoring IA 0–100',                 free: '✅',     starter: '✅',     growth: '✅ avancé',      enterprise: '✅ avancé' },
+  { label: 'Factures & devis PDF',             free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Envoi doc par email (PDF joint)',   free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅ illimité' },
+  { label: 'Partage WhatsApp en 1 clic',       free: '✅',     starter: '✅',     growth: '✅ enrichi',     enterprise: '✅ enrichi' },
+  { label: 'Contact WhatsApp en série',         free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Contrats & rapports',              free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Stats & Analytics',                free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Recommandations IA',               free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Invitations équipe',               free: '—',      starter: '✅ 3',   growth: '✅ 5',           enterprise: '✅ ∞' },
+  { label: 'Import CSV / Excel',               free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Pixels FB / Google Ads',           free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Support',                          free: 'Email',  starter: 'Email',  growth: 'Prioritaire',   enterprise: 'Dédié + tél.' },
+  { label: 'API dédiée',                       free: '—',      starter: '—',      growth: '—',              enterprise: '✅' },
+  { label: 'SLA garanti',                      free: '—',      starter: '—',      growth: '—',              enterprise: '99,9%' },
 ]
 
 // Fonctionnalités actives/bloquées selon le plan
 const PLAN_ACTIVE_FEATURES = {
-  free:       { stats: false, docs: false, ia: false, multiUsers: false, contracts: false, leads: '10/mois' },
-  starter:    { stats: false, docs: true,  ia: false, multiUsers: true,  contracts: false, leads: '100/mois' },
-  growth:     { stats: true,  docs: true,  ia: true,  multiUsers: true,  contracts: true,  leads: 'Illimité' },
-  trialing:   { stats: true,  docs: true,  ia: true,  multiUsers: true,  contracts: true,  leads: 'Illimité' },
-  enterprise: { stats: true,  docs: true,  ia: true,  multiUsers: true,  contracts: true,  leads: 'Illimité' },
+  free:       { stats: false, docs: false,  ia: false, multiUsers: false, contracts: false, emailSend: false, whatsapp: true,  leads: '10/mois'  },
+  starter:    { stats: false, docs: true,   ia: false, multiUsers: true,  contracts: false, emailSend: true,  whatsapp: true,  leads: '100/mois' },
+  growth:     { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité' },
+  trialing:   { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité' },
+  enterprise: { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité' },
 }
 
 const FEATURE_LABELS = {
@@ -185,6 +193,8 @@ const FEATURE_LABELS = {
   ia:         { icon: '🤖', label: 'Recommandations IA' },
   multiUsers: { icon: '👥', label: 'Gestion équipe' },
   contracts:  { icon: '📋', label: 'Contrats & rapports' },
+  emailSend:  { icon: '📧', label: 'Envoi par email (PDF joint)' },
+  whatsapp:   { icon: '💬', label: 'Partage WhatsApp' },
   leads:      { icon: '🎯', label: 'Leads' },
 }
 
