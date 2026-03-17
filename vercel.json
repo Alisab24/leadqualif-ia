@@ -21,6 +21,18 @@
     "api/documents/send-email.js": {
       "memory": 1024,
       "maxDuration": 30
+    },
+    "pages/api/qualify.js": {
+      "memory": 512,
+      "maxDuration": 10
+    },
+    "pages/api/send-invitation.js": {
+      "memory": 512,
+      "maxDuration": 10
+    },
+    "pages/api/submit-lead.js": {
+      "memory": 512,
+      "maxDuration": 10
     }
   },
   "headers": [
