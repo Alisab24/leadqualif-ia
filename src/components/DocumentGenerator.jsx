@@ -919,6 +919,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         console.error('❌ Détails erreur générale:', error);
       }
       
+      // 📊 Avancer le pipeline selon le type de document généré
+      await updateLeadStatus(docType.id);
+
       // 🎯 PRÉPARER L'AFFICHAGE DEPUIS LA BASE (PAS D'ÉTAT TEMPORAIRE)
       setDocData({
         document: documentData,
@@ -926,7 +929,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         lead: lead
       });
       setOpenPreview(true);
-      
+
     } catch (error) {
       console.error('Erreur lors de la génération du document:', error);
       alert('Erreur lors de la génération du document: ' + error.message);
