@@ -15,6 +15,37 @@ import { supabase } from '../supabaseClient';
 import ProfileManager from '../services/profileManager';
 import DevisToFactureService from '../services/devisToFactureService';
 
+// ── Avancement automatique du pipeline depuis DocumentsPage ──────────────────
+// Ordre des statuts — cohérent avec Dashboard.jsx
+const PIPELINE_ORDER_DOCS = ['À traiter', 'Contacté', 'RDV fixé', 'Offre en cours', 'Négociation', 'Gagné', 'Perdu', 'Archivé'];
+
+/**
+ * Avance un lead vers targetStatut SEULEMENT si son statut actuel est inférieur
+ * et n'est pas dans les statuts "terminaux" (Négociation, Gagné, Perdu, Archivé).
+ * Utilise un filtre Supabase .in() pour ne jamais rétrograder.
+ * @param {string} leadId
+ * @param {string} targetStatut  — ex: 'Offre en cours', 'Gagné'
+ * @param {string} [force=false] — si true, avance même depuis Négociation (ex: facture payée)
+ */
+async function advanceLeadPipeline(leadId, targetStatut, force = false) {
+  if (!leadId) return;
+  try {
+    const targetIdx = PIPELINE_ORDER_DOCS.indexOf(targetStatut);
+    // Statuts depuis lesquels on autorise l'avancement
+    const eligibleStatuts = force
+      ? PIPELINE_ORDER_DOCS.slice(0, targetIdx)          // tout ce qui est avant la cible
+      : PIPELINE_ORDER_DOCS.slice(0, Math.min(targetIdx, PIPELINE_ORDER_DOCS.indexOf('Négociation')));
+    if (eligibleStatuts.length === 0) return;
+    await supabase
+      .from('leads')
+      .update({ statut: targetStatut, updated_at: new Date().toISOString() })
+      .eq('id', leadId)
+      .in('statut', eligibleStatuts);
+  } catch (err) {
+    console.warn('[advanceLeadPipeline] erreur silencieuse:', err?.message);
+  }
+}
+
 const DocumentsPage = () => {
   const [searchParams] = useSearchParams();
   const leadIdFilter = searchParams.get('lead') || null;
@@ -263,6 +294,13 @@ const DocumentsPage = () => {
           statut: 'complété',
           created_at: new Date().toISOString(),
         });
+        // 📊 Avancement pipeline automatique :
+        // Facture envoyée → "Offre en cours"  |  Facture payée → "Gagné" (force=true)
+        if (isCA) {
+          await advanceLeadPipeline(doc.lead_id, 'Gagné', true); // force : même depuis Négociation
+        } else {
+          await advanceLeadPipeline(doc.lead_id, 'Offre en cours');
+        }
       }
       await fetchDocuments();
     } catch (err) {
@@ -305,6 +343,10 @@ const DocumentsPage = () => {
     const ligneEmail = doc.client_email ? `\n\n📧 Le document complet vous a également été envoyé par email à ${doc.client_email}.` : '';
     const message = `Bonjour ${doc.client_nom || ''},\n\n${agence} vous fait parvenir votre *${typeLabel}*.${ligneRef}${ligneMont}${ligneEmail}\n\nPour toute question, n'hésitez pas à nous contacter.\n\nCordialement,\n${agence}`;
     window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
+    // 📊 Avancement pipeline : partage WhatsApp d'un doc (hors facture) → "Offre en cours"
+    if (doc.type !== 'facture') {
+      await advanceLeadPipeline(doc.lead_id, 'Offre en cours');
+    }
   };
 
   // ── Génère un PDF base64 depuis le preview_html stocké en DB ─────────────────
@@ -393,6 +435,10 @@ const DocumentsPage = () => {
       if (data.ok) {
         alert(`✅ Document envoyé à ${data.sentTo}`);
         await fetchDocuments(); // rafraîchit le statut "envoyé"
+        // 📊 Avancement pipeline : envoi d'un doc (hors facture) → "Offre en cours"
+        if (doc.type !== 'facture') {
+          await advanceLeadPipeline(doc.lead_id, 'Offre en cours');
+        }
       } else {
         alert(`❌ Erreur : ${data.error || 'Échec de l\'envoi'}`);
       }

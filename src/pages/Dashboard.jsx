@@ -226,6 +226,22 @@ export default function Dashboard() {
 
   // ── Action de contact : log + auto-avancement Kanban ─────────────────────────
   // Si le lead est encore "À traiter", le déplacer vers "Contacté" automatiquement
+  // ── Avancement automatique du statut pipeline ────────────────────────────────
+  // Règle : on n'avance JAMAIS en arrière et on ne touche pas Négociation/Gagné/Perdu/Archivé
+  const PIPELINE_ORDER = ['À traiter', 'Contacté', 'RDV fixé', 'Offre en cours', 'Négociation', 'Gagné', 'Perdu', 'Archivé'];
+  const advanceLeadTo = async (lead, targetStatut) => {
+    const currentIdx = PIPELINE_ORDER.indexOf(lead.statut);
+    const targetIdx  = PIPELINE_ORDER.indexOf(targetStatut);
+    // Ne pas rétrograder, ne pas toucher Négociation/Gagné/Perdu/Archivé
+    if (currentIdx >= targetIdx || currentIdx >= PIPELINE_ORDER.indexOf('Négociation')) return;
+    await supabase.from('leads')
+      .update({ statut: targetStatut, updated_at: new Date().toISOString() })
+      .eq('id', lead.id);
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, statut: targetStatut } : l));
+    if (selectedLead?.id === lead.id) setSelectedLead(prev => ({ ...prev, statut: targetStatut }));
+    showToast(`📊 ${lead.nom} → "${targetStatut}"`);
+  };
+
   const handleContactAction = async (lead, actionType) => {
     const eventMap = {
       whatsapp: { type: 'whatsapp', title: 'Message WhatsApp envoyé' },
@@ -235,11 +251,8 @@ export default function Dashboard() {
     const ev = eventMap[actionType];
     if (ev) await logCrmEvent(lead.id, ev.type, ev.title);
 
-    if (lead.statut === 'À traiter') {
-      await supabase.from('leads').update({ statut: 'Contacté', updated_at: new Date().toISOString() }).eq('id', lead.id);
-      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, statut: 'Contacté' } : l));
-      showToast(`✅ ${lead.nom} déplacé vers "Contacté"`);
-    }
+    // Contact → avance vers "Contacté" si encore "À traiter"
+    await advanceLeadTo(lead, 'Contacté');
   };
 
   // === FETCH CRM HISTORY ===
@@ -324,6 +337,8 @@ export default function Dashboard() {
     }
 
     logCrmEvent(lead.id, 'rdv', 'RDV planifié', `Rendez-vous créé pour ${lead.nom}`);
+    // RDV ouvert → avance automatiquement vers "RDV fixé"
+    await advanceLeadTo(lead, 'RDV fixé');
   };
 
   // === MODIFICATION LEAD ===
