@@ -125,6 +125,10 @@ export default function Dashboard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [agencyProfile, setAgencyProfile] = useState(null);
 
+  // ── Bulk WhatsApp en mode Liste ─────────────────────────────────────────────
+  const [bulkWALeads, setBulkWALeads]   = useState(null); // null | lead[]
+  const [bulkWAIndex, setBulkWAIndex]   = useState(0);
+
   // Toast notifications
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => {
@@ -824,34 +828,34 @@ export default function Dashboard() {
 
         {/* ===== VUE LISTE ===== */}
         {viewMode === 'list' && (
-          <div className="p-6 h-full overflow-y-auto w-full">
+          <div className="p-4 md:p-6 h-full overflow-y-auto w-full">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
+              {/* ── Tableau ── */}
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Nom</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Score IA</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Email</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Téléphone</th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide sticky left-0 bg-slate-50 z-20">Nom</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Score IA</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell">Email</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Téléphone</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide hidden lg:table-cell">
                         {agencyType === 'smma' ? 'Service' : 'Type'}
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Statut</th>
-                      <th className="px-3 py-2 text-right text-xs font-bold text-slate-500 uppercase">
-                        {agencyType === 'smma' ? 'Budget mensuel' : 'Budget'}
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Statut</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell">
+                        {agencyType === 'smma' ? 'Budget' : 'Budget'}
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-bold text-slate-500 uppercase">Source</th>
-                      <th className="px-3 py-2 text-center text-xs font-bold text-slate-500 uppercase">Actions</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wide sticky right-0 bg-slate-50 z-20 shadow-[-2px_0_6px_rgba(0,0,0,0.06)]">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredLeads.map(lead => {
                       const badge = getScoreBadge(lead);
                       return (
                         <tr
                           key={lead.id}
-                          className="hover:bg-slate-50 cursor-pointer transition-colors"
+                          className="hover:bg-blue-50/40 cursor-pointer transition-colors group"
                           onClick={() => {
                             setSelectedLead(lead);
                             setActiveTab('info');
@@ -859,58 +863,100 @@ export default function Dashboard() {
                             setAiSuggestion(lead.suggestion_ia || '');
                           }}
                         >
-                          <td className="px-3 py-2 font-medium text-slate-900 text-sm">{lead.nom}</td>
-                          <td className="px-3 py-2">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
+                          {/* Nom — sticky gauche */}
+                          <td className="px-3 py-2.5 font-semibold text-slate-900 whitespace-nowrap sticky left-0 bg-white group-hover:bg-blue-50/40 z-10">
+                            {lead.nom}
+                          </td>
+
+                          {/* Score */}
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
                               {badge.label}{badge.score > 0 && ` ${badge.score}%`}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-xs text-slate-500">{lead.email || '—'}</td>
-                          <td className="px-3 py-2 text-xs text-slate-500">{lead.telephone || '—'}</td>
-                          <td className="px-3 py-2">
+
+                          {/* Email — masqué < md */}
+                          <td className="px-3 py-2.5 text-xs text-slate-500 max-w-[160px] truncate hidden md:table-cell">
+                            {lead.email || '—'}
+                          </td>
+
+                          {/* Téléphone */}
+                          <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">
+                            {lead.telephone || '—'}
+                          </td>
+
+                          {/* Type/Service — masqué < lg */}
+                          <td className="px-3 py-2.5 hidden lg:table-cell">
                             {(() => {
                               const isSmma = agencyType === 'smma';
                               const typeLabel = getLeadType(lead, isSmma);
                               return (
-                                <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700">
+                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700">
                                   {isSmma ? '📣' : '🏠'} {typeLabel || 'Non défini'}
                                 </span>
                               );
                             })()}
                           </td>
-                          <td className="px-3 py-2">
-                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
+
+                          {/* Statut */}
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
                               {lead.statut}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right font-bold text-green-600 text-sm whitespace-nowrap">
+
+                          {/* Budget — masqué < md */}
+                          <td className="px-3 py-2.5 text-right font-bold text-green-700 text-xs whitespace-nowrap hidden md:table-cell">
                             {getLeadBudget(lead, agencyType === 'smma') || '—'}
                           </td>
-                          <td className="px-3 py-2">
-                            <span className="inline-flex px-2 py-1 text-xs rounded bg-slate-50 text-slate-700 border">
-                              🌍 {lead.source || 'Inconnue'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center justify-center space-x-1">
-                              <button onClick={(e) => { e.stopPropagation(); navigate(`/lead/${lead.id}`); }} className="text-green-600 hover:text-green-800 p-1" title="Voir">👁</button>
-                              {lead.telephone && (
+
+                          {/* Actions — sticky droite TOUJOURS VISIBLE */}
+                          <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/40 z-10 shadow-[-2px_0_6px_rgba(0,0,0,0.06)]">
+                            <div className="flex items-center justify-center gap-0.5">
+                              {/* WhatsApp — en premier, bien visible */}
+                              {lead.telephone ? (
                                 <a
                                   href={buildWhatsAppUrl(lead.telephone) || '#'}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 hover:text-green-700 transition-colors"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 transition-colors"
                                   title={`WhatsApp · ${lead.telephone}`}
                                   onClick={e => { e.stopPropagation(); handleContactAction(lead, 'whatsapp'); }}
                                 >
                                   <WhatsAppIcon size={15} />
                                 </a>
+                              ) : (
+                                <span className="w-7 h-7 inline-flex items-center justify-center text-slate-300" title="Pas de téléphone">
+                                  <WhatsAppIcon size={14} />
+                                </span>
                               )}
-                              <a href={`tel:${lead.telephone}`} className="text-blue-600 hover:text-blue-800 p-1" title="Appeler" onClick={e => { e.stopPropagation(); handleContactAction(lead, 'call'); }}>📞</a>
-                              <a href={`mailto:${lead.email}`} className="text-orange-600 hover:text-orange-800 p-1" title="Email" onClick={e => { e.stopPropagation(); handleContactAction(lead, 'email'); }}>📧</a>
-                              <button className="text-purple-600 hover:text-purple-800 p-1" title="RDV" onClick={e => { e.stopPropagation(); handleRendezVous(lead); }}>📅</button>
-                              <button className="text-amber-500 hover:text-amber-700 p-1" title="Archiver" onClick={e => { e.stopPropagation(); handleArchiveLead(lead.id); }}>📁</button>
-                              <button className="text-red-500 hover:text-red-700 p-1" title="Supprimer" onClick={e => { e.stopPropagation(); setConfirmDelete(lead.id); }}>🗑</button>
+                              <a
+                                href={`tel:${lead.telephone}`}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors"
+                                title="Appeler"
+                                onClick={e => { e.stopPropagation(); handleContactAction(lead, 'call'); }}
+                              >📞</a>
+                              <a
+                                href={`mailto:${lead.email}`}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-orange-50 text-orange-500 transition-colors"
+                                title="Email"
+                                onClick={e => { e.stopPropagation(); handleContactAction(lead, 'email'); }}
+                              >📧</a>
+                              <button
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-purple-50 text-purple-500 transition-colors"
+                                title="RDV"
+                                onClick={e => { e.stopPropagation(); handleRendezVous(lead); }}
+                              >📅</button>
+                              <button
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+                                title="Archiver"
+                                onClick={e => { e.stopPropagation(); handleArchiveLead(lead.id); }}
+                              >📁</button>
+                              <button
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-red-50 text-red-400 transition-colors"
+                                title="Supprimer"
+                                onClick={e => { e.stopPropagation(); setConfirmDelete(lead.id); }}
+                              >🗑</button>
                             </div>
                           </td>
                         </tr>
@@ -922,9 +968,126 @@ export default function Dashboard() {
                   <div className="text-center text-slate-400 py-12 text-sm">Aucun lead trouvé</div>
                 )}
               </div>
+
+              {/* ── Barre WhatsApp en bas ── */}
+              {(() => {
+                const withPhone = filteredLeads.filter(l => l.telephone);
+                if (withPhone.length === 0) return null;
+                return (
+                  <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <span className="inline-flex items-center gap-1.5">
+                        <WhatsAppIcon size={16} />
+                        <span><strong>{withPhone.length}</strong> lead{withPhone.length > 1 ? 's' : ''} avec téléphone sur {filteredLeads.length}</span>
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => { setBulkWALeads(withPhone); setBulkWAIndex(0); }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+                    >
+                      <WhatsAppIcon size={16} />
+                      Contacter un à un via WhatsApp
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
+
+        {/* ── Modal Bulk WhatsApp ─────────────────────────────────────────────── */}
+        {bulkWALeads && bulkWALeads.length > 0 && (() => {
+          const lead    = bulkWALeads[bulkWAIndex];
+          const total   = bulkWALeads.length;
+          const waUrl   = buildWhatsAppUrl(lead.telephone, `Bonjour ${lead.nom}, je reviens vers vous suite à votre demande.`);
+          const percent = Math.round(((bulkWAIndex + 1) / total) * 100);
+          return (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                {/* Header */}
+                <div className="bg-green-600 px-5 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-white">
+                    <WhatsAppIcon size={20} />
+                    <span className="font-bold text-base">WhatsApp en série</span>
+                  </div>
+                  <button onClick={() => setBulkWALeads(null)} className="text-white/80 hover:text-white text-xl">✕</button>
+                </div>
+
+                {/* Barre de progression */}
+                <div className="h-1.5 bg-slate-100">
+                  <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${percent}%` }} />
+                </div>
+
+                {/* Contenu */}
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-1 text-xs text-slate-400 font-medium">
+                    <span>Lead {bulkWAIndex + 1} / {total}</span>
+                    <span>{percent}% traités</span>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                    <div className="font-bold text-slate-900 text-lg mb-0.5">{lead.nom}</div>
+                    <div className="text-slate-500 text-sm">{lead.telephone}</div>
+                    {lead.email && <div className="text-slate-400 text-xs mt-0.5">{lead.email}</div>}
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      {lead.statut && (
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
+                          {lead.statut}
+                        </span>
+                      )}
+                      {(() => {
+                        const b = getScoreBadge(lead);
+                        return (
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${b.bg} ${b.text}`}>
+                            {b.label}{b.score > 0 && ` ${b.score}%`}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Bouton principal WhatsApp */}
+                  <a
+                    href={waUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-sm transition-colors mb-3"
+                    onClick={() => handleContactAction(lead, 'whatsapp')}
+                  >
+                    <WhatsAppIcon size={18} />
+                    Ouvrir WhatsApp pour {lead.nom}
+                  </a>
+
+                  {/* Navigation */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setBulkWAIndex(i => Math.max(0, i - 1))}
+                      disabled={bulkWAIndex === 0}
+                      className="flex-1 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-40"
+                    >
+                      ← Précédent
+                    </button>
+                    {bulkWAIndex < total - 1 ? (
+                      <button
+                        onClick={() => setBulkWAIndex(i => i + 1)}
+                        className="flex-1 py-2 text-sm font-semibold text-white bg-slate-700 hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        Suivant →
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setBulkWALeads(null)}
+                        className="flex-1 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                      >
+                        ✅ Terminé
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ===== PANNEAU LEAD SÉLECTIONNÉ ===== */}
         {selectedLead && (
