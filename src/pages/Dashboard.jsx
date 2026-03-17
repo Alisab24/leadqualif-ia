@@ -298,6 +298,16 @@ export default function Dashboard() {
         ? `${smartRec}\n\n📝 Analyse IA : ${resume}`
         : smartRec
       setAiSuggestion(suggestion);
+      // Mettre à jour le state React immédiatement (badge + infos visibles sans re-fetch)
+      const updatedFields = {
+        score_qualification: scoreLabel,
+        score: scoreLabel,
+        niveau_interet: niveau,
+        suggestion_ia: smartRec,
+        resume_ia: resume || smartRec,
+      };
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, ...updatedFields } : l));
+      setSelectedLead(prev => prev?.id === lead.id ? { ...prev, ...updatedFields } : prev);
       // Sauvegarder score + niveau + recommandation en base
       await supabase.from('leads')
         .update({
@@ -806,7 +816,7 @@ export default function Dashboard() {
                         setSelectedLead(lead);
                         setActiveTab('info');
                         setCrmHistory([]);
-                        setAiSuggestion(lead.suggestion_ia || '');
+                        setAiSuggestion(typeof lead.suggestion_ia === 'string' ? lead.suggestion_ia : '');
                       }}
                       onNavigate={(id) => navigate(`/lead/${id}`)}
                       onUpdateStatus={updateStatus}
@@ -882,7 +892,7 @@ export default function Dashboard() {
                             setSelectedLead(lead);
                             setActiveTab('info');
                             setCrmHistory([]);
-                            setAiSuggestion(lead.suggestion_ia || '');
+                            setAiSuggestion(typeof lead.suggestion_ia === 'string' ? lead.suggestion_ia : '');
                           }}
                         >
                           {/* Nom — sticky gauche */}
@@ -1380,7 +1390,7 @@ export default function Dashboard() {
                       // Priorité : résultat frais du bouton "Analyser" → stored suggestion_ia → fallback dynamique par score
                       const GENERIC_FROID = 'Ajouter à la liste de suivi longue durée. Peut devenir intéressant plus tard.'
                       const storedSuggestion = selectedLead.suggestion_ia
-                      const isGeneric = !storedSuggestion || storedSuggestion.trim() === GENERIC_FROID
+                      const isGeneric = !storedSuggestion || typeof storedSuggestion !== 'string' || storedSuggestion.trim() === GENERIC_FROID
                       const displayRec = aiSuggestion
                         || (!isGeneric ? storedSuggestion : null)
                         || getSmartRecommendation(selectedLead)
@@ -1398,7 +1408,7 @@ export default function Dashboard() {
                             )}
                           </div>
                           {(() => {
-                            const parts = displayRec.split('\n\n📝 Analyse IA : ')
+                            const parts = String(displayRec || '').split('\n\n📝 Analyse IA : ')
                             return (
                               <>
                                 <p className={`text-xs leading-relaxed font-medium ${isLive ? 'text-purple-800' : 'text-indigo-800'}`}>
