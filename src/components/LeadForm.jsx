@@ -130,9 +130,13 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       const result = await qualifyLead(formData)
       setQualificationResult(result)
 
+      // ⚠️ On garde un seul appel IA pour la qualification de base (result).
+      // Le 2ème appel sert uniquement aux données enrichies (points_forts, etc.)
+      // MAIS on utilise le niveau/score du 1er appel pour la cohérence DB ↔ affichage.
       const qualification = await aiService.qualifyLead(formData)
       const evaluation = qualification.evaluation_complete || qualification
-      const niveauInteret = qualification.niveau_interet_final || qualification.niveau_interet || evaluation.niveau_interet
+      // Toujours utiliser le niveau du 1er appel (result) → cohérent avec ce qui est affiché
+      const niveauInteret = (result.niveau || 'froid').toUpperCase()
 
       // Combiner code pays + numéro local → format international ex: +33612345678
       // Supprimer le 0 initial si l'utilisateur a saisi 06... avec un indicatif non-FR
@@ -164,8 +168,8 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
         telephone: fullPhone || null,   // format international: +33612345678
         budget: isNaN(budgetInt) ? null : budgetInt,
         agency_id: resolvedAgencyId,
-        score_qualification: result.score,
-        niveau_interet: niveauInteret,
+        score_qualification: result.score,       // score du 1er appel (0-100)
+        niveau_interet: niveauInteret,            // niveau du 1er appel (même que l'affichage)
         budget_estime: formData.budget || formData.budget_marketing || qualification.budget_estime || 'Non spécifié',
         urgence: qualification.urgence || 'moyenne',
         type_bien_recherche: formData.type_de_bien || qualification.type_bien_recherche || 'autre',

@@ -73,6 +73,12 @@ const QUALIFICATION_COLOR = {
   CHAUD:    'bg-green-100  text-green-800  border-green-200',
   TIEDE:    'bg-yellow-100 text-yellow-800 border-yellow-200',
   FROID:    'bg-red-100    text-red-800    border-red-200',
+  // Variants avec accent (DB peut stocker 'TIÈDE' ou 'tiède')
+  'tiède':  'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'TIÈDE':  'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'Tiède':  'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'Chaud':  'bg-green-100  text-green-800  border-green-200',
+  'Froid':  'bg-red-100    text-red-800    border-red-200',
 }
 
 /** Recommandation dynamique selon le score réel du lead */
@@ -239,8 +245,10 @@ const LeadDetails = () => {
     : effectiveNiveau === 'tiede'
     ? { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: 'Tiède 🌤' }
     : { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: 'Froid ❄️' }
-  const niveau  = lead.niveau_interet?.toLowerCase()
-  const qualCls = QUALIFICATION_COLOR[niveau] || 'bg-slate-100 text-slate-700 border-slate-200'
+  // Normaliser pour trouver la couleur : 'TIÈDE' → 'tiede', 'CHAUD' → 'chaud', etc.
+  const niveauNorm = (lead.niveau_interet || '').toLowerCase()
+    .replace('tiède', 'tiede').replace('tièd', 'tiede')
+  const qualCls = QUALIFICATION_COLOR[niveauNorm] || QUALIFICATION_COLOR[lead.niveau_interet] || 'bg-slate-100 text-slate-700 border-slate-200'
   const agencyId = agencyProfile?.agency_id || agencyProfile?.id
   const agencyType = agencyProfile?.type_agence || null
 

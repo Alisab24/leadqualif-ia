@@ -26,19 +26,30 @@ export default async function handler(req, res) {
       })
     }
 
-    // Calcul du score de qualification simple (basé sur les informations fournies)
-    let score = 5 // Score de base
-    
-    // Augmentation du score selon les critères
-    if (prix && prix > 100000) score += 2
-    if (email.includes('@') && email.includes('.')) score += 1
-    if (telephone.length >= 10) score += 1
-    if (adresse.length > 20) score += 1
+    // ── Calcul du score de qualification sur 100 (seuils : 70 = chaud, 40 = tiède) ──
+    let score = 20 // Base neutre
 
-    // Détermination de l'urgence
+    // Email valide (+15)
+    if (email.includes('@') && email.includes('.')) score += 15
+    // Téléphone complet (+15)
+    if (telephone && telephone.replace(/\D/g, '').length >= 8) score += 15
+    // Adresse complète (+10)
+    if (adresse && adresse.trim().length > 20) score += 10
+    // Budget présent (+10) ; budget élevé (+10 supplémentaire)
+    if (prix && !isNaN(parseFloat(prix)) && parseFloat(prix) > 0) {
+      score += 10
+      if (parseFloat(prix) > 100000) score += 10
+    }
+
+    score = Math.min(score, 100)
+
+    // Niveau d'intérêt cohérent avec les seuils getScoreBadge (70/40)
+    const niveau_interet = score >= 70 ? 'CHAUD' : score >= 40 ? 'TIÈDE' : 'FROID'
+
+    // Urgence
     let urgence = 'moyenne'
-    if (prix && prix > 500000) urgence = 'élevée'
-    else if (prix && prix < 100000) urgence = 'faible'
+    if (prix && parseFloat(prix) > 500000) urgence = 'élevée'
+    else if (prix && parseFloat(prix) < 100000) urgence = 'faible'
 
     // Préparation des données pour Supabase
     const leadData = {
@@ -47,7 +58,8 @@ export default async function handler(req, res) {
       telephone,
       adresse,
       budget: prix || '',
-      score_qualification: Math.min(score, 10),
+      score_qualification: score,
+      niveau_interet,
       urgence,
       type_bien: 'non précisé',
       message: `Demande pour un bien à ${adresse}${prix ? ` avec un budget de ${prix}€` : ''}`,
