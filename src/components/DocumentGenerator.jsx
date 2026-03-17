@@ -898,7 +898,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   lead_id: lead.id,
                   type: 'document_status_updated',
                   titre: `📄 ${docType.label} générée`,
-                  description: `${docType.label} ${documentData.number} généré pour un montant de ${totalTTC} ${agencyProfile.devise || 'EUR'}`,
+                  description: `${docType.label} ${documentData.number} généré pour un montant de ${insertTotalTTC || 0} ${agencyProfile.devise || 'EUR'}`,
                   statut: 'complété',
                   created_at: new Date().toISOString()
                 });

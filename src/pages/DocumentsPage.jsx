@@ -374,7 +374,7 @@ const DocumentsPage = () => {
     }
   };
 
-  // ── Envoi email via Resend (avec PDF en pièce jointe) ─────────────────────────
+  // ── Envoi email via Resend (HTML inline — pas de PDF pour éviter les limites de taille) ──
   const handleSendEmail = async (doc) => {
     if (!doc.client_email) {
       alert('❌ Aucun email pour ce prospect.');
@@ -383,22 +383,10 @@ const DocumentsPage = () => {
     if (!window.confirm(`Envoyer le document à ${doc.client_email} ?`)) return;
     setSendingEmail(doc.id);
     try {
-      // Générer le PDF côté client depuis le HTML persisté
-      let pdfBase64 = null;
-      if (doc.preview_html) {
-        try {
-          pdfBase64 = await generatePdfBase64FromHtml(
-            doc.preview_html,
-            `${doc.reference || 'document'}.pdf`
-          );
-        } catch (pdfErr) {
-          console.warn('[handleSendEmail] Génération PDF échouée, envoi sans PDF:', pdfErr.message);
-        }
-      }
       const res = await fetch('/api/documents/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: doc.id, pdfBase64 }),
+        body: JSON.stringify({ documentId: doc.id }),
       });
       const data = await res.json();
       if (data.ok) {
