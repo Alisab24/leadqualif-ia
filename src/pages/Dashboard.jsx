@@ -166,7 +166,7 @@ export default function Dashboard() {
   const [showRightArrow, setShowRightArrow] = useState(true);
   const scrollInterval = useRef(null);
 
-  const statuts = ['À traiter', 'Contacté', 'Offre en cours', 'RDV fixé', 'Négociation', 'Gagné', 'Perdu'];
+  const statuts = ['À traiter', 'Contacté', 'RDV fixé', 'Offre en cours', 'Négociation', 'Gagné', 'Perdu'];
 
   // === ARCHIVE / DELETE ===
   const [showArchived, setShowArchived] = useState(false);

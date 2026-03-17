@@ -1365,35 +1365,30 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   };
 
   const updateLeadStatus = async (documentType) => {
-    let newStatus = lead.statut;
-    
-    switch (documentType) {
-      case 'mandat':
-        newStatus = 'Mandat signé';
-        break;
-      case 'devis':
-        newStatus = 'Offre en cours';
-        break;
-      case 'facture':
-        newStatus = 'Gagné';
-        break;
-      case 'bon_visite':
-        newStatus = 'Visite planifiée';
-        break;
-      case 'contrat_gestion':
-        newStatus = 'Mandat signé';
-        break;
-      default:
-        newStatus = 'Document généré';
-    }
-    
+    if (!lead?.id) return;
+    // Mapping type de document → statut pipeline cible (uniquement statuts connus du pipeline)
+    // On utilise le RPC advance_lead_statut (SECURITY DEFINER) pour contourner RLS
+    // et ne jamais rétrograder un lead.
+    const TARGET_MAP = {
+      devis:          { target: 'Offre en cours', force: false },
+      facture:        { target: 'Gagné',          force: true  }, // force : même depuis Négociation
+      mandat:         { target: 'Offre en cours', force: false },
+      contrat_gestion:{ target: 'Offre en cours', force: false },
+      bon_visite:     { target: 'RDV fixé',       force: false },
+      contrat:        { target: 'Offre en cours', force: false },
+      rapport:        { target: 'Offre en cours', force: false },
+    };
+    const mapping = TARGET_MAP[documentType];
+    if (!mapping) return; // type inconnu → on ne touche pas au statut
     try {
-      await supabase
-        .from('leads')
-        .update({ statut: newStatus })
-        .eq('id', lead.id);
-    } catch (error) {
-      console.error('Erreur mise à jour statut:', error);
+      const { error } = await supabase.rpc('advance_lead_statut', {
+        p_lead_id: lead.id,
+        p_target:  mapping.target,
+        p_force:   mapping.force,
+      });
+      if (error) console.warn('[DocumentGenerator] RPC advance erreur:', error.message);
+    } catch (err) {
+      console.warn('[DocumentGenerator] RPC advance exception:', err?.message);
     }
   };
 
