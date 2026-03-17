@@ -38,7 +38,7 @@ async function advanceLeadPipeline(leadId, targetStatut, force = false) {
     if (eligibleStatuts.length === 0) return;
     await supabase
       .from('leads')
-      .update({ statut: targetStatut, updated_at: new Date().toISOString() })
+      .update({ statut: targetStatut })
       .eq('id', leadId)
       .in('statut', eligibleStatuts);
   } catch (err) {
