@@ -40,6 +40,136 @@ const TYPE_LABELS = {
   contrat_gestion: 'Contrat de gestion',
 };
 
+// ── Génère un HTML complet du document depuis les données DB ──────────────────
+// Utilisé pour les devis/factures : preview_html peut être stale ou incomplet.
+// On reconstruit le document depuis content_json + champs du doc + profil agence.
+function buildDocumentHtmlForPdf(doc, agency) {
+  const label   = TYPE_LABELS[doc.type] || 'Document';
+  const cj      = typeof doc.content_json === 'string'
+    ? JSON.parse(doc.content_json) : (doc.content_json || {});
+  const items   = Array.isArray(cj.items)  ? cj.items  : [];
+  const totals  = Array.isArray(cj.totals) ? cj.totals : [];
+  const devise  = doc.devise || cj.devise || '€';
+  const fmt     = (v) => Number(v || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+  const date    = doc.created_at
+    ? new Date(doc.created_at).toLocaleDateString('fr-FR')
+    : new Date().toLocaleDateString('fr-FR');
+
+  const agencyName  = agency?.nom_agence  || 'Votre agence';
+  const agencyEmail = agency?.email       || '';
+  const agencyTel   = agency?.telephone   || '';
+  const agencyAddr  = agency?.adresse_legale || agency?.adresse || '';
+  const agencySiret = agency?.siret || agency?.numero_enregistrement || '';
+  const agencyLegal = agency?.mention_legale || '';
+  const conditions  = agency?.conditions_paiement || '';
+  const cartePT     = agency?.carte_pro_t || '';
+  const cartePS     = agency?.carte_pro_s || '';
+
+  const itemsHtml = items.map(item => `
+    <tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827;">${item.description || ''}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280;text-align:center;">${item.quantity || 1}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#111827;text-align:right;">${fmt(item.amount ?? item.unitPrice ?? item.total)} ${devise}</td>
+    </tr>`).join('');
+
+  const totalsHtml = totals.map(t => {
+    const isTtc = (t.label || '').toUpperCase().includes('TOTAL TTC');
+    return `<tr style="${isTtc ? 'background:#eff6ff;' : ''}">
+      <td colspan="2" style="padding:8px 14px;font-size:${isTtc ? '15' : '13'}px;font-weight:${isTtc ? '700' : '400'};color:${isTtc ? '#1d4ed8' : '#6b7280'};text-align:right;border-top:1px solid #e5e7eb;">${t.label}</td>
+      <td style="padding:8px 14px;font-size:${isTtc ? '15' : '13'}px;font-weight:${isTtc ? '700' : '600'};color:${isTtc ? '#1d4ed8' : '#374151'};text-align:right;border-top:1px solid #e5e7eb;">${fmt(t.amount)} ${devise}</td>
+    </tr>`;
+  }).join('');
+
+  const carteBadges = [
+    cartePT ? `<span style="display:inline-block;padding:2px 8px;border:1.5px solid #3b82f6;border-radius:4px;color:#3b82f6;font-size:10px;font-weight:600;margin-right:4px;">Carte Pro Transaction n° ${cartePT}</span>` : '',
+    cartePS ? `<span style="display:inline-block;padding:2px 8px;border:1.5px solid #3b82f6;border-radius:4px;color:#3b82f6;font-size:10px;font-weight:600;">Carte Pro Syndic n° ${cartePS}</span>` : '',
+  ].filter(Boolean).join('');
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${label} ${doc.reference || ''}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111827;background:#fff;line-height:1.5;}
+    .page{max-width:800px;margin:0 auto;padding:40px 36px;}
+    table{border-collapse:collapse;}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER agence + infos document -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e5e7eb;padding-bottom:24px;margin-bottom:28px;">
+    <div>
+      <div style="font-size:22px;font-weight:800;color:#1e3a5f;">${agencyName}</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:4px;line-height:1.6;">
+        ${agencyAddr ? `<div>${agencyAddr}</div>` : ''}
+        ${agencyEmail ? `<div>Email : ${agencyEmail}</div>` : ''}
+        ${agencyTel   ? `<div>Tél : ${agencyTel}</div>`      : ''}
+        ${agencySiret ? `<div>N° ${agencySiret}</div>`       : ''}
+      </div>
+      ${carteBadges ? `<div style="margin-top:8px;">${carteBadges}</div>` : ''}
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:22px;font-weight:700;color:#1e3a5f;">${label}</div>
+      <div style="font-size:14px;color:#6b7280;margin-top:4px;">${doc.reference ? `Réf : ${doc.reference}` : ''}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:2px;">Date : ${date}</div>
+    </div>
+  </div>
+
+  <!-- CLIENT -->
+  <div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:6px;padding:16px 20px;margin-bottom:28px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:8px;">Client</div>
+    <div style="font-size:16px;font-weight:700;color:#111827;">${doc.client_nom || '—'}</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:4px;line-height:1.6;">
+      ${doc.client_email     ? `<div>Email : ${doc.client_email}</div>`     : ''}
+      ${doc.client_telephone ? `<div>Tél : ${doc.client_telephone}</div>` : ''}
+    </div>
+  </div>
+
+  <!-- TABLEAU PRESTATIONS -->
+  ${items.length > 0 ? `
+  <div style="margin-bottom:28px;">
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;border-bottom:2px solid #e5e7eb;padding-bottom:8px;margin-bottom:0;">Détail des prestations</div>
+    <table style="width:100%;">
+      <thead>
+        <tr style="background:#f3f4f6;">
+          <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Description</th>
+          <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:80px;">Qté</th>
+          <th style="padding:10px 14px;text-align:right;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:140px;">Montant</th>
+        </tr>
+      </thead>
+      <tbody>${itemsHtml}</tbody>
+      <tfoot>${totalsHtml}</tfoot>
+    </table>
+  </div>` : ''}
+
+  <!-- SIGNATURES -->
+  <div style="display:flex;gap:32px;margin-top:48px;padding-top:20px;border-top:1px solid #e5e7eb;">
+    <div style="flex:1;text-align:center;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:40px;">Signature de l'agence</div>
+      <div style="border-top:1px solid #9ca3af;padding-top:6px;font-size:12px;font-weight:600;color:#374151;">${agencyName}</div>
+    </div>
+    <div style="flex:1;text-align:center;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:40px;">Signature du client</div>
+      <div style="border-top:1px solid #9ca3af;padding-top:6px;font-size:12px;font-weight:600;color:#374151;">${doc.client_nom || ''}</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="margin-top:36px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;">
+    ${agencyLegal  ? `<div>${agencyLegal}</div>`   : ''}
+    ${conditions   ? `<div>${conditions}</div>`     : ''}
+    <div style="margin-top:4px;">Document généré par <strong>NexaPro</strong></div>
+  </div>
+
+</div>
+</body>
+</html>`;
+}
+
 // ── Génère un PDF base64 via l'API pdfshift.io ────────────────────────────────
 async function generatePdfWithPdfshift(htmlContent) {
   const apiKey = process.env.PDFSHIFT_API_KEY;
@@ -233,7 +363,7 @@ export default async function handler(req, res) {
     // ── 2. Récupérer le profil agence ─────────────────────────────────────────
     const { data: agency } = await supabase
       .from('profiles')
-      .select('nom_agence, email')
+      .select('nom_agence, email, telephone, adresse_legale, adresse, siret, numero_enregistrement, mention_legale, conditions_paiement, carte_pro_t, carte_pro_s')
       .eq('agency_id', doc.agency_id)
       .eq('role', 'owner')
       .maybeSingle();
@@ -247,10 +377,17 @@ export default async function handler(req, res) {
     let pdfBase64  = null;
     let attachments = [];
 
-    if (doc.preview_html && process.env.PDFSHIFT_API_KEY) {
+    // Pour devis/facture : toujours regénérer le HTML depuis les données DB
+    // (preview_html peut être stale ou incomplet pour les anciens documents)
+    const FINANCIAL_TYPES = ['devis', 'facture'];
+    const htmlForPdf = FINANCIAL_TYPES.includes(doc.type)
+      ? buildDocumentHtmlForPdf(doc, agency)
+      : (doc.preview_html || null);
+
+    if (htmlForPdf && process.env.PDFSHIFT_API_KEY) {
       try {
-        console.log('[send-email] Génération PDF via pdfshift...');
-        pdfBase64 = await generatePdfWithPdfshift(doc.preview_html);
+        console.log('[send-email] Génération PDF via pdfshift (type:', doc.type, ')...');
+        pdfBase64 = await generatePdfWithPdfshift(htmlForPdf);
         console.log(`[send-email] PDF généré : ${Math.round(pdfBase64.length * 0.75 / 1024)} Ko`);
       } catch (pdfErr) {
         console.warn('[send-email] pdfshift échoué, fallback HTML inline:', pdfErr.message);
@@ -280,7 +417,8 @@ export default async function handler(req, res) {
       }];
     } else {
       // Fallback : document HTML inline dans l'email
-      let docHtml = doc.preview_html || '';
+      // Pour devis/facture : HTML regénéré depuis DB ; pour les autres : preview_html
+      let docHtml = htmlForPdf || '';
       if (!docHtml && doc.content_json) {
         const cj = typeof doc.content_json === 'string'
           ? JSON.parse(doc.content_json)
