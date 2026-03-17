@@ -86,8 +86,7 @@ const getLeadBudget = (lead, isSmma) => {
  * Utilisé en fallback si suggestion_ia absente ou générique.
  */
 const getSmartRecommendation = (lead) => {
-  const score = lead.score || lead.score_ia || lead.score_qualification || 0;
-  const niveau = (lead.niveau_interet || '').toUpperCase();
+  const score = Number(lead.score || lead.score_ia || lead.score_qualification || 0);
   const statut = lead.statut || '';
 
   if (statut === 'Gagné') return '✅ Client signé. Préparer le onboarding et le premier rapport de performance.';
@@ -95,13 +94,20 @@ const getSmartRecommendation = (lead) => {
   if (statut === 'Devis envoyé') return '📄 Devis envoyé. Relancer sous 48h si pas de réponse. Proposer un appel de clarification.';
   if (statut === 'Négociation') return '🤝 En négociation. Rester disponible, proposer un ajustement de l\'offre si besoin.';
 
-  if (score >= 80 || niveau === 'CHAUD') {
-    return '🔥 Lead très chaud. Contacter immédiatement — intention d\'achat claire. Proposer un appel ou une démo aujourd\'hui.';
+  // Même logique que getScoreBadge : niveau_interet explicite a la priorité sur le score
+  const rawNiveau = (lead.niveau_interet || '').toUpperCase()
+    .replace('TIÈDE', 'TIEDE').replace('TIÈD', 'TIEDE');
+  const VALID_N = ['CHAUD', 'TIEDE', 'FROID'];
+  const niveau = VALID_N.includes(rawNiveau)
+    ? rawNiveau
+    : (score >= 70 ? 'CHAUD' : score >= 40 ? 'TIEDE' : 'FROID');
+
+  if (niveau === 'CHAUD') {
+    return score >= 80
+      ? '🔥 Lead très chaud. Contacter immédiatement — intention d\'achat claire. Proposer un appel ou une démo aujourd\'hui.'
+      : '🟢 Lead chaud. Contacter dans les 24h. Envoyer un devis personnalisé et répondre aux éventuelles questions.';
   }
-  if (score >= 65) {
-    return '🟢 Lead chaud. Contacter dans les 24h. Envoyer un devis personnalisé et répondre aux éventuelles questions.';
-  }
-  if (score >= 45 || niveau === 'TIÈDE') {
+  if (niveau === 'TIEDE') {
     return '🟡 Lead tiède. Contacter sous 48h. Nourrir avec des témoignages clients ou une étude de cas pertinente.';
   }
   if (score >= 25) {
