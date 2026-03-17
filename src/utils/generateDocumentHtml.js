@@ -42,6 +42,8 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
   const telephone           = agencyProfile.phone         || agencyProfile.telephone           || '';
   const adresse_legale      = agencyProfile.address       || agencyProfile.adresse_legale      || agencyProfile.adresse || '';
   const logo_url            = agencyProfile.logo_url      || null;
+  const signature_url       = agencyProfile.signature_url || null;
+  const ville_agence        = agencyProfile.ville         || agencyProfile.ville_agence || adresse_legale?.split(',')[0]?.trim() || '';
   const devise              = agencyProfile.devise        || 'EUR';
   const symbole_devise      = agencyProfile.symbole_devise || '€';
   const mention_legale      = agencyProfile.legalMention  || agencyProfile.mention_legale      || '';
@@ -493,17 +495,23 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
               } else if (block.type === 'section') {
                 return `<div class="doc-section-heading">${block.heading}</div>`;
               } else if (block.type === 'signature') {
+                const sigToday = new Date().toLocaleDateString('fr-FR');
                 return `
                 <div class="doc-signature-row">
                     <div class="doc-signature-block">
-                        <div class="doc-signature-label">Signature de l'agence</div>
-                        <div class="doc-signature-line"></div>
+                        <div class="doc-signature-label">SIGNATURE AGENCE</div>
+                        ${signature_url
+                          ? `<img src="${signature_url}" alt="Signature agence" style="height:56px;object-fit:contain;margin:6px 0;display:block;">`
+                          : `<div class="doc-signature-line"></div>`
+                        }
                         <div class="doc-signature-name">${nom_legal || nom_agence || 'Agence'}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:4px;">Fait à ${ville_agence || '__________'}, le ${sigToday}</div>
                     </div>
                     <div class="doc-signature-block">
-                        <div class="doc-signature-label">Signature du client</div>
+                        <div class="doc-signature-label">SIGNATURE CLIENT</div>
                         <div class="doc-signature-line"></div>
                         <div class="doc-signature-name">${clientNom}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:4px;">Fait à ${ville_agence || '__________'}, le ___________</div>
                     </div>
                 </div>`;
               } else if (block.text) {

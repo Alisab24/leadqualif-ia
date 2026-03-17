@@ -211,6 +211,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           devise: profileData.devise || 'EUR',
           symbole_devise: profileData.symbole_devise || '€',
           logo_url: profileData.logo_url || null,
+          signature_url: profileData.signature_url || null,
+          ville: profileData.ville_agence || null,
           siret: profileData.siret || null,
           tva: profileData.tva || null,
           pays: profileData.pays || 'France',
@@ -614,7 +616,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               { heading: 'Article 3 — Engagements de l\'agence', type: 'section' },
               { text: `${agencyName} s\'engage à :\n• Assurer la promotion active du bien sur les principaux portails immobiliers et son propre réseau\n• Organiser les visites selon les disponibilités du vendeur\n• Rendre compte régulièrement de ses démarches\n• Présenter toute offre d\'achat sans délai` },
               { heading: 'Article 4 — Résiliation', type: 'section' },
-              { text: `Le mandat peut être résilié par anticipation par lettre recommandée avec AR moyennant un préavis de 15 jours calendaires.\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { text: `Le mandat peut être résilié par anticipation par lettre recommandée avec AR moyennant un préavis de 15 jours calendaires.\n\nFait à ${agencyProfile?.ville || agencyProfile?.address?.split(',')[0]?.trim() || 'Paris'}, le ${today}` },
               { type: 'signature' },
             ];
           }
@@ -634,7 +636,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               { heading: 'Article 3 — Honoraires de gestion', type: 'section' },
               { text: `Honoraires de gestion courante : ${ex.tauxGestion}% des loyers encaissés hors charges\nHonoraires de remise en location : 1 mois de loyer hors charges\nÉtats des lieux (entrée/sortie) : conformément au barème en vigueur\n\nLes honoraires sont prélevés directement sur les loyers encaissés et décomptés sur le relevé mensuel.` },
               { heading: 'Article 4 — Durée et résiliation', type: 'section' },
-              { text: `Le présent mandat est conclu pour une durée de ${ex.dureeContratGestion} mois renouvelable par tacite reconduction. Il peut être résilié par l\'une ou l\'autre des parties avec un préavis de 3 mois avant la date anniversaire, par lettre recommandée avec AR.\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { text: `Le présent mandat est conclu pour une durée de ${ex.dureeContratGestion} mois renouvelable par tacite reconduction. Il peut être résilié par l\'une ou l\'autre des parties avec un préavis de 3 mois avant la date anniversaire, par lettre recommandée avec AR.\n\nFait à ${agencyProfile?.ville || agencyProfile?.address?.split(',')[0]?.trim() || 'Paris'}, le ${today}` },
               { type: 'signature' },
             ];
           }
@@ -654,7 +656,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               { heading: 'Clauses suspensives', type: 'section' },
               { text: `La présente vente est conclue sous les conditions suspensives suivantes :\n• Obtention d\'un prêt bancaire d\'un montant minimum de ______ € au taux maximum de ______ %\n• Absence de servitude d\'urbanisme ou administrative incompatible avec l\'usage prévu\n• Accord de préemption de la commune ou de tout organisme disposant du droit de préemption\n\nDélai de réalisation des conditions suspensives : 45 jours à compter de la signature` },
               { heading: 'Délais', type: 'section' },
-              { text: `Droit de rétractation de l\'acquéreur : 10 jours calendaires à compter du lendemain de la première présentation de la notification\nDate prévisionnelle de signature de l\'acte authentique : ______ / ______ / ______\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { text: `Droit de rétractation de l\'acquéreur : 10 jours calendaires à compter du lendemain de la première présentation de la notification\nDate prévisionnelle de signature de l\'acte authentique : ______ / ______ / ______\n\nFait à ${agencyProfile?.ville || agencyProfile?.address?.split(',')[0]?.trim() || 'Paris'}, le ${today}` },
               { type: 'signature' },
             ];
           }
@@ -669,7 +671,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               { heading: 'Obligations légales', type: 'section' },
               { text: `Le présent bon de visite confirme l\'intervention de l\'agence ${agencyName} dans le cadre de la présentation de ce bien. En cas d\'acquisition directe du bien présenté, sans passer par cette agence, le visiteur s\'expose à des poursuites pour contournement d\'agence.\n\n${ex.observationsVisite ? 'Observations :\n' + ex.observationsVisite : ''}` },
               { heading: 'Prochaines étapes', type: 'section' },
-              { text: `• Retour du visiteur sous 48h\n• Proposition d\'offre (si intérêt confirmé)\n• Mise en relation avec le propriétaire vendeur\n• Préparation du compromis de vente (si accord)\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { text: `• Retour du visiteur sous 48h\n• Proposition d\'offre (si intérêt confirmé)\n• Mise en relation avec le propriétaire vendeur\n• Préparation du compromis de vente (si accord)\n\nFait à ${agencyProfile?.ville || agencyProfile?.address?.split(',')[0]?.trim() || 'Paris'}, le ${today}` },
               { type: 'signature' },
             ];
           }
@@ -690,7 +692,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
               { heading: 'Article 4 — Propriété intellectuelle', type: 'section' },
               { text: `Les contenus créés par le Prestataire dans le cadre de ce contrat restent sa propriété intellectuelle jusqu\'au complet paiement des honoraires correspondants. Le Client bénéficie d\'une licence d\'utilisation non exclusive sur lesdits contenus pour la durée du contrat.` },
               { heading: 'Article 5 — Résiliation', type: 'section' },
-              { text: `En cas de souhait de résiliation anticipée, un préavis de 30 jours calendaires doit être adressé par email ou courrier recommandé avec AR. Les prestations déjà réalisées restent dues.\n\nFait à ${agencyProfile?.address || 'Paris'}, le ${today}` },
+              { text: `En cas de souhait de résiliation anticipée, un préavis de 30 jours calendaires doit être adressé par email ou courrier recommandé avec AR. Les prestations déjà réalisées restent dues.\n\nFait à ${agencyProfile?.ville || agencyProfile?.address?.split(',')[0]?.trim() || 'Paris'}, le ${today}` },
               { type: 'signature' },
             ];
           }
@@ -2491,19 +2493,24 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                       } else if (block.type === 'section') {
                         return <div key={idx} style={{ fontSize: '12px', fontWeight: '700', color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '18px 0 4px 0', paddingBottom: '4px', borderBottom: '1px solid #dbeafe' }}>{block.heading}</div>;
                       } else if (block.type === 'signature') {
+                        const agencyCity = docData.agencyProfile?.ville || docData.agencyProfile?.address?.split(',')[0]?.trim() || '';
+                        const sigUrl = docData.agencyProfile?.signature_url;
                         return (
                           <div key={idx} className="signature-section">
                             <div className="signature-block">
-                              <div className="signature-title">Signature agence</div>
-                              <div className="signature-line"></div>
+                              <div className="signature-title">SIGNATURE AGENCE</div>
+                              {sigUrl
+                                ? <img src={sigUrl} alt="Signature agence" style={{ height: '56px', objectFit: 'contain', margin: '6px 0' }} />
+                                : <div className="signature-line"></div>
+                              }
                               <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
-                              <div className="signature-date">Fait à __________, le {new Date().toLocaleDateString('fr-FR')}</div>
+                              <div className="signature-date">Fait à {agencyCity || '__________'}, le {new Date().toLocaleDateString('fr-FR')}</div>
                             </div>
                             <div className="signature-block">
-                              <div className="signature-title">Signature client</div>
+                              <div className="signature-title">SIGNATURE CLIENT</div>
                               <div className="signature-line"></div>
                               <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
-                              <div className="signature-date">Fait à __________, le ___________</div>
+                              <div className="signature-date">Fait à {agencyCity || '__________'}, le ___________</div>
                             </div>
                           </div>
                         );
@@ -2525,20 +2532,29 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                 {/* Signature par défaut si pas de bodyContent (devis/facture) */}
                 {(!docData.document?.bodyContent || docData.document.bodyContent.length === 0) && (
                   <>
-                    <div className="signature-section">
-                      <div className="signature-block">
-                        <div className="signature-title">Signature agence</div>
-                        <div className="signature-line"></div>
-                        <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
-                        <div className="signature-date">Fait à __________, le {new Date().toLocaleDateString('fr-FR')}</div>
-                      </div>
-                      <div className="signature-block">
-                        <div className="signature-title">Signature client</div>
-                        <div className="signature-line"></div>
-                        <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
-                        <div className="signature-date">Fait à __________, le ___________</div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const agencyCity = docData.agencyProfile?.ville || docData.agencyProfile?.address?.split(',')[0]?.trim() || '';
+                      const sigUrl = docData.agencyProfile?.signature_url;
+                      return (
+                        <div className="signature-section">
+                          <div className="signature-block">
+                            <div className="signature-title">SIGNATURE AGENCE</div>
+                            {sigUrl
+                              ? <img src={sigUrl} alt="Signature agence" style={{ height: '56px', objectFit: 'contain', margin: '6px 0' }} />
+                              : <div className="signature-line"></div>
+                            }
+                            <div className="signature-label">{docData.agencyProfile?.name || 'Agence'}</div>
+                            <div className="signature-date">Fait à {agencyCity || '__________'}, le {new Date().toLocaleDateString('fr-FR')}</div>
+                          </div>
+                          <div className="signature-block">
+                            <div className="signature-title">SIGNATURE CLIENT</div>
+                            <div className="signature-line"></div>
+                            <div className="signature-label">{docData.lead?.nom || 'Client'}</div>
+                            <div className="signature-date">Fait à {agencyCity || '__________'}, le ___________</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>

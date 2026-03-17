@@ -558,6 +558,8 @@ export default function Settings() {
     format_devise: '1 000 €',
     calendly_link: '',
     logo_url: '',
+    signature_url: '',
+    ville_agence: '',
     couleur_primaire: '#2563eb',
     couleur_secondaire: '#7c3aed',
     type_agence: 'immobilier',
@@ -646,7 +648,7 @@ export default function Settings() {
       // Sélectionner uniquement les colonnes nécessaires (évite de charger des données massives)
       const { data, error } = await supabase
         .from('profiles')
-        .select('nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
+        .select('nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,signature_url,ville_agence,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -667,6 +669,8 @@ export default function Settings() {
           format_devise: data.format_devise || '1 000 €',
           calendly_link: data.calendly_link || '',
           logo_url: data.logo_url || '',
+          signature_url: data.signature_url || '',
+          ville_agence: data.ville_agence || '',
           couleur_primaire: data.couleur_primaire || '#2563eb',
           couleur_secondaire: data.couleur_secondaire || '#7c3aed',
           type_agence: data.type_agence || null,
@@ -811,6 +815,8 @@ export default function Settings() {
         format_devise: formData.format_devise,
         calendly_link: formData.calendly_link,
         logo_url: formData.logo_url,
+        signature_url: formData.signature_url,
+        ville_agence: formData.ville_agence,
         couleur_primaire: formData.couleur_primaire,
         couleur_secondaire: formData.couleur_secondaire,
         type_agence: formData.type_agence,
@@ -1144,6 +1150,32 @@ export default function Settings() {
                       onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling?.remove(); }} />
                   </div>
                 )}
+              </section>
+
+              {/* Documents légaux */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">📄 Documents légaux</h2>
+
+                <Field label="Ville (pour les documents)" hint="Utilisée dans la mention « Fait à ___, le … » des contrats et devis.">
+                  <Input name="ville_agence" value={formData.ville_agence} onChange={handleChange} placeholder="ex : Paris, Lyon, Casablanca…" />
+                </Field>
+
+                <div className="mt-5">
+                  <Field label="URL image de signature agence" hint="Lien direct vers l'image de votre signature (PNG transparent recommandé). Affichée dans le bloc signature des documents générés.">
+                    <Input name="signature_url" value={formData.signature_url} onChange={handleChange} placeholder="https://..." />
+                  </Field>
+                  {formData.signature_url && (
+                    <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 inline-block">
+                      <p className="text-xs text-slate-400 mb-2">Aperçu signature :</p>
+                      <img
+                        src={formData.signature_url}
+                        alt="Signature agence"
+                        className="h-16 object-contain"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
+                </div>
               </section>
 
               {/* Couleurs */}

@@ -642,15 +642,17 @@ const DocumentsPage = () => {
     const fmt    = (v) => Number(v || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 });
     const date   = doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
     const ap     = agencyProfile || {};
-    const agencyName  = ap.nom_agence  || ap.name  || 'Votre agence';
-    const agencyEmail = ap.email       || '';
-    const agencyTel   = ap.telephone   || ap.phone || '';
-    const agencyAddr  = ap.adresse_legale || ap.adresse || ap.address || '';
-    const agencySiret = ap.siret || ap.numero_enregistrement || ap.registrationNumber || '';
-    const agencyLegal = ap.mention_legale || ap.legalMention || '';
-    const conditions  = ap.conditions_paiement || ap.paymentConditions || '';
-    const cartePT     = ap.carte_pro_t || '';
-    const cartePS     = ap.carte_pro_s || '';
+    const agencyName    = ap.nom_agence  || ap.name  || 'Votre agence';
+    const agencyEmail   = ap.email       || '';
+    const agencyTel     = ap.telephone   || ap.phone || '';
+    const agencyAddr    = ap.adresse_legale || ap.adresse || ap.address || '';
+    const agencySiret   = ap.siret || ap.numero_enregistrement || ap.registrationNumber || '';
+    const agencyLegal   = ap.mention_legale || ap.legalMention || '';
+    const conditions    = ap.conditions_paiement || ap.paymentConditions || '';
+    const cartePT       = ap.carte_pro_t || '';
+    const cartePS       = ap.carte_pro_s || '';
+    const agencyCity    = ap.ville_agence || ap.ville || agencyAddr?.split(',')[0]?.trim() || '';
+    const agencySigUrl  = ap.signature_url || null;
 
     const itemsHtml = items.map(item => `
       <tr>
@@ -711,8 +713,21 @@ const DocumentsPage = () => {
     </tr></thead><tbody>${itemsHtml}</tbody><tfoot>${totalsHtml}</tfoot></table>
   </div>` : ''}
   <div style="display:flex;gap:32px;margin-top:48px;padding-top:20px;border-top:1px solid #e5e7eb;">
-    <div style="flex:1;text-align:center;"><div style="font-size:11px;color:#6b7280;margin-bottom:40px;">Signature de l'agence</div><div style="border-top:1px solid #9ca3af;padding-top:6px;font-size:12px;font-weight:600;color:#374151;">${agencyName}</div></div>
-    <div style="flex:1;text-align:center;"><div style="font-size:11px;color:#6b7280;margin-bottom:40px;">Signature du client</div><div style="border-top:1px solid #9ca3af;padding-top:6px;font-size:12px;font-weight:600;color:#374151;">${doc.client_nom || ''}</div></div>
+    <div style="flex:1;padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:6px;">SIGNATURE AGENCE</div>
+      ${agencySigUrl
+        ? `<img src="${agencySigUrl}" alt="Signature" style="height:52px;object-fit:contain;display:block;margin:4px 0;">`
+        : `<div style="height:44px;border-bottom:1px solid #9ca3af;margin-bottom:6px;"></div>`
+      }
+      <div style="font-size:12px;font-weight:600;color:#374151;">${agencyName}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Fait à ${agencyCity || '__________'}, le ${date}</div>
+    </div>
+    <div style="flex:1;padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:6px;">SIGNATURE CLIENT</div>
+      <div style="height:44px;border-bottom:1px solid #9ca3af;margin-bottom:6px;"></div>
+      <div style="font-size:12px;font-weight:600;color:#374151;">${doc.client_nom || ''}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Fait à ${agencyCity || '__________'}, le ___________</div>
+    </div>
   </div>
   <div style="margin-top:36px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;">
     ${agencyLegal ? `<div>${agencyLegal}</div>` : ''}
