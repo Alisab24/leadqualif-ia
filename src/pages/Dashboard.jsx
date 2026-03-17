@@ -115,7 +115,7 @@ export default function Dashboard() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
-  const [stats, setStats] = useState({ total: 0, won: 0, potential: 0 });
+  const [stats, setStats] = useState({ total: 0, won: 0, potential: 0, chauds: 0 });
   const [agencyType, setAgencyType] = useState('immobilier');
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -445,13 +445,14 @@ export default function Dashboard() {
         : user.id;
 
       const { data: leads } = await supabase
-        .from('leads').select('budget, statut')
+        .from('leads').select('budget, statut, niveau_interet')
         .eq('agency_id', agencyId);
       if (leads) {
         const total = leads.length;
         const won = leads.filter(l => l.statut === 'Gagné').length;
         const potential = leads.reduce((sum, l) => sum + (l.budget || 0), 0);
-        setStats({ total, won, potential });
+        const chauds = leads.filter(l => (l.niveau_interet || '').toLowerCase() === 'chaud').length;
+        setStats({ total, won, potential, chauds });
       }
     } catch (error) {
       console.error('Erreur stats:', error);
@@ -569,7 +570,19 @@ export default function Dashboard() {
             <h1 className="text-xl font-bold text-slate-900 hidden md:block">Pipeline</h1>
             <div className="flex gap-2">
               <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">{stats.total} leads</span>
-              <span className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-100 hidden sm:block">{stats.potential.toLocaleString()} €</span>
+              {agencyType === 'smma' ? (
+                stats.chauds > 0 && (
+                  <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100 hidden sm:flex items-center gap-1">
+                    🔥 {stats.chauds} chaud{stats.chauds > 1 ? 's' : ''}
+                  </span>
+                )
+              ) : (
+                stats.potential > 0 && (
+                  <span className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-100 hidden sm:block">
+                    {stats.potential.toLocaleString()} €
+                  </span>
+                )
+              )}
             </div>
           </div>
 
@@ -771,6 +784,10 @@ export default function Dashboard() {
                       onRdv={handleRendezVous}
                       onArchive={handleArchiveLead}
                       onDelete={(id) => setConfirmDelete(id)}
+                      onWhatsApp={(lead) => {
+                        const url = buildWhatsAppUrl(lead.telephone || '');
+                        if (url) { window.open(url, '_blank'); handleContactAction(lead, 'whatsapp'); }
+                      }}
                     />
                   );
                 })}
@@ -1400,7 +1417,7 @@ function KanbanColumn({
   statut, idx, leads, statuts, activeDragId,
   getScoreBadge, statutColor, agencyType,
   onSelectLead, onNavigate, onUpdateStatus, onRdv,
-  onArchive, onDelete
+  onArchive, onDelete, onWhatsApp
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: statut });
 
@@ -1435,6 +1452,7 @@ function KanbanColumn({
             onRdv={onRdv}
             onArchive={onArchive}
             onDelete={onDelete}
+            onWhatsApp={onWhatsApp}
           />
         ))}
 
@@ -1455,7 +1473,7 @@ function KanbanCard({
   lead, idx, statuts, activeDragId,
   getScoreBadge, statutColor, agencyType,
   onSelect, onNavigate, onUpdateStatus, onRdv,
-  onArchive, onDelete
+  onArchive, onDelete, onWhatsApp
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
@@ -1504,34 +1522,51 @@ function KanbanCard({
         <div className="flex gap-1">
           <button
             onClick={(e) => { e.stopPropagation(); onNavigate(lead.id); }}
-            className="w-6 h-6 bg-green-50 hover:bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm"
+            className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full flex items-center justify-center shadow-sm"
             title="Voir les détails"
-          >👁</button>
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
+          </button>
+          {lead.telephone && (
+            <button
+              onClick={(e) => { e.stopPropagation(); if (onWhatsApp) onWhatsApp(lead); }}
+              className="w-6 h-6 bg-green-50 hover:bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm"
+              title={`WhatsApp · ${lead.telephone}`}
+            >
+              <WhatsAppIcon size={12} />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx + 1]); }}
-            className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm"
+            className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm font-bold text-xs"
             title="Avancer"
           >→</button>
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx - 1]); }}
-            className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"
+            className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm font-bold text-xs"
             title="Reculer"
           >←</button>
           <button
             onClick={(e) => { e.stopPropagation(); onRdv(lead); }}
             className="w-6 h-6 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm"
             title="RDV"
-          >📅</button>
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd"/></svg>
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
-            className="w-6 h-6 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shadow-sm"
+            className="w-6 h-6 bg-amber-50 hover:bg-amber-100 text-amber-500 rounded-full flex items-center justify-center shadow-sm"
             title="Archiver"
-          >📁</button>
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2zM2 7.5v7A1.5 1.5 0 003.5 16h13a1.5 1.5 0 001.5-1.5v-7H2zm5 2a.5.5 0 000 1h6a.5.5 0 000-1H7z"/></svg>
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(lead.id); }}
-            className="w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center shadow-sm"
+            className="w-6 h-6 bg-red-50 hover:bg-red-100 text-red-400 rounded-full flex items-center justify-center shadow-sm"
             title="Supprimer"
-          >🗑</button>
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd"/></svg>
+          </button>
         </div>
       </div>
 
@@ -1541,13 +1576,16 @@ function KanbanCard({
       {/* Infos */}
       <div className="space-y-1 mb-2">
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span>📧</span><span className="truncate">{lead.email || '—'}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12" className="shrink-0 text-slate-400"><path d="M2.5 3A1.5 1.5 0 001 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0115 5.293V4.5A1.5 1.5 0 0013.5 3h-11z"/><path d="M15 6.954L8.978 9.86a2.25 2.25 0 01-1.956 0L1 6.954V11.5A1.5 1.5 0 002.5 13h11a1.5 1.5 0 001.5-1.5V6.954z"/></svg>
+          <span className="truncate">{lead.email || '—'}</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span>📞</span><span>{lead.telephone || '—'}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12" className="shrink-0 text-slate-400"><path fillRule="evenodd" d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.149.15 2.263.43 3.322a13.422 13.422 0 009.248 9.248c1.06.28 2.173.43 3.322.43h1.5a1.5 1.5 0 001.5-1.5v-1.148a1.5 1.5 0 00-1.175-1.465l-3.223-.716a1.5 1.5 0 00-1.341.343l-.793.793a11.927 11.927 0 01-6.394-6.394l.793-.793a1.5 1.5 0 00.343-1.34L5.465 3.175A1.5 1.5 0 004 2H3.5z" clipRule="evenodd"/></svg>
+          <span>{lead.telephone || '—'}</span>
         </div>
         <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-          <span>💰</span><span>{getLeadBudget(lead, agencyType === 'smma') || '—'}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12" className="shrink-0"><path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z"/></svg>
+          <span>{getLeadBudget(lead, agencyType === 'smma') || '—'}</span>
         </div>
       </div>
 
