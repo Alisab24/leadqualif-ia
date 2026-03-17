@@ -26,9 +26,13 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
     number,
     metadata,
     financialData,
-    items,
+    items: itemsRoot,
     bodyContent    // ← contenu structuré des documents non-financiers
   } = document;
+
+  // Les items peuvent être à la racine (itemsRoot) OU dans financialData.items
+  // DocumentGenerator stocke les items dans financialData.items → on supporte les deux
+  const items = itemsRoot || financialData?.items || [];
 
   // agencyProfile peut venir soit en format DB (snake_case) soit en format mappé (camelCase)
   // DocumentGenerator.jsx transforme le profil en camelCase → on supporte les deux
@@ -524,14 +528,21 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
                     </tr>
                 </thead>
                 <tbody>
-                    ${items.map(item => `
+                    ${items.map(item => {
+                      // Supporte item.amount (DocumentGenerator) ET item.unitPrice/item.total (ancien format)
+                      const montantUnitaire = item.unitPrice ?? item.amount ?? null;
+                      const montantTotal    = item.total    ?? item.amount ?? null;
+                      const fmt = (v) => v != null
+                        ? `${Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${symbole_devise || '€'}`
+                        : '-';
+                      return `
                         <tr>
-                            <td class="description">${item.description}</td>
+                            <td class="description">${item.description || ''}</td>
                             <td class="quantity">${item.quantity || 1}</td>
-                            <td class="unit-price">${item.unitPrice ? `${item.unitPrice} ${symbole_devise || '€'}` : '-'}</td>
-                            <td class="total">${item.total ? `${item.total} ${symbole_devise || '€'}` : '-'}</td>
-                        </tr>
-                    `).join('')}
+                            <td class="unit-price">${fmt(montantUnitaire)}</td>
+                            <td class="total">${fmt(montantTotal)}</td>
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         </section>
@@ -544,7 +555,7 @@ export const generateDocumentHtml = ({ document, agencyProfile, lead, docType, s
                 ${financialData.totals.map(total => `
                     <tr class="${total.label.includes('TOTAL') ? 'grand-total' : ''}">
                         <td class="label">${total.label}</td>
-                        <td class="amount">${total.amount} ${symbole_devise || '€'}</td>
+                        <td class="amount">${Number(total.amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${symbole_devise || '€'}</td>
                     </tr>
                 `).join('')}
             </table>
