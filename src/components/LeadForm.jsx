@@ -21,6 +21,32 @@ const inputCls = 'w-full px-3 py-2 rounded-lg border border-slate-200 bg-white t
 const selectCls = inputCls
 const textareaCls = `${inputCls} resize-none`
 
+/* ── Codes pays fréquents (agences FR + Afrique francophone + Europe) ── */
+const COUNTRY_CODES = [
+  { code: '+33',  flag: '🇫🇷', label: 'France'         },
+  { code: '+32',  flag: '🇧🇪', label: 'Belgique'        },
+  { code: '+41',  flag: '🇨🇭', label: 'Suisse'          },
+  { code: '+352', flag: '🇱🇺', label: 'Luxembourg'      },
+  { code: '+1',   flag: '🇨🇦', label: 'Canada'          },
+  { code: '+212', flag: '🇲🇦', label: 'Maroc'           },
+  { code: '+213', flag: '🇩🇿', label: 'Algérie'         },
+  { code: '+216', flag: '🇹🇳', label: 'Tunisie'         },
+  { code: '+221', flag: '🇸🇳', label: 'Sénégal'         },
+  { code: '+225', flag: '🇨🇮', label: "Côte d'Ivoire"   },
+  { code: '+237', flag: '🇨🇲', label: 'Cameroun'        },
+  { code: '+241', flag: '🇬🇦', label: 'Gabon'           },
+  { code: '+223', flag: '🇲🇱', label: 'Mali'            },
+  { code: '+242', flag: '🇨🇬', label: 'Congo'           },
+  { code: '+44',  flag: '🇬🇧', label: 'Royaume-Uni'     },
+  { code: '+34',  flag: '🇪🇸', label: 'Espagne'         },
+  { code: '+49',  flag: '🇩🇪', label: 'Allemagne'       },
+  { code: '+39',  flag: '🇮🇹', label: 'Italie'          },
+  { code: '+1',   flag: '🇺🇸', label: 'États-Unis'      },
+  { code: '+971', flag: '🇦🇪', label: 'Émirats arabes'  },
+  { code: '+974', flag: '🇶🇦', label: 'Qatar'           },
+  { code: '+966', flag: '🇸🇦', label: 'Arabie saoudite' },
+];
+
 /* ──────────────────────────────────────────────────── */
 
 const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = null }) => {
@@ -33,6 +59,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
     nom: '',
     email: '',
     telephone: '',
+    countryCode: '+33',   // code pays séparé (non sauvegardé en DB)
     source: 'site_web',
     message: '',
     // IMMO — client
@@ -107,10 +134,20 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       const evaluation = qualification.evaluation_complete || qualification
       const niveauInteret = qualification.niveau_interet_final || qualification.niveau_interet || evaluation.niveau_interet
 
+      // Combiner code pays + numéro local → format international ex: +33612345678
+      // Supprimer le 0 initial si l'utilisateur a saisi 06... avec un indicatif non-FR
+      const localNumber = formData.telephone.replace(/\s/g, '')
+      const fullPhone = localNumber
+        ? `${formData.countryCode}${localNumber.replace(/^0/, '')}`
+        : ''
+
       // Sanitiser toutes les chaînes vides → null pour éviter les erreurs
       // "invalid input syntax for type integer: ''" sur les colonnes numériques
+      // Exclure countryCode : champ UI uniquement, pas de colonne en DB
       const sanitized = Object.fromEntries(
-        Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
+        Object.entries(formData)
+          .filter(([k]) => k !== 'countryCode')
+          .map(([k, v]) => [k, v === '' ? null : v])
       )
 
       const budgetInt = formData.budget ? parseInt(formData.budget, 10) : null
@@ -124,6 +161,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
 
       const leadData = {
         ...sanitized,
+        telephone: fullPhone || null,   // format international: +33612345678
         budget: isNaN(budgetInt) ? null : budgetInt,
         agency_id: resolvedAgencyId,
         score_qualification: result.score,
@@ -226,8 +264,35 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
             onChange={handleChange} placeholder="jean@exemple.com" required />
         </Field>
         <Field label="Téléphone" required>
-          <input className={inputCls} type="tel" name="telephone" value={formData.telephone}
-            onChange={handleChange} placeholder="06 12 34 56 78" required />
+          <div className="flex">
+            <select
+              name="countryCode"
+              value={formData.countryCode}
+              onChange={handleChange}
+              className="shrink-0 pl-2 pr-1 py-2 rounded-l-lg border border-r-0 border-slate-200 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-10"
+              style={{ minWidth: '90px' }}
+              title="Code pays"
+            >
+              {COUNTRY_CODES.map(({ code, flag, label }) => (
+                <option key={`${code}-${label}`} value={code}>
+                  {flag} {code}
+                </option>
+              ))}
+            </select>
+            <input
+              className="flex-1 px-3 py-2 rounded-r-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="tel"
+              name="telephone"
+              value={formData.telephone}
+              onChange={handleChange}
+              placeholder="6 12 34 56 78"
+              required
+            />
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Indicatif sélectionné : <strong>{formData.countryCode}</strong>
+            {' · '}sera enregistré comme <strong>{formData.countryCode}{(formData.telephone || '').replace(/\s/g,'').replace(/^0/,'') || 'XXXXXXXXX'}</strong>
+          </p>
         </Field>
       </div>
 

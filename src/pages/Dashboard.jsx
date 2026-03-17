@@ -21,11 +21,15 @@ import {
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 
 // ── WhatsApp helpers ─────────────────────────────────────────────────────────
-/** Normalise un numéro pour WhatsApp (ex: 0612345678 → 33612345678) */
+/**
+ * Normalise un numéro pour WhatsApp (supprime tout sauf les chiffres).
+ * Les nouveaux leads stockent le numéro au format international (+33612345678).
+ * Rétro-compat : anciens numéros FR sans indicatif (0612345678 → 33612345678).
+ */
 const toWhatsAppPhone = (raw = '') => {
-  const digits = raw.replace(/\D/g, '');
+  const digits = (raw || '').replace(/\D/g, '');
   if (!digits) return '';
-  // Numéros FR commençant par 0 (10 chiffres) → préfixe 33
+  // Rétro-compat : numéros FR locaux sans indicatif (10 chiffres, commence par 0)
   if (digits.startsWith('0') && digits.length === 10) return '33' + digits.substring(1);
   return digits;
 };
