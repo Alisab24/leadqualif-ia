@@ -17,6 +17,10 @@
     "api/stripe/webhook.js": {
       "memory": 512,
       "maxDuration": 10
+    },
+    "api/documents/send-email.js": {
+      "memory": 1024,
+      "maxDuration": 30
     }
   },
   "headers": [

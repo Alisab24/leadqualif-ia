@@ -307,39 +307,70 @@ const DocumentsPage = () => {
   };
 
   // ── Génère un PDF base64 depuis le preview_html stocké en DB ─────────────────
-  const generatePdfBase64FromHtml = async (htmlContent, filename) => {
-    // Monter le HTML dans un conteneur hors-écran
-    const container = window.document.createElement('div');
-    container.innerHTML = htmlContent;
-    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;background:white;font-family:Arial,sans-serif;';
-    window.document.body.appendChild(container);
+  const generatePdfBase64FromHtml = async (htmlContent) => {
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+
+    // Créer un wrapper avec le CSS inline (html2canvas ne charge pas les fichiers CSS externes)
+    const wrapper = window.document.createElement('div');
+    wrapper.style.cssText = 'position:absolute;left:-9999px;top:0;width:794px;background:white;';
+
+    // Injecter un <style> avec les classes nécessaires au rendu du document
+    const styleEl = window.document.createElement('style');
+    styleEl.textContent = `
+      *{box-sizing:border-box;}
+      body,div{font-family:Arial,Helvetica,sans-serif;}
+      .signature-section{margin-top:32px;display:flex;justify-content:space-between;gap:32px;padding-top:16px;border-top:1px solid #e5e7eb;}
+      .signature-block{flex:1;padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;}
+      .signature-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;display:block;margin-bottom:4px;}
+      .signature-line{border-bottom:1px solid #9ca3af;height:40px;margin:8px 0 6px;}
+      .signature-label{font-size:11px;color:#374151;font-weight:600;display:block;}
+      .signature-date{font-size:10px;color:#9ca3af;margin-top:4px;display:block;}
+      .financial-table{width:100%;border-collapse:collapse;font-size:11px;margin:16px 0;}
+      .financial-table th,.financial-table td{padding:8px 10px;text-align:left;border-bottom:1px solid #eee;}
+      .financial-table th{background:#f5f5f5;font-weight:600;color:#374151;}
+      .financial-table td:last-child{text-align:right;font-weight:600;}
+      .total-ttc{background:#f0f9ff;border-top:2px solid #3b82f6;}
+      .total-ttc td{font-weight:bold;color:#1d4ed8;font-size:13px;}
+      .client-section{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:14px;margin:16px 0;}
+      .header-section{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+      .metadata-section{background:#fffbeb;border:1px solid #fbbf24;border-radius:6px;padding:12px;margin:16px 0;}
+    `;
+    wrapper.appendChild(styleEl);
+
+    const content = window.document.createElement('div');
+    content.innerHTML = htmlContent;
+    wrapper.appendChild(content);
+    window.document.body.appendChild(wrapper);
+
     try {
-      const { default: html2canvas } = await import('html2canvas');
-      const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(container, {
-        scale: 2,
+      // scale:1.5 = bon compromis qualité/taille (scale:2 génère un PDF trop lourd)
+      const canvas = await html2canvas(wrapper, {
+        scale: 1.5,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        width: 794,
       });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('portrait', 'mm', 'a4');
-      const pageWidth  = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgHeight  = (canvas.height * pageWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position  = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
+      // JPEG 85% = qualité correcte, ~3× plus léger que 95%
+      const imgData  = canvas.toDataURL('image/jpeg', 0.85);
+      const pdf      = new jsPDF('portrait', 'mm', 'a4');
+      const pageW    = pdf.internal.pageSize.getWidth();
+      const pageH    = pdf.internal.pageSize.getHeight();
+      const imgH     = (canvas.height * pageW) / canvas.width;
+      let left       = imgH;
+      let pos        = 0;
+      pdf.addImage(imgData, 'JPEG', 0, pos, pageW, imgH);
+      left -= pageH;
+      while (left > 0) {
+        pos = left - imgH;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'JPEG', 0, pos, pageW, imgH);
+        left -= pageH;
       }
-      return pdf.output('datauristring').split(',')[1]; // base64 uniquement
+      return pdf.output('datauristring').split(',')[1];
     } finally {
-      window.document.body.removeChild(container);
+      window.document.body.removeChild(wrapper);
     }
   };
 

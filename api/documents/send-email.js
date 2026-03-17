@@ -10,6 +10,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
+// 🔑 Augmenter la limite du body parser Vercel (défaut = 1MB, PDF base64 peut dépasser)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
