@@ -326,7 +326,7 @@ const DocumentsPage = () => {
   };
 
   // ── Partage WhatsApp (web.whatsapp.com — fonctionne sur PC navigateur ET mobile) ──
-  const handleShareWhatsApp = (doc) => {
+  const handleShareWhatsApp = async (doc) => {
     const rawPhone = doc.client_telephone
       || doc.content_json?.telephone
       || doc.content_json?.client_telephone

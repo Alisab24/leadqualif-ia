@@ -312,7 +312,7 @@ export default function Dashboard() {
   };
 
   // === RENDEZ-VOUS ===
-  const handleRendezVous = (lead) => {
+  const handleRendezVous = async (lead) => {
     const agencySettings = {
       calendlyUrl: agencyProfile?.calendly_link || null,
       useCalendly: !!agencyProfile?.calendly_link
