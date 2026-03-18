@@ -52,13 +52,19 @@ const SOURCE_LABELS = {
 
 // ── Helpers ────────────────────────────────────────────────────────
 const getQualif = (lead) => {
-  const score = lead.score || lead.score_ia || 0
+  // score_qualification prioritaire (issu de l'IA) puis score_ia puis score
+  const score = Number(lead.score_qualification || lead.score_ia || lead.score || 0)
+  // niveau_interet explicite prioritaire (même logique que getScoreBadge dans Dashboard)
   const rawNiveau = (lead.niveau_interet || '').toLowerCase()
     .replace('tiède', 'tiede').replace('tièd', 'tiede')
   if (rawNiveau === 'chaud') return 'chaud'
   if (rawNiveau === 'tiede') return 'tiede'
   if (rawNiveau === 'froid') return 'froid'
-  if (lead.qualification) return lead.qualification
+  // lead.qualification : normaliser en minuscules pour éviter 'CHAUD' → qualifCount['CHAUD']++
+  if (lead.qualification) {
+    const q = lead.qualification.toLowerCase().replace('tiède','tiede').replace('tièd','tiede')
+    if (q === 'chaud' || q === 'tiede' || q === 'froid') return q
+  }
   if (score >= 70) return 'chaud'
   if (score >= 40) return 'tiede'
   return 'froid'
@@ -243,11 +249,11 @@ export default function Stats() {
       const conversionRate = leadsData.length > 0
         ? Math.round((gagneLeads.length / leadsData.length) * 100) : 0
 
-      const scores     = leadsData.map(l => l.score || l.score_ia || 0).filter(s => s > 0)
+      const scores     = leadsData.map(l => Number(l.score_qualification || l.score_ia || l.score || 0)).filter(s => s > 0)
       const averageScore = scores.length > 0
         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
 
-      const hotLeads           = leadsData.filter(l => (l.score || l.score_ia || 0) >= 70).length
+      const hotLeads           = leadsData.filter(l => getQualif(l) === 'chaud').length
       const hotLeadsPercentage = leadsData.length > 0
         ? Math.round((hotLeads / leadsData.length) * 100) : 0
 
@@ -284,7 +290,7 @@ export default function Stats() {
           return d >= mStart && d <= mEnd
         })
         const gagneMonth  = monthLeads.filter(l => l.statut === 'Gagné')
-        const hotMonth    = monthLeads.filter(l => (l.score || l.score_ia || 0) >= 70).length
+        const hotMonth    = monthLeads.filter(l => getQualif(l) === 'chaud').length
         const commission  = gagneMonth.reduce((sum, l) => sum + calcCommission(l.budget), 0)
         // SMMA : CA mensuel depuis les factures payées ce mois (jamais parseBudget)
         const caSmma = type === 'smma'
@@ -373,7 +379,7 @@ export default function Stats() {
       // ── SMMA : métriques pipeline ─────────────────────────
       const leadsActifs = leadsData.filter(l => l.statut !== 'Perdu' && l.statut !== 'Gagné')
       const leadsChaudsNonTraites = leadsData.filter(l =>
-        (l.score || l.score_ia || 0) >= 70 && l.statut !== 'Gagné' && l.statut !== 'Perdu'
+        getQualif(l) === 'chaud' && l.statut !== 'Gagné' && l.statut !== 'Perdu'
       )
       // Rétainer moyen SMMA : moyenne des factures payées (source fiable)
       // IMMO : pas utilisé ici
@@ -386,7 +392,7 @@ export default function Stats() {
         : null
       // Top 5 leads SMMA par score IA (pas par budget → évite problèmes de parsing)
       const topSmmaLeads = [...leadsData]
-        .sort((a, b) => (b.score || b.score_ia || 0) - (a.score || a.score_ia || 0))
+        .sort((a, b) => Number(b.score_qualification || b.score_ia || b.score || 0) - Number(a.score_qualification || a.score_ia || a.score || 0))
         .slice(0, 5)
       // Répartition du pipeline par statut
       const pipelineStages = ['À traiter', 'En cours', 'Devis envoyé', 'Négociation', 'Gagné', 'Perdu']
@@ -956,7 +962,7 @@ export default function Stats() {
                         const badgeClass = q === 'chaud' ? 'bg-green-100 text-green-700'
                           : q === 'tiede' ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-red-100 text-red-700'
-                        const score = lead.score || lead.score_ia || 0
+                        const score = Number(lead.score_qualification || lead.score_ia || lead.score || 0)
                         const rawBudget = lead.budget_marketing || lead.budget
                         return (
                           <tr key={lead.id}>
