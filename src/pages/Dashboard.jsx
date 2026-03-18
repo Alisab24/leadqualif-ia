@@ -315,16 +315,25 @@ export default function Dashboard() {
       setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, ...updatedFields } : l));
       setSelectedLead(prev => prev?.id === lead.id ? { ...prev, ...updatedFields } : prev);
       // Sauvegarder score + niveau + recommandation en base
-      await supabase.from('leads')
+      // On sépare score_qualification (colonne optionnelle) du reste pour éviter
+      // que son absence en DB ne fasse échouer toute la requête silencieusement.
+      const { error: errUpdate } = await supabase.from('leads')
         .update({
-          suggestion_ia: smartRec,          // stocker la version courte (sans résumé)
-          resume_ia: resume || smartRec,
-          score_qualification: scoreLabel,
           score: scoreLabel,
           niveau_interet: niveau,
+          suggestion_ia: smartRec,
+          resume_ia: resume || smartRec,
           ia_processed_at: new Date().toISOString(),
         })
         .eq('id', lead.id);
+      if (errUpdate) console.error('[fetchAISuggestion] update erreur:', errUpdate.message);
+      // Tenter score_qualification séparément (colonne parfois absente en DB)
+      await supabase.from('leads')
+        .update({ score_qualification: scoreLabel })
+        .eq('id', lead.id)
+        .then(({ error }) => {
+          if (error) console.warn('[fetchAISuggestion] score_qualification non sauvegardé (colonne absente?):', error.message);
+        });
       await logCrmEvent(lead.id, 'ia_suggestion', 'Analyse IA', `Score: ${scoreLabel}% — ${niveau}`);
     } catch (error) {
       setAiSuggestion(getSmartRecommendation(lead));
