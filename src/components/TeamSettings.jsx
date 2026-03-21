@@ -373,13 +373,17 @@ export default function TeamSettings() {
 
         <div className="divide-y divide-slate-50">
           {members.map((m) => {
-            const isMe     = m.user_id === currentUserId
-            const isOwner  = m.role === 'owner'
-            const roleInfo = ROLE_LABELS[m.role] || ROLE_LABELS.agent
+            const isMe          = m.user_id === currentUserId
+            const isOwner       = m.role === 'owner'
+            const amIOwner      = members.find(mb => mb.user_id === currentUserId)?.role === 'owner'
+            const canEditRole   = amIOwner && !isOwner && !isMe  // seul l'owner peut changer les rôles
+            const roleInfo      = ROLE_LABELS[m.role] || ROLE_LABELS.agent
             return (
               <div key={m.user_id} className="px-5 py-3.5 flex items-center gap-3">
                 {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-700 shrink-0">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                  isOwner ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+                }`}>
                   {(m.nom_complet || m.email || '?').charAt(0).toUpperCase()}
                 </div>
 
@@ -392,27 +396,27 @@ export default function TeamSettings() {
                   <p className="text-xs text-slate-400 truncate">{m.email}</p>
                 </div>
 
-                {/* Rôle */}
+                {/* Rôle — sélecteur si owner courant, badge sinon */}
                 <div className="shrink-0">
-                  {isOwner || isMe ? (
-                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${roleInfo.color}`}>
-                      {roleInfo.icon} {roleInfo.label}
-                    </span>
-                  ) : (
+                  {canEditRole ? (
                     <select
-                      value={m.role}
+                      value={m.role || 'agent'}
                       onChange={(e) => updateMemberRole(m.user_id, e.target.value)}
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
                     >
                       <option value="admin">🔧 Admin</option>
                       <option value="agent">👤 Agent</option>
                       <option value="viewer">👁 Lecture seule</option>
                     </select>
+                  ) : (
+                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${roleInfo.color}`}>
+                      {roleInfo.icon} {roleInfo.label}
+                    </span>
                   )}
                 </div>
 
-                {/* Retirer */}
-                {!isOwner && !isMe && (
+                {/* Retirer — seulement pour l'owner, sur les membres non-owner */}
+                {amIOwner && !isOwner && !isMe && (
                   <button
                     onClick={() => removeMember(m.user_id, m.email)}
                     className="shrink-0 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
