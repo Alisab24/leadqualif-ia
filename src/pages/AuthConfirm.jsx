@@ -29,46 +29,64 @@ async function applyProfileAfterConfirm() {
     const invitedRole     = meta.invited_role || 'agent'
     const invitationId    = meta.invitation_id || null
 
+    // ── Vérifier le profil existant (lecture complète incl. abonnement) ─────
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('user_id, agency_id, role, subscription_status, subscription_plan, stripe_subscription_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // ── Décider si une mise à jour est nécessaire ────────────────────────────
+    // Cas 1 : nouveau profil (jamais créé)
+    // Cas 2 : membre invité dont l'agency_id est encore son user_id (erreur de création)
+    const isNewProfile      = !existing
+    const isInviteNotLinked = !!(invitedAgencyId && existing?.agency_id === user.id)
+    const needsUpdate       = isNewProfile || isInviteNotLinked
+
+    if (!needsUpdate) {
+      console.log('[AuthConfirm] Profil déjà correct, aucune modification:', existing)
+      return
+    }
+
     // ── Construire le payload de profil ─────────────────────────────────────
     const profilePayload = {
-      user_id:    user.id,
-      email:      user.email,
+      user_id:     user.id,
+      email:       user.email,
       nom_complet: meta.full_name || user.email,
-      agency_id:  invitedAgencyId || user.id,  // membre → agence du propriétaire | owner → soi-même
-      role:       invitedAgencyId ? invitedRole : 'owner',
+      agency_id:   invitedAgencyId || user.id,  // membre → agence du propriétaire | owner → soi-même
+      role:        invitedAgencyId ? invitedRole : 'owner',
     }
 
     // Champs spécifiques selon le type de compte
     if (invitedAgencyId) {
+      // Membre invité : pas de champs abonnement (hérite du propriétaire via PlanGuard)
       profilePayload.nom_agence = meta.nom_agence || ''
     } else {
-      profilePayload.nom_agence          = meta.nom_agence || meta.full_name || ''
-      profilePayload.subscription_status = 'inactive'
-      profilePayload.subscription_plan   = 'free'
+      // Propriétaire (owner) : initialiser abonnement UNIQUEMENT si c'est un nouveau profil
+      // → Ne jamais écraser un abonnement actif (trialing / active) déjà en base
+      profilePayload.nom_agence = meta.nom_agence || meta.full_name || ''
+
+      const hasActiveSubscription = existing && (
+        existing.subscription_status === 'trialing' ||
+        existing.subscription_status === 'active'   ||
+        existing.stripe_subscription_id
+      )
+
+      if (!hasActiveSubscription) {
+        // Seulement pour les tout nouveaux comptes sans abonnement
+        profilePayload.subscription_status = 'inactive'
+        profilePayload.subscription_plan   = 'free'
+      }
     }
 
-    // ── Vérifier si le profil existe déjà (sinon upsert) ────────────────────
-    const { data: existing } = await supabase
+    const { error: upsertErr } = await supabase
       .from('profiles')
-      .select('user_id, agency_id, role')
-      .eq('user_id', user.id)
-      .maybeSingle()
+      .upsert([profilePayload], { onConflict: 'user_id' })
 
-    const needsUpdate = !existing || (
-      invitedAgencyId && existing.agency_id === user.id // profil créé avec agency_id = user_id (fallback)
-    )
-
-    if (needsUpdate) {
-      const { error: upsertErr } = await supabase
-        .from('profiles')
-        .upsert([profilePayload], { onConflict: 'user_id' })
-      if (upsertErr) {
-        console.error('[AuthConfirm] Erreur upsert profil:', upsertErr.message)
-      } else {
-        console.log('[AuthConfirm] Profil créé/mis à jour:', profilePayload)
-      }
+    if (upsertErr) {
+      console.error('[AuthConfirm] Erreur upsert profil:', upsertErr.message)
     } else {
-      console.log('[AuthConfirm] Profil déjà correct:', existing)
+      console.log('[AuthConfirm] Profil créé/mis à jour:', profilePayload)
     }
 
     // ── Marquer l'invitation comme acceptée ─────────────────────────────────
