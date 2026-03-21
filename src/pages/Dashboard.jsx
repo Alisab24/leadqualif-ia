@@ -518,8 +518,7 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // ── Filet de sécurité : invitation non appliquée (profil manquant / agency_id=user_id) ──
-      // Si les user_metadata contiennent invited_agency_id, corriger le profil maintenant
+      // ── Filet de sécurité 1 : invitation via user_metadata (nouveaux comptes) ──────────────
       const meta = user.user_metadata || {};
       const invitedAgencyId = meta.invited_agency_id || null;
       if (invitedAgencyId) {
@@ -538,12 +537,50 @@ export default function Dashboard() {
           };
           const { error: fixErr } = await supabase
             .from('profiles').upsert([fixPayload], { onConflict: 'user_id' });
-          if (fixErr) console.error('[Dashboard] Erreur fix invitation:', fixErr.message);
-          // Marquer invitation comme acceptée
+          if (fixErr) console.error('[Dashboard] Erreur fix invitation (meta):', fixErr.message);
           if (meta.invitation_id) {
             await supabase.from('agency_invitations')
               .update({ status: 'accepted', accepted_at: new Date().toISOString() })
               .eq('id', meta.invitation_id);
+          }
+        }
+      }
+
+      // ── Filet de sécurité 2 : invitation par email (comptes existants) ────────────────────
+      // Pour les utilisateurs qui avaient déjà un compte et ont accepté via /login?invite=...
+      // mais dont le profil n'a pas encore été lié (agency_id = user_id)
+      if (!invitedAgencyId) {
+        const { data: existingP2 } = await supabase
+          .from('profiles').select('user_id, agency_id').eq('user_id', user.id).maybeSingle();
+        const notLinked = !existingP2 || !existingP2.agency_id || existingP2.agency_id === user.id;
+        if (notLinked) {
+          // Chercher une invitation en attente pour cet email
+          const { data: pendingInv } = await supabase
+            .from('agency_invitations')
+            .select('id, agency_id, role')
+            .eq('email', user.email.toLowerCase())
+            .eq('status', 'pending')
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (pendingInv) {
+            console.log('[Dashboard] Invitation en attente trouvée par email → application…');
+            const invPayload = {
+              user_id:   user.id,
+              email:     user.email,
+              agency_id: pendingInv.agency_id,
+              role:      pendingInv.role || 'agent',
+            };
+            const { error: invFixErr } = await supabase
+              .from('profiles').upsert([invPayload], { onConflict: 'user_id' });
+            if (!invFixErr) {
+              await supabase.from('agency_invitations')
+                .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+                .eq('id', pendingInv.id);
+            } else {
+              console.error('[Dashboard] Erreur fix invitation (email):', invFixErr.message);
+            }
           }
         }
       }

@@ -29,13 +29,67 @@ export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const returnTo = searchParams.get('returnTo') || ''
+  const returnTo    = searchParams.get('returnTo') || ''
+  const inviteToken = searchParams.get('invite')   || null
   const planFromReturn = returnTo.match(/plan=([^&]+)/)?.[1]
   const planInfo = planFromReturn ? PLAN_INFO[planFromReturn] : null
 
-  const signupLink = returnTo
-    ? `/signup?returnTo=${searchParams.get('returnTo')}`
-    : '/signup'
+  const signupLink = inviteToken
+    ? `/signup?invite=${inviteToken}`
+    : returnTo
+      ? `/signup?returnTo=${searchParams.get('returnTo')}`
+      : '/signup'
+
+  // ── Appliquer une invitation sur un compte existant ──────────────
+  const applyInvitationAfterLogin = async (userId, userEmail) => {
+    if (!inviteToken) return
+    try {
+      // 1. Charger l'invitation par token
+      const { data: inv, error: invErr } = await supabase
+        .from('agency_invitations')
+        .select('id, agency_id, role, email, status, expires_at')
+        .eq('token', inviteToken)
+        .maybeSingle()
+
+      if (invErr || !inv) { console.warn('[Login] Invitation introuvable:', inviteToken); return }
+      if (inv.status !== 'pending') { console.warn('[Login] Invitation déjà traitée:', inv.status); return }
+      if (new Date(inv.expires_at) < new Date()) { console.warn('[Login] Invitation expirée'); return }
+
+      // 2. Lire le profil actuel
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('user_id, agency_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      // Déjà lié à une autre agence → ne pas écraser
+      const alreadyLinked = existing?.agency_id && existing.agency_id !== userId
+      if (alreadyLinked) { console.log('[Login] Profil déjà lié à une agence'); return }
+
+      // 3. Mettre à jour / créer le profil avec la bonne agency
+      const profilePayload = {
+        user_id:    userId,
+        email:      userEmail,
+        agency_id:  inv.agency_id,
+        role:       inv.role || 'agent',
+        nom_agence: '',
+      }
+      const { error: upsertErr } = await supabase
+        .from('profiles')
+        .upsert([profilePayload], { onConflict: 'user_id' })
+      if (upsertErr) { console.error('[Login] Erreur upsert profil invitation:', upsertErr.message); return }
+
+      // 4. Marquer l'invitation comme acceptée
+      await supabase
+        .from('agency_invitations')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('id', inv.id)
+
+      console.log('[Login] Invitation appliquée avec succès → agency_id:', inv.agency_id)
+    } catch (err) {
+      console.error('[Login] applyInvitationAfterLogin:', err)
+    }
+  }
 
   // ── LOGIN ──────────────────────────────────
   const handleLogin = async (e) => {
@@ -43,7 +97,7 @@ export default function Login() {
     setError('')
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       const friendly = Object.entries(ERROR_MESSAGES).find(([k]) =>
@@ -52,6 +106,10 @@ export default function Login() {
       setError(friendly ? friendly[1] : error.message)
       setLoading(false)
     } else {
+      // Si un token d'invitation est présent, l'appliquer avant de rediriger
+      if (inviteToken && data?.user) {
+        await applyInvitationAfterLogin(data.user.id, data.user.email)
+      }
       navigate(returnTo ? decodeURIComponent(returnTo) : '/app')
     }
   }
