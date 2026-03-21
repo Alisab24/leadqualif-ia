@@ -197,7 +197,30 @@ export default function Layout() {
 
   const fetchProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle();
-    if (data) setProfile(data);
+    if (!data) return;
+
+    // Si c'est un membre (agency_id ≠ user_id), récupérer le nom/logo de l'agence du propriétaire
+    const isMember = data.agency_id && data.agency_id !== userId;
+    if (isMember) {
+      const { data: ownerProfile } = await supabase
+        .from('profiles')
+        .select('nom_agence, logo_url, couleur_primaire, couleur_secondaire, type_agence')
+        .eq('user_id', data.agency_id)
+        .maybeSingle();
+      if (ownerProfile) {
+        // Injecter les infos agence du propriétaire dans le profil affiché
+        setProfile({
+          ...data,
+          nom_agence:        ownerProfile.nom_agence        || data.nom_agence,
+          logo_url:          ownerProfile.logo_url          || data.logo_url,
+          couleur_primaire:  ownerProfile.couleur_primaire  || data.couleur_primaire,
+          couleur_secondaire:ownerProfile.couleur_secondaire|| data.couleur_secondaire,
+          type_agence:       ownerProfile.type_agence       || data.type_agence,
+        });
+        return;
+      }
+    }
+    setProfile(data);
   };
 
   const handleLogout = async () => {
@@ -396,9 +419,13 @@ export default function Layout() {
                     {/* Rôle */}
                     <div className="flex items-center gap-2.5 text-xs text-slate-300">
                       <span className="w-4 text-center">👤</span>
-                      <span className="capitalize">{profile?.role || 'admin'}</span>
-                      <span className="ml-auto px-1.5 py-0.5 bg-indigo-600/40 text-indigo-300 text-[10px] font-semibold rounded-full">
-                        {profile?.role === 'agent' ? 'Agent' : 'Administrateur'}
+                      <span className="capitalize">{profile?.role || 'owner'}</span>
+                      <span className={`ml-auto px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
+                        profile?.role === 'owner' ? 'bg-amber-600/40 text-amber-300'
+                        : profile?.role === 'admin' ? 'bg-blue-600/40 text-blue-300'
+                        : 'bg-indigo-600/40 text-indigo-300'
+                      }`}>
+                        {profile?.role === 'owner' ? 'Propriétaire' : profile?.role === 'admin' ? 'Admin' : 'Agent'}
                       </span>
                     </div>
                     {/* Plan */}
