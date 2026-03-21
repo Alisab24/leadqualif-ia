@@ -468,6 +468,7 @@ export default function Settings() {
   const [saving, setSaving]       = useState(false);
   const [userId, setUserId]       = useState(null);
   const [userEmail, setUserEmail] = useState('');
+  const [userRole, setUserRole]   = useState('owner'); // 'owner' | 'admin' | 'agent'
   const [activeTab, setActiveTab] = useState('general');
   const [toast, setToast]         = useState(null);
 
@@ -535,6 +536,16 @@ export default function Settings() {
       setActiveTab('facturation');
     }
   }, []);
+
+  // Réinitialiser l'onglet actif si le rôle ne l'autorise pas
+  useEffect(() => {
+    if (!loading && userRole) {
+      const allowed = { owner: ['general','visuel','form','legal','crm','equipe','facturation'], admin: ['form','crm'], agent: [] }[userRole] ?? [];
+      if (allowed.length > 0 && !allowed.includes(activeTab)) {
+        setActiveTab(allowed[0]);
+      }
+    }
+  }, [userRole, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-checkout depuis landing
   useEffect(() => {
@@ -648,7 +659,7 @@ export default function Settings() {
       // Sélectionner uniquement les colonnes nécessaires (évite de charger des données massives)
       const { data, error } = await supabase
         .from('profiles')
-        .select('nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,signature_url,ville_agence,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
+        .select('role,nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,signature_url,ville_agence,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -657,6 +668,10 @@ export default function Settings() {
       }
 
       if (data) {
+        // Stocker le rôle pour filtrer les onglets visibles
+        const role = data.role || 'owner';
+        setUserRole(role);
+
         // Profil existant → charger les données avec sanitisation défensive
         setFormData({
           nom_agence: data.nom_agence || '',
@@ -890,8 +905,21 @@ export default function Settings() {
 
   const isImmo = formData.type_agence === 'immobilier';
 
+  /* ── Permissions par rôle ──────────────────────────────────────────────────
+   *  owner : accès complet à tout
+   *  admin : Formulaire IA + CRM (pixels, statuts) — pas d'infos agence/légal
+   *  agent : aucun accès aux Paramètres → redirigé vers /dashboard
+   * ──────────────────────────────────────────────────────────────────────── */
+  const TABS_BY_ROLE = {
+    owner: ['general', 'visuel', 'form', 'legal', 'crm', 'equipe', 'facturation'],
+    admin: ['form', 'crm'],
+    agent: [],
+  };
+  const allowedTabs = TABS_BY_ROLE[userRole] ?? TABS_BY_ROLE.owner;
+  const isReadOnly  = false; // tous les onglets accessibles sont éditables
+
   /* ── Onglets ───────────────────── */
-  const TABS = [
+  const ALL_TABS = [
     { key: 'general',     icon: '🏢', label: 'Agence' },
     { key: 'visuel',      icon: '🎨', label: 'Apparence' },
     { key: 'form',        icon: '🤖', label: 'Formulaire IA' },
@@ -900,6 +928,7 @@ export default function Settings() {
     { key: 'equipe',      icon: '👥', label: 'Équipe' },
     { key: 'facturation', icon: '💳', label: 'Abonnement' },
   ];
+  const TABS = ALL_TABS.filter(t => allowedTabs.includes(t.key));
 
   /* ── Loading ───────────────────── */
   if (loading) return (
@@ -907,6 +936,26 @@ export default function Settings() {
       <div className="text-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3" />
         <p className="text-sm">Chargement des paramètres…</p>
+      </div>
+    </div>
+  );
+
+  /* ── Accès refusé — agent ───────── */
+  if (userRole === 'agent') return (
+    <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="bg-white rounded-2xl shadow-lg p-10 max-w-sm w-full text-center">
+        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Accès restreint</h2>
+        <p className="text-slate-500 text-sm mb-6">
+          Les paramètres sont réservés au propriétaire et aux administrateurs de l'agence.
+          En tant qu'agent, vous gérez les leads, le closing et l'envoi de documents.
+        </p>
+        <a href="/dashboard"
+          className="block w-full py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors">
+          Retour au tableau de bord
+        </a>
       </div>
     </div>
   );
@@ -925,14 +974,17 @@ export default function Settings() {
             <span className="text-xl shrink-0">⚙️</span>
             <div className="min-w-0">
               <h1 className="text-base font-bold text-slate-900 truncate">Paramètres</h1>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-xs text-slate-400 truncate flex items-center gap-2">
                 {formData.nom_agence || 'Agence'} · {isImmo ? '🏠 Immobilier' : '📱 SMMA'}
+                {userRole === 'admin' && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-200">Admin</span>
+                )}
               </p>
             </div>
           </div>
 
-          {/* Save button — sticky dans le header */}
-          {activeTab !== 'facturation' && activeTab !== 'equipe' && (
+          {/* Save button — visible uniquement pour les onglets éditables */}
+          {activeTab !== 'facturation' && activeTab !== 'equipe' && allowedTabs.includes(activeTab) && (
             <button
               onClick={handleSave}
               disabled={saving}
