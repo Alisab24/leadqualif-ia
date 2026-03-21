@@ -295,67 +295,36 @@ export default function Layout() {
 
         {/* ── En-tête logo + bouton pin ── */}
         <div className="h-16 flex items-center px-3 border-b border-white/5 bg-black/20 shrink-0">
-
-          {/* ── CAS 1 : Agence avec logo personnalisé ── */}
-          {profile?.logo_url ? (
-            <>
-              <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center overflow-hidden"
-                style={{ background: 'transparent' }}>
-                <img src={profile.logo_url} alt="logo" className="w-full h-full object-contain rounded-xl"
-                  onError={e => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.style.background = 'linear-gradient(135deg,#2563eb,#4f46e5)';
-                    e.target.parentElement.innerText = profile?.nom_agence?.charAt(0)?.toUpperCase() || 'N';
-                  }} />
-              </div>
-              <div className={`ml-3 flex items-center justify-between flex-1 overflow-hidden transition-all duration-300 ${
-                expanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
-              }`}>
-                <div className="overflow-hidden">
-                  <p className="text-sm font-bold text-white truncate leading-tight">
-                    {profile?.nom_agence || 'Mon agence'}
-                  </p>
-                  <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 ${badge.cls}`}>
-                    {badge.label}
-                  </span>
-                </div>
-                <button onClick={togglePin} title={pinned ? 'Réduire' : 'Épingler'}
-                  className="ml-2 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0">
-                  {Icons.pin(pinned)}
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* ── CAS 2 : Pas de logo agence → branding NexaPro ── */}
-              {/* Sidebar FERMÉE : icône seule */}
-              <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-300 ${
-                expanded ? 'opacity-0 w-0 absolute' : 'opacity-100'
-              }`}>
-                <img src="/brand/nexapro_icon.svg" alt="NexaPro"
-                  className="w-full h-full object-contain"
-                  onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerText = 'N'; }} />
-              </div>
-
-              {/* Sidebar OUVERTE : logo horizontal blanc */}
-              <div className={`flex items-center justify-between flex-1 overflow-hidden transition-all duration-300 ${
-                expanded ? 'opacity-100' : 'opacity-0 w-0 absolute'
-              }`}>
-                <img src="/brand/nexapro_logo_white.svg" alt="NexaPro"
-                  className="h-8 w-auto object-contain"
+          {/* Logo / initiale agence cliente */}
+          <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center font-bold text-white shadow-lg text-base overflow-hidden"
+            style={{ background: profile?.couleur_primaire || 'linear-gradient(135deg,#2563eb,#4f46e5)' }}>
+            {profile?.logo_url
+              ? <img src={profile.logo_url} alt="logo" className="w-full h-full object-contain"
                   onError={e => { e.target.style.display = 'none'; }} />
-                <div className="flex items-center gap-1 ml-2">
-                  <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badge.cls}`}>
-                    {badge.label}
-                  </span>
-                  <button onClick={togglePin} title={pinned ? 'Réduire' : 'Épingler'}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0">
-                    {Icons.pin(pinned)}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+              : (profile?.nom_agence?.charAt(0)?.toUpperCase() || 'N')
+            }
+          </div>
+
+          {/* Nom agence + bouton pin */}
+          <div className={`ml-3 flex items-center justify-between flex-1 overflow-hidden transition-all duration-300 ${
+            expanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+          }`}>
+            <div className="overflow-hidden">
+              <p className="text-sm font-bold text-white truncate leading-tight">
+                {profile?.nom_agence || 'Mon agence'}
+              </p>
+              <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 ${badge.cls}`}>
+                {badge.label}
+              </span>
+            </div>
+            <button
+              onClick={togglePin}
+              title={pinned ? 'Réduire' : 'Épingler'}
+              className="ml-2 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            >
+              {Icons.pin(pinned)}
+            </button>
+          </div>
         </div>
 
         {/* ── Navigation ── */}

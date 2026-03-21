@@ -112,10 +112,10 @@ export default function ResetPassword() {
       <div className="relative w-full max-w-md">
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
-            <img src="/brand/nexapro_logo_white.svg" alt="NexaPro" className="h-12 w-auto object-contain drop-shadow-lg"
-              onError={e => { e.target.style.display = 'none'; }} />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 mb-4">
+            <Zap size={24} className="text-white" />
           </div>
+          <h1 className="text-2xl font-bold text-white mb-1">LeadQualif IA</h1>
           <p className="text-slate-400 text-sm">Réinitialisation du mot de passe</p>
         </div>
 

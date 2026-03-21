@@ -12,6 +12,79 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
+/**
+ * Après confirmation email, crée/met à jour le profil utilisateur.
+ * Gère le cas des membres invités : agency_id + rôle issus de user_metadata.
+ */
+async function applyProfileAfterConfirm() {
+  try {
+    const { data: { user }, error: userErr } = await supabase.auth.getUser()
+    if (userErr || !user) return
+    console.log('[AuthConfirm] user confirmé:', user.id, 'metadata:', user.user_metadata)
+
+    const meta = user.user_metadata || {}
+
+    // ── Détecter si c'est un membre invité ──────────────────────────────────
+    const invitedAgencyId = meta.invited_agency_id || null
+    const invitedRole     = meta.invited_role || 'agent'
+    const invitationId    = meta.invitation_id || null
+
+    // ── Construire le payload de profil ─────────────────────────────────────
+    const profilePayload = {
+      user_id:    user.id,
+      email:      user.email,
+      nom_complet: meta.full_name || user.email,
+      agency_id:  invitedAgencyId || user.id,  // membre → agence du propriétaire | owner → soi-même
+      role:       invitedAgencyId ? invitedRole : 'owner',
+    }
+
+    // Champs spécifiques selon le type de compte
+    if (invitedAgencyId) {
+      profilePayload.nom_agence = meta.nom_agence || ''
+    } else {
+      profilePayload.nom_agence          = meta.nom_agence || meta.full_name || ''
+      profilePayload.subscription_status = 'inactive'
+      profilePayload.subscription_plan   = 'free'
+    }
+
+    // ── Vérifier si le profil existe déjà (sinon upsert) ────────────────────
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('user_id, agency_id, role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const needsUpdate = !existing || (
+      invitedAgencyId && existing.agency_id === user.id // profil créé avec agency_id = user_id (fallback)
+    )
+
+    if (needsUpdate) {
+      const { error: upsertErr } = await supabase
+        .from('profiles')
+        .upsert([profilePayload], { onConflict: 'user_id' })
+      if (upsertErr) {
+        console.error('[AuthConfirm] Erreur upsert profil:', upsertErr.message)
+      } else {
+        console.log('[AuthConfirm] Profil créé/mis à jour:', profilePayload)
+      }
+    } else {
+      console.log('[AuthConfirm] Profil déjà correct:', existing)
+    }
+
+    // ── Marquer l'invitation comme acceptée ─────────────────────────────────
+    if (invitationId) {
+      const { error: invErr } = await supabase
+        .from('agency_invitations')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('id', invitationId)
+      if (invErr) console.warn('[AuthConfirm] Erreur mise à jour invitation:', invErr.message)
+      else console.log('[AuthConfirm] Invitation acceptée:', invitationId)
+    }
+  } catch (err) {
+    console.error('[AuthConfirm] applyProfileAfterConfirm:', err)
+  }
+}
+
 export default function AuthConfirm() {
   const navigate  = useNavigate()
   const [status, setStatus]   = useState('loading') // 'loading' | 'success' | 'error'
@@ -36,11 +109,12 @@ export default function AuthConfirm() {
     const type      = qParams.get('type')
     if (tokenHash && type) {
       supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-        .then(({ error }) => {
+        .then(async ({ error }) => {
           if (error) {
             setMessage(error.message || 'Lien invalide ou expiré.')
             setStatus('error')
           } else {
+            await applyProfileAfterConfirm()
             setStatus('success')
             setTimeout(() => navigate('/dashboard', { replace: true }), 2500)
           }
@@ -51,8 +125,9 @@ export default function AuthConfirm() {
     /* ── Cas 3 : ancienne API (access_token dans le hash) ── */
     if (hash.includes('access_token')) {
       // Le SDK Supabase lit automatiquement le hash au getSession()
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
+      supabase.auth.getSession().then(async ({ data: { session }, error }) => {
         if (session) {
+          await applyProfileAfterConfirm()
           setStatus('success')
           setTimeout(() => navigate('/dashboard', { replace: true }), 2500)
         } else {

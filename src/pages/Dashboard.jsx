@@ -517,13 +517,44 @@ export default function Dashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // ── Filet de sécurité : invitation non appliquée (profil manquant / agency_id=user_id) ──
+      // Si les user_metadata contiennent invited_agency_id, corriger le profil maintenant
+      const meta = user.user_metadata || {};
+      const invitedAgencyId = meta.invited_agency_id || null;
+      if (invitedAgencyId) {
+        const { data: existingP } = await supabase
+          .from('profiles').select('user_id, agency_id, role').eq('user_id', user.id).maybeSingle();
+        const alreadyLinked = existingP?.agency_id && existingP.agency_id !== user.id;
+        if (!alreadyLinked) {
+          console.log('[Dashboard] Application de l\'invitation depuis user_metadata…');
+          const fixPayload = {
+            user_id:    user.id,
+            email:      user.email,
+            nom_complet: meta.full_name || user.email,
+            agency_id:  invitedAgencyId,
+            role:       meta.invited_role || 'agent',
+            nom_agence: meta.nom_agence || '',
+          };
+          const { error: fixErr } = await supabase
+            .from('profiles').upsert([fixPayload], { onConflict: 'user_id' });
+          if (fixErr) console.error('[Dashboard] Erreur fix invitation:', fixErr.message);
+          // Marquer invitation comme acceptée
+          if (meta.invitation_id) {
+            await supabase.from('agency_invitations')
+              .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+              .eq('id', meta.invitation_id);
+          }
+        }
+      }
+
       const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .single();
       if (error) {
-        setAgencyProfile({ type_agence: 'immobilier', agency_id: 'default' });
+        setAgencyProfile({ type_agence: 'immobilier', agency_id: user.id });
       } else {
         setAgencyProfile(profileData);
         setAgencyType(profileData.type_agence || 'immobilier');
