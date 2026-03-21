@@ -29,13 +29,16 @@ GRANT EXECUTE ON FUNCTION get_my_agency_id TO anon;
 -- Les anciennes policies avec sous-requête auto-référente
 -- peuvent causer une récursion infinie → lecture bloquée.
 
--- Supprimer TOUTES les policies existantes sur profiles
+-- Supprimer TOUTES les policies existantes sur profiles (idempotent)
 DROP POLICY IF EXISTS "Users can view profiles from their agency" ON profiles;
 DROP POLICY IF EXISTS "Users can update their own profile"        ON profiles;
 DROP POLICY IF EXISTS "profiles_self_read"                        ON profiles;
 DROP POLICY IF EXISTS "profiles_agency_read"                      ON profiles;
 DROP POLICY IF EXISTS "profiles_self_write"                       ON profiles;
 DROP POLICY IF EXISTS "profiles_self_update"                      ON profiles;
+DROP POLICY IF EXISTS "profiles_own_read"                         ON profiles;
+DROP POLICY IF EXISTS "profiles_own_insert"                       ON profiles;
+DROP POLICY IF EXISTS "profiles_own_update"                       ON profiles;
 
 -- S'assurer que RLS est activé
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
