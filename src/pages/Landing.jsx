@@ -228,12 +228,8 @@ export default function Landing() {
       {/* ── Navigation ─────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Brain size={22} className="text-white" />
-            </div>
-            <span className="text-xl font-bold text-gray-900">LeadQualif</span>
-            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-semibold">IA</span>
+          <div className="flex items-center">
+            <img src="/brand/nexapro_logo_horizontal.svg" alt="NexaPro" className="h-10 w-auto object-contain" />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
             <a href="#fonctionnalites" className="hover:text-blue-600 transition">Fonctionnalités</a>
@@ -675,11 +671,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-10">
             <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Brain size={20} className="text-white" />
-              </div>
-              <span className="text-lg font-bold">LeadQualif</span>
-              <span className="bg-blue-900 text-blue-300 text-xs px-2 py-0.5 rounded-full">IA</span>
+              <img src="/brand/nexapro_logo_white.svg" alt="NexaPro" className="h-9 w-auto object-contain" />
             </div>
             <div className="flex flex-wrap gap-6 text-sm text-gray-400">
               <a href="#fonctionnalites" className="hover:text-white transition">Fonctionnalités</a>
@@ -689,7 +681,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-            <span>© {new Date().getFullYear()} LeadQualif — Tous droits réservés</span>
+            <span>© {new Date().getFullYear()} NexaPro — Tous droits réservés</span>
             <div className="flex gap-6">
               <a href="/mentions-legales.html" className="hover:text-white transition">Mentions légales</a>
               <a href="/cgu.html" className="hover:text-white transition">CGU</a>

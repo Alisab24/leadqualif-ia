@@ -6,8 +6,8 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* NAV */}
       <nav className="flex justify-between items-center p-6 max-w-7xl mx-auto">
-        <div className="text-2xl font-bold text-blue-600 flex items-center gap-2">
-          ✨ LeadQualif IA
+        <div className="flex items-center">
+          <img src="/brand/nexapro_logo_horizontal.svg" alt="NexaPro" className="h-10 w-auto object-contain" />
         </div>
         <div className="flex gap-4">
           <Link to="/login" className="text-slate-600 hover:text-blue-600 font-medium px-4 py-2">Connexion</Link>
@@ -139,16 +139,16 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="bg-slate-950 py-12 text-slate-400 text-sm">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div>
-            <span className="font-bold text-white text-lg">LeadQualif IA</span>
-            <p className="mt-2">Le CRM immobilier nouvelle génération.</p>
+          <div className="flex flex-col items-start gap-2">
+            <img src="/brand/nexapro_logo_white.svg" alt="NexaPro" className="h-8 w-auto object-contain" />
+            <p className="mt-1">Le CRM immobilier nouvelle génération.</p>
           </div>
           <div className="flex gap-6">
             <span>🔒 Paiement Sécurisé (Stripe)</span>
             <span>🇪🇺 Hébergé en Europe (RGPD)</span>
           </div>
           <div>
-            © 2026 LeadQualif. Tous droits réservés.
+            © 2026 NexaPro. Tous droits réservés.
           </div>
         </div>
       </footer>

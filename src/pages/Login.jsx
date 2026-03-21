@@ -86,10 +86,16 @@ export default function Login() {
 
         {/* Logo + titre */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 mb-4">
-            <Zap size={28} className="text-white" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img
+              src="/brand/nexapro_logo_white.svg"
+              alt="NexaPro"
+              className="h-14 w-auto object-contain drop-shadow-lg"
+              onError={e => {
+                e.target.style.display = 'none';
+              }}
+            />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">LeadQualif IA</h1>
           <p className="text-slate-400 text-sm">CRM intelligent pour agences SMMA & Immo</p>
         </div>
 
