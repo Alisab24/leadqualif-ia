@@ -5,9 +5,157 @@
  *
  * Fix : useParams() lit 'agencyId' (= nom du param dans App.jsx)
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useParams } from 'react-router-dom';
+
+/* ── Liste des pays avec indicatif ── */
+const COUNTRIES = [
+  { code: 'FR', flag: '🇫🇷', name: 'France',               dial: '+33'  },
+  { code: 'BE', flag: '🇧🇪', name: 'Belgique',             dial: '+32'  },
+  { code: 'CH', flag: '🇨🇭', name: 'Suisse',               dial: '+41'  },
+  { code: 'LU', flag: '🇱🇺', name: 'Luxembourg',           dial: '+352' },
+  { code: 'MC', flag: '🇲🇨', name: 'Monaco',               dial: '+377' },
+  { code: 'MA', flag: '🇲🇦', name: 'Maroc',                dial: '+212' },
+  { code: 'DZ', flag: '🇩🇿', name: 'Algérie',              dial: '+213' },
+  { code: 'TN', flag: '🇹🇳', name: 'Tunisie',              dial: '+216' },
+  { code: 'SN', flag: '🇸🇳', name: 'Sénégal',              dial: '+221' },
+  { code: 'CI', flag: '🇨🇮', name: "Côte d'Ivoire",        dial: '+225' },
+  { code: 'CM', flag: '🇨🇲', name: 'Cameroun',             dial: '+237' },
+  { code: 'GA', flag: '🇬🇦', name: 'Gabon',                dial: '+241' },
+  { code: 'CG', flag: '🇨🇬', name: 'Congo',                dial: '+242' },
+  { code: 'CD', flag: '🇨🇩', name: 'RD Congo',             dial: '+243' },
+  { code: 'MG', flag: '🇲🇬', name: 'Madagascar',           dial: '+261' },
+  { code: 'RE', flag: '🇷🇪', name: 'La Réunion',           dial: '+262' },
+  { code: 'MU', flag: '🇲🇺', name: 'Maurice',              dial: '+230' },
+  { code: 'GP', flag: '🇬🇵', name: 'Guadeloupe',           dial: '+590' },
+  { code: 'MQ', flag: '🇲🇶', name: 'Martinique',           dial: '+596' },
+  { code: 'GF', flag: '🇬🇫', name: 'Guyane française',     dial: '+594' },
+  { code: 'NC', flag: '🇳🇨', name: 'Nouvelle-Calédonie',   dial: '+687' },
+  { code: 'PF', flag: '🇵🇫', name: 'Polynésie française',  dial: '+689' },
+  { code: 'GB', flag: '🇬🇧', name: 'Royaume-Uni',          dial: '+44'  },
+  { code: 'DE', flag: '🇩🇪', name: 'Allemagne',            dial: '+49'  },
+  { code: 'ES', flag: '🇪🇸', name: 'Espagne',              dial: '+34'  },
+  { code: 'IT', flag: '🇮🇹', name: 'Italie',               dial: '+39'  },
+  { code: 'PT', flag: '🇵🇹', name: 'Portugal',             dial: '+351' },
+  { code: 'NL', flag: '🇳🇱', name: 'Pays-Bas',             dial: '+31'  },
+  { code: 'US', flag: '🇺🇸', name: 'États-Unis',           dial: '+1'   },
+  { code: 'CA', flag: '🇨🇦', name: 'Canada',               dial: '+1'   },
+  { code: 'BR', flag: '🇧🇷', name: 'Brésil',               dial: '+55'  },
+  { code: 'AE', flag: '🇦🇪', name: 'Émirats arabes unis',  dial: '+971' },
+  { code: 'SA', flag: '🇸🇦', name: 'Arabie saoudite',      dial: '+966' },
+  { code: 'QA', flag: '🇶🇦', name: 'Qatar',                dial: '+974' },
+  { code: 'SG', flag: '🇸🇬', name: 'Singapour',            dial: '+65'  },
+  { code: 'AU', flag: '🇦🇺', name: 'Australie',            dial: '+61'  },
+];
+
+/* ── Composant sélecteur téléphone avec indicatif pays ── */
+function PhoneInput({ onChange, inputCls }) {
+  const [open, setOpen]       = useState(false);
+  const [search, setSearch]   = useState('');
+  const [country, setCountry] = useState(COUNTRIES[0]); // France par défaut
+  const [local, setLocal]     = useState('');
+  const wrapRef = useRef(null);
+
+  // Sync valeur complète vers parent dès que pays ou numéro change
+  useEffect(() => {
+    const digits = local.trim().replace(/^0/, '').replace(/\s/g, '');
+    const full   = digits ? `${country.dial}${digits}` : '';
+    onChange(full);
+  }, [country, local]);
+
+  // Fermer dropdown si clic extérieur
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = COUNTRIES.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.dial.includes(search) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const preview = local.trim()
+    ? `${country.dial}${local.trim().replace(/^0/, '').replace(/\s/g, '')}`
+    : null;
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      {/* Champ principal */}
+      <div className="flex items-stretch border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-400 focus-within:border-transparent bg-white">
+        {/* Bouton pays */}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-50 border-r border-slate-200 hover:bg-slate-100 transition-colors shrink-0"
+        >
+          <span className="text-lg leading-none">{country.flag}</span>
+          <span className="text-xs font-bold text-slate-600 font-mono">{country.dial}</span>
+          <svg className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {/* Numéro local */}
+        <input
+          type="tel"
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          placeholder="6 12 34 56 78"
+          className="flex-1 py-2.5 px-3 bg-transparent outline-none text-sm text-slate-800 placeholder-slate-400"
+          required
+        />
+      </div>
+
+      {/* Aperçu format WhatsApp */}
+      {preview && (
+        <p className="text-xs text-slate-400 mt-1 pl-1">
+          Indicatif sélectionné : <span className="font-semibold text-slate-500">{country.dial}</span>
+          {' · '}sera enregistré comme{' '}
+          <span className="font-bold text-slate-700">{preview}</span>
+        </p>
+      )}
+
+      {/* Dropdown liste des pays */}
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <input
+              autoFocus
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="🔍 Rechercher un pays…"
+              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-400"
+            />
+          </div>
+          <ul className="max-h-60 overflow-y-auto">
+            {filtered.map(c => (
+              <li key={`${c.code}-${c.dial}`}>
+                <button
+                  type="button"
+                  onClick={() => { setCountry(c); setOpen(false); setSearch(''); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-slate-50 transition-colors text-left ${c.code === country.code ? 'bg-blue-50' : ''}`}
+                >
+                  <span className="text-base leading-none">{c.flag}</span>
+                  <span className={`flex-1 text-slate-700 ${c.code === country.code ? 'font-semibold' : ''}`}>{c.name}</span>
+                  <span className="text-slate-400 text-xs font-mono">{c.dial}</span>
+                </button>
+              </li>
+            ))}
+            {filtered.length === 0 && (
+              <li className="px-4 py-3 text-sm text-slate-400 text-center">Aucun résultat</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Estimation() {
   const { agencyId } = useParams(); // ✅ corrigé (était agency_id → toujours undefined)
@@ -335,10 +483,12 @@ export default function Estimation() {
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
-                Téléphone <span className="text-red-500">*</span>
+                Téléphone / WhatsApp <span className="text-red-500">*</span>
               </label>
-              <input className={inputCls} type="tel" name="telephone" value={formData.telephone}
-                onChange={handleChange} placeholder="06 12 34 56 78" required />
+              <PhoneInput
+                inputCls={inputCls}
+                onChange={(val) => setFormData(prev => ({ ...prev, telephone: val }))}
+              />
             </div>
           </div>
 
