@@ -9,6 +9,7 @@
  *  • Quota leads proche (Starter/Free)
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 
 // ── Clé de stockage pour les notifs déjà vues ──
@@ -28,6 +29,7 @@ function markSeen(id) {
 // Hook : construire la liste des notifications
 // ──────────────────────────────────────
 export function useSmartNotifications(agencyId) {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +66,7 @@ export function useSmartNotifications(agencyId) {
           id,
           type: 'warning',
           icon: '🔥',
-          title: `${hotNotContacted.length} lead${hotNotContacted.length > 1 ? 's' : ''} chaud${hotNotContacted.length > 1 ? 's' : ''} non contacté${hotNotContacted.length > 1 ? 's' : ''} depuis 48h`,
+          title: t('alerts.hotLeads', { count: hotNotContacted.length }),
           body: hotNotContacted.slice(0, 3).map(l => l.nom).join(', ') + (hotNotContacted.length > 3 ? ` +${hotNotContacted.length - 3}` : '') + ' — Contactez-les maintenant !',
           action: { label: 'Voir le pipeline', href: '/dashboard' },
           priority: 1,
@@ -92,7 +94,7 @@ export function useSmartNotifications(agencyId) {
           id,
           type: 'alert',
           icon: '⚡',
-          title: `${hotStalledFiltered.length} lead${hotStalledFiltered.length > 1 ? 's' : ''} chaud${hotStalledFiltered.length > 1 ? 's' : ''} sans avancement depuis 48h`,
+          title: t('alerts.hotLeads', { count: hotStalledFiltered.length }),
           body: hotStalledFiltered.slice(0, 3).map(l => `${l.nom} (${l.statut})`).join(', ') + (hotStalledFiltered.length > 3 ? ` +${hotStalledFiltered.length - 3}` : '') + ' — Relancez pour passer en Négociation.',
           action: { label: 'Voir le pipeline', href: '/dashboard' },
           priority: 1,

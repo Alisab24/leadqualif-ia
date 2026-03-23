@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import {
   redirectToCheckout,
@@ -14,6 +15,7 @@ import {
   STATUS_LABELS,
 } from '../services/stripeService';
 import TeamSettings from '../components/TeamSettings';
+import LanguageSelector from '../components/LanguageSelector';
 
 /* ─── Toast interne ──────────────── */
 const Toast = ({ message, type = 'success', onClose }) => (
@@ -464,6 +466,7 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
 
 /* ════════════════════════════════════════════════════════════ */
 export default function Settings() {
+  const { t } = useTranslation();
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
   const [userId, setUserId]       = useState(null);
@@ -920,15 +923,15 @@ export default function Settings() {
 
   /* ── Onglets ───────────────────── */
   const ALL_TABS = [
-    { key: 'general',     icon: '🏢', label: 'Agence' },
-    { key: 'visuel',      icon: '🎨', label: 'Apparence' },
-    { key: 'form',        icon: '🤖', label: 'Formulaire IA' },
-    { key: 'legal',       icon: '📋', label: 'Légal & Documents' },
-    { key: 'crm',         icon: '⚙️', label: 'CRM' },
-    { key: 'equipe',      icon: '👥', label: 'Équipe' },
-    { key: 'facturation', icon: '💳', label: 'Abonnement' },
+    { key: 'general',     icon: '🏢', label: t('settings.tabs.general') },
+    { key: 'visuel',      icon: '🎨', label: t('settings.tabs.visuel') },
+    { key: 'form',        icon: '🤖', label: t('settings.tabs.form') },
+    { key: 'legal',       icon: '📋', label: t('settings.tabs.legal') },
+    { key: 'crm',         icon: '⚙️', label: t('settings.tabs.crm') },
+    { key: 'equipe',      icon: '👥', label: t('settings.tabs.equipe') },
+    { key: 'facturation', icon: '💳', label: t('settings.tabs.facturation') },
   ];
-  const TABS = ALL_TABS.filter(t => allowedTabs.includes(t.key));
+  const TABS = ALL_TABS.filter(tab => allowedTabs.includes(tab.key));
 
   /* ── Loading ───────────────────── */
   if (loading) return (
@@ -1030,6 +1033,11 @@ export default function Settings() {
           {/* ═══ ONGLET AGENCE ════════════════════════ */}
           {activeTab === 'general' && (
             <div className="space-y-6">
+
+              {/* ── Langue de l'interface ── */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <LanguageSelector variant="settings" />
+              </section>
 
               {/* Sélecteur type agence — cartes visuelles */}
               <section className={`bg-white rounded-xl border shadow-sm p-5 ${!formData.type_agence ? 'border-orange-300 ring-2 ring-orange-100' : 'border-slate-100'}`}>

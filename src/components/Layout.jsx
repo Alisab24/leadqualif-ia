@@ -9,8 +9,11 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { usePlanGuard, PLAN_LIMITS } from './PlanGuard';
+import LanguageSelector from './LanguageSelector';
+import { applyLang } from '../i18n';
 
 /* ─── Icônes SVG ─────────────────────────────────────── */
 const Icons = {
@@ -159,6 +162,7 @@ function TrialBannerInline({ plan, trialEnd }) {
 export default function Layout() {
   const location  = useLocation();
   const navigate  = useNavigate();
+  const { t }     = useTranslation();
   const [session, setSession]   = useState(null);
   const [profile, setProfile]   = useState(null);
   const [pinned,  setPinned]    = useState(() => {
@@ -221,6 +225,8 @@ export default function Layout() {
       }
     }
     setProfile(data);
+    // Appliquer la langue persistée dans le profil
+    if (data.lang) applyLang(data.lang);
   };
 
   const handleLogout = async () => {
@@ -352,13 +358,13 @@ export default function Layout() {
 
         {/* ── Navigation ── */}
         <nav className="flex-1 pt-4 overflow-y-auto overflow-x-hidden">
-          <NavItem to="/dashboard" icon={Icons.dashboard} label="Tableau de bord" />
-          <NavItem to="/stats"     icon={Icons.stats}     label="Statistiques" />
-          <NavItem to="/documents" icon={Icons.documents} label="Documents" />
+          <NavItem to="/dashboard" icon={Icons.dashboard} label={t('nav.dashboard')} />
+          <NavItem to="/stats"     icon={Icons.stats}     label={t('nav.stats')} />
+          <NavItem to="/documents" icon={Icons.documents} label={t('nav.documents')} />
 
           <div className="my-3 border-t border-white/5 mx-3" />
 
-          <NavItem to="/settings"  icon={Icons.settings}  label="Paramètres" />
+          <NavItem to="/settings"  icon={Icons.settings}  label={t('nav.settings')} />
         </nav>
 
         {/* ── Profil utilisateur + déconnexion ── */}
@@ -449,7 +455,7 @@ export default function Layout() {
                         <circle cx="12" cy="12" r="3"/>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                       </svg>
-                      Paramètres du compte
+                      {t('nav.accountSettings')}
                     </button>
                     <button
                       onClick={() => { handleLogout(); setShowUserPopup(false); }}
@@ -457,11 +463,18 @@ export default function Layout() {
                         text-xs font-semibold text-red-400 hover:bg-red-500/15 hover:text-red-300 transition-colors text-left"
                     >
                       {Icons.logout}
-                      Déconnexion
+                      {t('nav.logout')}
                     </button>
                   </div>
                 </div>
               </>
+            )}
+
+            {/* ── Sélecteur de langue (visible quand sidebar ouverte) ── */}
+            {expanded && (
+              <div className="px-3 pb-2">
+                <LanguageSelector variant="navbar" />
+              </div>
             )}
 
             {/* ── BARRE BAS : avatar cliquable + logout ── */}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, Zap, CheckCircle, ArrowRight } from 'lucide-react'
@@ -17,6 +18,7 @@ const ERROR_MESSAGES = {
 }
 
 export default function Login() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -166,14 +168,14 @@ export default function Login() {
           {!showForgot ? (
             <>
               <h2 className="text-xl font-semibold text-slate-800 mb-6">
-                {planInfo ? 'Connectez-vous pour continuer' : 'Connexion à votre espace'}
+                {planInfo ? t('auth.loginTitlePlan') : t('auth.loginTitle')}
               </h2>
 
               <form onSubmit={handleLogin} className="space-y-4">
                 {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Email professionnel
+                    {t('auth.email')}
                   </label>
                   <div className="relative">
                     <Mail size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -193,13 +195,13 @@ export default function Login() {
                 {/* Mot de passe */}
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Mot de passe</label>
+                    <label className="block text-sm font-medium text-slate-700">{t('auth.password')}</label>
                     <button
                       type="button"
                       onClick={() => { setShowForgot(true); setForgotEmail(email); setError('') }}
                       className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
                     >
-                      Mot de passe oublié ?
+                      {t('auth.forgotPassword')}
                     </button>
                   </div>
                   <div className="relative">
@@ -238,9 +240,9 @@ export default function Login() {
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 rounded-xl font-semibold text-sm transition-all shadow-md shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
                 >
                   {loading ? (
-                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Connexion...</>
+                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('auth.loggingIn')}</>
                   ) : (
-                    <>{planInfo ? 'Se connecter & choisir mon plan' : 'Se connecter'} <ArrowRight size={16} /></>
+                    <>{planInfo ? t('auth.loginBtn') : t('auth.loginBtn')} <ArrowRight size={16} /></>
                   )}
                 </button>
               </form>
@@ -248,9 +250,9 @@ export default function Login() {
               {/* Footer */}
               <div className="mt-6 pt-5 border-t border-slate-100 text-center">
                 <p className="text-slate-500 text-sm">
-                  Pas encore de compte ?{' '}
+                  {t('auth.noAccount')}{' '}
                   <Link to={signupLink} className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
-                    Créer une agence gratuitement →
+                    {t('auth.signup')} →
                   </Link>
                 </p>
               </div>

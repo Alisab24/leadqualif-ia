@@ -6,9 +6,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 import DocumentGenerator from './DocumentGenerator'
+import { tPipelineLabel, tScore } from '../i18n'
 
 /* ─── Helpers WhatsApp ────────────────────────────────────── */
 const toWAPhone = (raw = '') => {
@@ -61,9 +63,9 @@ const fmt = {
 }
 
 const SCORE_STYLE = (s) => {
-  if (s >= 70) return { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Chaud 🔥' }
-  if (s >= 40) return { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: 'Tiède 🌤' }
-  return         { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: 'Froid ❄️' }
+  if (s >= 70) return { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: tScore(s) }
+  if (s >= 40) return { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: tScore(s) }
+  return         { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: tScore(s) }
 }
 
 const QUALIFICATION_COLOR = {
@@ -109,6 +111,7 @@ const initials = (name = '') =>
 const LeadDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [lead, setLead]                   = useState(null)
   const [agencyProfile, setAgencyProfile] = useState(null)
@@ -241,10 +244,10 @@ const LeadDetails = () => {
   const VALID_N = ['chaud', 'tiede', 'froid']
   const effectiveNiveau = (VALID_N.includes(rawNiveau) ? rawNiveau : null) || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid')
   const ss = effectiveNiveau === 'chaud'
-    ? { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Chaud 🔥' }
+    ? { bar: 'bg-green-500',  badge: 'bg-green-100 text-green-800',  label: tScore(100) }
     : effectiveNiveau === 'tiede'
-    ? { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: 'Tiède 🌤' }
-    : { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: 'Froid ❄️' }
+    ? { bar: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800', label: tScore(50) }
+    : { bar: 'bg-red-400',    badge: 'bg-red-100 text-red-800',    label: tScore(0) }
   // Normaliser pour trouver la couleur : 'TIÈDE' → 'tiede', 'CHAUD' → 'chaud', etc.
   const niveauNorm = (lead.niveau_interet || '').toLowerCase()
     .replace('tiède', 'tiede').replace('tièd', 'tiede')

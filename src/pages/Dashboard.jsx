@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { tPipelineLabel, tScore } from '../i18n';
 import ProfileManager from '../services/profileManager';
 import LeadForm from '../components/LeadForm';
 import ImportLeadsModal from '../components/ImportLeadsModal';
@@ -118,6 +120,7 @@ const getSmartRecommendation = (lead) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { canAccess } = usePlanGuard();
   const [viewMode, setViewMode] = useState('kanban');
 
@@ -187,9 +190,9 @@ export default function Dashboard() {
     const rawNiveau = (lead.niveau_interet || '').toLowerCase().replace('tiède','tiede').replace('tièd','tiede');
     const VALID = ['chaud', 'tiede', 'froid'];
     const q = (VALID.includes(rawNiveau) ? rawNiveau : null) || (score >= 70 ? 'chaud' : score >= 40 ? 'tiede' : 'froid');
-    if (q === 'chaud') return { label: '🟢 Chaud', bg: 'bg-green-100', text: 'text-green-700', score };
-    if (q === 'tiede') return { label: '🟡 Tiède', bg: 'bg-yellow-100', text: 'text-yellow-700', score };
-    return { label: '🔴 Froid', bg: 'bg-red-100', text: 'text-red-700', score };
+    if (q === 'chaud') return { label: `🟢 ${t('status.hotShort')}`, bg: 'bg-green-100', text: 'text-green-700', score };
+    if (q === 'tiede') return { label: `🟡 ${t('status.warmShort')}`, bg: 'bg-yellow-100', text: 'text-yellow-700', score };
+    return { label: `🔴 ${t('status.coldShort')}`, bg: 'bg-red-100', text: 'text-red-700', score };
   };
 
   // === LEADS FILTRÉS ===
@@ -770,10 +773,10 @@ export default function Dashboard() {
                 data-new-lead
                 onClick={() => setShowLeadForm(true)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold shadow-sm"
-                title="Nouveau lead"
+                title={t('pipeline.newLead')}
               >
                 <span>➕</span>
-                <span className="hidden sm:inline">Nouveau lead</span>
+                <span className="hidden sm:inline">{t('pipeline.newLead')}</span>
               </button>
             </AddLeadGate>
 
@@ -1080,7 +1083,7 @@ export default function Dashboard() {
                   </tbody>
                 </table>
                 {filteredLeads.length === 0 && (
-                  <div className="text-center text-slate-400 py-12 text-sm">Aucun lead trouvé</div>
+                  <div className="text-center text-slate-400 py-12 text-sm">{t('lead.noLeads')}</div>
                 )}
               </div>
 
@@ -1636,13 +1639,13 @@ export default function Dashboard() {
                     onClick={() => setShowEditModal(false)}
                     className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium"
                   >
-                    Annuler
+                    {t('lead.cancel')}
                   </button>
                   <button
                     onClick={handleEditLead}
                     className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold"
                   >
-                    ✅ Enregistrer
+                    {t('lead.save')}
                   </button>
                 </div>
               </div>
@@ -1658,8 +1661,8 @@ export default function Dashboard() {
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-lg">🗑️</div>
               <div>
-                <p className="font-bold text-slate-900">Supprimer ce lead ?</p>
-                <p className="text-xs text-slate-500">Cette action est irréversible.</p>
+                <p className="font-bold text-slate-900">{t('lead.deleteTitle')}</p>
+                <p className="text-xs text-slate-500">{t('lead.deleteConfirm')}</p>
               </div>
             </div>
             <p className="text-sm text-slate-600 mb-5 bg-slate-50 rounded-lg px-3 py-2">
@@ -1668,11 +1671,11 @@ export default function Dashboard() {
             <div className="flex gap-3">
               <button onClick={() => setConfirmDelete(null)}
                 className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
-                Annuler
+                {t('lead.cancel')}
               </button>
               <button onClick={() => handleDeleteLead(confirmDelete)}
                 className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
-                Supprimer
+                {t('lead.delete')}
               </button>
             </div>
           </div>
@@ -1702,6 +1705,7 @@ function KanbanColumn({
   onArchive, onDelete, onWhatsApp
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: statut });
+  const { t } = useTranslation();
 
   return (
     <div
@@ -1713,7 +1717,7 @@ function KanbanColumn({
       }`}
     >
       <div className="p-4 font-bold text-slate-700 bg-white/80 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
-        {statut}
+        {tPipelineLabel(statut)}
         <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{leads.length}</span>
       </div>
 
@@ -1743,7 +1747,7 @@ function KanbanColumn({
           <div className={`flex items-center justify-center h-16 rounded-xl border-2 border-dashed text-xs transition-all ${
             isOver ? 'border-blue-400 text-blue-500 bg-blue-50' : 'border-slate-200 text-slate-400'
           }`}>
-            {isOver ? '⬇ Déposer ici' : 'Aucun lead'}
+            {isOver ? `⬇ ${t('common.noData')}` : t('lead.noLeads')}
           </div>
         )}
       </div>
@@ -1757,6 +1761,7 @@ function KanbanCard({
   onSelect, onNavigate, onUpdateStatus, onRdv,
   onArchive, onDelete, onWhatsApp
 }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },

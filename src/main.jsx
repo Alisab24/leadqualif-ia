@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import './i18n.js'  // initialise i18next avant le rendu
 
 const rootElement = document.getElementById('root');
 
