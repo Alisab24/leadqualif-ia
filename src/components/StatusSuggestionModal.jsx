@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function StatusSuggestionModal({ 
   isOpen, 
@@ -8,6 +9,7 @@ export default function StatusSuggestionModal({
   onConfirm, 
   onCancel 
 }) {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   // Mapping des suggestions selon le type de document
@@ -102,14 +104,14 @@ export default function StatusSuggestionModal({
                 onClick={() => onConfirm(suggestion.suggested)}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
               >
-                Oui, changer le statut
+                {t('statusModal.confirmBtn')}
               </button>
               
               <button
                 onClick={onCancel}
                 className="flex-1 bg-slate-100 text-slate-700 px-4 py-3 rounded-xl font-semibold hover:bg-slate-200 transition-all border border-slate-200"
               >
-                Non, garder le statut
+                {t('statusModal.cancelBtn')}
               </button>
             </>
           ) : (

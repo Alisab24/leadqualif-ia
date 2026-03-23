@@ -3,6 +3,7 @@
  * Fonctionnalités : liste membres, inviter par lien, révoquer accès
  */
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
 import { usePlanGuard } from './PlanGuard'
 
@@ -15,21 +16,22 @@ const TEAM_LIMITS = {
   trialing:   5,
 }
 
-const ROLE_LABELS = {
-  owner:  { label: 'Propriétaire', color: 'bg-indigo-100 text-indigo-700', icon: '👑' },
-  admin:  { label: 'Admin',        color: 'bg-purple-100 text-purple-700', icon: '🔧' },
-  agent:  { label: 'Agent',        color: 'bg-blue-100 text-blue-700',     icon: '👤' },
-  viewer: { label: 'Lecture seule',color: 'bg-slate-100 text-slate-600',   icon: '👁' },
-}
-
-const ROLE_DESC = {
-  admin:  'Accès complet sauf facturation et gestion des membres',
-  agent:  'Peut créer et gérer des leads, générer des documents',
-  viewer: 'Lecture seule — ne peut pas modifier les données',
-}
-
 export default function TeamSettings() {
+  const { t } = useTranslation()
   const { userPlan, canAccess } = usePlanGuard()
+
+  const ROLE_LABELS = {
+    owner:  { label: t('team.roleOwner'),    color: 'bg-indigo-100 text-indigo-700', icon: '👑' },
+    admin:  { label: t('team.roleAdmin'),    color: 'bg-purple-100 text-purple-700', icon: '🔧' },
+    agent:  { label: t('team.roleAgent'),    color: 'bg-blue-100 text-blue-700',     icon: '👤' },
+    viewer: { label: t('team.roleReadOnly'), color: 'bg-slate-100 text-slate-600',   icon: '👁' },
+  }
+
+  const ROLE_DESC = {
+    admin:  t('team.roleDesc.admin'),
+    agent:  t('team.roleDesc.agent'),
+    viewer: t('team.roleDesc.viewer'),
+  }
   const [members, setMembers]         = useState([])
   const [invitations, setInvitations] = useState([])
   const [loading, setLoading]         = useState(true)
@@ -174,11 +176,11 @@ export default function TeamSettings() {
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return
     if (!inviteEmail.includes('@')) {
-      showToast('Adresse email invalide', 'error')
+      showToast(t('team.invalidEmail'), 'error')
       return
     }
     if (!hasRoom) {
-      showToast(`Limite de ${limit} membres atteinte pour votre plan`, 'error')
+      showToast(t('team.limitReached', { limit }), 'error')
       return
     }
 
@@ -186,13 +188,13 @@ export default function TeamSettings() {
     try {
       const alreadyMember = members.some(m => m.email?.toLowerCase() === inviteEmail.toLowerCase())
       if (alreadyMember) {
-        showToast('Cet utilisateur est déjà membre de votre agence', 'error')
+        showToast(t('team.alreadyMember'), 'error')
         return
       }
 
       const alreadyInvited = invitations.some(i => i.email?.toLowerCase() === inviteEmail.toLowerCase())
       if (alreadyInvited) {
-        showToast('Une invitation est déjà en attente pour cet email', 'error')
+        showToast(t('team.alreadyInvited'), 'error')
         return
       }
 
@@ -225,16 +227,16 @@ export default function TeamSettings() {
 
       if (!emailResponse.ok) {
         console.warn('Email non envoyé:', await emailResponse.text())
-        showToast('Invitation créée mais email non envoyé')
+        showToast(t('team.inviteCreatedNoEmail'))
       } else {
-        showToast(`Invitation envoyée à ${inviteEmail}`)
+        showToast(t('team.inviteSent', { email: inviteEmail }))
       }
 
       setInviteEmail('')
       await fetchTeam()
     } catch (err) {
       console.error('Erreur invitation:', err)
-      showToast('Erreur lors de la création de l\'invitation', 'error')
+      showToast(t('team.errors.inviteFailed'), 'error')
     } finally {
       setInviting(false)
     }
@@ -245,7 +247,7 @@ export default function TeamSettings() {
     navigator.clipboard.writeText(link).then(() => {
       setCopiedToken(token)
       setTimeout(() => setCopiedToken(null), 2500)
-      showToast('Lien d\'invitation copié !')
+      showToast(t('common.copied'))
     })
   }
 
@@ -257,7 +259,7 @@ export default function TeamSettings() {
 
     if (!error) {
       setInvitations(prev => prev.filter(i => i.id !== id))
-      showToast('Invitation révoquée')
+      showToast(t('team.inviteRevoked'))
     }
   }
 
@@ -270,12 +272,12 @@ export default function TeamSettings() {
 
     if (!error) {
       setMembers(prev => prev.map(m => m.user_id === memberUserId ? { ...m, role: newRole } : m))
-      showToast('Rôle mis à jour')
+      showToast(t('team.roleUpdated'))
     }
   }
 
   const removeMember = async (memberUserId, email) => {
-    if (!window.confirm(`Retirer ${email} de l'équipe ? Leur compte reste actif mais ils n'auront plus accès à vos données.`)) return
+    if (!window.confirm(t('team.removeConfirm', { name: email }))) return
 
     const { error } = await supabase
       .from('profiles')
@@ -284,7 +286,7 @@ export default function TeamSettings() {
 
     if (!error) {
       setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
-      showToast(`${email} retiré de l'équipe`)
+      showToast(t('team.inviteRevoked'))
     }
   }
 
@@ -316,26 +318,24 @@ export default function TeamSettings() {
         <div className="flex-1">
           {canInvite ? (
             <>
-              <p className="text-sm font-bold text-indigo-800">Équipe activée — Plan {userPlan}</p>
+              <p className="text-sm font-bold text-indigo-800">{t('team.teamActivated', { plan: userPlan })}</p>
               <p className="text-xs text-indigo-600 mt-0.5">
                 {limit === null
-                  ? `${members.length} membre${members.length > 1 ? 's' : ''} · membres illimités`
-                  : `${activeMembers.length} / ${limit} membre${limit > 1 ? 's' : ''} supplémentaire${limit > 1 ? 's' : ''} utilisé${activeMembers.length > 1 ? 's' : ''}`
+                  ? `${members.length} · ${t('team.unlimitedMembers')}`
+                  : t('team.membersUsed', { used: activeMembers.length, limit })
                 }
               </p>
             </>
           ) : (
             <>
-              <p className="text-sm font-bold text-amber-800">Multi-utilisateurs non disponible sur le plan Free</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Passez à un plan payant pour inviter des collègues dans votre espace.
-              </p>
+              <p className="text-sm font-bold text-amber-800">{t('team.freePlanTitle')}</p>
+              <p className="text-xs text-amber-700 mt-0.5">{t('team.freePlanDesc')}</p>
             </>
           )}
         </div>
         {!canInvite && (
           <a href="/settings?tab=facturation" className="shrink-0 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors">
-            Upgrader →
+            {t('team.upgradeBtn')}
           </a>
         )}
       </div>
@@ -344,29 +344,28 @@ export default function TeamSettings() {
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-800">
-            Membres de l'équipe ({members.length})
+            {t('team.memberCount', { count: members.length })}
           </h3>
           <button
             onClick={fetchTeam}
             className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
           >
-            🔄 Actualiser
+            {t('team.refresh')}
           </button>
         </div>
 
         {members.length === 0 && (
           <div className="px-5 py-8 text-center">
             <p className="text-3xl mb-2">👤</p>
-            <p className="text-sm text-slate-500 font-medium">Aucun membre chargé</p>
+            <p className="text-sm text-slate-500 font-medium">{t('team.noMembersLoaded')}</p>
             <p className="text-xs text-slate-400 mt-1">
-              Si vous êtes connecté, votre profil devrait apparaître ici.<br/>
-              Vérifiez la console (F12) pour diagnostiquer.
+              {t('team.noMembersDesc')}
             </p>
             <button
               onClick={fetchTeam}
               className="mt-3 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              🔄 Recharger l'équipe
+              {t('team.reloadTeam')}
             </button>
           </div>
         )}
@@ -391,7 +390,7 @@ export default function TeamSettings() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">
                     {m.nom_complet || m.nom_agence || m.email}
-                    {isMe && <span className="ml-2 text-xs text-slate-400 font-normal">(vous)</span>}
+                    {isMe && <span className="ml-2 text-xs text-slate-400 font-normal">{t('team.youLabel')}</span>}
                   </p>
                   <p className="text-xs text-slate-400 truncate">{m.email}</p>
                 </div>
@@ -404,9 +403,9 @@ export default function TeamSettings() {
                       onChange={(e) => updateMemberRole(m.user_id, e.target.value)}
                       className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
                     >
-                      <option value="admin">🔧 Admin</option>
-                      <option value="agent">👤 Agent</option>
-                      <option value="viewer">👁 Lecture seule</option>
+                      <option value="admin">🔧 {t('team.roleAdmin')}</option>
+                      <option value="agent">👤 {t('team.roleAgent')}</option>
+                      <option value="viewer">👁 {t('team.roleReadOnly')}</option>
                     </select>
                   ) : (
                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${roleInfo.color}`}>
@@ -434,7 +433,7 @@ export default function TeamSettings() {
       {/* ── Inviter un membre ─────────────────────────────── */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         <h3 className="text-sm font-bold text-slate-800 mb-3">
-          ✉️ Inviter un nouveau membre
+          {t('team.inviteNewMember')}
         </h3>
 
         {/* Bandeau upgrade si plan Free */}
@@ -442,16 +441,14 @@ export default function TeamSettings() {
           <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
             <span className="text-xl shrink-0">🔒</span>
             <div className="flex-1">
-              <p className="text-sm font-bold text-amber-800">Fonctionnalité réservée aux plans payants</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Passez au plan <strong>Starter</strong> ou supérieur pour inviter jusqu'à 3 collaborateurs dans votre agence.
-              </p>
+              <p className="text-sm font-bold text-amber-800">{t('team.paidOnlyTitle')}</p>
+              <p className="text-xs text-amber-700 mt-0.5">{t('team.paidOnlyDesc')}</p>
             </div>
             <a
               href="/settings?tab=facturation"
               className="shrink-0 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors"
             >
-              Upgrader →
+              {t('team.upgradeBtn')}
             </a>
           </div>
         )}
@@ -459,8 +456,8 @@ export default function TeamSettings() {
         {/* Limite atteinte (plans payants) */}
         {canInvite && !hasRoom ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
-            ⚠️ Vous avez atteint la limite de {limit} membre{limit > 1 ? 's' : ''} pour votre plan.{' '}
-            <a href="/settings?tab=facturation" className="font-semibold underline">Upgrader</a> pour en ajouter davantage.
+            {t('team.limitReached', { limit })}{' '}
+            <a href="/settings?tab=facturation" className="font-semibold underline">{t('team.upgradeLinkText')}</a>
           </div>
         ) : (
           /* Formulaire — visible toujours, désactivé sur Free */
@@ -480,9 +477,9 @@ export default function TeamSettings() {
               disabled={!canInvite}
               className="px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-slate-50"
             >
-              <option value="agent">👤 Agent</option>
-              <option value="admin">🔧 Admin</option>
-              <option value="viewer">👁 Lecture seule</option>
+              <option value="agent">👤 {t('team.roleAgent')}</option>
+              <option value="admin">🔧 {t('team.roleAdmin')}</option>
+              <option value="viewer">👁 {t('team.roleReadOnly')}</option>
             </select>
             <button
               onClick={canInvite ? handleInvite : undefined}
@@ -490,7 +487,7 @@ export default function TeamSettings() {
               className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl
                          hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             >
-              {inviting ? '…' : '➕ Inviter'}
+              {inviting ? '…' : t('team.inviteBtn2')}
             </button>
           </div>
         )}
@@ -511,10 +508,10 @@ export default function TeamSettings() {
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
             <h3 className="text-sm font-bold text-slate-800">
-              ⏳ Invitations en attente ({invitations.length})
+              ⏳ {t('team.pendingInvites')} ({invitations.length})
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Copiez le lien et envoyez-le par email ou WhatsApp — valable 7 jours.
+              {t('team.pendingDesc')}
             </p>
           </div>
           <div className="divide-y divide-slate-50">
@@ -530,7 +527,7 @@ export default function TeamSettings() {
                     <p className="text-sm font-semibold text-slate-700 truncate">{inv.email}</p>
                     <p className="text-xs text-slate-400">
                       <span className={`font-medium ${roleInfo.color.split(' ')[1]}`}>{roleInfo.icon} {roleInfo.label}</span>
-                      {' · '}expire dans {expiresIn} jour{expiresIn > 1 ? 's' : ''}
+                      {' · '}{t('team.expiresIn', { days: expiresIn })}
                     </p>
                   </div>
                   {/* Lien invite */}
@@ -546,7 +543,7 @@ export default function TeamSettings() {
                           : 'bg-indigo-600 text-white hover:bg-indigo-700'
                       }`}
                     >
-                      {copiedToken === inv.token ? '✓ Copié !' : '📋 Copier'}
+                      {copiedToken === inv.token ? `✓ ${t('common.copied')}` : t('team.copyLink')}
                     </button>
                   </div>
                   {/* Révoquer */}
@@ -569,8 +566,8 @@ export default function TeamSettings() {
         <div className="text-center py-4 text-slate-400 text-sm">
           <p className="text-3xl mb-2">👥</p>
           {canInvite
-            ? 'Invitez vos premiers collaborateurs pour travailler en équipe.'
-            : 'Upgradez votre plan pour collaborer avec votre équipe.'}
+            ? t('team.noTeamYet')
+            : t('team.upgradeToTeam')}
         </div>
       )}
     </div>

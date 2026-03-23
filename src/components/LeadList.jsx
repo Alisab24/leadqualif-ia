@@ -1,8 +1,10 @@
 import { formatDate, formatPhone, getScoreColor, getUrgencyColor, getInterestLevelColor, getInterestLevelIcon, getInterestLevelDescription } from '../utils/format'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const LeadList = ({ leads, loading }) => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   if (loading) {
     return (
@@ -21,8 +23,8 @@ const LeadList = ({ leads, loading }) => {
         <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun lead</h3>
-        <p className="mt-1 text-sm text-gray-500">Commencez par ajouter votre premier lead.</p>
+        <h3 className="mt-2 text-sm font-medium text-gray-900">{t('leadList.noLeads')}</h3>
+        <p className="mt-1 text-sm text-gray-500">{t('leadList.noLeadsDesc')}</p>
       </div>
     )
   }
@@ -33,28 +35,28 @@ const LeadList = ({ leads, loading }) => {
         <thead className="bg-gray-50">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Lead
+              {t('stats.table.lead')}
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Contact
+              {t('stats.table.contact')}
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Niveau
+              {t('leadList.level')}
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Score IA <span className="text-gray-400 cursor-help" title="Calculé automatiquement par l'IA selon le profil et la probabilité de conversion du lead.">ℹ️</span>
+              {t('lead.score')} <span className="text-gray-400 cursor-help">ℹ️</span>
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Budget
+              {t('lead.budget')}
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Urgence
+              {t('leadList.urgency')}
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Date
+              {t('stats.table.date')}
             </th>
             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
+              {t('common.actions')}
             </th>
           </tr>
         </thead>
@@ -92,7 +94,7 @@ const LeadList = ({ leads, loading }) => {
                     {lead.niveau_interet}
                   </span>
                 ) : (
-                  <span className="text-xs text-gray-400">Non classé</span>
+                  <span className="text-xs text-gray-400">{t('leadList.notClassified')}</span>
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
@@ -101,11 +103,11 @@ const LeadList = ({ leads, loading }) => {
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {lead.budget_estime || 'Non spécifié'}
+                {lead.budget_estime || t('leadList.notSpecified')}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getUrgencyColor(lead.urgence)}`}>
-                  {lead.urgence || 'Non spécifiée'}
+                  {lead.urgence || t('leadList.notSpecified')}
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -119,7 +121,7 @@ const LeadList = ({ leads, loading }) => {
                   }}
                   className="text-primary-600 hover:text-primary-900"
                 >
-                  Voir détails
+                  {t('leadList.seeDetails')}
                 </button>
               </td>
             </tr>

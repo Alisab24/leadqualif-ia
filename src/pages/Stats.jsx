@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
+import { tScore } from '../i18n'
 import ProfileManager from '../services/profileManager'
 import { FeatureGate } from '../components/PlanGuard'
 import {
@@ -109,6 +111,7 @@ function KPICard({ icon, label, value, color = 'blue', sub, subColor }) {
 
 // ── Composant principal ───────────────────────────────────────────
 export default function Stats() {
+  const { t } = useTranslation()
   const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [leads, setLeads]           = useState([])
@@ -323,9 +326,9 @@ export default function Stats() {
       const qualifCount = { froid: 0, tiede: 0, chaud: 0 }
       leadsData.forEach(l => { qualifCount[getQualif(l)]++ })
       const qualificationDistribution = [
-        { name: '🔴 Froid',  value: qualifCount.froid  },
-        { name: '🟡 Tiède',  value: qualifCount.tiede  },
-        { name: '🟢 Chaud',  value: qualifCount.chaud  },
+        { name: `🔴 ${t('status.coldShort')}`, value: qualifCount.froid  },
+        { name: `🟡 ${t('status.warmShort')}`, value: qualifCount.tiede  },
+        { name: `🟢 ${t('status.hotShort')}`,  value: qualifCount.chaud  },
       ]
 
       // ── Sources de trafic ─────────────────────────────────
@@ -479,7 +482,7 @@ export default function Stats() {
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
                          text-white rounded-lg text-sm font-semibold shadow-sm transition-all"
             >
-              <span>📄</span> Rapport PDF
+              <span>📄</span> {t('stats.pdfReport')}
             </button>
             <button
               onClick={handleRefresh}
@@ -563,17 +566,17 @@ export default function Stats() {
 
         {/* ═══════════ KPI PRINCIPAUX ═══════════════════ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard icon="📊" label="Leads cette semaine"  value={fmtNum(stats.leadsThisWeek)} color="blue" />
+          <KPICard icon="📊" label={t('stats.leadsPerMonth')}  value={fmtNum(stats.leadsThisWeek)} color="blue" />
           <KPICard
-            icon="📈" label="Leads ce mois"
+            icon="📈" label={t('stats.leadsThisMonth')}
             value={fmtNum(stats.leadsThisMonth)} color="green"
             sub={stats.leadsThisMonth > stats.leadsLastMonth
               ? `↑ +${stats.leadsThisMonth - stats.leadsLastMonth} vs mois dernier`
               : `↓ −${stats.leadsLastMonth - stats.leadsThisMonth} vs mois dernier`}
             subColor={stats.leadsThisMonth >= stats.leadsLastMonth ? 'text-green-500' : 'text-red-500'}
           />
-          <KPICard icon="🧠" label="Score IA moyen"   value={`${stats.averageScore}%`}       color="purple" sub="Intention d'achat" />
-          <KPICard icon="🔥" label="Leads chauds"     value={`${stats.hotLeadsPercentage}%`} color="orange" sub="Score ≥ 70 %" />
+          <KPICard icon="🧠" label={t('stats.averageScore')}   value={`${stats.averageScore}%`}       color="purple" sub={t('stats.intentScore')} />
+          <KPICard icon="🔥" label={t('stats.hotLeads')}     value={`${stats.hotLeadsPercentage}%`} color="orange" sub={t('stats.scoreAbove70')} />
         </div>
 
         {/* ═══════════ MÉTRIQUES FINANCIÈRES ════════════ */}
@@ -599,7 +602,7 @@ export default function Stats() {
                 <p className="text-xs text-slate-400 mt-1">Rétainer moyen : {stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—'}</p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                <p className="text-sm text-slate-500 font-medium">Taux de closing</p>
+                <p className="text-sm text-slate-500 font-medium">{t('stats.closingRate')}</p>
                 <p className="text-3xl font-bold text-indigo-600 mt-1">{stats.conversionRate}%</p>
                 <p className="text-xs text-slate-400 mt-1">{leads.filter(l => l.statut === 'Gagné').length} clients signés / {stats.totalLeads} prospects</p>
               </div>
@@ -617,7 +620,7 @@ export default function Stats() {
                 <p className="text-xs text-slate-400 mt-1">Si tous les leads actifs signent</p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                <p className="text-sm text-slate-500 font-medium">Taux de conversion</p>
+                <p className="text-sm text-slate-500 font-medium">{t('stats.conversionRate')}</p>
                 <p className="text-3xl font-bold text-indigo-600 mt-1">{stats.conversionRate}%</p>
                 <p className="text-xs text-slate-400 mt-1">{leads.filter(l => l.statut === 'Gagné').length} leads gagnés / {stats.totalLeads} total</p>
               </div>
@@ -630,7 +633,7 @@ export default function Stats() {
 
           {/* Activité mensuelle */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <h2 className="text-base font-bold text-slate-800 mb-4">Activité mensuelle (6 mois)</h2>
+            <h2 className="text-base font-bold text-slate-800 mb-4">{t('stats.monthlyActivity')}</h2>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={stats.monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -648,7 +651,7 @@ export default function Stats() {
           {/* Sources de trafic — SMMA prioritaire, IMMO aussi */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
             <h2 className="text-base font-bold text-slate-800 mb-4">
-              {isSmma ? '📡 Sources de trafic' : 'Qualification IA des leads'}
+              {isSmma ? `📡 ${t('stats.trafficSources')}` : t('stats.qualifChart')}
             </h2>
             {isSmma ? (
               /* SMMA : barres sources */
@@ -674,7 +677,7 @@ export default function Stats() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
-                  Aucun lead avec source enregistrée
+                  {t('stats.noSourceData')}
                 </div>
               )
             ) : (
@@ -701,7 +704,7 @@ export default function Stats() {
 
           {/* Pipeline par statut */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <h2 className="text-base font-bold text-slate-800 mb-4">Pipeline par statut</h2>
+            <h2 className="text-base font-bold text-slate-800 mb-4">{t('stats.statusBreakdown')}</h2>
             <div className="space-y-2">
               {stats.statusDistribution?.map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
@@ -781,7 +784,7 @@ export default function Stats() {
         {/* ═══════════ QUALIF IA pour SMMA ══════════════ */}
         {isSmma && (
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <h2 className="text-base font-bold text-slate-800 mb-4">Qualification IA des prospects</h2>
+            <h2 className="text-base font-bold text-slate-800 mb-4">{t('stats.qualifChart')}</h2>
             <div className="grid grid-cols-3 gap-4">
               {stats.qualificationDistribution?.map((item, i) => (
                 <div key={i} className="text-center p-4 rounded-xl"
@@ -905,7 +908,7 @@ export default function Stats() {
           <div className="space-y-4">
             {/* KPI pipeline SMMA */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <KPICard icon="🔥" label="Leads chauds actifs" value={stats.leadsChaudsNonTraites ?? 0} color="orange" sub="Score IA ≥ 70, non conclus" />
+              <KPICard icon="🔥" label={t('stats.hotLeadsActive')} value={stats.leadsChaudsNonTraites ?? 0} color="orange" sub={t('stats.scoreAbove70')} />
               <KPICard icon="📂" label="En cours de traitement" value={stats.leadsActifs ?? 0} color="blue" sub="Hors Gagné / Perdu" />
               <KPICard icon="💰" label="Rétainer moyen" value={stats.retainerDisplay || (stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—')} color="green" sub="Clients signés" />
               <KPICard icon="✅" label="Clients signés" value={stats.clientsActifs ?? 0} color="purple" sub={`Taux ${stats.conversionRate ?? 0}%`} />
@@ -949,7 +952,7 @@ export default function Stats() {
                     <thead>
                       <tr className="border-b border-slate-100">
                         <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Client</th>
-                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Score IA</th>
+                        <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">{t('stats.table.aiScore')}</th>
                         <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Qualification</th>
                         <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Statut</th>
                         <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Source</th>
@@ -982,7 +985,7 @@ export default function Stats() {
                             </td>
                             <td className="py-3">
                               <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${badgeClass}`}>
-                                {q === 'chaud' ? '🟢 Chaud' : q === 'tiede' ? '🟡 Tiède' : '🔴 Froid'}
+                                {q === 'chaud' ? `🟢 ${t('status.hotShort')}` : q === 'tiede' ? `🟡 ${t('status.warmShort')}` : `🔴 ${t('status.coldShort')}`}
                               </span>
                             </td>
                             <td className="py-3 text-xs text-slate-500">{lead.statut || '—'}</td>
@@ -1012,7 +1015,7 @@ export default function Stats() {
                 <thead>
                   <tr className="border-b border-slate-100">
                     <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Lead</th>
-                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Score IA</th>
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">{t('stats.table.aiScore')}</th>
                     <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Statut</th>
                     <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Budget</th>
                     <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Commission est.</th>
@@ -1031,7 +1034,7 @@ export default function Stats() {
                         </td>
                         <td className="py-3">
                           <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${badgeClass}`}>
-                            {q === 'chaud' ? '🟢 Chaud' : q === 'tiede' ? '🟡 Tiède' : '🔴 Froid'}
+                            {q === 'chaud' ? `🟢 ${t('status.hotShort')}` : q === 'tiede' ? `🟡 ${t('status.warmShort')}` : `🔴 ${t('status.coldShort')}`}
                           </span>
                         </td>
                         <td className="py-3 text-xs text-slate-500">{lead.statut || '—'}</td>
@@ -1055,16 +1058,16 @@ export default function Stats() {
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-slate-800">
-                💰 ROI par source de trafic
+                💰 {t('stats.trafficSources')}
               </h2>
               {!isSmma && (
                 <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                  Commission estimée des leads Gagnés
+                  {t('stats.commissionEstimated')}
                 </span>
               )}
               {isSmma && (
                 <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                  Taux closing par source · CA total : {fmtEuro(stats.caFacturesPaye || 0)}
+                  {t('stats.closingRateBySource')} · CA total : {fmtEuro(stats.caFacturesPaye || 0)}
                 </span>
               )}
             </div>
@@ -1072,12 +1075,12 @@ export default function Stats() {
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">Source</th>
-                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">Leads</th>
-                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">{isSmma ? 'Signés' : 'Gagnés'}</th>
-                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">Taux closing</th>
-                    {!isSmma && <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Commission est.</th>}
-                    {!isSmma && <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">Part du CA</th>}
+                    <th className="pb-3 text-left text-xs font-semibold text-slate-500 uppercase">{t('stats.table.source')}</th>
+                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">{t('stats.total')}</th>
+                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">{isSmma ? t('documents.status.signed') : t('stats.wonLeads')}</th>
+                    <th className="pb-3 text-center text-xs font-semibold text-slate-500 uppercase">{t('stats.closingLabel')}</th>
+                    {!isSmma && <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">{t('stats.commission')}</th>}
+                    {!isSmma && <th className="pb-3 text-right text-xs font-semibold text-slate-500 uppercase">{t('stats.table.revenue')}</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -1220,10 +1223,10 @@ export default function Stats() {
               {/* Résumé KPI */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Leads ce mois',   value: stats.leadsThisMonth,    icon: '📊', color: '#3b82f6' },
-                  { label: isSmma ? 'Signés'  : 'Gagnés', value: leads.filter(l => l.statut === 'Gagné').length, icon: '✅', color: '#10b981' },
-                  { label: 'Leads chauds',    value: `${stats.hotLeadsPercentage}%`, icon: '🔥', color: '#f59e0b' },
-                  { label: 'Taux closing',    value: `${stats.conversionRate}%`, icon: '🎯', color: '#8b5cf6' },
+                  { label: t('stats.leadsThisMonth'),   value: stats.leadsThisMonth,    icon: '📊', color: '#3b82f6' },
+                  { label: isSmma ? t('pipeline.won') : t('pipeline.won'), value: leads.filter(l => l.statut === 'Gagné').length, icon: '✅', color: '#10b981' },
+                  { label: t('stats.hotLeads'),    value: `${stats.hotLeadsPercentage}%`, icon: '🔥', color: '#f59e0b' },
+                  { label: t('stats.closingLabel'),    value: `${stats.conversionRate}%`, icon: '🎯', color: '#8b5cf6' },
                 ].map(k => (
                   <div key={k.label} className="rounded-xl p-4 text-center border"
                     style={{ borderColor: k.color + '33', background: k.color + '11' }}>
@@ -1237,7 +1240,7 @@ export default function Stats() {
               {/* Revenu */}
               <div className="rounded-xl border border-slate-100 p-5 bg-slate-50">
                 <p className="text-xs font-bold text-slate-500 uppercase mb-3">
-                  {isSmma ? 'Chiffre d\'affaires' : 'Commissions'}
+                  {isSmma ? t('stats.revenue') : t('stats.commission')}
                 </p>
                 <div className="flex gap-6 flex-wrap">
                   <div>
@@ -1265,7 +1268,7 @@ export default function Stats() {
 
               {/* Tableau mensuel 6 mois */}
               <div>
-                <p className="text-xs font-bold text-slate-500 uppercase mb-2">Activité 6 derniers mois</p>
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">{t('stats.monthlyActivity')}</p>
                 <table className="min-w-full text-sm border border-slate-100 rounded-xl overflow-hidden">
                   <thead className="bg-slate-50">
                     <tr>

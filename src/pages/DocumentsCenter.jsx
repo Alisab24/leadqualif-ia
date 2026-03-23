@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import ProfileManager from '../services/profileManager';
 import { DOC_TYPE_LABEL, DOC_TYPE_ICON } from '../services/documentCounterService';
 import { FeatureGate } from '../components/PlanGuard';
 
 export default function DocumentsCenter() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [documents, setDocuments] = useState([]);
@@ -151,7 +153,7 @@ export default function DocumentsCenter() {
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600">Chargement des documents…</p>
+          <p className="text-slate-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -165,11 +167,11 @@ export default function DocumentsCenter() {
       <header className="flex-none bg-white border-b border-slate-200 px-8 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Centre de Documents</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{t('docCenter.title')}</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               {filteredLeadId
-                ? `Documents filtrés — lead #${filteredLeadId}`
-                : 'Tous les documents générés pour votre agence'}
+                ? t('docCenter.filteredFor', { id: filteredLeadId })
+                : t('docCenter.allDocuments')}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -178,7 +180,7 @@ export default function DocumentsCenter() {
                 onClick={() => setFilteredLeadId(null)}
                 className="text-sm px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
               >
-                ← Tous les documents
+                ← {t('docCenter.allDocuments')}
               </button>
             )}
             <button
@@ -189,7 +191,7 @@ export default function DocumentsCenter() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Actualiser
+              {t('docCenter.refresh')}
             </button>
           </div>
         </div>
@@ -201,10 +203,10 @@ export default function DocumentsCenter() {
         {/* Stats rapides */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Total', value: documents.length, icon: '📄', color: 'text-slate-900', bg: 'bg-slate-100' },
-            { label: 'Devis', value: countByType('devis'), icon: '💰', color: 'text-green-700', bg: 'bg-green-100' },
-            { label: 'Factures', value: countByType('facture'), icon: '🧾', color: 'text-blue-700', bg: 'bg-blue-100' },
-            { label: 'Signés', value: countByStatut('signé'), icon: '✍️', color: 'text-purple-700', bg: 'bg-purple-100' },
+            { label: t('docCenter.countTotal'), value: documents.length, icon: '📄', color: 'text-slate-900', bg: 'bg-slate-100' },
+            { label: t('docCenter.countQuote'), value: countByType('devis'), icon: '💰', color: 'text-green-700', bg: 'bg-green-100' },
+            { label: t('docCenter.countInvoice'), value: countByType('facture'), icon: '🧾', color: 'text-blue-700', bg: 'bg-blue-100' },
+            { label: t('docCenter.countSigned'), value: countByStatut('signé'), icon: '✍️', color: 'text-purple-700', bg: 'bg-purple-100' },
           ].map(({ label, value, icon, color, bg }) => (
             <div key={label} className="bg-white rounded-xl border border-slate-200 p-5 flex items-center justify-between shadow-sm">
               <div>
@@ -219,13 +221,13 @@ export default function DocumentsCenter() {
         {/* Filtres */}
         <div className="flex flex-wrap gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-500">Type</label>
+            <label className="text-xs font-medium text-slate-500">{t('docCenter.typeLabel')}</label>
             <select
               value={filterType}
               onChange={e => setFilterType(e.target.value)}
               className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="tous">Tous les types</option>
+              <option value="tous">{t('docCenter.filterAll')}</option>
               {availableTypes.map(k => (
                 <option key={k} value={k}>
                   {getDocumentIcon(k)} {getDocumentLabel(k)}
@@ -234,13 +236,13 @@ export default function DocumentsCenter() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-500">Statut</label>
+            <label className="text-xs font-medium text-slate-500">{t('docCenter.statusLabel')}</label>
             <select
               value={filterStatut}
               onChange={e => setFilterStatut(e.target.value)}
               className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="tous">Tous les statuts</option>
+              <option value="tous">{t('docCenter.filterAllStatus')}</option>
               {['brouillon', 'envoyé', 'signé', 'payé', 'annulé'].map(s => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
               ))}
@@ -257,7 +259,7 @@ export default function DocumentsCenter() {
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Type & N°', 'Lead', 'Contact', 'Statut lead', 'Statut doc', 'Date', 'Actions'].map(h => (
+                  {[t('docCenter.columns.typeNumber'), t('docCenter.columns.lead'), t('docCenter.columns.contact'), t('docCenter.columns.leadStatus'), t('docCenter.columns.docStatus'), t('docCenter.columns.date'), t('docCenter.columns.actions')].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                       {h}
                     </th>
@@ -269,8 +271,8 @@ export default function DocumentsCenter() {
                   <tr>
                     <td colSpan={7} className="text-center py-16 text-slate-400">
                       <div className="text-5xl mb-3">📄</div>
-                      <p className="font-medium">Aucun document trouvé</p>
-                      <p className="text-sm mt-1">Ajustez les filtres ou générez des documents depuis les fiches leads</p>
+                      <p className="font-medium">{t('docCenter.emptyState')}</p>
+                      <p className="text-sm mt-1">{t('docCenter.emptyStateDesc')}</p>
                     </td>
                   </tr>
                 ) : filteredDocs.map((doc) => (
@@ -330,13 +332,13 @@ export default function DocumentsCenter() {
                           to={`/documents/view/${doc.id}`}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                         >
-                          Voir
+                          {t('docCenter.viewBtn')}
                         </Link>
                         <button
                           onClick={() => navigate(`/dashboard?lead=${doc.lead_id}`)}
                           className="text-slate-500 hover:text-slate-800 text-sm font-medium"
                         >
-                          Lead
+                          {t('docCenter.leadBtn')}
                         </button>
                         {doc.fichier_url && (
                           <a

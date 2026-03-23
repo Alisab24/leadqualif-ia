@@ -4,6 +4,7 @@
  * SMMA : Prospect / Client actif
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 
@@ -50,6 +51,7 @@ const COUNTRY_CODES = [
 /* ──────────────────────────────────────────────────── */
 
 const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = null }) => {
+  const { t } = useTranslation()
   const isImmo = agencyType === 'immobilier'
 
   /* ── État du formulaire ── */
@@ -210,12 +212,12 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
   /* Rôles selon type */
   const roles = isImmo
     ? [
-        { id: 'client',       icon: '🏠', label: 'Client acheteur',       desc: 'Recherche un bien à acheter / louer' },
-        { id: 'proprietaire', icon: '🔑', label: 'Propriétaire / Bailleur', desc: 'Vend ou loue un bien' },
+        { id: 'client',       icon: '🏠', label: t('leadForm.clientBuyer'),   desc: t('leadForm.clientBuyerDesc') },
+        { id: 'proprietaire', icon: '🔑', label: t('leadForm.ownerSeller'),   desc: t('leadForm.ownerSellerDesc') },
       ]
     : [
-        { id: 'prospect',     icon: '🎯', label: 'Prospect',              desc: 'Intéressé par nos services' },
-        { id: 'client_actif', icon: '💼', label: 'Client actif',          desc: 'Déjà en relation commerciale' },
+        { id: 'prospect',     icon: '🎯', label: t('leadForm.prospect'),      desc: t('leadForm.prospectDesc') },
+        { id: 'client_actif', icon: '💼', label: t('leadForm.activeClient'),  desc: t('leadForm.activeClientDesc') },
       ]
 
   return (
@@ -229,7 +231,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       {/* ── TYPE DE CONTACT ── */}
       <div className={`border rounded-xl p-4 ${accentBg}`}>
         <label className={`block text-sm font-bold mb-3 ${accentText}`}>
-          Type de contact <span className="text-xs font-normal opacity-70">(obligatoire)</span>
+          {t('leadForm.roleSectionLabel')} <span className="text-xs font-normal opacity-70">{t('leadForm.roleRequired')}</span>
         </label>
         <div className="grid grid-cols-2 gap-3">
           {roles.map(r => (
@@ -251,23 +253,23 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
         </div>
         {formData.lead_role && (
           <p className={`mt-2 text-xs ${accentSub}`}>
-            ✅ Sélectionné : <strong>{roles.find(r => r.id === formData.lead_role)?.label}</strong>
+            {t('leadForm.selectedRole')} <strong>{roles.find(r => r.id === formData.lead_role)?.label}</strong>
           </p>
         )}
       </div>
 
       {/* ── CHAMPS COMMUNS ── */}
-      <Field label="Nom complet" required>
+      <Field label={t('leadForm.fullName')} required>
         <input className={inputCls} name="nom" value={formData.nom} onChange={handleChange}
           placeholder="Jean Dupont" required />
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Email" required>
+        <Field label={t('leadForm.email')} required>
           <input className={inputCls} type="email" name="email" value={formData.email}
             onChange={handleChange} placeholder="jean@exemple.com" required />
         </Field>
-        <Field label="Téléphone" required>
+        <Field label={t('leadForm.phone')} required>
           <div className="flex">
             <select
               name="countryCode"
@@ -294,13 +296,13 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
             />
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Indicatif sélectionné : <strong>{formData.countryCode}</strong>
-            {' · '}sera enregistré comme <strong>{formData.countryCode}{(formData.telephone || '').replace(/\s/g,'').replace(/^0/,'') || 'XXXXXXXXX'}</strong>
+            {t('leadForm.indicatorLabel')} <strong>{formData.countryCode}</strong>
+            {' · '}{t('leadForm.savedAs')} <strong>{formData.countryCode}{(formData.telephone || '').replace(/\s/g,'').replace(/^0/,'') || 'XXXXXXXXX'}</strong>
           </p>
         </Field>
       </div>
 
-      <Field label="Source du lead">
+      <Field label={t('leadForm.source')}>
         <select className={selectCls} name="source" value={formData.source} onChange={handleChange}>
           {isImmo ? (
             <>
@@ -333,28 +335,28 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       ══════════════════════════════════════ */}
       {isImmo && formData.lead_role === 'client' && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-          <h3 className="font-semibold text-blue-900 text-sm">🏠 Qualification du projet</h3>
+          <h3 className="font-semibold text-blue-900 text-sm">{t('leadForm.immoProjectTitle')}</h3>
 
           {/* ── Les 3 champs clés EN PREMIER ── */}
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Type de projet" required>
+            <Field label={t('leadForm.projectType')} required>
               <select className={selectCls} name="type_projet" value={formData.type_projet} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
+                <option value="">{t('leadForm.selectPlaceholder')}</option>
                 <option value="residence_principale">Résidence principale</option>
                 <option value="investissement">Investissement locatif</option>
                 <option value="residence_secondaire">Résidence secondaire</option>
               </select>
             </Field>
-            <Field label="Financement" required>
+            <Field label={t('leadForm.financing')} required>
               <select className={selectCls} name="financement" value={formData.financement} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
+                <option value="">{t('leadForm.selectPlaceholder')}</option>
                 <option value="cash">Comptant (cash)</option>
                 <option value="credit">Crédit bancaire</option>
                 <option value="primo">Primo-accédant (PTZ)</option>
                 <option value="a_definir">À définir</option>
               </select>
             </Field>
-            <Field label="Déjà propriétaire ?">
+            <Field label={t('leadForm.alreadyOwner')}>
               <select className={selectCls} name="deja_proprietaire" value={formData.deja_proprietaire} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="non">Non</option>
@@ -365,16 +367,16 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
           </div>
 
           {/* ── Infos complémentaires ── */}
-          <Field label="Localisation souhaitée" required>
+          <Field label={t('leadForm.location')} required>
             <input className={inputCls} name="localisation_souhaitee" value={formData.localisation_souhaitee}
               onChange={handleChange} placeholder="Paris 15ème, Lyon, Bordeaux…" required />
           </Field>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Budget max (€)">
+            <Field label={t('leadForm.budget')}>
               <input className={inputCls} type="number" name="budget" value={formData.budget}
                 onChange={handleChange} placeholder="250 000" min="0" />
             </Field>
-            <Field label="Type de bien">
+            <Field label={t('leadForm.propertyType')}>
               <select className={selectCls} name="type_de_bien" value={formData.type_de_bien} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="appartement">Appartement</option>
@@ -386,7 +388,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                 <option value="autre">Autre</option>
               </select>
             </Field>
-            <Field label="Délai d'achat">
+            <Field label={t('leadForm.purchaseDelay')}>
               <select className={selectCls} name="delai_achat" value={formData.delai_achat} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="immediat">Immédiat (- 1 mois)</option>
@@ -397,7 +399,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
               </select>
             </Field>
           </div>
-          <Field label="Critères spécifiques">
+          <Field label={t('leadForm.specificCriteria')}>
             <textarea className={textareaCls} name="criteres_specifiques" rows={2}
               value={formData.criteres_specifiques} onChange={handleChange}
               placeholder="Nb pièces, étage, parking, jardin…" />
@@ -410,30 +412,30 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       ══════════════════════════════════════ */}
       {isImmo && formData.lead_role === 'proprietaire' && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-4">
-          <h3 className="font-semibold text-green-900 text-sm">🔑 Informations du bien</h3>
-          <Field label="Adresse du bien" required>
+          <h3 className="font-semibold text-green-900 text-sm">{t('leadForm.immoPropertyTitle')}</h3>
+          <Field label={t('leadForm.propertyAddress')} required>
             <input className={inputCls} name="adresse_bien" value={formData.adresse_bien}
               onChange={handleChange} placeholder="15 Rue de la Paix, 75001 Paris" required />
           </Field>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Surface (m²)" required>
+            <Field label={t('leadForm.surface')} required>
               <input className={inputCls} type="number" name="surface" value={formData.surface}
                 onChange={handleChange} placeholder="75" min="0" required />
             </Field>
-            <Field label="Pièces" required>
+            <Field label={t('leadForm.rooms')} required>
               <select className={selectCls} name="nb_pieces" value={formData.nb_pieces} onChange={handleChange} required>
                 <option value="">—</option>
                 {['1','2','3','4','5','6+'].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </Field>
-            <Field label="Prix (€)" required>
+            <Field label={t('leadForm.price')} required>
               <input className={inputCls} type="number" name="prix_vente" value={formData.prix_vente}
                 onChange={handleChange} placeholder="350 000" min="0" required />
             </Field>
           </div>
-          <Field label="Disponibilité" required>
+          <Field label={t('leadForm.availability')} required>
             <select className={selectCls} name="date_disponibilite" value={formData.date_disponibilite} onChange={handleChange} required>
-              <option value="">Sélectionner</option>
+              <option value="">{t('leadForm.selectPlaceholder')}</option>
               <option value="immediat">Immédiat</option>
               <option value="1_mois">Dans 1 mois</option>
               <option value="3_mois">Dans 3 mois</option>
@@ -450,14 +452,14 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       {!isImmo && formData.lead_role && (
         <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-violet-900 text-sm">
-            {formData.lead_role === 'prospect' ? '🎯 Qualification prospect' : '💼 Qualification client'}
+            {formData.lead_role === 'prospect' ? t('leadForm.smmaProspectTitle') : t('leadForm.smmaClientTitle')}
           </h3>
 
           {/* ── Les 3 champs clés EN PREMIER ── */}
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Secteur d'activité" required>
+            <Field label={t('leadForm.sector')} required>
               <select className={selectCls} name="secteur_activite" value={formData.secteur_activite} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
+                <option value="">{t('leadForm.selectPlaceholder')}</option>
                 <option value="restaurant_food">Restaurant / Food</option>
                 <option value="ecommerce">E-commerce</option>
                 <option value="coach_formation">Coach / Formation</option>
@@ -471,7 +473,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                 <option value="autre">Autre</option>
               </select>
             </Field>
-            <Field label="Taille structure">
+            <Field label={t('leadForm.companySize')}>
               <select className={selectCls} name="taille_entreprise" value={formData.taille_entreprise} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="solo">Solo / Auto-entrepreneur</option>
@@ -480,7 +482,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                 <option value="pme_plus">PME+ (50+ pers.)</option>
               </select>
             </Field>
-            <Field label="Déjà une agence ?">
+            <Field label={t('leadForm.alreadyAgency')}>
               <select className={selectCls} name="deja_agence" value={formData.deja_agence} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="non_jamais">Non, jamais</option>
@@ -493,9 +495,9 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
 
           {/* ── Infos complémentaires ── */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Objectif marketing" required>
+            <Field label={t('leadForm.marketingObjective')} required>
               <select className={selectCls} name="objectif_marketing" value={formData.objectif_marketing} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
+                <option value="">{t('leadForm.selectPlaceholder')}</option>
                 <option value="generation_leads">Génération de leads</option>
                 <option value="notoriete">Notoriété / Branding</option>
                 <option value="ecommerce">E-commerce / Ventes</option>
@@ -505,9 +507,9 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                 <option value="autre">Autre</option>
               </select>
             </Field>
-            <Field label="Type de service" required>
+            <Field label={t('leadForm.serviceType')} required>
               <select className={selectCls} name="type_service" value={formData.type_service} onChange={handleChange} required>
-                <option value="">Sélectionner</option>
+                <option value="">{t('leadForm.selectPlaceholder')}</option>
                 <option value="social_media">Social Media Management</option>
                 <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
                 <option value="google_ads">Google Ads</option>
@@ -520,7 +522,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Budget mensuel (€)">
+            <Field label={t('leadForm.marketingBudget')}>
               <select className={selectCls} name="budget_marketing" value={formData.budget_marketing} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="moins_500">- 500 €</option>
@@ -530,7 +532,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                 <option value="5000_plus">+ 5 000 €</option>
               </select>
             </Field>
-            <Field label="Réseau principal">
+            <Field label={t('leadForm.socialNetwork')}>
               <select className={selectCls} name="reseau_social" value={formData.reseau_social} onChange={handleChange}>
                 <option value="">—</option>
                 <option value="instagram">Instagram</option>
@@ -541,7 +543,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                 <option value="aucun">Aucun</option>
               </select>
             </Field>
-            <Field label="Site web">
+            <Field label={t('leadForm.website')}>
               <input className={inputCls} type="url" name="site_web" value={formData.site_web}
                 onChange={handleChange} placeholder="https://…" />
             </Field>
@@ -550,7 +552,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       )}
 
       {/* ── MESSAGE ── */}
-      <Field label={isImmo ? 'Message / Besoins' : 'Notes additionnelles'}>
+      <Field label={isImmo ? t('leadForm.message') : t('leadForm.notes')}>
         <textarea className={textareaCls} name="message" rows={3} value={formData.message}
           onChange={handleChange}
           placeholder={isImmo
@@ -563,7 +565,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
       <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
         <button type="button" onClick={onClose} disabled={loading}
           className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-          Annuler
+          {t('leadForm.cancel')}
         </button>
         <button type="button" onClick={handleSubmit} disabled={loading}
           className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
@@ -575,9 +577,9 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                 </svg>
-                Qualification en cours…
+                {t('leadForm.qualifying')}
               </span>
-            : '✨ Qualifier et enregistrer'
+            : t('leadForm.qualifyAndSave')
           }
         </button>
       </div>
@@ -589,17 +591,17 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
           qualificationResult.niveau === 'tiède'  ? 'bg-amber-50 border-amber-300' :
                                                     'bg-slate-50 border-slate-300'
         }`}>
-          <h3 className="font-bold text-slate-900 mb-3">Résultat de la qualification IA</h3>
+          <h3 className="font-bold text-slate-900 mb-3">{t('leadForm.qualifyResultTitle')}</h3>
           <div className="space-y-2 text-sm">
             <div>
-              <span className="text-slate-600">Niveau : </span>
+              <span className="text-slate-600">{t('leadForm.levelLabel')} </span>
               <span className={`font-bold uppercase ${
                 qualificationResult.niveau === 'chaud'  ? 'text-red-600' :
                 qualificationResult.niveau === 'tiède'  ? 'text-amber-600' : 'text-slate-600'
               }`}>{qualificationResult.niveau}</span>
             </div>
             <div>
-              <span className="text-slate-600">Score IA : </span>
+              <span className="text-slate-600">{t('lead.score')} : </span>
               <span className="font-bold">{qualificationResult.score}/100</span>
               <div className="mt-1 w-full bg-slate-200 rounded-full h-1.5">
                 <div className={`h-1.5 rounded-full ${
@@ -609,11 +611,11 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
               </div>
             </div>
             <div>
-              <span className="text-slate-600">Analyse : </span>
+              <span className="text-slate-600">{t('leadForm.analysisLabel')} </span>
               <span className="text-slate-800">{qualificationResult.raison}</span>
             </div>
             <div>
-              <span className="text-slate-600">Action : </span>
+              <span className="text-slate-600">{t('leadForm.actionLabel')} </span>
               <span className="text-slate-800">{qualificationResult.action_recommandee}</span>
             </div>
           </div>
@@ -621,7 +623,7 @@ const LeadForm = ({ onClose, onSuccess, agencyType = 'immobilier', agencyId = nu
             className={`mt-4 w-full py-2 rounded-lg text-sm font-semibold text-white ${
               isImmo ? 'bg-blue-600 hover:bg-blue-700' : 'bg-violet-600 hover:bg-violet-700'
             }`}>
-            Fermer
+            {t('common.close')}
           </button>
         </div>
       )}

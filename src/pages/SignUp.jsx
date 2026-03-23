@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Building, Eye, EyeOff, Mail, Lock, User, CheckCircle, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
 
 const PLAN_LABELS = { starter: 'Starter — 49€/mois', growth: 'Growth — 149€/mois', enterprise: 'Enterprise' }
 const PLAN_COLORS = { starter: 'bg-blue-50 border-blue-200 text-blue-700', growth: 'bg-indigo-50 border-indigo-200 text-indigo-700', enterprise: 'bg-purple-50 border-purple-200 text-purple-700' }
 
 export default function SignUp() {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     email: '', password: '', confirmPassword: '',
     agencyName: '', fullName: '', typeAgence: 'immobilier', telephone: '',
@@ -46,12 +48,12 @@ export default function SignUp() {
           .maybeSingle()
 
         if (invErr || !inv) {
-          setInviteError('Invitation invalide ou expirée.')
+          setInviteError(t('signup.errors.invalidInvite'))
           setInviteLoading(false)
           return
         }
         if (new Date(inv.expires_at) < new Date()) {
-          setInviteError("Ce lien d'invitation a expiré.")
+          setInviteError(t('signup.errors.expiredInvite'))
           setInviteLoading(false)
           return
         }
@@ -98,7 +100,7 @@ export default function SignUp() {
         if (inv.email) setFormData(prev => ({ ...prev, email: inv.email }))
       } catch (err) {
         console.error('Erreur invitation:', err)
-        setInviteError("Erreur lors du chargement de l'invitation.")
+        setInviteError(t('signup.inviteError'))
       } finally {
         setInviteLoading(false)
       }
@@ -114,10 +116,10 @@ export default function SignUp() {
     setIsLoading(true)
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas'); setIsLoading(false); return
+      setError(t('signup.errors.passwordMismatch')); setIsLoading(false); return
     }
     if (formData.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères'); setIsLoading(false); return
+      setError(t('signup.errors.passwordTooShort')); setIsLoading(false); return
     }
 
     try {
@@ -143,7 +145,7 @@ export default function SignUp() {
         options:  { data: userMeta },
       })
       if (authError) {
-        setError(authError.message || 'Erreur lors de la création du compte')
+        setError(authError.message || t('signup.errors.signupFailed'))
         setIsLoading(false); return
       }
 
@@ -203,27 +205,27 @@ export default function SignUp() {
               d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Vérifiez votre email</h1>
-        <p className="text-slate-600 mb-1">Un email de confirmation a été envoyé à :</p>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t('signup.checkEmail')}</h1>
+        <p className="text-slate-600 mb-1">{t('signup.emailSentTo')}</p>
         <p className="font-semibold text-blue-700 mb-4">{formData.email}</p>
         {inviteInfo && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4 text-sm text-indigo-700">
-            ✅ Après confirmation, vous rejoindrez automatiquement l'équipe de <strong>{inviteInfo.agencyName}</strong>.
+            ✅ {t('signup.inviteSuccess', { agency: inviteInfo.agencyName })}
           </div>
         )}
         <p className="text-slate-500 text-sm mb-6">
-          Cliquez sur le lien dans l'email pour activer votre compte. Valable <strong>24 heures</strong>.
+          {t('signup.confirmLink')}
         </p>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left text-sm text-amber-800 mb-6">
-          <p className="font-semibold mb-1">📧 Pas de mail reçu ?</p>
+          <p className="font-semibold mb-1">📧 {t('signup.noEmailReceived')}</p>
           <ul className="list-disc list-inside space-y-1 text-amber-700">
-            <li>Vérifiez votre dossier <strong>Spam / Courrier indésirable</strong></li>
-            <li>Attendez 1–2 minutes avant de vérifier</li>
+            <li>{t('signup.checkSpam')}</li>
+            <li>{t('signup.waitMinutes')}</li>
           </ul>
         </div>
         <button onClick={() => navigate('/login')}
           className="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors text-sm">
-          Retour à la connexion
+          {t('signup.backToLogin')}
         </button>
       </div>
     </div>
@@ -234,7 +236,7 @@ export default function SignUp() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-10 text-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-4" />
-        <p className="text-slate-500">Chargement de l'invitation…</p>
+        <p className="text-slate-500">{t('signup.loadingInvite')}</p>
       </div>
     </div>
   )
@@ -246,10 +248,10 @@ export default function SignUp() {
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-3xl">❌</span>
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Invitation invalide</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">{t('signup.invalidInvite')}</h2>
         <p className="text-slate-500 text-sm mb-6">{inviteError}</p>
         <Link to="/login" className="inline-block px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors">
-          Se connecter
+          {t('signup.login')}
         </Link>
       </div>
     </div>
@@ -268,24 +270,24 @@ export default function SignUp() {
           </div>
           {isInvite ? (
             <>
-              <h1 className="text-2xl font-bold text-slate-900 mb-1">Vous êtes invité !</h1>
+              <h1 className="text-2xl font-bold text-slate-900 mb-1">{t('signup.invitedTitle')}</h1>
               {/* Nom de l'agence — bien visible */}
               <div className="mt-3 mb-1 px-5 py-4 bg-indigo-600 rounded-2xl text-white shadow-md">
-                <p className="text-xs text-indigo-200 mb-1 font-medium tracking-wide uppercase">Agence</p>
+                <p className="text-xs text-indigo-200 mb-1 font-medium tracking-wide uppercase">{t('signup.agencyLabel')}</p>
                 <p className="text-xl font-bold truncate">🏢 {inviteInfo.agencyName}</p>
               </div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl mt-2">
-                <span className="text-xs text-indigo-600 font-medium">Votre rôle :</span>
+                <span className="text-xs text-indigo-600 font-medium">{t('signup.yourRole')}</span>
                 <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full font-semibold capitalize">
-                  {inviteInfo.role === 'admin' ? '🔧 Admin' : inviteInfo.role === 'viewer' ? '👁 Lecture seule' : '👤 Agent'}
+                  {inviteInfo.role === 'admin' ? '🔧 Admin' : inviteInfo.role === 'viewer' ? '👁 Viewer' : '👤 Agent'}
                 </span>
               </div>
-              <p className="text-slate-400 text-xs mt-2">Créez votre compte pour rejoindre cette équipe</p>
+              <p className="text-slate-400 text-xs mt-2">{t('signup.joinTeamDesc')}</p>
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-slate-900 mb-1">Créer votre compte</h1>
-              <p className="text-slate-500 text-sm">LeadQualif IA — CRM pour agences SMMA & Immo</p>
+              <h1 className="text-2xl font-bold text-slate-900 mb-1">{t('signup.title')}</h1>
+              <p className="text-slate-500 text-sm">{t('signup.subtitle')}</p>
             </>
           )}
         </div>
@@ -293,8 +295,8 @@ export default function SignUp() {
         {!isInvite && selectedPlan && PLAN_LABELS[selectedPlan] && (
           <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border mb-5 text-sm font-medium ${PLAN_COLORS[selectedPlan]}`}>
             <CheckCircle size={16} />
-            Plan sélectionné : <strong>{PLAN_LABELS[selectedPlan]}</strong>
-            <span className="ml-auto text-xs font-normal opacity-70">7 jours gratuits</span>
+            {t('signup.selectedPlan')} <strong>{PLAN_LABELS[selectedPlan]}</strong>
+            <span className="ml-auto text-xs font-normal opacity-70">{t('signup.trialDays')}</span>
           </div>
         )}
 
@@ -304,7 +306,7 @@ export default function SignUp() {
           {!isInvite && (
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nom de l'agence *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.agencyName')} *</label>
                 <div className="relative">
                   <Building size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input name="agencyName" type="text" value={formData.agencyName} onChange={handleChange}
@@ -313,12 +315,12 @@ export default function SignUp() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Type d'agence *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.agencyType')} *</label>
                 <select name="typeAgence" value={formData.typeAgence} onChange={handleChange}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white">
-                  <option value="immobilier">🏠 Agence Immobilière</option>
-                  <option value="smma">📱 Agence SMMA / Marketing</option>
-                  <option value="autre">💼 Autre</option>
+                  <option value="immobilier">🏠 {t('signup.immo')}</option>
+                  <option value="smma">📱 {t('signup.smma')}</option>
+                  <option value="autre">{t('signup.agencyTypeOther')}</option>
                 </select>
               </div>
             </div>
@@ -327,7 +329,7 @@ export default function SignUp() {
           {/* Nom + Téléphone */}
           <div className="grid grid-cols-2 gap-3">
             <div className={isInvite ? 'col-span-2' : ''}>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Prénom & nom *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.fullName')} *</label>
               <div className="relative">
                 <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input name="fullName" type="text" value={formData.fullName} onChange={handleChange}
@@ -337,7 +339,7 @@ export default function SignUp() {
             </div>
             {!isInvite && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Téléphone</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.phone')}</label>
                 <input name="telephone" type="tel" value={formData.telephone} onChange={handleChange}
                   placeholder="+33 6 00 00 00 00"
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" />
@@ -348,7 +350,7 @@ export default function SignUp() {
           {/* Email + Mots de passe */}
           <div className="border-t border-slate-100 pt-3 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.email')} *</label>
               <div className="relative">
                 <Mail size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input name="email" type="email" value={formData.email} onChange={handleChange}
@@ -359,17 +361,17 @@ export default function SignUp() {
                   required autoComplete="email" />
               </div>
               {isInvite && inviteInfo?.email && (
-                <p className="text-xs text-slate-400 mt-1">📧 Email de l'invitation — pré-rempli</p>
+                <p className="text-xs text-slate-400 mt-1">{t('signup.emailPreFilled')}</p>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.password')} *</label>
                 <div className="relative">
                   <Lock size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input name="password" type={showPassword ? 'text' : 'password'} value={formData.password} onChange={handleChange}
-                    placeholder="Min 6 caractères"
+                    placeholder={t('signup.passwordMin')}
                     className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required autoComplete="new-password" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -378,11 +380,11 @@ export default function SignUp() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Confirmer *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('signup.confirmPassword')} *</label>
                 <div className="relative">
                   <Lock size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'} value={formData.confirmPassword} onChange={handleChange}
-                    placeholder="Confirmer"
+                    placeholder={t('signup.confirmPassword')}
                     className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" required autoComplete="new-password" />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -395,7 +397,7 @@ export default function SignUp() {
 
           {!isInvite && (
             <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3 border border-slate-100">
-              💳 Aucune carte bancaire requise maintenant. Le paiement sera demandé uniquement à la fin de votre essai gratuit de 7 jours via Stripe (100% sécurisé).
+              {t('signup.noCardRequired')}
             </p>
           )}
 
@@ -408,19 +410,19 @@ export default function SignUp() {
             className={`w-full text-white py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm
               ${isInvite ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
             {isLoading
-              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />En cours…</>
+              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{t('signup.inProgress')}</>
               : isInvite
-                ? `👥 Rejoindre ${inviteInfo?.agencyName} →`
+                ? t('signup.joinTeamBtn', { agency: inviteInfo?.agencyName })
                 : selectedPlan
-                  ? `Créer mon compte & choisir ${PLAN_LABELS[selectedPlan]?.split('—')[0].trim()} →`
-                  : 'Créer mon compte →'
+                  ? `${t('signup.submitBtn')} — ${PLAN_LABELS[selectedPlan]?.split('—')[0].trim()} →`
+                  : `${t('signup.submitBtn')} →`
             }
           </button>
         </form>
 
         <div className="mt-5 pt-4 border-t border-slate-100">
           <p className="text-center text-slate-500 text-sm">
-            Déjà un compte ?{' '}
+            {t('signup.alreadyAccount')}{' '}
             <Link
               to={
                 inviteToken
@@ -429,7 +431,7 @@ export default function SignUp() {
                     ? `/login?returnTo=${encodeURIComponent(returnTo)}`
                     : '/login'
               }
-              className="text-blue-600 hover:text-blue-700 font-medium">Se connecter</Link>
+              className="text-blue-600 hover:text-blue-700 font-medium">{t('signup.login')}</Link>
           </p>
         </div>
       </div>
