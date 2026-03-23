@@ -121,24 +121,37 @@ export default function SignUp() {
     }
 
     try {
+      const invitedAgencyId = inviteInfo?.agency_id || null
+      const invitedRole     = inviteInfo?.role || 'agent'
+      const invitationId    = inviteInfo?.id || null
+
+      // ── user_metadata : stocké en DB même sans session active ──
+      // Permet de récupérer les infos d'invitation après confirmation email
+      const userMeta = invitedAgencyId
+        ? {
+            invited_agency_id: invitedAgencyId,
+            invited_role:      invitedRole,
+            invitation_id:     invitationId,
+            nom_agence:        inviteInfo?.agencyName || '',
+            full_name:         formData.fullName,
+          }
+        : { full_name: formData.fullName }
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email:    formData.email,
         password: formData.password,
+        options:  { data: userMeta },
       })
       if (authError) {
         setError(authError.message || 'Erreur lors de la création du compte')
         setIsLoading(false); return
       }
 
-      const invitedAgencyId = inviteInfo?.agency_id || null
-      const invitedRole     = inviteInfo?.role || 'agent'
-      const invitationId    = inviteInfo?.id || null
-
       const profilePayload = {
         user_id:             authData.user.id,
         agency_id:           invitedAgencyId || authData.user.id,
         email:               formData.email,
-        nom_agence:          invitedAgencyId ? inviteInfo?.agencyName : formData.agencyName,
+        nom_agence:          invitedAgencyId ? (inviteInfo?.agencyName || '') : formData.agencyName,
         nom_complet:         formData.fullName,
         telephone:           formData.telephone || undefined,
         type_agence:         invitedAgencyId ? undefined : formData.typeAgence,
@@ -148,11 +161,17 @@ export default function SignUp() {
       }
       Object.keys(profilePayload).forEach(k => profilePayload[k] === undefined && delete profilePayload[k])
 
+      // Tentative de création profil immédiate (fonctionne si pas de confirmation email)
       const { error: profileError } = await supabase
         .from('profiles').upsert([profilePayload], { onConflict: 'user_id' })
-      if (profileError) console.error('Profil error (non bloquant):', profileError)
+      if (profileError) {
+        // Normal si confirmation email requise (pas de session = RLS bloque)
+        // Le profil sera créé dans AuthConfirm après validation du token
+        console.warn('[Signup] Profil différé (confirmation email requise):', profileError.message)
+      }
 
-      if (invitationId) {
+      // Marquer l'invitation comme acceptée si on a une session immédiate
+      if (invitationId && authData.session) {
         await supabase.from('agency_invitations')
           .update({ status: 'accepted', accepted_at: new Date().toISOString() })
           .eq('id', invitationId)
@@ -402,7 +421,14 @@ export default function SignUp() {
         <div className="mt-5 pt-4 border-t border-slate-100">
           <p className="text-center text-slate-500 text-sm">
             Déjà un compte ?{' '}
-            <Link to={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'}
+            <Link
+              to={
+                inviteToken
+                  ? `/login?invite=${inviteToken}`
+                  : returnTo
+                    ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+                    : '/login'
+              }
               className="text-blue-600 hover:text-blue-700 font-medium">Se connecter</Link>
           </p>
         </div>

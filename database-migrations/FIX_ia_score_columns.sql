@@ -41,8 +41,29 @@ UPDATE leads
     AND score_qualification > 0
     AND score IS NULL;
 
+-- ============================================================
+-- RÉTRO-CALCUL niveau_interet pour les leads déjà scorés
+-- (nécessaire pour que Stats affiche les bons taux Chaud/Tiède/Froid)
+-- ============================================================
+UPDATE leads
+  SET niveau_interet =
+    CASE
+      WHEN COALESCE(score_qualification, score::integer, 0) >= 70 THEN 'CHAUD'
+      WHEN COALESCE(score_qualification, score::integer, 0) >= 40 THEN 'TIÈDE'
+      ELSE 'FROID'
+    END
+  WHERE niveau_interet IS NULL
+    AND (
+      (score_qualification IS NOT NULL AND score_qualification > 0)
+      OR (score IS NOT NULL AND score::text ~ '^[0-9]+$' AND score::integer > 0)
+    );
+
+-- Vérification finale
 SELECT 'Migration IA columns OK — '
   || COUNT(*) FILTER (WHERE score_qualification IS NOT NULL) || ' leads avec score_qualification, '
-  || COUNT(*) FILTER (WHERE niveau_interet IS NOT NULL)      || ' leads avec niveau_interet'
+  || COUNT(*) FILTER (WHERE niveau_interet IS NOT NULL)      || ' leads avec niveau_interet, '
+  || COUNT(*) FILTER (WHERE niveau_interet = 'CHAUD')        || ' CHAUD, '
+  || COUNT(*) FILTER (WHERE niveau_interet = 'TIÈDE')        || ' TIÈDE, '
+  || COUNT(*) FILTER (WHERE niveau_interet = 'FROID')        || ' FROID'
   AS result
 FROM leads;
