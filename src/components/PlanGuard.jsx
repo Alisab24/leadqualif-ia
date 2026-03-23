@@ -89,11 +89,21 @@ export function usePlanGuard() {
       if (effectivePlan === 'pro')    effectivePlan = 'growth'
       if (effectivePlan === 'agency') effectivePlan = 'enterprise'
 
-      // Si statut trialing → accès Growth pendant l'essai
+      // Détecter un essai expiré côté client (webhook Stripe pas encore reçu)
+      // Si le statut est encore "trialing" mais que la date de fin est passée,
+      // on force le statut à "inactive" pour afficher le mur d'abonnement.
+      const periodEnd = planSource.subscription_current_period_end
+      if (effectiveStatus === 'trialing' && periodEnd && new Date(periodEnd) < new Date()) {
+        effectiveStatus = 'inactive'
+      }
+
+      // Si statut trialing (essai toujours actif) → accès Growth complet
       if (effectiveStatus === 'trialing') effectivePlan = 'trialing'
 
-      // Si inactive/canceled sans plan actif → forcer free
-      if (['inactive', 'canceled'].includes(effectiveStatus) && !planSource.stripe_subscription_id) {
+      // Si inactive/canceled → forcer le plan free
+      // (on ne vérifie plus stripe_subscription_id ici : la détection de l'essai
+      //  expiré ci-dessus suffit à distinguer "jamais abonné" de "abonnement terminé")
+      if (['inactive', 'canceled'].includes(effectiveStatus)) {
         effectivePlan = 'free'
       }
 

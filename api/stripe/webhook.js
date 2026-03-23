@@ -176,10 +176,12 @@ export default async function handler(req, res) {
         const userId = await resolveUserId(sub);
 
         if (userId) {
+          // On conserve stripe_subscription_id pour que isWalled dans Layout.jsx
+          // puisse distinguer "jamais abonné" (null) de "abonnement résilié" (ID archivé).
+          // On NE null pas l'ID ici volontairement.
           await updateProfile(userId, {
             subscription_status:             'inactive',
             subscription_plan:               'free',
-            stripe_subscription_id:          null,
             subscription_billing_cycle:      null,
             subscription_current_period_end: null,
           });

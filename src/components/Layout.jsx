@@ -176,12 +176,23 @@ export default function Layout() {
 
   const expanded = pinned || hovered;
 
-  // Abonnement suspendu : essai expiré sans paiement (inactive/canceled après un trialing)
-  const isWalled = !planLoading &&
-    ['inactive', 'canceled'].includes(status) &&
-    profile?.stripe_subscription_id !== null &&
-    profile?.stripe_subscription_id !== undefined &&
-    typeof profile?.stripe_subscription_id === 'string';
+  // Essai expiré côté client (webhook pas encore reçu) : trialEnd dans le passé
+  const trialExpiredClient = status === 'trialing' &&
+    trialEnd instanceof Date &&
+    trialEnd < new Date();
+
+  // Abonnement suspendu : mur affiché si :
+  //  1. Statut inactive/canceled ET l'utilisateur avait un abonnement Stripe (stripe_subscription_id conservé)
+  //  2. OU l'essai est expiré côté client avant que le webhook ait mis à jour le statut
+  const isWalled = !planLoading && (
+    trialExpiredClient ||
+    (
+      ['inactive', 'canceled'].includes(status) &&
+      profile?.stripe_subscription_id !== null &&
+      profile?.stripe_subscription_id !== undefined &&
+      typeof profile?.stripe_subscription_id === 'string'
+    )
+  );
 
   const isTrialing  = status === 'trialing';
   const isPastDue   = status === 'past_due';
