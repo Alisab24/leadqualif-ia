@@ -203,9 +203,17 @@ const FEATURE_LABELS = {
 function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe, onPortal }) {
   const [billingCycle, setBillingCycle] = React.useState('monthly')
 
-  const isActive = ['active', 'trialing'].includes(subscriptionInfo.status)
+  // Détecter un essai expiré côté client (webhook pas encore reçu)
+  const trialExpiredClient = subscriptionInfo.status === 'trialing' &&
+    subscriptionInfo.current_period_end &&
+    new Date(subscriptionInfo.current_period_end) < new Date()
+
+  const isActive = !trialExpiredClient && ['active', 'trialing'].includes(subscriptionInfo.status)
   const isPastDue = subscriptionInfo.status === 'past_due'
-  const currentPlan = subscriptionInfo.plan || 'free'
+  // Si l'essai a expiré, currentPlan revient à 'free' pour que les boutons soient actifs
+  const currentPlan = trialExpiredClient ? 'free' : (subscriptionInfo.plan || 'free')
+  // Indique si le client a déjà eu un abonnement Stripe (pour adapter le libellé du bouton)
+  const hadSubscription = !!subscriptionInfo.stripe_customer_id
   const activeFeatures = PLAN_ACTIVE_FEATURES[currentPlan] || PLAN_ACTIVE_FEATURES.free
 
   const planDisplay = {
@@ -387,7 +395,13 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
                   onClick={() => onSubscribe(planId)}
                   disabled={stripeLoading || isCurrent}
                   className={`w-full py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${plan.btnCls}`}>
-                  {stripeLoading ? '⏳…' : isCurrent ? '✅ Plan actuel' : "Démarrer l'essai gratuit"}
+                  {stripeLoading
+                    ? '⏳…'
+                    : isCurrent
+                    ? '✅ Plan actuel'
+                    : hadSubscription
+                    ? 'Choisir ce plan →'
+                    : "Démarrer l'essai gratuit"}
                 </button>
               )}
             </div>
