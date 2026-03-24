@@ -44,7 +44,9 @@ export default function TeamSettings() {
   const [agencyId, setAgencyId]           = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
 
-  const limit         = TEAM_LIMITS[userPlan] ?? 0
+  // ⚠️ Ne pas utiliser `?? 0` : l'opérateur ?? remplace aussi null par 0,
+  // ce qui écrase la valeur null (= illimité) du plan enterprise.
+  const limit         = userPlan in TEAM_LIMITS ? TEAM_LIMITS[userPlan] : 0
   const canInvite     = canAccess('multiUsers') || limit > 0
   const activeMembers = members.filter(m => m.role !== 'owner')
   const hasRoom       = limit === null || activeMembers.length < limit
