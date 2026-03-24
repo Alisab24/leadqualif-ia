@@ -26,7 +26,13 @@ export const config = {
 // ne sont pas toutes disponibles à l'import sur Vercel Edge.
 // On les crée à l'intérieur du handler.
 
-const FROM = process.env.RESEND_FROM_EMAIL || 'LeadQualif <contact@leadqualif.com>';
+// ── Expéditeur pour les envois manuels depuis le CRM ─────────────────────────
+// Variables Vercel : SENDER_NAME  (ex: "Alou — LeadQualif")
+//                   SENDER_EMAIL  (ex: contact@send.leadqualif.com)
+// Fallback : RESEND_FROM_EMAIL (legacy)
+const _senderName  = process.env.SENDER_NAME  || 'LeadQualif';
+const _senderEmail = process.env.SENDER_EMAIL  || process.env.RESEND_FROM_EMAIL || 'contact@send.leadqualif.com';
+const FROM = `${_senderName} <${_senderEmail}>`;
 
 // ── Labels par type de document ────────────────────────────────────────────────
 const TYPE_LABELS = {

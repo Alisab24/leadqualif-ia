@@ -15,7 +15,13 @@
 
 import { Resend } from 'resend';
 
-const FROM = process.env.RESEND_FROM_EMAIL || 'LeadQualif <contact@leadqualif.com>';
+// ── Expéditeurs ────────────────────────────────────────────────────────────────
+// Ces emails sont automatiques (Stripe events, alertes, relances) → noreply
+// Variables Vercel : SENDER_EMAIL_AUTO  (ex: noreply@send.leadqualif.com)
+//                   RESEND_FROM_EMAIL   (fallback legacy)
+const FROM = process.env.SENDER_EMAIL_AUTO
+  ? `LeadQualif <${process.env.SENDER_EMAIL_AUTO}>`
+  : (process.env.RESEND_FROM_EMAIL || 'LeadQualif <noreply@send.leadqualif.com>');
 
 // ── Styles communs ─────────────────────────────────────────────────────────────
 const BASE = `

@@ -48,7 +48,10 @@ export default async function handler(req, res) {
     const { data, error } = await resend.emails.send({
       // Utilise le domaine Resend par défaut si pas de domaine custom vérifié
       // Pour utiliser votre propre domaine, vérifiez-le sur resend.com/domains
-      from: process.env.RESEND_FROM_EMAIL || 'LeadQualif <contact@leadqualif.com>',
+      // Invitations équipe : expéditeur automatique (noreply)
+      from: process.env.SENDER_EMAIL_AUTO
+        ? `LeadQualif <${process.env.SENDER_EMAIL_AUTO}>`
+        : (process.env.RESEND_FROM_EMAIL || 'LeadQualif <noreply@send.leadqualif.com>'),
       to: [email],
       subject: `Invitation à rejoindre ${agencyName} sur LeadQualif IA`,
       html: `
