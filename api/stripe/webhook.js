@@ -9,17 +9,41 @@
  *   customer.subscription.trial_will_end → alerte fin essai (J-3)
  *   invoice.payment_succeeded          → confirmation paiement
  *   invoice.payment_failed             → paiement en échec → past_due
+ *
+ * ⚠️  IMPORTANT — body parsing désactivé (export config ci-dessous)
+ *   Vercel parse automatiquement le JSON → détruit la signature Stripe.
+ *   On lit le body brut depuis le stream pour que constructEvent fonctionne.
  */
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { sendTransactional } from '../emails/send.js';
 
+// ── Désactiver le body parser Vercel ──────────────────────────────────────────
+// Sans cela, Vercel re-sérialise le JSON et la signature Stripe ne correspond plus.
+export const config = {
+  api: { bodyParser: false },
+};
+
+// ── Lire le corps brut depuis le stream ───────────────────────────────────────
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) =>
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    );
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  // Utiliser obligatoirement SUPABASE_SERVICE_KEY (clé service_role) pour les
+  // opérations admin (auth.admin.getUserById, update profiles sans RLS)
+  process.env.SUPABASE_SERVICE_KEY
 );
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -98,15 +122,19 @@ export default async function handler(req, res) {
   let event;
 
   try {
+    // Lire le corps brut depuis le stream (bodyParser désactivé via export config)
+    const rawBody = await getRawBody(req);
+
     if (webhookSecret && sig) {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      // Vérification de signature Stripe — nécessite les bytes bruts originaux
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } else {
       // Dev/test : pas de vérification de signature
-      event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       console.warn('[webhook] ⚠️ STRIPE_WEBHOOK_SECRET absent — signature non vérifiée');
+      event = JSON.parse(rawBody.toString('utf8'));
     }
   } catch (err) {
-    console.error('[webhook] Signature invalide:', err.message);
+    console.error('[webhook] Erreur parsing/signature:', err.message);
     return res.status(400).json({ error: `Webhook error: ${err.message}` });
   }
 
