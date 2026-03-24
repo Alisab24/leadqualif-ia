@@ -208,10 +208,16 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
     subscriptionInfo.current_period_end &&
     new Date(subscriptionInfo.current_period_end) < new Date()
 
+  // Un abonnement Stripe est considéré valide seulement si le webhook a bien enregistré
+  // le stripe_subscription_id. Sans cet ID, l'abonnement n'est pas confirmé par Stripe.
+  const hasValidStripeSubscription = !!subscriptionInfo.stripe_subscription_id
+
   const isActive = !trialExpiredClient && ['active', 'trialing'].includes(subscriptionInfo.status)
   const isPastDue = subscriptionInfo.status === 'past_due'
-  // Si l'essai a expiré, currentPlan revient à 'free' pour que les boutons soient actifs
-  const currentPlan = trialExpiredClient ? 'free' : (subscriptionInfo.plan || 'free')
+  // Si l'essai a expiré OU pas de confirmation Stripe, currentPlan revient à 'free'
+  const currentPlan = (trialExpiredClient || !hasValidStripeSubscription)
+    ? 'free'
+    : (subscriptionInfo.plan || 'free')
   // Indique si le client a déjà eu un abonnement Stripe (pour adapter le libellé du bouton)
   const hadSubscription = !!subscriptionInfo.stripe_customer_id
   const activeFeatures = PLAN_ACTIVE_FEATURES[currentPlan] || PLAN_ACTIVE_FEATURES.free
