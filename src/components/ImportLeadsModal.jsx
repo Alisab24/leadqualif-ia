@@ -151,7 +151,7 @@ export default function ImportLeadsModal({ onClose, onSuccess, agencyId, agencyT
       secteur_activite: get('secteur_activite') || null,
       type_service:     get('type_service') || null,
       adresse:          get('adresse') || null,
-      notes:            get('notes') || null,
+      message:          get('notes') || null,   // colonne DB = message (pas notes)
       score:            get('score') ? (parseInt(get('score')) || null) : null,
       score_qualification: get('score') ? (parseInt(get('score')) || null) : null,
       created_at:       new Date().toISOString(),
