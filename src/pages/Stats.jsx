@@ -72,8 +72,8 @@ const getQualif = (lead) => {
   return 'froid'
 }
 
-const fmtEuro = (v) =>
-  (v || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+const fmtEuro = (v, currency = 'EUR') =>
+  (v || 0).toLocaleString('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 })
 
 const fmtNum  = (v) => (v || 0).toLocaleString('fr-FR')
 
@@ -120,6 +120,8 @@ export default function Stats() {
   const [pixels, setPixels]         = useState({ fb: '', gads: '', gLabel: '' })
   const [stats, setStats]           = useState({})
   const [showReport, setShowReport] = useState(false)
+  const [currencyCode,   setCurrencyCode]   = useState('EUR')
+  const [currencySymbol, setCurrencySymbol] = useState('€')
   const reportRef = useRef(null)
 
   useEffect(() => { fetchStats() }, [])
@@ -129,6 +131,9 @@ export default function Stats() {
     await fetchStats()
     setRefreshing(false)
   }
+
+  // Formateur monétaire dynamique — utilise la devise chargée depuis le profil agence
+  const fmt = (v) => fmtEuro(v, currencyCode)
 
   const handlePrintReport = () => {
     // ── Nom de fichier : _Rap_AGENCE_JJ-MM-AA ─────────────────
@@ -204,7 +209,7 @@ export default function Stats() {
       // Récupérer le type d'agence et les pixels depuis la table profiles
       const { data: profileRaw } = await supabase
         .from('profiles')
-        .select('type_agence, facebook_pixel_id, google_ads_id, google_ads_label')
+        .select('type_agence, facebook_pixel_id, google_ads_id, google_ads_label, devise, symbole_devise')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -215,6 +220,9 @@ export default function Stats() {
         gads:   profileRaw?.google_ads_id      || '',
         gLabel: profileRaw?.google_ads_label   || '',
       })
+      // Devise de l'agence (définie dans Paramètres → Informations)
+      setCurrencyCode(profileRaw?.devise         || 'EUR')
+      setCurrencySymbol(profileRaw?.symbole_devise || '€')
 
       const { data: leadsData } = await supabase
         .from('leads')
@@ -391,7 +399,7 @@ export default function Stats() {
         : 0
       // Affichage rétainer : si factures → montant moyen ; sinon "—"
       const retainerDisplay = type === 'smma'
-        ? (retainerMoyen > 0 ? fmtEuro(retainerMoyen) : null)
+        ? (retainerMoyen > 0 ? fmt(retainerMoyen) : null)
         : null
       // Top 5 leads SMMA par score IA (pas par budget → évite problèmes de parsing)
       const topSmmaLeads = [...leadsData]
@@ -512,16 +520,16 @@ export default function Stats() {
                 {stats.caFacturesPaye > 0 ? (
                   <>
                     <p className="text-purple-100 text-sm font-medium">✅ CA encaissé (factures payées)</p>
-                    <p className="text-4xl font-bold mt-1">{fmtEuro(stats.caFacturesPaye)}</p>
+                    <p className="text-4xl font-bold mt-1">{fmt(stats.caFacturesPaye)}</p>
                     <p className="text-purple-200 text-sm mt-2">
                       {stats.nbFacturesPayees} facture{stats.nbFacturesPayees > 1 ? 's' : ''} payée{stats.nbFacturesPayees > 1 ? 's' : ''} ·{' '}
-                      Ce mois : {fmtEuro(stats.caFacturesPayeMois)}
+                      Ce mois : {fmt(stats.caFacturesPayeMois)}
                     </p>
                   </>
                 ) : (
                   <>
                     <p className="text-purple-100 text-sm font-medium">CA ce mois</p>
-                    <p className="text-4xl font-bold mt-1">{fmtEuro(stats.caMoisEnCours)}</p>
+                    <p className="text-4xl font-bold mt-1">{fmt(stats.caMoisEnCours)}</p>
                     <p className="text-purple-200 text-sm mt-2">
                       {stats.clientsActifs} client{stats.clientsActifs > 1 ? 's' : ''} actif{stats.clientsActifs > 1 ? 's' : ''} ·{' '}
                       Aucune facture marquée payée
@@ -548,7 +556,7 @@ export default function Stats() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm font-medium">Commission ce mois</p>
-                <p className="text-4xl font-bold mt-1">{fmtEuro(stats.commissionMoisEnCours)}</p>
+                <p className="text-4xl font-bold mt-1">{fmt(stats.commissionMoisEnCours)}</p>
                 <p className="text-blue-200 text-sm mt-2">
                   {leads.filter(l => l.statut === 'Gagné').length} lead{leads.filter(l => l.statut === 'Gagné').length > 1 ? 's' : ''} gagné{leads.filter(l => l.statut === 'Gagné').length > 1 ? 's' : ''} ce mois
                 </p>
@@ -556,7 +564,7 @@ export default function Stats() {
               <div className="text-right space-y-3">
                 <div className="bg-white/15 rounded-xl px-4 py-3">
                   <p className="text-blue-100 text-xs font-medium">Commission potentielle</p>
-                  <p className="text-2xl font-bold">{fmtEuro(stats.commissionPotentielle)}</p>
+                  <p className="text-2xl font-bold">{fmt(stats.commissionPotentielle)}</p>
                 </div>
                 <p className="text-blue-200 text-xs">Si tous les leads actifs signent</p>
               </div>
@@ -588,18 +596,18 @@ export default function Stats() {
                   {stats.caFacturesPaye > 0 ? '✅ CA encaissé (factures payées)' : 'CA clients signés'}
                 </p>
                 <p className={`text-3xl font-bold mt-1 ${stats.caFacturesPaye > 0 ? 'text-green-700' : 'text-green-600'}`}>
-                  {fmtEuro(stats.caFacturesPaye > 0 ? stats.caFacturesPaye : stats.caGenere)}
+                  {fmt(stats.caFacturesPaye > 0 ? stats.caFacturesPaye : stats.caGenere)}
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
                   {stats.caFacturesPaye > 0
-                    ? `${stats.nbFacturesPayees} facture${stats.nbFacturesPayees > 1 ? 's' : ''} payée${stats.nbFacturesPayees > 1 ? 's' : ''} · Ce mois : ${fmtEuro(stats.caFacturesPayeMois)}`
+                    ? `${stats.nbFacturesPayees} facture${stats.nbFacturesPayees > 1 ? 's' : ''} payée${stats.nbFacturesPayees > 1 ? 's' : ''} · Ce mois : ${fmt(stats.caFacturesPayeMois)}`
                     : 'Rétainers clients signés (cumulé)'}
                 </p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                 <p className="text-sm text-slate-500 font-medium">Clients signés</p>
                 <p className="text-3xl font-bold text-purple-600 mt-1">{stats.clientsActifs ?? 0}</p>
-                <p className="text-xs text-slate-400 mt-1">Rétainer moyen : {stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—'}</p>
+                <p className="text-xs text-slate-400 mt-1">Rétainer moyen : {stats.retainerMoyen ? fmt(stats.retainerMoyen) : '—'}</p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                 <p className="text-sm text-slate-500 font-medium">{t('stats.closingRate')}</p>
@@ -611,12 +619,12 @@ export default function Stats() {
             <>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                 <p className="text-sm text-slate-500 font-medium">Commission réalisée</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{fmtEuro(stats.commissionRealisee)}</p>
+                <p className="text-3xl font-bold text-green-600 mt-1">{fmt(stats.commissionRealisee)}</p>
                 <p className="text-xs text-slate-400 mt-1">Leads Gagné × taux commission</p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                 <p className="text-sm text-slate-500 font-medium">Commission potentielle</p>
-                <p className="text-3xl font-bold text-blue-600 mt-1">{fmtEuro(stats.commissionPotentielle)}</p>
+                <p className="text-3xl font-bold text-blue-600 mt-1">{fmt(stats.commissionPotentielle)}</p>
                 <p className="text-xs text-slate-400 mt-1">Si tous les leads actifs signent</p>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
@@ -727,7 +735,7 @@ export default function Stats() {
           {/* Revenus mensuels */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
             <h2 className="text-base font-bold text-slate-800 mb-4">
-              {isSmma ? 'CA mensuel (€)' : 'Commission mensuelle (€)'}
+              {isSmma ? `CA mensuel (${currencySymbol})` : `Commission mensuelle (${currencySymbol})`}
             </h2>
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={stats.monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -740,7 +748,7 @@ export default function Stats() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [`${v.toLocaleString()} €`, isSmma ? 'CA' : 'Commission']} />
+                <Tooltip formatter={(v) => [`${v.toLocaleString()} ${currencySymbol}`, isSmma ? 'CA' : 'Commission']} />
                 <Area
                   type="monotone"
                   dataKey={isSmma ? 'ca_smma' : 'commission'}
@@ -748,7 +756,7 @@ export default function Stats() {
                   strokeWidth={2.5}
                   fill="url(#colorRev)"
                   dot={{ fill: isSmma ? '#a855f7' : '#10b981', r: 4 }}
-                  name={isSmma ? 'CA €' : 'Commission €'}
+                  name={isSmma ? `CA ${currencySymbol}` : `Commission ${currencySymbol}`}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -910,7 +918,7 @@ export default function Stats() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard icon="🔥" label={t('stats.hotLeadsActive')} value={stats.leadsChaudsNonTraites ?? 0} color="orange" sub={t('stats.scoreAbove70')} />
               <KPICard icon="📂" label="En cours de traitement" value={stats.leadsActifs ?? 0} color="blue" sub="Hors Gagné / Perdu" />
-              <KPICard icon="💰" label="Rétainer moyen" value={stats.retainerDisplay || (stats.retainerMoyen ? fmtEuro(stats.retainerMoyen) : '—')} color="green" sub="Clients signés" />
+              <KPICard icon="💰" label="Rétainer moyen" value={stats.retainerDisplay || (stats.retainerMoyen ? fmt(stats.retainerMoyen) : '—')} color="green" sub="Clients signés" />
               <KPICard icon="✅" label="Clients signés" value={stats.clientsActifs ?? 0} color="purple" sub={`Taux ${stats.conversionRate ?? 0}%`} />
             </div>
 
@@ -1039,10 +1047,10 @@ export default function Stats() {
                         </td>
                         <td className="py-3 text-xs text-slate-500">{lead.statut || '—'}</td>
                         <td className="py-3 text-right text-sm font-bold text-slate-800">
-                          {fmtEuro(lead.budget || 0)}
+                          {fmt(lead.budget || 0)}
                         </td>
                         <td className="py-3 text-right text-sm font-bold text-green-600">
-                          {fmtEuro(calcCommission(lead.budget))}
+                          {fmt(calcCommission(lead.budget))}
                         </td>
                       </tr>
                     )
@@ -1067,7 +1075,7 @@ export default function Stats() {
               )}
               {isSmma && (
                 <span className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                  {t('stats.closingRateBySource')} · CA total : {fmtEuro(stats.caFacturesPaye || 0)}
+                  {t('stats.closingRateBySource')} · CA total : {fmt(stats.caFacturesPaye || 0)}
                 </span>
               )}
             </div>
@@ -1104,7 +1112,7 @@ export default function Stats() {
                           </td>
                           {!isSmma && (
                             <td className="py-3 text-right text-sm font-bold text-slate-800">
-                              {fmtEuro(row.revenue)}
+                              {fmt(row.revenue)}
                             </td>
                           )}
                           {!isSmma && (
@@ -1136,7 +1144,7 @@ export default function Stats() {
                     <td className="pt-3 text-center text-sm font-bold text-indigo-700">{stats.conversionRate}%</td>
                     {!isSmma && (
                       <td className="pt-3 text-right text-sm font-bold text-green-700">
-                        {fmtEuro(stats.roiDistribution.reduce((s, r) => s + r.revenue, 0))}
+                        {fmt(stats.roiDistribution.reduce((s, r) => s + r.revenue, 0))}
                       </td>
                     )}
                     {!isSmma && <td className="pt-3 text-right text-xs font-semibold text-slate-400">100%</td>}
@@ -1154,7 +1162,7 @@ export default function Stats() {
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Mois', 'Leads', isSmma ? 'Signés' : 'Gagnés', 'Chauds', isSmma ? 'CA (€)' : 'Commission (€)', 'Statut'].map(h => (
+                  {['Mois', 'Leads', isSmma ? 'Signés' : 'Gagnés', 'Chauds', isSmma ? `CA (${currencySymbol})` : `Commission (${currencySymbol})`, 'Statut'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
                   ))}
                 </tr>
@@ -1168,7 +1176,7 @@ export default function Stats() {
                       <td className="px-4 py-3 text-sm text-slate-600">{m.leads}</td>
                       <td className="px-4 py-3 text-sm text-green-600 font-semibold">{m.gagnes}</td>
                       <td className="px-4 py-3 text-sm text-orange-600 font-semibold">{m.chauds}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-slate-700">{fmtEuro(rev)}</td>
+                      <td className="px-4 py-3 text-sm font-bold text-slate-700">{fmt(rev)}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
                           rev > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
@@ -1246,20 +1254,20 @@ export default function Stats() {
                   <div>
                     <p className="text-xs text-slate-400">Ce mois</p>
                     <p className="text-xl font-black text-green-600">
-                      {fmtEuro(isSmma ? stats.caMoisEnCours : stats.commissionMoisEnCours)}
+                      {fmt(isSmma ? stats.caMoisEnCours : stats.commissionMoisEnCours)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Total cumulé</p>
                     <p className="text-xl font-black text-indigo-600">
-                      {fmtEuro(isSmma ? stats.caGenere : stats.commissionRealisee)}
+                      {fmt(isSmma ? stats.caGenere : stats.commissionRealisee)}
                     </p>
                   </div>
                   {!isSmma && (
                     <div>
                       <p className="text-xs text-slate-400">Potentiel pipeline</p>
                       <p className="text-xl font-black text-blue-600">
-                        {fmtEuro(stats.commissionPotentielle)}
+                        {fmt(stats.commissionPotentielle)}
                       </p>
                     </div>
                   )}
@@ -1284,7 +1292,7 @@ export default function Stats() {
                         <td className="px-3 py-2 text-slate-600">{m.leads}</td>
                         <td className="px-3 py-2 font-semibold text-green-600">{m.gagnes}</td>
                         <td className="px-3 py-2 font-semibold text-orange-500">{m.chauds}</td>
-                        <td className="px-3 py-2 font-bold text-slate-800">{fmtEuro(isSmma ? m.ca_smma : m.commission)}</td>
+                        <td className="px-3 py-2 font-bold text-slate-800">{fmt(isSmma ? m.ca_smma : m.commission)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1310,7 +1318,7 @@ export default function Stats() {
                           <td className="px-3 py-2 text-slate-600">{row.leads}</td>
                           <td className="px-3 py-2 font-semibold text-green-600">{row.gagnes}</td>
                           <td className="px-3 py-2 text-slate-600">{row.convRate}%</td>
-                          <td className="px-3 py-2 font-bold text-slate-800">{fmtEuro(row.revenue)}</td>
+                          <td className="px-3 py-2 font-bold text-slate-800">{fmt(row.revenue)}</td>
                         </tr>
                       ))}
                     </tbody>
