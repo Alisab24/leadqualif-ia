@@ -315,6 +315,9 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     }
   };
 
+  // Wrapper pratique : formatAmount avec la devise du profil agence courant
+  const fmtA = (v) => formatAmount(v, agencyProfile?.devise || 'EUR');
+
   // Fonction pour formater les montants sans symbole (pour tableaux)
   const formatAmountPlain = (amount) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -1073,7 +1076,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
         { label: 'Email', value: lead.email || 'Non spécifié' },
         { label: 'Téléphone', value: lead.telephone || 'Non spécifié' },
         { label: 'Projet', value: lead.type_bien || 'Projet non spécifié' },
-        { label: 'Budget', value: formatAmount(lead.budget || 0) }
+        { label: 'Budget', value: fmtA(lead.budget || 0) }
       ];
       
       clientInfo.forEach((info, index) => {
@@ -1149,7 +1152,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           };
           break;
         case 'compromis':
-          content = `COMPROMIS DE VENTE\n\nPARTIES CONCERNÉES\nVendeur: [Nom et adresse du vendeur]\nAcheteur: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nPrix de vente: ${formatAmount(lead.budget || 0)}\n\nCLAUSES SUSPENSIVES\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nCONDITIONS FINANCIÈRES\nAccomppte: ${formatAmount((lead.budget || 0) * 0.10)} (10% du prix de vente)\nSolde: ${formatAmount((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDÉLAIS\nDélai de rétractation: 10 jours à compter de la signature\nDate prévisionnelle de signature définitive: [à déterminer]`;
+          content = `COMPROMIS DE VENTE\n\nPARTIES CONCERNÉES\nVendeur: [Nom et adresse du vendeur]\nAcheteur: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nPrix de vente: ${fmtA(lead.budget || 0)}\n\nCLAUSES SUSPENSIVES\n• Obtention d'un prêt bancaire (si applicable)\n• Accord de la copropriété (si applicable)\n• Autorisation administrative (si applicable)\n\nCONDITIONS FINANCIÈRES\nAccomppte: ${fmtA((lead.budget || 0) * 0.10)} (10% du prix de vente)\nSolde: ${fmtA((lead.budget || 0) * 0.90)} à la levée des clauses suspensives\n\nDÉLAIS\nDélai de rétractation: 10 jours à compter de la signature\nDate prévisionnelle de signature définitive: [à déterminer]`;
           break;
         case 'facture':
           content = `FACTURE N°${documentNumber}\n\nINFORMATIONS CLIENT\n${lead.nom}\n${lead.email}\n${lead.telephone}\n\nINFORMATIONS PRESTATAIRE\n${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.address || ''}\n${profileToUse?.registrationNumber || ''}\n\nDÉTAIL DES PRESTATIONS\n${agencyType === 'immobilier' ? 'Honoraires de négociation immobilière' : 'Services de marketing digital'}`;
@@ -1190,10 +1193,10 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
           content = `BON DE VISITE\n\nINFORMATIONS VISITE\nClient: ${lead.nom}\nTéléphone: ${lead.telephone}\nEmail: ${lead.email}\n\nBIEN VISITÉ\nAdresse: [adresse complète du bien]\nDate de visite: ${new Date().toLocaleDateString('fr-FR')}\nHeure: [à définir]\n\nAGENT PRÉSENT\nAgence: ${profileToUse?.name || 'Agence'}\nContact: ${profileToUse?.phone || ''}\n\nOBSERVATIONS\n[Notes et remarques sur la visite, état du bien, points d'attention]\n\nPROCHAINES ÉTAPES\n• Retour du client sous 48h\n• Proposition d'offre (si intérêt)\n• Prise de contact avec le vendeur\n• Préparation du compromis de vente (si accord)`;
           break;
         case 'contrat_gestion':
-          content = `CONTRAT DE GESTION LOCATIVE\n\nPARTIES\nPropriétaire: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\nMandataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nType de bien: ${lead.type_bien || 'Appartement'}\nValeur estimée: ${formatAmount(lead.budget || 0)}\n\nOBJET DU CONTRAT\nLe présent contrat a pour objet de confier au Mandataire la gestion locative et/ou la mise en gestion du bien désigné ci-dessus.\n\nMISSIONS DU MANDATAIRE\n• Recherche et sélection des locataires\n• Rédaction et signature des baux\n• Perception des loyers et charges\n• Gestion des travaux et entretiens courants\n• Suivi comptable et reporting mensuel\n• Représentation auprès des organismes tiers\n\nHONORAIRES DE GESTION\nHonoraires de gestion: 8% des loyers hors charges perçus\nHonoraires de remise en location: 1 mois de loyer HC\n\nDURÉE DU MANDAT\nLe présent mandat est conclu pour une durée d'un an renouvelable par tacite reconduction.\n\nRÉSILIATION\nPréavis de 3 mois avant la date anniversaire par lettre recommandée avec AR.`;
+          content = `CONTRAT DE GESTION LOCATIVE\n\nPARTIES\nPropriétaire: ${lead.nom}\n${lead.email ? 'Email: ' + lead.email : ''}\n${lead.telephone ? 'Téléphone: ' + lead.telephone : ''}\nMandataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nBIEN CONCERNÉ\nAdresse: [adresse complète du bien]\nType de bien: ${lead.type_bien || 'Appartement'}\nValeur estimée: ${fmtA(lead.budget || 0)}\n\nOBJET DU CONTRAT\nLe présent contrat a pour objet de confier au Mandataire la gestion locative et/ou la mise en gestion du bien désigné ci-dessus.\n\nMISSIONS DU MANDATAIRE\n• Recherche et sélection des locataires\n• Rédaction et signature des baux\n• Perception des loyers et charges\n• Gestion des travaux et entretiens courants\n• Suivi comptable et reporting mensuel\n• Représentation auprès des organismes tiers\n\nHONORAIRES DE GESTION\nHonoraires de gestion: 8% des loyers hors charges perçus\nHonoraires de remise en location: 1 mois de loyer HC\n\nDURÉE DU MANDAT\nLe présent mandat est conclu pour une durée d'un an renouvelable par tacite reconduction.\n\nRÉSILIATION\nPréavis de 3 mois avant la date anniversaire par lettre recommandée avec AR.`;
           break;
         case 'contrat':
-          content = `CONTRAT DE PRESTATION DE SERVICES\n\nPARTIES\nClient: ${lead.nom}\nPrestataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET DU CONTRAT\nPrestations de marketing digital et communication\n\nDURÉE\nLe présent contrat est conclu pour une durée de 6 mois à compter de la date de signature.\n\nPRESTATIONS INCLUSES\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT\n${formatAmount((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION\nPréavis de 30 jours par courriel recommandé`;
+          content = `CONTRAT DE PRESTATION DE SERVICES\n\nPARTIES\nClient: ${lead.nom}\nPrestataire: ${profileToUse?.name || 'Agence'}\n${profileToUse?.legalName || ''}\n${profileToUse?.registrationNumber || ''}\n\nOBJET DU CONTRAT\nPrestations de marketing digital et communication\n\nDURÉE\nLe présent contrat est conclu pour une durée de 6 mois à compter de la date de signature.\n\nPRESTATIONS INCLUSES\n• Stratégie marketing personnalisée\n• Gestion des réseaux sociaux (3 plateformes)\n• Création de contenu mensuel (15 publications)\n• Campagnes publicitaires mensuelles\n• Analyse et reporting mensuel\n• Optimisation continue\n\nMONTANT\n${fmtA((lead.budget || 0) * 0.05)} par mois\n\nCONDITIONS DE RÉSILIATION\nPréavis de 30 jours par courriel recommandé`;
           break;
         case 'rapport':
           content = `RAPPORT DE PERFORMANCE\n\nINFORMATIONS\nClient: ${lead.nom}\nPériode d'analyse: ${new Date().toLocaleDateString('fr-FR')}\nAgence: ${profileToUse?.name || 'Agence'}\n\nINDICATEURS CLÉS DE PERFORMANCE\n\nTAUX D'ENGAGEMENT: [à compléter]%\nCROISSANCE DES ABONNÉS: [à compléter]\nTAUX DE CONVERSION: [à compléter]%\nPORTÉE MOYENNE: [à compléter]\n\nPERFORMANCES PAR PLATEFORME\n\nInstagram: [à compléter abonnés, taux engagement]\nFacebook: [à compléter abonnés, taux engagement]\nLinkedIn: [à compléter abonnés, taux engagement]\n\nRECOMMANDATIONS STRATÉGIQUES\n• Optimisation du contenu existant\n• Nouvelles campagnes publicitaires\n• Analyse concurrentielle approfondie\n\nPROCHAINES ACTIONS\n• Mise en place des recommandations\n• Nouvelles campagnes ciblées\n• Suivi hebdomadaire des performances`;
@@ -2042,18 +2045,18 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Commission:</span>
                         <span className="font-medium text-slate-900">
-                          {formatAmount(calculateCommission())}
+                          {fmtA(calculateCommission())}
                         </span>
                       </div>
 
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Honoraires:</span>
-                        <span className="font-medium text-slate-900">{formatAmount(documentSettings.honoraires)}</span>
+                        <span className="font-medium text-slate-900">{fmtA(documentSettings.honoraires)}</span>
                       </div>
 
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Frais annexes:</span>
-                        <span className="font-medium text-slate-900">{formatAmount(documentSettings.frais)}</span>
+                        <span className="font-medium text-slate-900">{fmtA(documentSettings.frais)}</span>
                       </div>
                     </>
                   ) : (
@@ -2067,21 +2070,21 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Total HT:</span>
                       <span className="font-medium text-slate-900">
-                        {formatAmount(calculateTotalHT())}
+                        {fmtA(calculateTotalHT())}
                       </span>
                     </div>
-                    
+
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">TVA ({documentSettings.tva}%):</span>
                       <span className="font-medium text-slate-900">
-                        {formatAmount(calculateTVA())}
+                        {fmtA(calculateTVA())}
                       </span>
                     </div>
-                    
+
                     <div className="flex justify-between text-lg font-bold text-blue-600 bg-blue-100 px-4 py-2 rounded-lg">
                       <span>Total TTC:</span>
                       <span>
-                        {formatAmount(calculateTotalTTC())}
+                        {fmtA(calculateTotalTTC())}
                       </span>
                     </div>
                   </div>
