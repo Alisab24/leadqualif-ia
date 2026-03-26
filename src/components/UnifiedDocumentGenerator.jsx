@@ -12,6 +12,7 @@ const UnifiedDocumentGenerator = ({
   onDocumentGenerated,
   onClose 
 }) => {
+  const sym = agencyProfile?.symbole_devise || '€';
   const [loading, setLoading] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [documentData, setDocumentData] = useState({});
@@ -196,7 +197,7 @@ const UnifiedDocumentGenerator = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Prix de vente (€) *
+                Prix de vente ({sym}) *
               </label>
               <input
                 type="number"
@@ -263,7 +264,7 @@ const UnifiedDocumentGenerator = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Budget mensuel (€) *
+                Budget mensuel ({sym}) *
               </label>
               <input
                 type="number"

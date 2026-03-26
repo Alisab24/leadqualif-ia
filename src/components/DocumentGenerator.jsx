@@ -317,6 +317,8 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
 
   // Wrapper pratique : formatAmount avec la devise du profil agence courant
   const fmtA = (v) => formatAmount(v, agencyProfile?.devise || 'EUR');
+  // Symbole court pour les labels de formulaire
+  const sym = agencyProfile?.symbole_devise || '€';
 
   // Fonction pour formater les montants sans symbole (pour tableaux)
   const formatAmountPlain = (amount) => {
@@ -1641,7 +1643,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix du bien (€) *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix du bien ({sym}) *</label>
                       <input type="number" value={documentSettings.bienPrice}
                         onChange={(e) => setDocumentSettings(prev => ({ ...prev, bienPrice: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 250000" min="0" />
@@ -1652,19 +1654,19 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                         <button onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'percentage' }))}
                           className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors text-sm ${documentSettings.commissionType === 'percentage' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'}`}>%</button>
                         <button onClick={() => setDocumentSettings(prev => ({ ...prev, commissionType: 'fixed' }))}
-                          className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors text-sm ${documentSettings.commissionType === 'fixed' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'}`}>€ fixe</button>
+                          className={`flex-1 px-3 py-2 rounded-lg border-2 transition-colors text-sm ${documentSettings.commissionType === 'fixed' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'}`}>{sym} fixe</button>
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">{documentSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission (€)'}</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">{documentSettings.commissionType === 'percentage' ? 'Commission (%)' : 'Commission ({sym})'}</label>
                       <input type="number" value={documentSettings.commissionValue}
                         onChange={(e) => setDocumentSettings(prev => ({ ...prev, commissionValue: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" step={documentSettings.commissionType === 'percentage' ? '0.1' : '100'} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Honoraires sup. (€)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Honoraires sup. ({sym})</label>
                       <input type="number" value={documentSettings.honoraires}
                         onChange={(e) => setDocumentSettings(prev => ({ ...prev, honoraires: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
@@ -1697,7 +1699,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix HT (€) *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix HT ({sym}) *</label>
                       <input type="number" value={documentSettings.prixHT}
                         onChange={(e) => setDocumentSettings(prev => ({ ...prev, prixHT: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
@@ -1750,7 +1752,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 85" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix de vente (€) *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix de vente ({sym}) *</label>
                       <input type="number" value={documentExtraSettings.prixVenteMandat}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, prixVenteMandat: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
@@ -1797,7 +1799,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Appartement / Maison" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Loyer mensuel charges comprises (€)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Loyer mensuel charges comprises ({sym})</label>
                       <input type="number" value={documentExtraSettings.loyerMensuel}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, loyerMensuel: e.target.value }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 850" min="0" />
@@ -1846,13 +1848,13 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix de vente (€) *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix de vente ({sym}) *</label>
                       <input type="number" value={documentExtraSettings.prixVenteCompromis}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, prixVenteCompromis: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Acompte / séquestre (€)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Acompte / séquestre ({sym})</label>
                       <input type="number" value={documentExtraSettings.acompteCompromis}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, acompteCompromis: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
@@ -1907,7 +1909,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                   <div className="bg-indigo-50 rounded-lg px-4 py-2 text-xs text-indigo-700 font-medium">📝 Contrat de prestation marketing</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix mensuel HT (€) *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prix mensuel HT ({sym}) *</label>
                       <input type="number" value={documentExtraSettings.prixMensuelContrat}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, prixMensuelContrat: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" />
@@ -2017,7 +2019,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
                       <input type="text" value={documentExtraSettings.kpiConversion}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiConversion: e.target.value }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 2.4" /></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">CA estimé (€)</label>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">CA estimé ({sym})</label>
                       <input type="text" value={documentExtraSettings.kpiCA}
                         onChange={(e) => setDocumentExtraSettings(prev => ({ ...prev, kpiCA: e.target.value }))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 12000" /></div>
