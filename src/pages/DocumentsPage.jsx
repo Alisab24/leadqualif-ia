@@ -1083,15 +1083,23 @@ ${rawHtml}
             {/* Liste des documents */}
             <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-100">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="w-full table-fixed divide-y divide-gray-200">
+                  <colgroup>
+                    <col style={{width:'22%'}} />
+                    <col style={{width:'18%'}} />
+                    <col style={{width:'13%'}} />
+                    <col style={{width:'10%'}} />
+                    <col className="hidden sm:table-column" style={{width:'10%'}} />
+                    <col style={{width:'27%'}} />
+                  </colgroup>
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Document</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Statut</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-48">Actions</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Document</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Statut</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1112,48 +1120,48 @@ ${rawHtml}
                         const canMarkPaye   = isFacture && statutNorm !== 'payé';
                         return (
                       <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl shrink-0">{getTypeIcon(doc.type)}</span>
-                            <div>
-                              <div className="text-sm font-semibold text-slate-800">{doc.reference}</div>
-                              <div className="text-xs text-slate-400 truncate max-w-[160px]">{doc.titre}</div>
+                        <td className="px-3 py-3.5 overflow-hidden">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg shrink-0">{getTypeIcon(doc.type)}</span>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-800 truncate" title={doc.reference}>{doc.reference}</div>
+                              <div className="text-xs text-slate-400 truncate" title={doc.titre}>{doc.titre}</div>
                               {convertedTo && (
-                                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-xs bg-purple-50 text-purple-700 font-medium">
+                                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-xs bg-purple-50 text-purple-700 font-medium truncate max-w-full" title={`→ ${convertedTo}`}>
                                   🔄 → {convertedTo}
                                 </span>
                               )}
                               {convertedFrom && (
-                                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-xs bg-indigo-50 text-indigo-700 font-medium">
+                                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-xs bg-indigo-50 text-indigo-700 font-medium truncate max-w-full" title={`← ${convertedFrom}`}>
                                   ← {convertedFrom}
                                 </span>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="text-sm text-slate-700">{doc.client_nom || '—'}</div>
+                        <td className="px-3 py-3.5 overflow-hidden">
+                          <div className="text-sm text-slate-700 truncate" title={doc.client_nom || ''}>{doc.client_nom || '—'}</div>
                           {doc.client_email && (
-                            <div className="text-xs text-slate-400">{doc.client_email}</div>
+                            <div className="text-xs text-slate-400 truncate" title={doc.client_email}>{doc.client_email}</div>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-slate-800">
+                        <td className="px-3 py-3.5 overflow-hidden">
+                          <div className="text-sm font-semibold text-slate-800 truncate">
                             {/contrat|rapport/i.test(doc.type || '')
                               ? <span className="text-slate-300 font-normal">—</span>
                               : formatCurrency(doc.total_ttc, doc.devise)
                             }
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap">
+                        <td className="px-3 py-3.5 overflow-hidden">
                           <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(doc.statut)}`}>
                             {normalizeStatut(doc.statut)}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-400 hidden sm:table-cell">
+                        <td className="px-3 py-3.5 text-xs text-slate-400 hidden sm:table-cell overflow-hidden">
                           {formatDate(doc.created_at)}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap text-right w-48">
+                        <td className="px-3 py-3.5 text-right overflow-hidden">
                           <div className="flex items-center justify-end gap-1 flex-nowrap">
                             <button
                               onClick={() => handlePreview(doc)}
