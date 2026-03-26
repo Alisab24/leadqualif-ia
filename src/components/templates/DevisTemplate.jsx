@@ -7,6 +7,8 @@ export default function DevisTemplate({
   items = [],
   tva = 20 
 }) {
+  const currencySymbol = agency?.symbole_devise || '€';
+
   const currentDate = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -137,9 +139,9 @@ export default function DevisTemplate({
                   <td className="px-4 py-4 text-sm font-medium text-gray-900">{item.designation}</td>
                   <td className="px-4 py-4 text-sm text-gray-600">{item.description}</td>
                   <td className="px-4 py-4 text-sm text-center text-gray-900">{item.quantity}</td>
-                  <td className="px-4 py-4 text-sm text-right text-gray-900">{item.price.toLocaleString()} €</td>
+                  <td className="px-4 py-4 text-sm text-right text-gray-900">{item.price.toLocaleString()} {currencySymbol}</td>
                   <td className="px-4 py-4 text-sm font-semibold text-right text-gray-900">
-                    {(item.quantity * item.price).toLocaleString()} €
+                    {(item.quantity * item.price).toLocaleString()} {currencySymbol}
                   </td>
                 </tr>
               ))}
@@ -154,19 +156,19 @@ export default function DevisTemplate({
           <div className="bg-gray-50 rounded-lg p-6 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Sous-total HT</span>
-              <span className="font-semibold text-gray-900">{finalSubtotal.toLocaleString()} €</span>
+              <span className="font-semibold text-gray-900">{finalSubtotal.toLocaleString()} {currencySymbol}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">TVA ({tva}%)</span>
-              <span className="font-semibold text-gray-900">{finalTva.toLocaleString()} €</span>
+              <span className="font-semibold text-gray-900">{finalTva.toLocaleString()} {currencySymbol}</span>
             </div>
             <div className="flex justify-between pt-3 border-t border-gray-300">
               <span className="text-base font-bold text-gray-900">TOTAL TTC</span>
-              <span 
+              <span
                 className="text-xl font-bold"
                 style={{ color: agency?.couleur || '#3B82F6' }}
               >
-                {finalTotal.toLocaleString()} €
+                {finalTotal.toLocaleString()} {currencySymbol}
               </span>
             </div>
           </div>

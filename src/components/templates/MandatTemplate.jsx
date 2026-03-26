@@ -9,6 +9,8 @@ export default function MandatTemplate({
   duration = '6 mois',
   statut = null,          // brouillon | généré | envoyé | signé | annulé
 }) {
+  const currencySymbol = agency?.symbole_devise || '€';
+
   const currentDate = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -176,7 +178,7 @@ export default function MandatTemplate({
               <strong>Adresse du bien :</strong> {lead?.adresse_bien || 'À préciser'}
             </p>
             <p>
-              <strong>Prix de vente souhaité :</strong> {lead?.budget ? `${lead.budget.toLocaleString()} €` : 'À discuter'}
+              <strong>Prix de vente souhaité :</strong> {lead?.budget ? `${lead.budget.toLocaleString()} ${currencySymbol}` : 'À discuter'}
             </p>
             <p>
               <strong>Disponibilité :</strong> {lead?.disponibilite || 'À convenir'}

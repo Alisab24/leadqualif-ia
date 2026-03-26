@@ -291,7 +291,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
   // Fonction pour formater les montants avec espaces et symbole
   const formatAmount = (amount, currency = 'EUR') => {
     if (amount === null || amount === undefined || amount === 0) {
-      return '0 €';
+      return `0 ${agencyProfile?.symbole_devise || '€'}`;
     }
     
     // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
@@ -347,7 +347,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
     doc.setTextColor(107, 114, 128);
     doc.text('Description', margin + 8, currentY + 13);
     doc.text('Qté', margin + colWidths[0] + 5, currentY + 13);
-    doc.text('Montant (€)', margin + colWidths[0] + colWidths[1] + 5, currentY + 13);
+    doc.text(`Montant (${agencyProfile?.symbole_devise || '€'})`, margin + colWidths[0] + colWidths[1] + 5, currentY + 13);
     
     currentY += rowHeight;
     
@@ -411,7 +411,7 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
       
       // Libellé et montant
       doc.text(total.label, margin + 8, currentY + 12);
-      const totalAmountText = `${formatAmountPlain(total.amount)} €`;
+      const totalAmountText = `${formatAmountPlain(total.amount)} ${agencyProfile?.symbole_devise || '€'}`;
       doc.text(totalAmountText, pageWidth - margin - 8, currentY + 12, { align: 'right' });
       
       currentY += 16;
