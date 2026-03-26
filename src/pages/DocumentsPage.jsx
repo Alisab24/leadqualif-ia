@@ -247,7 +247,7 @@ const DocumentsPage = () => {
             agency_id: document.agency_id,
             type: 'document',
             title: `🔄 Devis converti en facture`,
-            description: `${result.metadata.devisReference} → ${result.metadata.factureReference} — Montant : ${result.metadata.montantTTC ? result.metadata.montantTTC.toLocaleString('fr-FR') + ' €' : '—'} — Client : ${document.client_nom}`,
+            description: `${result.metadata.devisReference} → ${result.metadata.factureReference} — Montant : ${result.metadata.montantTTC ? result.metadata.montantTTC.toLocaleString('fr-FR') + ' ' + (agencyProfile?.symbole_devise || '€') : '—'} — Client : ${document.client_nom}`,
             statut: 'complété',
             created_at: new Date().toISOString(),
           });
@@ -287,7 +287,7 @@ const DocumentsPage = () => {
           title: isCA
             ? `💰 Facture payée — CA réalisé`
             : `📤 Facture envoyée — CA en cours`,
-          description: `Facture ${doc.reference} — ${(doc.total_ttc || 0).toLocaleString('fr-FR')} € — Client : ${doc.client_nom}`,
+          description: `Facture ${doc.reference} — ${(doc.total_ttc || 0).toLocaleString('fr-FR')} ${agencyProfile?.symbole_devise || '€'} — Client : ${doc.client_nom}`,
           statut: 'complété',
           created_at: new Date().toISOString(),
         });
@@ -336,7 +336,7 @@ const DocumentsPage = () => {
     const typeLabel  = { devis: 'Devis', facture: 'Facture', contrat: 'Contrat', rapport: 'Rapport', mandat: 'Mandat' }[doc.type] || 'Document';
     const agence     = agencyProfile?.nom_agence || 'Notre agence';
     const ligneRef   = doc.reference ? `\n📋 Référence : ${doc.reference}` : '';
-    const ligneMont  = doc.total_ttc ? `\n💰 Montant TTC : ${Number(doc.total_ttc).toLocaleString('fr-FR')} €` : '';
+    const ligneMont  = doc.total_ttc ? `\n💰 Montant TTC : ${Number(doc.total_ttc).toLocaleString('fr-FR')} ${agencyProfile?.symbole_devise || '€'}` : '';
     const ligneEmail = doc.client_email ? `\n\n📧 Le document complet vous a également été envoyé par email à ${doc.client_email}.` : '';
     const message = `Bonjour ${doc.client_nom || ''},\n\n${agence} vous fait parvenir votre *${typeLabel}*.${ligneRef}${ligneMont}${ligneEmail}\n\nPour toute question, n'hésitez pas à nous contacter.\n\nCordialement,\n${agence}`;
     window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`, '_blank');
@@ -450,8 +450,11 @@ const DocumentsPage = () => {
   const renderDocumentPreview = (doc) => {
     if (!doc) return null;
 
-    const fmtEur = (v) =>
-      (v || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
+    const _sym = agencyProfile?.symbole_devise || '€';
+    const fmtEur = (v) => {
+      const num = (v || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return `${num} ${_sym}`;
+    };
 
     const fmtDate = (d) =>
       d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
@@ -857,22 +860,18 @@ ${rawHtml}
     });
   };
 
-  const formatCurrency = (amount, currency = 'EUR') => {
-    if (!amount) return '0,00 €';
-    
-    // 🎯 CORRECTION: Convertir le symbole € en code ISO 4217
-    // Intl.NumberFormat n'accepte que les codes ISO, pas les symboles
-    const normalizedCurrency = currency === '€' ? 'EUR' : currency;
-    
+  const formatCurrency = (amount, _currency = null) => {
+    // Toujours utiliser le symbole du profil agence pour éviter "$US" (Intl fr-FR + USD)
+    const sym = agencyProfile?.symbole_devise || '€';
+    if (!amount) return `0,00 ${sym}`;
     try {
-      return new Intl.NumberFormat('fr-FR', {
-        style: 'currency',
-        currency: normalizedCurrency
+      const num = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
       }).format(amount);
+      return `${num} ${sym}`;
     } catch (error) {
-      console.warn('⚠️ Erreur formatCurrency avec devise:', currency, error);
-      // Fallback en cas d'erreur
-      return `${amount.toLocaleString('fr-FR')} ${currency}`;
+      return `${amount.toLocaleString('fr-FR')} ${sym}`;
     }
   };
 
@@ -1039,7 +1038,7 @@ ${rawHtml}
           <div className="flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-base font-bold text-emerald-700">
-                💰 CA total : {caStats.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                💰 CA total : {caStats.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {agencyProfile?.symbole_devise || '€'}
               </span>
             </div>
             {caStats.countEnvoye > 0 && (
