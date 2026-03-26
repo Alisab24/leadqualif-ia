@@ -1091,7 +1091,7 @@ ${rawHtml}
                       <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Statut</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-48">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1153,8 +1153,8 @@ ${rawHtml}
                         <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-400 hidden sm:table-cell">
                           {formatDate(doc.created_at)}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap text-right">
-                          <div className="flex justify-end gap-1 flex-wrap">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-right w-48">
+                          <div className="flex items-center justify-end gap-1 flex-nowrap">
                             <button
                               onClick={() => handlePreview(doc)}
                               className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
