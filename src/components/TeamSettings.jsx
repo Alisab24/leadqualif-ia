@@ -253,15 +253,19 @@ export default function TeamSettings() {
     })
   }
 
+  // Révoquer une invitation en attente → DELETE (politique owner_delete_invitations)
   const revokeInvitation = async (id) => {
     const { error } = await supabase
       .from('agency_invitations')
-      .update({ status: 'revoked' })
+      .delete()
       .eq('id', id)
 
     if (!error) {
       setInvitations(prev => prev.filter(i => i.id !== id))
       showToast(t('team.inviteRevoked'))
+    } else {
+      console.error('[revokeInvitation] error:', error)
+      showToast('Erreur lors de la révocation de l\'invitation', 'error')
     }
   }
 
@@ -275,9 +279,14 @@ export default function TeamSettings() {
     if (!error) {
       setMembers(prev => prev.map(m => m.user_id === memberUserId ? { ...m, role: newRole } : m))
       showToast(t('team.roleUpdated'))
+    } else {
+      console.error('[updateMemberRole] error:', error)
+      showToast('Erreur lors de la mise à jour du rôle', 'error')
     }
   }
 
+  // Retirer un membre → met agency_id à null dans profiles
+  // La politique profiles_owner_update_members autorise l'owner à faire cette mise à jour
   const removeMember = async (memberUserId, email) => {
     if (!window.confirm(t('team.removeConfirm', { name: email }))) return
 
@@ -288,7 +297,10 @@ export default function TeamSettings() {
 
     if (!error) {
       setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
-      showToast(t('team.inviteRevoked'))
+      showToast(t('team.memberRemoved') || 'Membre retiré de l\'équipe')
+    } else {
+      console.error('[removeMember] error:', error)
+      showToast('Erreur lors de la suppression du membre', 'error')
     }
   }
 
