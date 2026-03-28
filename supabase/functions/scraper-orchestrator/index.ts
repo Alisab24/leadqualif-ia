@@ -244,10 +244,71 @@ serve(async (req) => {
           tiktok_url: lead.tiktok_url,
         }).then(r => { if (r[0]) Object.assign(lead, r[0]) }))
       }
+      // Enrich Dropcontact (email + tél pro FR premium)
+      if (canaux.includes('dropcontact') && lead.nom) {
+        const nomParts = (lead.nom || '').trim().split(/\s+/)
+        enrichTasks.push(callSource('enrich-dropcontact', {
+          prenom:         nomParts.length > 1 ? nomParts[0] : '',
+          nom:            nomParts.length > 1 ? nomParts.slice(1).join(' ') : nomParts[0],
+          site_web:       lead.site_web || null,
+          nom_entreprise: lead.nom,
+        }).then(r => { if (r[0]) Object.assign(lead, r[0]) }))
+      }
 
       await Promise.allSettled(enrichTasks)
       return lead
     }))
+
+    // ── 3.5. Géocodage BAN (API Adresse — gratuit, illimité, FR uniquement) ──
+    // Ajoute latitude + longitude sur chaque lead avec une adresse
+    if (langue === 'fr') {
+      await Promise.all(enriched.map(async (lead) => {
+        const adresse = [lead.adresse, lead.ville, lead.code_postal].filter(Boolean).join(' ')
+        if (!adresse) return
+        try {
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 3000)
+          const banRes = await fetch(
+            `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresse)}&limit=1`,
+            { signal: controller.signal }
+          )
+          clearTimeout(timer)
+          if (!banRes.ok) return
+          const banData = await banRes.json()
+          const feature = banData.features?.[0]
+          if (feature) {
+            lead.longitude   = feature.geometry.coordinates[0]
+            lead.latitude    = feature.geometry.coordinates[1]
+            lead._insee_code = feature.properties.citycode  // code commune INSEE (tmp, pour BDNB)
+            if (!lead.code_postal) lead.code_postal = feature.properties.postcode
+          }
+        } catch {}
+      }))
+    }
+
+    // ── 3.6. BDNB — données bâtiments (immo uniquement, gratuit) ──────────
+    // Déclenché si les mots-clés de la target mentionnent l'immobilier
+    const isImmo = (target.mots_cles || []).some((k: string) =>
+      /immob|agence.immo|agent.immo|mandataire|promoteur|copropri/i.test(k)
+    )
+    if (isImmo && langue === 'fr') {
+      const inseeCodes = [...new Set(enriched.map((l: any) => l._insee_code).filter(Boolean))]
+      for (const code of inseeCodes.slice(0, 3)) {
+        try {
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 5000)
+          const bdnbRes = await fetch(
+            `https://api.bdnb.io/v1/bdnb/batiment_groupe?code_commune_insee=eq.${code}&limit=50`,
+            { signal: controller.signal, headers: { 'Accept': 'application/json' } }
+          )
+          clearTimeout(timer)
+          if (bdnbRes.ok) {
+            const bdnbData = await bdnbRes.json()
+            console.log(`[BDNB] ${Array.isArray(bdnbData) ? bdnbData.length : 0} bâtiments INSEE ${code}`)
+          }
+        } catch {}
+      }
+    }
 
     // ── 4. AI opener + score ───────────────────────────────────
     const finalLeads = await Promise.all(enriched.map(async (lead) => {
@@ -259,6 +320,8 @@ serve(async (req) => {
       const pays = (paysRaw || 'FR').toString().toUpperCase()
       if (lead.telephone)           lead.telephone           = normalizePhone(lead.telephone, pays) || lead.telephone
       if (lead.telephone_secondaire) lead.telephone_secondaire = normalizePhone(lead.telephone_secondaire, pays) || lead.telephone_secondaire
+      // Supprimer champs temporaires (non stockés en base)
+      delete lead._insee_code
       return {
         ...lead,
         score_initial: score,

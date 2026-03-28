@@ -1,7 +1,8 @@
-// LeadQualif Scraper Engine v3 — Enrichissement site web (scraper maison, gratuit)
+// LeadQualif Scraper Engine v3 — Enrichissement site web + Hunter.io fallback
 // Deploy: npx supabase functions deploy enrich-website
 // Extrait : emails, réseaux sociaux, téléphone secondaire
 // Si pas de site_web → recherche DuckDuckGo pour trouver l'URL automatiquement
+// Si pas d'email après scraping HTML → fallback Hunter.io (HUNTER_API_KEY)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
@@ -55,6 +56,35 @@ function detectCMS(html: string, headers: Headers): string | null {
   return null
 }
 
+// ── Hunter.io Domain Search — fallback email si HTML scraping ne trouve rien ──
+async function tryHunter(siteUrl: string): Promise<string | null> {
+  const hunterKey = Deno.env.get('HUNTER_API_KEY')
+  if (!hunterKey) return null
+  try {
+    let domain: string
+    try { domain = new URL(siteUrl).hostname.replace(/^www\./, '') }
+    catch { return null }
+    if (!domain) return null
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+    const res = await fetch(
+      `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=3&api_key=${hunterKey}`,
+      { signal: controller.signal }
+    )
+    clearTimeout(timer)
+
+    if (!res.ok) return null
+    const data = await res.json()
+    const email = data.data?.emails?.[0]?.value || null
+    if (email) console.log(`[Hunter] Email trouvé: ${email} (${domain})`)
+    return email
+  } catch (e: any) {
+    console.warn('[Hunter] Erreur:', e.message)
+    return null
+  }
+}
+
 // ── Recherche DuckDuckGo pour trouver le site d'une entreprise ──────────────
 async function findWebsiteViaDuckDuckGo(nom: string, ville?: string): Promise<string | null> {
   try {
@@ -78,12 +108,10 @@ async function findWebsiteViaDuckDuckGo(nom: string, ville?: string): Promise<st
 
     const html = await res.text()
 
-    // Extraire les URLs de résultats DuckDuckGo (format: href="//duckduckgo.com/l/?uddg=ENCODED_URL")
     const uddgMatches = html.matchAll(/href="\/\/duckduckgo\.com\/l\/\?uddg=([^"&]+)/g)
     for (const match of uddgMatches) {
       try {
         const decoded = decodeURIComponent(match[1])
-        // Ignorer les résultats génériques (Wikipedia, PagesJaunes, Yelp, etc.)
         const blacklist = ['wikipedia', 'pagesjaunes', 'yelp', 'tripadvisor', 'annuaire',
                            'societe.com', 'infogreffe', 'verif', 'kompass', 'manageo',
                            'facebook.com', 'instagram.com', 'linkedin.com', 'twitter.com']
@@ -93,7 +121,6 @@ async function findWebsiteViaDuckDuckGo(nom: string, ville?: string): Promise<st
       } catch {}
     }
 
-    // Fallback : chercher des URLs directement dans le HTML
     const urlMatches = html.match(/href="(https?:\/\/(?!duckduckgo)[^\s"?#]+\.[a-z]{2,}[^\s"?#]*)"/)
     if (urlMatches) {
       const url = urlMatches[1]
@@ -103,11 +130,8 @@ async function findWebsiteViaDuckDuckGo(nom: string, ville?: string): Promise<st
 
     return null
   } catch (err: any) {
-    if (err.name === 'AbortError') {
-      console.warn('[enrich-website] DuckDuckGo timeout')
-    } else {
-      console.warn('[enrich-website] DuckDuckGo error:', err.message)
-    }
+    if (err.name === 'AbortError') console.warn('[enrich-website] DuckDuckGo timeout')
+    else console.warn('[enrich-website] DuckDuckGo error:', err.message)
     return null
   }
 }
@@ -120,27 +144,40 @@ async function scrapeWebsite(siteUrl: string): Promise<Record<string, any>> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 7000)
 
-  const res = await fetch(url, {
-    signal: controller.signal,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; LeadQualif/3.0)',
-      'Accept': 'text/html',
-    },
-    redirect: 'follow',
-  })
-  clearTimeout(timer)
+  let html = ''
+  let headers: Headers = new Headers()
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; LeadQualif/3.0)',
+        'Accept': 'text/html',
+      },
+      redirect: 'follow',
+    })
+    clearTimeout(timer)
+    if (res.ok) {
+      html = await res.text()
+      headers = res.headers
+    }
+  } catch {
+    clearTimeout(timer)
+  }
 
-  if (!res.ok) return {}
-
-  const html = await res.text()
   const emails = extractEmails(html)
   const phones = extractPhones(html)
   const socials = extractSocialLinks(html)
-  const cms = detectCMS(html, res.headers)
+  const cms = detectCMS(html, headers)
 
   const enriched: Record<string, any> = { ...socials, cms, site_web: url }
   if (emails.length > 0) enriched.email = emails[0]
   if (phones.length > 0) enriched.telephone_secondaire = phones[0]
+
+  // ── Fallback Hunter.io si pas d'email trouvé par scraping HTML ─────────────
+  if (!enriched.email) {
+    const hunterEmail = await tryHunter(url)
+    if (hunterEmail) enriched.email = hunterEmail
+  }
 
   return enriched
 }
@@ -159,8 +196,7 @@ serve(async (req) => {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } catch (err: any) {
-      if (err.name === 'AbortError') console.warn(`[enrich-website] Timeout: ${site_web}`)
-      else console.error('[enrich-website] Error:', err)
+      console.error('[enrich-website] Error:', err)
       return new Response(JSON.stringify({ leads: [] }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -186,16 +222,13 @@ serve(async (req) => {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } catch (err: any) {
-      if (err.name === 'AbortError') console.warn(`[enrich-website] Timeout scraping: ${foundUrl}`)
-      else console.error('[enrich-website] Scrape error:', err)
-      // Au moins on a le site_web même si le scrape a échoué
+      console.error('[enrich-website] Scrape error:', err)
       return new Response(JSON.stringify({ leads: [{ site_web: foundUrl }], total: 1, found_via: 'duckduckgo_url_only' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
   }
 
-  // Ni site_web ni nom → rien à faire
   return new Response(JSON.stringify({ leads: [] }), {
     status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
