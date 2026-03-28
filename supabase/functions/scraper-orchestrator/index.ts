@@ -94,11 +94,13 @@ const COUNTRY_CODES: Record<string, string> = {
   US: '1',  AU: '61', DE: '49', ES: '34', IT: '39',
   NL: '31', PT: '351', MA: '212', SN: '221', CI: '225',
 }
-function normalizePhone(raw: string | null | undefined, pays = 'FR'): string | null {
+function normalizePhone(raw: any, pays: any = 'FR'): string | null {
   if (!raw) return null
-  const digits = raw.replace(/\D/g, '')
+  try {
+  const digits = String(raw).replace(/\D/g, '')
   if (!digits) return null
-  const cc = COUNTRY_CODES[pays?.toUpperCase()] || '33'
+  const paysStr = Array.isArray(pays) ? (pays[0] || 'FR') : (pays || 'FR')
+  const cc = COUNTRY_CODES[String(paysStr).toUpperCase()] || '33'
   // Déjà au format international (commence par l'indicatif pays)
   if (digits.startsWith(cc) && digits.length > 10) return '+' + digits
   // Format local FR/BE/CH : 10 chiffres commençant par 0
@@ -107,7 +109,8 @@ function normalizePhone(raw: string | null | undefined, pays = 'FR'): string | n
   if (digits.startsWith('0') && digits.length === 11) return '+' + cc + digits.substring(1)
   // Déjà un format valide (9 chiffres sans 0 initial)
   if (digits.length >= 9) return '+' + cc + digits
-  return raw // garder tel quel si format inconnu
+  return String(raw) // garder tel quel si format inconnu
+  } catch { return raw != null ? String(raw) : null }
 }
 
 // ── Dédoublonnage ─────────────────────────────────────────────────
@@ -251,7 +254,9 @@ serve(async (req) => {
       const score = calcScore(lead)
       const ai_opener = await generateAIOpener(lead, langue)
       // Normaliser téléphone principal et secondaire au format international
-      const pays = target.pays || 'FR'
+      // target.pays est un ARRAY (text[]) → prendre le 1er élément, pas .toUpperCase() direct
+      const paysRaw = Array.isArray(target.pays) ? target.pays[0] : target.pays
+      const pays = (paysRaw || 'FR').toString().toUpperCase()
       if (lead.telephone)           lead.telephone           = normalizePhone(lead.telephone, pays) || lead.telephone
       if (lead.telephone_secondaire) lead.telephone_secondaire = normalizePhone(lead.telephone_secondaire, pays) || lead.telephone_secondaire
       return {
