@@ -1,6 +1,6 @@
 // LeadQualif Scraper Engine v3 — Orchestrateur principal
 // Deploy: npx supabase functions deploy scraper-orchestrator
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, RESEND_API_KEY
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, RESEND_API_KEY
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -12,7 +12,7 @@ const corsHeaders = {
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const OPENAI_API_KEY     = Deno.env.get('OPENAI_API_KEY')!
+const ANTHROPIC_API_KEY  = Deno.env.get('ANTHROPIC_API_KEY')!
 const RESEND_API_KEY     = Deno.env.get('RESEND_API_KEY')!
 
 // ── Calcul du score initial ─────────────────────────────────────────
@@ -35,9 +35,9 @@ function scoreStatut(score: number): string {
   return 'froid'
 }
 
-// ── Génération AI opener bilingue ──────────────────────────────────
+// ── Génération AI opener bilingue via Claude Haiku 4.5 ────────────
 async function generateAIOpener(lead: Record<string, any>, langue: string): Promise<string> {
-  if (!OPENAI_API_KEY) return ''
+  if (!ANTHROPIC_API_KEY) return ''
   try {
     const isFr = langue === 'fr'
     const prompt = isFr
@@ -46,18 +46,21 @@ Prospect : ${lead.nom}, ${lead.ville || ''}, ${lead.code_naf ? 'Code NAF: ' + le
       : `You are an expert sales professional. Write a short, personalized opening message (2-3 sentences max) in English to contact this prospect by email or WhatsApp. Be natural, professional, and mention a specific detail about their business.
 Prospect: ${lead.nom}, ${lead.ville || ''}, ${lead.sic_code ? 'SIC: ' + lead.sic_code : ''}, ${lead.note_google ? 'Google Rating: ' + lead.note_google + '/5' : ''}, ${lead.nb_avis ? lead.nb_avis + ' reviews' : ''}.`
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.7,
       }),
     })
     const data = await res.json()
-    return data.choices?.[0]?.message?.content?.trim() || ''
+    return data.content?.[0]?.text?.trim() || ''
   } catch { return '' }
 }
 
