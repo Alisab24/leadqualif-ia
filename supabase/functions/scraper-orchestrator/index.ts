@@ -87,6 +87,29 @@ async function callSource(functionName: string, payload: Record<string, any>): P
   }
 }
 
+// ── Normalisation téléphone → format international WhatsApp ────────
+// Convertit "04 77 58 31 22" → "+33477583122" selon le pays de la target
+const COUNTRY_CODES: Record<string, string> = {
+  FR: '33', GB: '44', BE: '32', CH: '41', CA: '1',
+  US: '1',  AU: '61', DE: '49', ES: '34', IT: '39',
+  NL: '31', PT: '351', MA: '212', SN: '221', CI: '225',
+}
+function normalizePhone(raw: string | null | undefined, pays = 'FR'): string | null {
+  if (!raw) return null
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return null
+  const cc = COUNTRY_CODES[pays?.toUpperCase()] || '33'
+  // Déjà au format international (commence par l'indicatif pays)
+  if (digits.startsWith(cc) && digits.length > 10) return '+' + digits
+  // Format local FR/BE/CH : 10 chiffres commençant par 0
+  if (digits.startsWith('0') && digits.length === 10) return '+' + cc + digits.substring(1)
+  // Format local UK : 11 chiffres commençant par 0
+  if (digits.startsWith('0') && digits.length === 11) return '+' + cc + digits.substring(1)
+  // Déjà un format valide (9 chiffres sans 0 initial)
+  if (digits.length >= 9) return '+' + cc + digits
+  return raw // garder tel quel si format inconnu
+}
+
 // ── Dédoublonnage ─────────────────────────────────────────────────
 function dedup(leads: any[]): any[] {
   const seen = new Set<string>()
@@ -227,6 +250,10 @@ serve(async (req) => {
     const finalLeads = await Promise.all(enriched.map(async (lead) => {
       const score = calcScore(lead)
       const ai_opener = await generateAIOpener(lead, langue)
+      // Normaliser téléphone principal et secondaire au format international
+      const pays = target.pays || 'FR'
+      if (lead.telephone)           lead.telephone           = normalizePhone(lead.telephone, pays) || lead.telephone
+      if (lead.telephone_secondaire) lead.telephone_secondaire = normalizePhone(lead.telephone_secondaire, pays) || lead.telephone_secondaire
       return {
         ...lead,
         score_initial: score,
