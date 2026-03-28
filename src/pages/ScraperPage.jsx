@@ -60,11 +60,13 @@ function formatDate(d) {
 export default function ScraperPage() {
   const [tab, setTab] = useState('targets')
   const [user, setUser] = useState(null)
+  const [agencyId, setAgencyId] = useState(null)
 
   // Données
   const [targets, setTargets] = useState([])
   const [presets, setPresets] = useState([])
   const [rawLeads, setRawLeads] = useState([])
+  const [editingSources, setEditingSources] = useState(null) // target.id en édition sources
 
   // Formulaire nouvelle cible
   const [form, setForm] = useState({
@@ -97,7 +99,17 @@ export default function ScraperPage() {
 
   // ── Chargement initial ─────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(async ({ data }) => {
+      setUser(data.user)
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('user_id', data.user.id)
+          .single()
+        setAgencyId(profile?.agency_id || data.user.id)
+      }
+    })
     loadTargets()
     loadPresets()
     loadRawLeads()
@@ -262,28 +274,82 @@ export default function ScraperPage() {
     showToast('Cible supprimée')
   }
 
+  // ── Toggle source sur une target existante ──────────────────────────
+  const toggleTargetSource = async (target, sourceId) => {
+    const allSources = ['google_places', 'api_entreprises', 'pages_jaunes', 'companies_house', 'yelp', 'opencorporates', 'facebook']
+    const enrichSources = ['website', 'linkedin', 'instagram', 'tiktok']
+    const currentCanaux = target.canaux_actifs || []
+    const currentSources = target.sources_actives || []
+
+    let newCanaux, newSources
+    if (currentCanaux.includes(sourceId)) {
+      newCanaux = currentCanaux.filter(c => c !== sourceId)
+      newSources = newCanaux.filter(c => allSources.includes(c))
+    } else {
+      newCanaux = [...currentCanaux, sourceId]
+      newSources = newCanaux.filter(c => allSources.includes(c))
+    }
+
+    await supabase.from('scraper_targets').update({
+      canaux_actifs: newCanaux,
+      sources_actives: newSources,
+    }).eq('id', target.id)
+
+    setTargets(prev => prev.map(t =>
+      t.id === target.id ? { ...t, canaux_actifs: newCanaux, sources_actives: newSources } : t
+    ))
+    showToast(`Source ${currentCanaux.includes(sourceId) ? 'désactivée' : 'activée'} ✓`)
+  }
+
   // ── Injecter dans pipeline ──────────────────────────────────────────
   const injectLead = async (lead) => {
-    // Injecter dans la table leads principale
+    const resolvedAgencyId = agencyId || user?.id
+    if (!resolvedAgencyId) {
+      showToast('Impossible de trouver votre agence', 'error')
+      return
+    }
+
+    // Calcul niveau_interet depuis score
+    const score = lead.score_initial || 0
+    const niveauInteret = score >= 71 ? 'CHAUD' : score >= 41 ? 'TIÈDE' : 'FROID'
+
+    // Adresse combinée (api_entreprises renvoie ville séparé)
+    const adresseCombinee = [lead.adresse, lead.ville].filter(Boolean).join(', ') || null
+
+    // Message enrichi avec info scraper
+    const notesScraper = [
+      lead.ai_opener,
+      `[Scraper Engine] Source: ${lead.source || 'auto'}`,
+      lead.note_google ? `⭐ ${lead.note_google}/5 (${lead.nb_avis || 0} avis)` : null,
+      lead.siren ? `SIREN: ${lead.siren}` : null,
+    ].filter(Boolean).join('\n')
+
+    // telephone_secondaire comme fallback si pas de tel principal (api_entreprises n'en donne pas)
+    const telephoneFinal = lead.telephone || lead.telephone_secondaire || null
+
     const { error } = await supabase.from('leads').insert({
-      user_id: user.id,
-      nom: lead.nom,
-      email: lead.email,
-      telephone: lead.telephone,
-      adresse: lead.adresse,
-      ville: lead.ville,
-      site_web: lead.site_web,
-      score_ia: lead.score_initial,
-      statut: lead.score_initial >= 71 ? 'Chaud' : lead.score_initial >= 41 ? 'Tiède' : 'Froid',
-      message: lead.ai_opener,
-      source: `scraper_${lead.source || 'auto'}`,
+      agency_id:          resolvedAgencyId,
+      nom:                lead.nom,
+      email:              lead.email || null,
+      telephone:          telephoneFinal,
+      adresse:            adresseCombinee,
+      site_web:           lead.site_web || null,
+      secteur_activite:   lead.secteur_activite || null,
+      score:              score,
+      score_qualification: score,
+      niveau_interet:     niveauInteret,
+      statut:             'À traiter',           // statut pipeline valide
+      message:            notesScraper || null,
+      source:             'autre',               // valeur valide dans SOURCES_VALIDES
     })
+
     if (!error) {
       await supabase.from('raw_leads').update({ injecte_pipeline: true }).eq('id', lead.id)
       setRawLeads(prev => prev.map(l => l.id === lead.id ? { ...l, injecte_pipeline: true } : l))
       showToast('✅ Lead injecté dans le pipeline !')
     } else {
-      showToast('Erreur lors de l\'injection', 'error')
+      console.error('[injectLead] Erreur:', error)
+      showToast(`Erreur injection: ${error.message}`, 'error')
     }
   }
 
@@ -434,6 +500,12 @@ export default function ScraperPage() {
                             <><IconPlay /> Lancer</>
                           )}
                         </button>
+                        {/* Éditer sources */}
+                        <button
+                          onClick={() => setEditingSources(editingSources === target.id ? null : target.id)}
+                          className={`p-1.5 rounded-lg transition-colors text-xs font-bold ${editingSources === target.id ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                          title="Modifier les sources"
+                        >⚙️</button>
                         {/* Supprimer */}
                         <button
                           onClick={() => deleteTarget(target)}
@@ -444,6 +516,34 @@ export default function ScraperPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* ── Panel édition sources ──────────────────────── */}
+                    {editingSources === target.id && (
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <p className="text-xs font-semibold text-slate-600 mb-2">⚙️ Sources actives — cliquer pour activer/désactiver :</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(target.langue === 'fr' ? CANAUX_FR : CANAUX_EN).map(canal => {
+                            const active = (target.canaux_actifs || []).includes(canal.id)
+                            return (
+                              <button
+                                key={canal.id}
+                                onClick={() => toggleTargetSource(target, canal.id)}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                                  active
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
+                                }`}
+                              >
+                                <span>{canal.emoji}</span>
+                                <span>{canal.label}</span>
+                                {active && <span className="opacity-70">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">💡 Activer "Google Places" pour obtenir des téléphones et sites web directement</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -76,6 +76,7 @@ const DocumentsPage = () => {
   const [previewDocument, setPreviewDocument] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null); // docId en cours de mise à jour
   const [sendingEmail, setSendingEmail]     = useState(null); // docId en cours d'envoi email
+  const [deletingDoc, setDeletingDoc]       = useState(null); // docId en cours de suppression
   const [caStats, setCaStats] = useState({ total: 0, countEnvoye: 0, countPaye: 0 });
 
   // Récupération du profil agence
@@ -305,6 +306,57 @@ const DocumentsPage = () => {
       alert('Erreur lors de la mise à jour du statut');
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  // 🗑 Suppression d'un document — si facture payée : annule le CA dans crm_events + stats
+  const handleDeleteDocument = async (doc) => {
+    const isFacturePayee = doc.type === 'facture' && ['payé','payée'].includes(doc.statut?.toLowerCase());
+    const confirmMsg = isFacturePayee
+      ? `⚠️ Cette facture est marquée PAYÉE.\n\nLa supprimer va retirer ${formatCurrency(doc.total_ttc)} de votre CA réalisé dans les statistiques.\n\nConfirmer la suppression ?`
+      : `Supprimer le document "${doc.reference}" ?\n\nCette action est irréversible.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingDoc(doc.id);
+    try {
+      // 1. Si facture payée → supprimer le log ca_realise dans crm_events
+      if (isFacturePayee && doc.lead_id) {
+        await supabase
+          .from('crm_events')
+          .delete()
+          .eq('lead_id', doc.lead_id)
+          .eq('type', 'ca_realise')
+          .ilike('description', `%${doc.reference}%`);
+      }
+
+      // 2. Supprimer le document
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', doc.id);
+
+      if (error) throw error;
+
+      // 3. Mise à jour locale immédiate (sans refetch)
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+
+      // 4. Recalculer caStats localement
+      const remaining = documents.filter(d => d.id !== doc.id);
+      const caDocuments = remaining.filter(d =>
+        d.type === 'facture' &&
+        ['envoyé','envoyée','payé','payée','émise','émis'].includes(d.statut?.toLowerCase())
+      );
+      setCaStats({
+        total:       caDocuments.reduce((s, d) => s + (d.total_ttc || 0), 0),
+        countEnvoye: caDocuments.filter(d => ['envoyé','envoyée'].includes(d.statut?.toLowerCase())).length,
+        countPaye:   caDocuments.filter(d => ['payé','payée'].includes(d.statut?.toLowerCase())).length,
+      });
+
+    } catch (err) {
+      console.error('❌ Erreur suppression document:', err);
+      alert('Erreur lors de la suppression du document.');
+    } finally {
+      setDeletingDoc(null);
     }
   };
 
@@ -1217,6 +1269,12 @@ ${rawHtml}
                                 title="Marquer comme payée → CA réalisé"
                               >{updatingStatus === doc.id ? '⏳' : '💰'}</button>
                             )}
+                            <button
+                              onClick={() => handleDeleteDocument(doc)}
+                              disabled={deletingDoc === doc.id}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                              title="Supprimer ce document"
+                            >{deletingDoc === doc.id ? '⏳' : '🗑️'}</button>
                           </div>
                         </td>
                       </tr>

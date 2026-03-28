@@ -185,10 +185,19 @@ serve(async (req) => {
     const enriched = await Promise.all(allLeads.map(async (lead) => {
       const enrichTasks: Promise<any>[] = []
 
-      // Enrich site web (gratuit, toujours)
-      if (lead.site_web && canaux.includes('website')) {
-        enrichTasks.push(callSource('enrich-website', { site_web: lead.site_web }).then(r => {
-          if (r[0]) Object.assign(lead, r[0])
+      // Enrich site web (gratuit, toujours si canal website activé)
+      // Si site_web connu → scrape direct
+      // Si pas de site_web mais nom connu → DuckDuckGo search pour trouver le site
+      if (canaux.includes('website') && lead.nom) {
+        const websitePayload = lead.site_web
+          ? { site_web: lead.site_web }
+          : { nom: lead.nom, ville: lead.ville }
+        enrichTasks.push(callSource('enrich-website', websitePayload).then(r => {
+          if (r[0]) {
+            Object.assign(lead, r[0])
+            // Recalcule le score après enrichissement
+            if (r[0].site_web) lead.site_web = r[0].site_web
+          }
         }))
       }
       // Enrich LinkedIn
