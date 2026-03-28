@@ -949,11 +949,21 @@ export default function Dashboard() {
           <div className="p-4 md:p-6 h-full overflow-y-auto w-full">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
               {/* ── Tableau ── */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <div className="overflow-hidden">
+                <table className="w-full table-fixed divide-y divide-slate-200 text-sm">
+                  <colgroup>
+                    <col style={{width:'22%'}} />
+                    <col style={{width:'9%'}} />
+                    <col className="hidden md:table-column" style={{width:'14%'}} />
+                    <col style={{width:'12%'}} />
+                    <col className="hidden lg:table-column" style={{width:'10%'}} />
+                    <col style={{width:'10%'}} />
+                    <col className="hidden md:table-column" style={{width:'9%'}} />
+                    <col style={{width:'14%'}} />
+                  </colgroup>
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide sticky left-0 bg-slate-50 z-20">Nom</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Nom</th>
                       <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Score IA</th>
                       <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell">Email</th>
                       <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Téléphone</th>
@@ -961,10 +971,8 @@ export default function Dashboard() {
                         {agencyType === 'smma' ? 'Service' : 'Type'}
                       </th>
                       <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Statut</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell">
-                        {agencyType === 'smma' ? 'Budget' : 'Budget'}
-                      </th>
-                      <th className="px-3 py-2.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wide sticky right-0 bg-slate-50 z-20 shadow-[-2px_0_6px_rgba(0,0,0,0.06)]">Actions</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell">Budget</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wide">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -981,35 +989,35 @@ export default function Dashboard() {
                             setAiSuggestion(typeof lead.suggestion_ia === 'string' ? lead.suggestion_ia : '');
                           }}
                         >
-                          {/* Nom — sticky gauche */}
-                          <td className="px-3 py-2.5 font-semibold text-slate-900 whitespace-nowrap sticky left-0 bg-white group-hover:bg-blue-50/40 z-10">
-                            {lead.nom}
+                          {/* Nom */}
+                          <td className="px-3 py-2.5 overflow-hidden">
+                            <div className="font-semibold text-slate-900 truncate" title={lead.nom}>{lead.nom}</div>
                           </td>
 
                           {/* Score */}
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5 overflow-hidden">
                             <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
                               {badge.label}{badge.score > 0 && ` ${badge.score}%`}
                             </span>
                           </td>
 
                           {/* Email — masqué < md */}
-                          <td className="px-3 py-2.5 text-xs text-slate-500 max-w-[160px] truncate hidden md:table-cell">
-                            {lead.email || '—'}
+                          <td className="px-3 py-2.5 overflow-hidden hidden md:table-cell">
+                            <div className="text-xs text-slate-500 truncate" title={lead.email || ''}>{lead.email || '—'}</div>
                           </td>
 
                           {/* Téléphone */}
-                          <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">
-                            {lead.telephone || '—'}
+                          <td className="px-3 py-2.5 overflow-hidden">
+                            <div className="text-xs text-slate-600 truncate">{lead.telephone || '—'}</div>
                           </td>
 
                           {/* Type/Service — masqué < lg */}
-                          <td className="px-3 py-2.5 hidden lg:table-cell">
+                          <td className="px-3 py-2.5 overflow-hidden hidden lg:table-cell">
                             {(() => {
                               const isSmma = agencyType === 'smma';
                               const typeLabel = getLeadType(lead, isSmma);
                               return (
-                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700">
+                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700 truncate max-w-full" title={typeLabel || 'Non défini'}>
                                   {isSmma ? '📣' : '🏠'} {typeLabel || 'Non défini'}
                                 </span>
                               );
@@ -1017,20 +1025,20 @@ export default function Dashboard() {
                           </td>
 
                           {/* Statut */}
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5 overflow-hidden">
                             <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
                               {lead.statut}
                             </span>
                           </td>
 
                           {/* Budget — masqué < md */}
-                          <td className="px-3 py-2.5 text-right font-bold text-green-700 text-xs whitespace-nowrap hidden md:table-cell">
-                            {getLeadBudget(lead, agencyType === 'smma') || '—'}
+                          <td className="px-3 py-2.5 overflow-hidden text-right hidden md:table-cell">
+                            <div className="font-bold text-green-700 text-xs truncate">{getLeadBudget(lead, agencyType === 'smma') || '—'}</div>
                           </td>
 
-                          {/* Actions — sticky droite TOUJOURS VISIBLE */}
-                          <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/40 z-10 shadow-[-2px_0_6px_rgba(0,0,0,0.06)]">
-                            <div className="flex items-center justify-center gap-0.5">
+                          {/* Actions */}
+                          <td className="px-2 py-2 overflow-hidden">
+                            <div className="flex items-center justify-center gap-0.5 flex-nowrap">
                               {/* WhatsApp — en premier, bien visible */}
                               {lead.telephone ? (
                                 <a
