@@ -15,6 +15,7 @@ import DocumentPreviewPage from './pages/DocumentPreviewPage';
 import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
 import DocumentViewer from './components/DocumentViewer';
 import LeadDetails from './components/LeadDetails';
+import ScraperPage from './pages/ScraperPage';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="/documents-center" element={<DocumentsCenterRedirect />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/stats" element={<Stats />} />
+            <Route path="/scraper" element={<ScraperPage />} />
             <Route path="/app" element={<Navigate to="/dashboard" replace />} />
           </Route>
           
