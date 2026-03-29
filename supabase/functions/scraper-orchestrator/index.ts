@@ -196,6 +196,12 @@ serve(async (req) => {
     if (sources.includes('opencorporates')) {
       sourcePromises.push(callSource('scrape-opencorporates', basePayload))
     }
+    if (sources.includes('facebook')) {
+      sourcePromises.push(callSource('scrape-facebook-pages', basePayload))
+    }
+    if (sources.includes('instagram')) {
+      sourcePromises.push(callSource('scrape-instagram', basePayload))
+    }
 
     const results = await Promise.allSettled(sourcePromises)
     let allLeads: any[] = []
@@ -208,7 +214,13 @@ serve(async (req) => {
     console.log(`[Orchestrator] Après dédup: ${allLeads.length} leads bruts`)
 
     // ── 3. Enrichissements en parallèle ────────────────────────
-    const enriched = await Promise.all(allLeads.map(async (lead) => {
+    // Limité aux 50 premiers leads pour éviter timeout (150s Supabase free)
+    // Les leads non enrichis sont sauvegardés tels quels
+    const ENRICH_LIMIT = 50
+    const toEnrich = allLeads.slice(0, ENRICH_LIMIT)
+    const noEnrich = allLeads.slice(ENRICH_LIMIT)
+
+    const enrichedSlice = await Promise.all(toEnrich.map(async (lead) => {
       const enrichTasks: Promise<any>[] = []
 
       // Enrich site web (gratuit, toujours si canal website activé)
@@ -259,10 +271,14 @@ serve(async (req) => {
       return lead
     }))
 
+    // Fusionner leads enrichis + leads bruts non enrichis
+    const enriched = [...enrichedSlice, ...noEnrich]
+
     // ── 3.5. Géocodage BAN (API Adresse — gratuit, illimité, FR uniquement) ──
     // Ajoute latitude + longitude sur chaque lead avec une adresse
+    // Limité aux 80 premiers leads pour éviter le timeout (150s Supabase)
     if (langue === 'fr') {
-      await Promise.all(enriched.map(async (lead) => {
+      await Promise.all(enriched.slice(0, 80).map(async (lead) => {
         const adresse = [lead.adresse, lead.ville, lead.code_postal].filter(Boolean).join(' ')
         if (!adresse) return
         try {
@@ -311,9 +327,11 @@ serve(async (req) => {
     }
 
     // ── 4. AI opener + score ───────────────────────────────────
-    const finalLeads = await Promise.all(enriched.map(async (lead) => {
+    // AI opener limité aux 10 premiers leads (Anthropic rate limit + timeout)
+    const AI_OPENER_LIMIT = 10
+    const finalLeads = await Promise.all(enriched.map(async (lead, i) => {
       const score = calcScore(lead)
-      const ai_opener = await generateAIOpener(lead, langue)
+      const ai_opener = i < AI_OPENER_LIMIT ? await generateAIOpener(lead, langue) : ''
       // Normaliser téléphone principal et secondaire au format international
       // target.pays est un ARRAY (text[]) → prendre le 1er élément, pas .toUpperCase() direct
       const paysRaw = Array.isArray(target.pays) ? target.pays[0] : target.pays

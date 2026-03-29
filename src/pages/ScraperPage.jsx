@@ -210,7 +210,7 @@ export default function ScraperPage() {
         ? f.canaux_actifs.filter(c => c !== id)
         : [...f.canaux_actifs, id]
       // Synchro sources_actives avec les canaux de scraping (non-enrich)
-      const sources = canaux.filter(c => ['google_places','api_entreprises','pages_jaunes','companies_house','yelp','opencorporates','facebook'].includes(c))
+      const sources = canaux.filter(c => ['google_places','api_entreprises','pages_jaunes','companies_house','yelp','opencorporates','facebook','instagram'].includes(c))
       return { ...f, canaux_actifs: canaux, sources_actives: sources }
     })
   }
@@ -300,8 +300,8 @@ export default function ScraperPage() {
 
   // ── Toggle source sur une target existante ──────────────────────────
   const toggleTargetSource = async (target, sourceId) => {
-    const allSources = ['google_places', 'api_entreprises', 'pages_jaunes', 'companies_house', 'yelp', 'opencorporates', 'facebook']
-    const enrichSources = ['website', 'linkedin', 'instagram', 'tiktok']
+    const allSources = ['google_places', 'api_entreprises', 'pages_jaunes', 'companies_house', 'yelp', 'opencorporates', 'facebook', 'instagram']
+    const enrichSources = ['website', 'linkedin', 'tiktok']
     const currentCanaux = target.canaux_actifs || []
     const currentSources = target.sources_actives || []
 

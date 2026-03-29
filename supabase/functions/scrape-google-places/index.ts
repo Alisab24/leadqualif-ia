@@ -47,20 +47,24 @@ serve(async (req) => {
   // Combinaisons mot-clé × zone
   const queries: string[] = []
   const keywords = mots_cles.slice(0, 3) // limiter pour le quota
-  const zones = zones_geo.slice(0, 5)
+  const rawZones = zones_geo.slice(0, 5)
 
-  if (zones.length === 0) {
-    keywords.forEach((kw: string) => queries.push(kw))
-  } else {
-    keywords.forEach((kw: string) => {
-      zones.forEach((zone: string) => queries.push(`${kw} ${zone}`))
-    })
-  }
+  // Si aucune zone fournie, utiliser 2 villes par défaut (limiter le temps de traitement)
+  const DEFAULT_ZONES_FR = ['Paris', 'Lyon']
+  const DEFAULT_ZONES_EN = ['London', 'Manchester']
+  const zones = rawZones.length > 0
+    ? rawZones.slice(0, 3)
+    : (langue === 'fr' ? DEFAULT_ZONES_FR : DEFAULT_ZONES_EN)
 
-  for (const query of queries.slice(0, 10)) {
+  // Max 2 mots-clés × zones pour rester sous 30s total
+  keywords.slice(0, 2).forEach((kw: string) => {
+    zones.forEach((zone: string) => queries.push(`${kw} ${zone}`))
+  })
+
+  for (const query of queries.slice(0, 6)) {
     try {
-      // Rate limiting : 1 req/sec Google Places
-      await new Promise(r => setTimeout(r, 1000))
+      // Rate limiting réduit : 500ms entre requêtes Text Search
+      await new Promise(r => setTimeout(r, 500))
 
       const params = new URLSearchParams({
         query,
@@ -76,12 +80,12 @@ serve(async (req) => {
 
       if (data.status !== 'OK' || !data.results) continue
 
-      for (const place of (data.results || []).slice(0, 8)) {
+      for (const place of (data.results || []).slice(0, 5)) {
         if (seen.has(place.place_id)) continue
         seen.add(place.place_id)
 
-        // Détails complets (téléphone, site)
-        await new Promise(r => setTimeout(r, 500))
+        // Détails complets (téléphone, site) — délai réduit à 200ms
+        await new Promise(r => setTimeout(r, 200))
         const details = await getPlaceDetails(place.place_id)
 
         const addr = parseAddress(place.formatted_address || '')
@@ -97,8 +101,8 @@ serve(async (req) => {
           note_google: place.rating || null,
           nb_avis: place.user_ratings_total || null,
           source: 'google_places',
-          lat: place.geometry?.location?.lat,
-          lng: place.geometry?.location?.lng,
+          latitude: place.geometry?.location?.lat || null,
+          longitude: place.geometry?.location?.lng || null,
         })
       }
     } catch (err) {
