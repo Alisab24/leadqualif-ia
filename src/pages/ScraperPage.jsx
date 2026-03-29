@@ -160,7 +160,7 @@ export default function ScraperPage() {
       .from('raw_leads')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(1000)
     setRawLeads(data || [])
   }
 
