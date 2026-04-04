@@ -1,6 +1,5 @@
-// LeadQualif — Facebook Pages v14
-// Stratégie: DuckDuckGo HTML search "kw zone site:facebook.com"
-// → extrait URLs + métadonnées des snippets Google sans Apify ni clé API
+// LeadQualif — Facebook Pages v15
+// Stratégie: Bing HTML search "kw zone site:facebook.com" (Bing tolère les IPs datacenter)
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
@@ -11,7 +10,8 @@ const corsHeaders = {
 const FB_SKIP = ['/search', '/groups', '/events', '/watch', '/marketplace',
   '/help', '/login', '/video', '/photos', '/posts', '/stories', '/people',
   '/friends', '/notifications', '/settings', '/pages/create', '/hashtag',
-  '/reel', '/live', '/fundraisers', '/games', '/ads', '/privacy', '/terms']
+  '/reel', '/live', '/fundraisers', '/games', '/ads', '/privacy', '/terms',
+  '/sharer', '/dialog', '/plugins']
 
 function isFbBusinessUrl(url: string): boolean {
   try {
@@ -27,64 +27,64 @@ function isFbBusinessUrl(url: string): boolean {
 
 function cleanFbUrl(url: string): string {
   try {
-    const p = new URL(url)
-    const segs = p.pathname.replace(/\/$/, '').split('/').filter(Boolean)
+    const segs = new URL(url).pathname.replace(/\/$/, '').split('/').filter(Boolean)
+    // Garder /pages/nom/id ou /slug directement
+    if (segs[0] === 'pages' && segs.length >= 2) return `https://www.facebook.com/pages/${segs[1]}/${segs[2] || ''}`
     return `https://www.facebook.com/${segs[0]}`
   } catch { return url }
 }
 
-// ── Recherche DuckDuckGo HTML (pas d'API, pas de clé) ─────────────────────────
-async function searchDDG(query: string): Promise<{ url: string; title: string; snippet: string }[]> {
+async function searchBing(query: string): Promise<{ url: string; title: string }[]> {
   const q = encodeURIComponent(query)
-  const ddgUrl = `https://html.duckduckgo.com/html/?q=${q}&kl=fr-fr`
-
   const ctrl = new AbortController()
-  const t = setTimeout(() => ctrl.abort(), 10000)
+  const t = setTimeout(() => ctrl.abort(), 12000)
   try {
-    const res = await fetch(ddgUrl, {
-      signal: ctrl.signal,
-      headers: {
-        'User-Agent'     : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept'         : 'text/html,application/xhtml+xml',
-        'Accept-Language': 'fr-FR,fr;q=0.9',
-        'Referer'        : 'https://duckduckgo.com/',
-      },
-    })
+    const res = await fetch(
+      `https://www.bing.com/search?q=${q}&cc=fr&setmkt=fr-FR&setlang=fr-FR&count=10&first=1`,
+      {
+        signal: ctrl.signal,
+        headers: {
+          'User-Agent'     : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept'         : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Referer'        : 'https://www.bing.com/',
+          'Cache-Control'  : 'no-cache',
+        },
+      }
+    )
     clearTimeout(t)
-    if (!res.ok) { console.warn(`[ddg] HTTP ${res.status}`); return [] }
+    if (!res.ok) { console.warn(`[bing] HTTP ${res.status} pour: ${query}`); return [] }
     const html = await res.text()
+    console.log(`[bing] réponse ${html.length} chars pour: ${query}`)
 
-    const results: { url: string; title: string; snippet: string }[] = []
+    const results: { url: string; title: string }[] = []
+    const seen = new Set<string>()
 
-    // Extraire les vraies URLs depuis les redirects DDG
-    const uddgRe = /href="\/\/duckduckgo\.com\/l\/\?uddg=([^"&]+)[^"]*"[^>]*>([^<]*)<\/a>[\s\S]{0,500}?class="result__snippet">([^<]*)/g
+    // Bing structure: <h2><a href="URL" h="...">TITLE</a></h2> dans <li class="b_algo">
+    const re = /<h2[^>]*>\s*<a\s+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g
     let m: RegExpExecArray | null
-    while ((m = uddgRe.exec(html)) !== null && results.length < 15) {
-      try {
-        const url     = decodeURIComponent(m[1])
-        const title   = m[2].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
-        const snippet = m[3].replace(/&amp;/g, '&').trim()
-        results.push({ url, title, snippet })
-      } catch {}
+    while ((m = re.exec(html)) !== null) {
+      const url   = m[1].split('&')[0] // retirer les paramètres de tracking Bing
+      const title = m[2].replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim()
+      if (seen.has(url)) continue
+      seen.add(url)
+      results.push({ url, title })
     }
 
-    // Fallback si le regex ci-dessus échoue — chercher les uddg seuls
+    // Fallback: chercher toutes les href dans les résultats
     if (results.length === 0) {
-      const uddgSimple = html.matchAll(/uddg=([^"&]+)/g)
-      for (const match of uddgSimple) {
-        try {
-          const url = decodeURIComponent(match[1])
-          results.push({ url, title: '', snippet: '' })
-          if (results.length >= 15) break
-        } catch {}
+      const re2 = /href="(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.com)\/[^"?&]+)"/g
+      while ((m = re2.exec(html)) !== null) {
+        if (!seen.has(m[1])) { seen.add(m[1]); results.push({ url: m[1], title: '' }) }
       }
     }
 
-    console.log(`[ddg] query="${query}" → ${results.length} résultats`)
+    console.log(`[bing] ${results.length} résultats pour: ${query}`)
     return results
   } catch (err: any) {
     clearTimeout(t)
-    console.warn(`[ddg] erreur: ${err.message}`)
+    console.warn(`[bing] erreur: ${err.message}`)
     return []
   }
 }
@@ -101,28 +101,26 @@ serve(async (req) => {
 
   for (const kw of keywords) {
     for (const z of zones) {
-      await new Promise(r => setTimeout(r, 500)) // anti rate-limit DDG
-      const query = `${kw} ${z} site:facebook.com`
-      const results = await searchDDG(query)
+      await new Promise(r => setTimeout(r, 800)) // anti rate-limit
+      const results = await searchBing(`${kw} ${z} site:facebook.com`)
 
-      for (const result of results) {
-        if (!isFbBusinessUrl(result.url)) continue
-        const cleanUrl = cleanFbUrl(result.url)
+      for (const r of results) {
+        if (!isFbBusinessUrl(r.url)) continue
+        const cleanUrl = cleanFbUrl(r.url)
         if (seen.has(cleanUrl)) continue
         seen.add(cleanUrl)
 
-        const nom = result.title
+        const nom = r.title
           .replace(/\s*[\|—\-–]\s*Facebook\s*$/i, '')
           .replace(/\s*\|.*$/, '')
-          .trim() || cleanUrl.split('/').pop() || 'Page Facebook'
+          .trim() || cleanUrl.split('/').filter(Boolean).pop() || 'Page Facebook'
 
         leads.push({
           nom,
-          facebook_url : cleanUrl,
-          description  : result.snippet.slice(0, 300) || null,
-          ville        : z !== 'France' ? z : null,
-          source       : 'facebook_pages',
-          pays         : 'France',
+          facebook_url: cleanUrl,
+          ville       : z !== 'France' ? z : null,
+          source      : 'facebook_pages',
+          pays        : 'France',
         })
       }
     }
