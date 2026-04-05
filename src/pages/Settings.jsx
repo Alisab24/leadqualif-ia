@@ -502,6 +502,18 @@ export default function Settings() {
   const [twilioSaving, setTwilioSaving] = useState(false);
   const [twilioShowToken, setTwilioShowToken] = useState(false);
 
+  // Agent IA Auto-Contact
+  const [agentSettings, setAgentSettings] = useState({
+    enabled:          true,
+    delay_minutes:    5,
+    smma_template:    '',
+    immo_template:    '',
+    default_template: '',
+  });
+  const [agentSaving,  setAgentSaving]  = useState(false);
+  const [agentActions, setAgentActions] = useState([]);
+  const [agentActionsLoading, setAgentActionsLoading] = useState(false);
+
   // Stripe
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError]     = useState('');
@@ -570,7 +582,7 @@ export default function Settings() {
   // Réinitialiser l'onglet actif si le rôle ne l'autorise pas
   useEffect(() => {
     if (!loading && userRole) {
-      const allowed = { owner: ['general','visuel','form','legal','crm','messagerie','equipe','facturation'], admin: ['form','crm','messagerie'], agent: [] }[userRole] ?? [];
+      const allowed = { owner: ['general','visuel','form','legal','crm','messagerie','agents','equipe','facturation'], admin: ['form','crm','messagerie','agents'], agent: [] }[userRole] ?? [];
       if (allowed.length > 0 && !allowed.includes(activeTab)) {
         setActiveTab(allowed[0]);
       }
@@ -684,8 +696,66 @@ export default function Settings() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  // ── Charger les paramètres de l'agent IA ─────────────────────────────────
+  const loadAgentSettings = async () => {
+    const { data } = await supabase
+      .from('agency_settings')
+      .select('agent_ia_enabled, agent_ia_delay_minutes, agent_smma_template, agent_immo_template, agent_default_template')
+      .eq('agency_id', userId)
+      .maybeSingle()
+    if (data) {
+      setAgentSettings({
+        enabled:          data.agent_ia_enabled !== false,
+        delay_minutes:    data.agent_ia_delay_minutes ?? 5,
+        smma_template:    data.agent_smma_template    || '',
+        immo_template:    data.agent_immo_template    || '',
+        default_template: data.agent_default_template || '',
+      })
+    }
+  }
+
+  const saveAgentSettings = async () => {
+    if (agentSaving) return
+    setAgentSaving(true)
+    try {
+      const { error } = await supabase
+        .from('agency_settings')
+        .upsert({
+          agency_id:               userId,
+          agent_ia_enabled:        agentSettings.enabled,
+          agent_ia_delay_minutes:  Number(agentSettings.delay_minutes) || 5,
+          agent_smma_template:     agentSettings.smma_template.trim()    || null,
+          agent_immo_template:     agentSettings.immo_template.trim()    || null,
+          agent_default_template:  agentSettings.default_template.trim() || null,
+        }, { onConflict: 'agency_id' })
+      if (error) throw error
+      showToast('Paramètres agent sauvegardés ✓')
+    } catch (e) {
+      showToast('Erreur lors de la sauvegarde', 'error')
+    } finally {
+      setAgentSaving(false)
+    }
+  }
+
+  const loadAgentActions = async () => {
+    if (!userId) return
+    setAgentActionsLoading(true)
+    try {
+      const { data } = await supabase
+        .from('agent_actions')
+        .select('id, lead_id, action, message_sent, status, error_msg, created_at, leads(nom)')
+        .eq('agency_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setAgentActions(data || [])
+    } finally {
+      setAgentActionsLoading(false)
+    }
+  }
+
   useEffect(() => { loadProfile(); }, []);
   useEffect(() => { if (userId) loadTwilioSettings(); }, [userId]);
+  useEffect(() => { if (userId) loadAgentSettings(); }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sanitise un objet JSONB venant de Supabase :
   // - garde uniquement les clés attendues (whitelist)
@@ -976,8 +1046,8 @@ export default function Settings() {
    *  agent : aucun accès aux Paramètres → redirigé vers /dashboard
    * ──────────────────────────────────────────────────────────────────────── */
   const TABS_BY_ROLE = {
-    owner: ['general', 'visuel', 'form', 'legal', 'crm', 'messagerie', 'equipe', 'facturation'],
-    admin: ['form', 'crm', 'messagerie'],
+    owner: ['general', 'visuel', 'form', 'legal', 'crm', 'messagerie', 'agents', 'equipe', 'facturation'],
+    admin: ['form', 'crm', 'messagerie', 'agents'],
     agent: [],
   };
   const allowedTabs = TABS_BY_ROLE[userRole] ?? TABS_BY_ROLE.owner;
@@ -991,6 +1061,7 @@ export default function Settings() {
     { key: 'legal',       icon: '📋', label: t('settings.tabs.legal') },
     { key: 'crm',         icon: '⚙️', label: t('settings.tabs.crm') },
     { key: 'messagerie',  icon: '💬', label: 'Messagerie' },
+    { key: 'agents',      icon: '🤖', label: 'Agents IA' },
     { key: 'equipe',      icon: '👥', label: t('settings.tabs.equipe') },
     { key: 'facturation', icon: '💳', label: t('settings.tabs.facturation') },
   ];
@@ -1944,6 +2015,231 @@ export default function Settings() {
                   Si vide, le système utilise les variables d'environnement Vercel globales
                   (<code className="bg-blue-100 px-1 rounded">TWILIO_ACCOUNT_SID</code>, <code className="bg-blue-100 px-1 rounded">TWILIO_AUTH_TOKEN</code>, <code className="bg-blue-100 px-1 rounded">TWILIO_WHATSAPP_NUMBER</code>).
                 </p>
+              </section>
+
+            </div>
+          )}
+
+          {/* ═══ ONGLET AGENTS IA ══════════════════════ */}
+          {activeTab === 'agents' && (
+            <div className="space-y-6 max-w-3xl">
+
+              {/* Bandeau intro */}
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-start gap-3">
+                <span className="text-2xl shrink-0">🤖</span>
+                <div>
+                  <p className="text-sm font-bold text-indigo-800">Agent Auto-Contact IA</p>
+                  <p className="text-xs text-indigo-700 mt-0.5 leading-relaxed">
+                    Quand un lead devient "chaud" (score &ge; 70 %), l'agent génère automatiquement un message
+                    WhatsApp personnalisé via Claude et l'envoie. Un seul message par lead, jamais de doublon.
+                  </p>
+                </div>
+              </div>
+
+              {/* Config principale */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-5">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                  Configuration générale
+                </h2>
+
+                {/* Toggle global ON/OFF */}
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Activer l'agent Auto-Contact</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      L'agent enverra automatiquement un premier message aux leads chauds
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={agentSettings.enabled}
+                    onChange={v => setAgentSettings(p => ({ ...p, enabled: v }))}
+                  />
+                </div>
+
+                {/* Délai avant envoi */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    Délai avant envoi (minutes)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={agentSettings.delay_minutes}
+                      onChange={e => setAgentSettings(p => ({ ...p, delay_minutes: e.target.value }))}
+                      className="w-28 px-3 py-2 text-sm border border-slate-200 rounded-lg
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <span className="text-xs text-slate-400">
+                      Recommandé : 5 min. Mettez 0 pour envoyer immédiatement.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={saveAgentSettings}
+                  disabled={agentSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700
+                             text-white rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {agentSaving ? <><span className="animate-spin">⏳</span> Sauvegarde…</> : <>💾 Sauvegarder</>}
+                </button>
+              </section>
+
+              {/* Templates de messages */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-5">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                    Templates de messages
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Laissez vide pour utiliser la génération automatique par Claude IA.
+                    Variables disponibles : <code className="bg-slate-100 px-1 rounded">{'{{prenom}}'}</code>{' '}
+                    <code className="bg-slate-100 px-1 rounded">{'{{nom}}'}</code>{' '}
+                    <code className="bg-slate-100 px-1 rounded">{'{{agence}}'}</code>{' '}
+                    <code className="bg-slate-100 px-1 rounded">{'{{secteur}}'}</code>
+                  </p>
+                </div>
+
+                {/* Template SMMA */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    🎯 Template SMMA / Marketing
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ex : Bonjour {{prenom}}, j'ai vu que vous cherchez à automatiser votre acquisition clients…"
+                    value={agentSettings.smma_template}
+                    onChange={e => setAgentSettings(p => ({ ...p, smma_template: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg
+                               focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  />
+                </div>
+
+                {/* Template Immobilier */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    🏠 Template Immobilier
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ex : Bonjour {{prenom}}, je vois que vous avez un projet immobilier dans votre secteur…"
+                    value={agentSettings.immo_template}
+                    onChange={e => setAgentSettings(p => ({ ...p, immo_template: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg
+                               focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  />
+                </div>
+
+                {/* Template par défaut */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    💬 Template par défaut (autres secteurs)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ex : Bonjour {{prenom}}, je vous contacte suite à votre demande…"
+                    value={agentSettings.default_template}
+                    onChange={e => setAgentSettings(p => ({ ...p, default_template: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg
+                               focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  />
+                </div>
+
+                <button
+                  onClick={saveAgentSettings}
+                  disabled={agentSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700
+                             text-white rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {agentSaving ? <><span className="animate-spin">⏳</span> Sauvegarde…</> : <>💾 Sauvegarder les templates</>}
+                </button>
+              </section>
+
+              {/* Comment ça marche */}
+              <section className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
+                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  📖 Comment déclencher l'agent depuis une fiche lead ?
+                </h3>
+                <ol className="space-y-2 text-xs text-slate-600">
+                  <li className="flex gap-2">
+                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">1</span>
+                    <span>Ouvrez une fiche lead avec un score ≥ 70 %</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">2</span>
+                    <span>Dans l'onglet <strong>Messages</strong>, cliquez sur le bouton <strong>"🤖 Contacter par l'agent IA"</strong></span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">3</span>
+                    <span>L'agent génère et envoie un message personnalisé via WhatsApp — automatiquement</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">4</span>
+                    <span>Le lead est marqué <strong>"Auto"</strong> et ne sera plus recontacté par l'agent (sauf si vous le réinitialisez)</span>
+                  </li>
+                </ol>
+              </section>
+
+              {/* Historique agent_actions */}
+              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                    Historique des actions
+                  </h2>
+                  <button
+                    onClick={loadAgentActions}
+                    disabled={agentActionsLoading}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200
+                               text-slate-600 font-medium transition-colors disabled:opacity-50"
+                  >
+                    {agentActionsLoading ? '⏳ Chargement…' : '↻ Actualiser'}
+                  </button>
+                </div>
+
+                {agentActions.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-8">
+                    Aucune action enregistrée — l'historique apparaîtra ici après les premiers envois.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {agentActions.map(a => (
+                      <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                        <span className="text-base shrink-0">
+                          {a.status === 'sent'    ? '✅' :
+                           a.status === 'failed'  ? '❌' :
+                           a.status === 'skipped' ? '⏭️' : '⏳'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-slate-700 truncate">
+                              {a.leads?.nom || 'Lead inconnu'}
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase
+                              ${a.status === 'sent'    ? 'bg-green-100 text-green-700'  :
+                                a.status === 'failed'  ? 'bg-red-100 text-red-700'      :
+                                a.status === 'skipped' ? 'bg-slate-200 text-slate-500'  :
+                                                         'bg-yellow-100 text-yellow-700'}`}>
+                              {a.status}
+                            </span>
+                            <span className="text-[10px] text-slate-400 ml-auto">
+                              {new Date(a.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                            </span>
+                          </div>
+                          {a.message_sent && (
+                            <p className="text-xs text-slate-500 mt-1 truncate" title={a.message_sent}>
+                              "{a.message_sent}"
+                            </p>
+                          )}
+                          {a.error_msg && (
+                            <p className="text-xs text-red-500 mt-0.5">⚠ {a.error_msg}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
             </div>

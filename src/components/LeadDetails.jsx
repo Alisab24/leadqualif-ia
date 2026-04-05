@@ -137,6 +137,10 @@ const LeadDetails = () => {
   const [waUnread,    setWaUnread]    = useState(0)
   const waMsgEndRef = useRef(null)
 
+  // ─── Agent IA Auto-Contact ────────────────────────────────
+  const [agentLoading,  setAgentLoading]  = useState(false)
+  const [agentResult,   setAgentResult]   = useState(null) // { success, message_sent } | { skipped, reason } | { error }
+
   // ─── Chargement lead ──────────────────────────────────────
   useEffect(() => { if (id) loadLead() }, [id])
 
@@ -318,6 +322,38 @@ const LeadDetails = () => {
     }
   }
 
+  // ─── Agent IA : déclencher l'auto-contact ────────────────
+  const triggerAgent = async () => {
+    if (agentLoading) return
+    if (!window.confirm('Envoyer un message WhatsApp généré par l\'agent IA à ce lead ?')) return
+    setAgentLoading(true)
+    setAgentResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/agents/auto-contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ leadId: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Erreur agent')
+      setAgentResult(data)
+      // Si envoyé → recharger les messages + le lead
+      if (data.success) {
+        fetchWaMessages()
+        const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
+        if (updated) setLead(updated)
+      }
+    } catch (err) {
+      setAgentResult({ error: err.message })
+    } finally {
+      setAgentLoading(false)
+    }
+  }
+
   // ─── Changer onglet ──────────────────────────────────────
   const switchTab = (key) => {
     setActiveTab(key)
@@ -472,7 +508,7 @@ const LeadDetails = () => {
           { key: 'historique', label: '🕐 Historique' },
           { key: 'ia',         label: '🧠 IA' },
           { key: 'documents',  label: '📄 Documents' },
-          { key: 'messages',   label: `💬 Messages${waUnread > 0 ? ` (${waUnread})` : ''}` },
+          { key: 'messages',   label: `💬 Messages${waUnread > 0 ? ` (${waUnread})` : ''}${lead?.auto_contacted_at ? ' 🤖' : ''}` },
         ].map(t => (
           <button
             key={t.key}
@@ -866,6 +902,57 @@ const LeadDetails = () => {
                 )
               })}
               <div ref={waMsgEndRef} />
+            </div>
+
+            {/* Bouton Agent IA */}
+            <div className="flex-none mb-2">
+              {lead?.auto_contacted_at ? (
+                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
+                  <span className="text-sm">🤖</span>
+                  <p className="text-xs text-indigo-700">
+                    <strong>Auto-contact envoyé</strong> le{' '}
+                    {new Date(lead.auto_contacted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Réinitialiser le statut auto-contact de ce lead ? Il pourra être recontacté par l\'agent.')) return
+                      await supabase.from('leads').update({ auto_contacted_at: null }).eq('id', id)
+                      const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
+                      if (updated) setLead(updated)
+                    }}
+                    className="ml-auto text-[10px] text-indigo-400 hover:text-indigo-600 underline"
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <button
+                    onClick={triggerAgent}
+                    disabled={agentLoading || lead?.do_not_contact}
+                    title={lead?.do_not_contact ? 'Ce lead est marqué "Ne pas contacter"' : 'Générer et envoyer un message IA via WhatsApp'}
+                    className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-50 hover:bg-indigo-100
+                               border border-indigo-200 rounded-xl text-xs font-semibold text-indigo-700
+                               disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {agentLoading
+                      ? <><span className="animate-spin">⏳</span> L'agent génère le message…</>
+                      : <><span>🤖</span> Contacter par l'agent IA</>
+                    }
+                  </button>
+                  {agentResult && (
+                    <div className={`text-xs px-3 py-1.5 rounded-lg ${
+                      agentResult.success  ? 'bg-green-50 text-green-700 border border-green-200' :
+                      agentResult.skipped  ? 'bg-slate-100 text-slate-500 border border-slate-200' :
+                                             'bg-red-50 text-red-600 border border-red-200'
+                    }`}>
+                      {agentResult.success && `✅ Message envoyé : "${agentResult.message_sent?.slice(0, 80)}…"`}
+                      {agentResult.skipped && `⏭ Ignoré : ${agentResult.reason}`}
+                      {agentResult.error   && `❌ Erreur : ${agentResult.error}`}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Zone de saisie */}

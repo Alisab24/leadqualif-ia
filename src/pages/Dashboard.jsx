@@ -991,7 +991,15 @@ export default function Dashboard() {
                         >
                           {/* Nom */}
                           <td className="px-3 py-2.5 overflow-hidden">
-                            <div className="font-semibold text-slate-900 truncate" title={lead.nom}>{lead.nom}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-900 truncate" title={lead.nom}>{lead.nom}</span>
+                              {lead.auto_contacted_at && (
+                                <span title={`Agent IA le ${new Date(lead.auto_contacted_at).toLocaleDateString('fr-FR')}`}
+                                  className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold">
+                                  🤖 Auto
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* Score */}
