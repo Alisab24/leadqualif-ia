@@ -147,7 +147,7 @@ export default async function handler(req, res) {
         from_number:   fromNumber.replace(/^whatsapp:/i, ''),
         to_number:     toNumber,
         content:       message.trim(),
-        status:        twilioResult.status || 'sent',
+        status:        ['sent','delivered','read','failed'].includes(twilioResult.status) ? twilioResult.status : 'sent',
         twilio_sid:    twilioResult.sid || null,
         read_at:       new Date().toISOString(),
         sender_name:   senderName,
@@ -156,7 +156,10 @@ export default async function handler(req, res) {
       .select()
       .single()
 
-    if (convErr) console.error('[whatsapp/send] Erreur insert:', convErr)
+    if (convErr) {
+      console.error('[whatsapp/send] Erreur insert conversations:', JSON.stringify(convErr))
+      // Ne pas échouer la requête — le message Twilio est déjà parti
+    }
 
     return res.status(200).json({
       success:    true,
