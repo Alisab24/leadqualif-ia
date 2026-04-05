@@ -62,10 +62,15 @@ export default async function handler(req, res) {
   const token      = authHeader.replace(/^Bearer\s+/i, '').trim()
   if (!token) return res.status(401).json({ error: 'Non authentifié' })
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[whatsapp/send] SUPABASE_URL ou SUPABASE_SERVICE_KEY manquant')
+    return res.status(500).json({ error: 'Configuration serveur manquante (Supabase)' })
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey)
 
   // Vérifier le token utilisateur
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
