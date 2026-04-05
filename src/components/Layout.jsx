@@ -7,7 +7,7 @@
  * - Badge plan d'abonnement
  * - Nom utilisateur depuis nom_complet
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
@@ -47,6 +47,11 @@ const Icons = {
       <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
     </svg>
   ),
+  inbox: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  ),
   pin: (open) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
       {open
@@ -76,6 +81,7 @@ const PLAN_BADGE = {
 // null = accessible à tous, 'starter' = plan Solo+, 'growth' = plan Agence+
 const ROUTE_PLAN = {
   '/dashboard': null,
+  '/inbox':     null,
   '/stats':     'growth',
   '/documents': 'starter',
   '/scraper':   'starter',
@@ -86,6 +92,7 @@ const ROUTE_PLAN = {
 // null = accessible à tous les rôles
 const ROUTE_ROLES = {
   '/dashboard': null,
+  '/inbox':     null,
   '/stats':     ['owner', 'admin'],
   '/documents': ['owner', 'admin', 'agent'],
   '/scraper':   ['owner', 'admin', 'agent'],
@@ -194,6 +201,8 @@ export default function Layout() {
   });
   const [hovered, setHovered]   = useState(false);
   const [showUserPopup, setShowUserPopup] = useState(false);
+  const [inboxUnread, setInboxUnread]     = useState(0);
+  const inboxChannelRef = useRef(null);
 
   // Plan guard — récupère le plan + statut de l'utilisateur connecté
   const { userPlan, status, loading: planLoading, trialEnd } = usePlanGuard();
@@ -264,6 +273,51 @@ export default function Layout() {
     if (data.lang) applyLang(data.lang);
   };
 
+  // ─── Compteur non-lus Inbox ─────────────────────────────
+  useEffect(() => {
+    if (!profile?.agency_id) return;
+    const agencyId = profile.agency_id;
+
+    // Charger le nombre initial de messages non lus
+    supabase
+      .from('conversations')
+      .select('id', { count: 'exact', head: true })
+      .eq('agency_id', agencyId)
+      .eq('direction', 'inbound')
+      .is('read_at', null)
+      .then(({ count }) => setInboxUnread(count || 0));
+
+    // Subscription Realtime sur INSERT conversations
+    if (inboxChannelRef.current) supabase.removeChannel(inboxChannelRef.current);
+    const ch = supabase.channel(`inbox-unread-${agencyId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'conversations',
+        filter: `agency_id=eq.${agencyId}`,
+      }, (payload) => {
+        if (payload.new?.direction === 'inbound' && !payload.new?.read_at) {
+          setInboxUnread(n => n + 1);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'conversations',
+        filter: `agency_id=eq.${agencyId}`,
+      }, (payload) => {
+        // Quand read_at est mis à jour, recalculer (grossier mais fiable)
+        if (payload.new?.read_at && !payload.old?.read_at) {
+          setInboxUnread(n => Math.max(0, n - 1));
+        }
+      })
+      .subscribe();
+    inboxChannelRef.current = ch;
+    return () => {
+      if (inboxChannelRef.current) supabase.removeChannel(inboxChannelRef.current);
+    };
+  }, [profile?.agency_id]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
@@ -288,7 +342,7 @@ export default function Layout() {
   const badge = PLAN_BADGE[plan] || PLAN_BADGE.free;
 
   /* ── NavItem ── */
-  const NavItem = ({ to, icon, label }) => {
+  const NavItem = ({ to, icon, label, badge }) => {
     const active          = isActive(to);
     const required        = ROUTE_PLAN[to];
     const allowed         = routeAllowed(userPlan, required);
@@ -327,13 +381,21 @@ export default function Layout() {
           }`}>
             {label}
           </span>
+          {/* Badge non-lus (ex: inbox) */}
+          {badge > 0 && (
+            <span className={`shrink-0 min-w-[18px] h-[18px] flex items-center justify-center
+              rounded-full bg-red-500 text-white text-[10px] font-bold px-1
+              ${expanded ? 'ml-auto' : 'absolute top-1 right-1 scale-90'}`}>
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
           {/* Indicateur plan requis */}
           {locked && expanded && (
             <span className="ml-auto text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded-full shrink-0">
               🔒 {planNames[required] || required}
             </span>
           )}
-          {!locked && active && expanded && (
+          {!locked && active && expanded && !badge && (
             <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />
           )}
         </Link>
@@ -400,6 +462,7 @@ export default function Layout() {
         {/* ── Navigation ── */}
         <nav className="flex-1 pt-4 overflow-y-auto overflow-x-hidden">
           <NavItem to="/dashboard" icon={Icons.dashboard} label={t('nav.dashboard')} />
+          <NavItem to="/inbox"     icon={Icons.inbox}     label="Inbox" badge={inboxUnread} />
           <NavItem to="/stats"     icon={Icons.stats}     label={t('nav.stats')} />
           <NavItem to="/documents" icon={Icons.documents} label={t('nav.documents')} />
           <NavItem to="/scraper"   icon={Icons.scraper}   label="Scraper" />

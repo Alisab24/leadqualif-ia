@@ -4,7 +4,7 @@
  * Route : /lead/:id  |  Rendu dans <Layout>
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
@@ -129,6 +129,14 @@ const LeadDetails = () => {
   // Onglet actif
   const [activeTab, setActiveTab]         = useState('info')
 
+  // ─── Onglet Messages WhatsApp ─────────────────────────────
+  const [waMsgs,      setWaMsgs]      = useState([])
+  const [waLoading,   setWaLoading]   = useState(false)
+  const [waSending,   setWaSending]   = useState(false)
+  const [waReply,     setWaReply]     = useState('')
+  const [waUnread,    setWaUnread]    = useState(0)
+  const waMsgEndRef = useRef(null)
+
   // ─── Chargement lead ──────────────────────────────────────
   useEffect(() => { if (id) loadLead() }, [id])
 
@@ -207,11 +215,95 @@ const LeadDetails = () => {
     })
   }
 
+  // ─── Messages WhatsApp ───────────────────────────────────
+  const fetchWaMessages = useCallback(async () => {
+    if (!id) return
+    setWaLoading(true)
+    const { data } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('lead_id', id)
+      .order('created_at', { ascending: true })
+      .limit(100)
+    const msgs = data || []
+    setWaMsgs(msgs)
+    setWaUnread(msgs.filter(m => m.direction === 'inbound' && !m.read_at).length)
+    setWaLoading(false)
+    // Marquer les entrants comme lus
+    const unreadIds = msgs.filter(m => m.direction === 'inbound' && !m.read_at).map(m => m.id)
+    if (unreadIds.length > 0) {
+      await supabase.from('conversations').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
+      setWaUnread(0)
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    // Subscription Realtime pour les nouveaux messages
+    const channel = supabase.channel(`wa-lead-${id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'conversations',
+        filter: `lead_id=eq.${id}`,
+      }, (payload) => {
+        setWaMsgs(prev => {
+          if (prev.find(m => m.id === payload.new.id)) return prev
+          return [...prev, payload.new]
+        })
+        if (payload.new.direction === 'inbound') {
+          if (activeTab === 'messages') {
+            // Auto-read
+            supabase.from('conversations').update({ read_at: new Date().toISOString() }).eq('id', payload.new.id)
+          } else {
+            setWaUnread(n => n + 1)
+          }
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [id, activeTab])
+
+  useEffect(() => {
+    // Scroll vers le bas quand les messages changent
+    if (activeTab === 'messages') {
+      waMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [waMsgs, activeTab])
+
+  const sendWaMessage = async () => {
+    if (!waReply.trim() || waSending) return
+    const text = waReply.trim()
+    setWaReply('')
+    setWaSending(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ leadId: id, message: text }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erreur envoi')
+      }
+    } catch (err) {
+      alert(`❌ ${err.message}`)
+      setWaReply(text) // Restaurer le texte
+    } finally {
+      setWaSending(false)
+    }
+  }
+
   // ─── Changer onglet ──────────────────────────────────────
   const switchTab = (key) => {
     setActiveTab(key)
     if (key === 'historique' && crmHistory.length === 0) fetchHistory()
     if (key === 'ia' && !aiSuggestion) fetchAI()
+    if (key === 'messages') fetchWaMessages()
   }
 
   // ─── États de chargement / erreur ────────────────────────
@@ -360,6 +452,7 @@ const LeadDetails = () => {
           { key: 'historique', label: '🕐 Historique' },
           { key: 'ia',         label: '🧠 IA' },
           { key: 'documents',  label: '📄 Documents' },
+          { key: 'messages',   label: `💬 Messages${waUnread > 0 ? ` (${waUnread})` : ''}` },
         ].map(t => (
           <button
             key={t.key}
@@ -707,6 +800,88 @@ const LeadDetails = () => {
                 logCrm('document', 'Document généré', `Type : ${data?.type || 'Document'}`)
               }}
             />
+          </div>
+        )}
+
+        {/* ═══ ONGLET MESSAGES WHATSAPP ══════════════════ */}
+        {activeTab === 'messages' && (
+          <div className="max-w-2xl mx-auto flex flex-col h-full" style={{ minHeight: '500px' }}>
+            {/* Thread */}
+            <div className="flex-1 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm p-4 mb-3 space-y-2">
+              {waLoading && (
+                <div className="text-center text-slate-400 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-2" />
+                  <p className="text-sm">Chargement des messages…</p>
+                </div>
+              )}
+              {!waLoading && waMsgs.length === 0 && (
+                <div className="text-center text-slate-400 py-12">
+                  <div className="text-4xl mb-3">💬</div>
+                  <p className="text-sm font-medium">Aucun message WhatsApp</p>
+                  <p className="text-xs mt-1">Les messages échangés avec ce lead apparaîtront ici.</p>
+                </div>
+              )}
+              {waMsgs.map((msg) => {
+                const isOut = msg.direction === 'outbound'
+                const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                const day  = new Date(msg.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                return (
+                  <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
+                      isOut
+                        ? 'bg-green-500 text-white rounded-br-sm'
+                        : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                    }`}>
+                      <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                      <p className={`text-xs mt-1 ${isOut ? 'text-green-100' : 'text-slate-400'} text-right`}>
+                        {day} {time}
+                        {isOut && (
+                          <span className="ml-1">
+                            {msg.status === 'delivered' || msg.status === 'sent' ? ' ✓✓' : ' ✓'}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+              <div ref={waMsgEndRef} />
+            </div>
+
+            {/* Zone de saisie */}
+            {lead.telephone ? (
+              <div className="flex-none bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-end gap-2">
+                <textarea
+                  value={waReply}
+                  onChange={e => setWaReply(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      sendWaMessage()
+                    }
+                  }}
+                  placeholder="Écrire un message WhatsApp… (Entrée pour envoyer)"
+                  rows={2}
+                  disabled={waSending}
+                  className="flex-1 resize-none text-sm border border-slate-200 rounded-xl px-3 py-2
+                             focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50"
+                />
+                <button
+                  onClick={sendWaMessage}
+                  disabled={!waReply.trim() || waSending}
+                  className="shrink-0 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white
+                             rounded-xl text-sm font-semibold disabled:opacity-40 transition-colors"
+                >
+                  {waSending ? '⏳' : '➤'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex-none bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                <p className="text-sm text-amber-700">
+                  ⚠️ Ce lead n'a pas de numéro de téléphone. Ajoutez-en un pour envoyer des messages WhatsApp.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

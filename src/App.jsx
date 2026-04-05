@@ -16,6 +16,7 @@ import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
 import DocumentViewer from './components/DocumentViewer';
 import LeadDetails from './components/LeadDetails';
 import ScraperPage from './pages/ScraperPage';
+import Inbox from './pages/Inbox';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents-center" element={<DocumentsCenterRedirect />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/inbox"    element={<Inbox />} />
             <Route path="/stats"    element={<RoleGate allowed={['owner','admin']}><Stats /></RoleGate>} />
             <Route path="/scraper"  element={<RoleGate allowed={['owner','admin','agent']}><ScraperPage /></RoleGate>} />
             <Route path="/app" element={<Navigate to="/dashboard" replace />} />
