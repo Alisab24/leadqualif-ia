@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     // ── 1. Récupérer le profil de l'utilisateur (agency_id) ────────────────
     const { data: profile } = await supabase
       .from('profiles')
-      .select('agency_id')
+      .select('agency_id, nom_complet, nom_agence')
       .eq('user_id', user.id)
       .single()
 
@@ -135,19 +135,23 @@ export default async function handler(req, res) {
     const twilioResult = await sendTwilioMessage(fromNumber, toNumber, message.trim(), accountSid, authToken)
 
     // ── 6. Stocker le message sortant dans conversations ──────────────────
+    const senderName = profile.nom_complet || profile.nom_agence || 'Agent'
+
     const { data: conv, error: convErr } = await supabase
       .from('conversations')
       .insert({
-        lead_id:     lead.id,
-        agency_id:   profile.agency_id,
-        channel:     'whatsapp',
-        direction:   'outbound',
-        from_number: fromNumber.replace(/^whatsapp:/i, ''),
-        to_number:   toNumber,
-        content:     message.trim(),
-        status:      twilioResult.status || 'sent',
-        twilio_sid:  twilioResult.sid || null,
-        read_at:     new Date().toISOString(), // sortant = déjà "lu"
+        lead_id:       lead.id,
+        agency_id:     profile.agency_id,
+        channel:       'whatsapp',
+        direction:     'outbound',
+        from_number:   fromNumber.replace(/^whatsapp:/i, ''),
+        to_number:     toNumber,
+        content:       message.trim(),
+        status:        twilioResult.status || 'sent',
+        twilio_sid:    twilioResult.sid || null,
+        read_at:       new Date().toISOString(),
+        sender_name:   senderName,
+        thread_status: 'open',
       })
       .select()
       .single()

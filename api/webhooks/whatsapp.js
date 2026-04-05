@@ -190,15 +190,16 @@ export default async function handler(req, res) {
     const { error: convErr } = await supabase
       .from('conversations')
       .insert({
-        lead_id:     lead?.id || null,
-        agency_id:   agencyId,
-        channel:     'whatsapp',
-        direction:   'inbound',
-        from_number: fromNumber,
-        to_number:   toNumber,
+        lead_id:       lead?.id || null,
+        agency_id:     agencyId,
+        channel:       'whatsapp',
+        direction:     'inbound',
+        from_number:   fromNumber,
+        to_number:     toNumber,
         content,
-        status:      'delivered',
-        twilio_sid:  MessageSid || null,
+        status:        'delivered',
+        twilio_sid:    MessageSid || null,
+        thread_status: 'pending', // contact a répondu → réponse requise
         // Pas de read_at : message non lu
       })
 

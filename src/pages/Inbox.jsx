@@ -104,6 +104,7 @@ export default function Inbox() {
         .from('conversations')
         .select(`
           id, lead_id, direction, content, created_at, read_at,
+          thread_status, sender_name,
           leads!lead_id ( id, nom, telephone, adresse )
         `)
         .eq('agency_id', agencyId)
@@ -133,13 +134,14 @@ export default function Inbox() {
       }
 
       const threadList = [...byLead.values()].map(msg => ({
-        lead_id:     msg.lead_id,
-        lead_nom:    msg.leads?.nom    || `+${msg.from_number || 'Inconnu'}`,
-        lead_tel:    msg.leads?.telephone || '',
-        last_msg:    msg.content,
-        last_ts:     msg.created_at,
-        direction:   msg.direction,
-        unread:      unreadByLead[msg.lead_id] || 0,
+        lead_id:       msg.lead_id,
+        lead_nom:      msg.leads?.nom || `+${msg.from_number || 'Inconnu'}`,
+        lead_tel:      msg.leads?.telephone || '',
+        last_msg:      msg.content,
+        last_ts:       msg.created_at,
+        direction:     msg.direction,
+        thread_status: msg.thread_status || (msg.direction === 'inbound' ? 'pending' : 'open'),
+        unread:        unreadByLead[msg.lead_id] || 0,
       }))
 
       // Trier par date décroissante
@@ -309,9 +311,10 @@ export default function Inbox() {
       // Mettre à jour le thread dans la sidebar
       setThreads(prev => prev.map(t =>
         t.lead_id === activeLead.lead_id
-          ? { ...t, last_msg: msg, last_ts: new Date().toISOString(), direction: 'outbound' }
+          ? { ...t, last_msg: msg, last_ts: new Date().toISOString(), direction: 'outbound', thread_status: 'open' }
           : t
       ))
+      setActiveLead(prev => prev ? { ...prev, thread_status: 'open' } : prev)
 
     } catch (err) {
       console.error('[Inbox] send error:', err)
@@ -323,6 +326,31 @@ export default function Inbox() {
     } finally {
       setSending(false)
     }
+  }
+
+  // ── Marquer conversation résolue ─────────────────────────────────────────
+  const markResolved = async (leadId) => {
+    await supabase
+      .from('conversations')
+      .update({ thread_status: 'resolved' })
+      .eq('agency_id', agencyId)
+      .eq('lead_id', leadId)
+    setThreads(prev => prev.map(t =>
+      t.lead_id === leadId ? { ...t, thread_status: 'resolved' } : t
+    ))
+    setActiveLead(prev => prev ? { ...prev, thread_status: 'resolved' } : prev)
+  }
+
+  const markOpen = async (leadId) => {
+    await supabase
+      .from('conversations')
+      .update({ thread_status: 'open' })
+      .eq('agency_id', agencyId)
+      .eq('lead_id', leadId)
+    setThreads(prev => prev.map(t =>
+      t.lead_id === leadId ? { ...t, thread_status: 'open' } : t
+    ))
+    setActiveLead(prev => prev ? { ...prev, thread_status: 'open' } : prev)
   }
 
   // ── Filtrer les threads ───────────────────────────────────────────────────
@@ -433,17 +461,29 @@ export default function Inbox() {
                       <p className={`text-sm truncate ${thread.unread > 0 ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
                         {thread.lead_nom}
                       </p>
-                      <span className="text-[10px] text-slate-400 shrink-0 ml-1">
-                        {fmtTime(thread.last_ts)}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0 ml-1">
+                        {/* Badge statut */}
+                        {thread.thread_status === 'pending' && (
+                          <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" title="Réponse requise" />
+                        )}
+                        {thread.thread_status === 'resolved' && (
+                          <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" title="Résolu" />
+                        )}
+                        <span className="text-[10px] text-slate-400">
+                          {fmtTime(thread.last_ts)}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className={`text-xs truncate max-w-[160px] ${thread.unread > 0 ? 'text-slate-700 font-medium' : 'text-slate-400'}`}>
+                      <p className={`text-xs truncate max-w-[140px] ${thread.unread > 0 ? 'text-slate-700 font-medium' : 'text-slate-400'}`}>
                         {thread.direction === 'outbound' && <span className="text-green-600 mr-1">Vous:</span>}
+                        {thread.thread_status === 'pending' && thread.unread > 0 && (
+                          <span className="text-orange-500 mr-1">●</span>
+                        )}
                         {thread.last_msg}
                       </p>
                       {thread.unread > 0 && (
-                        <span className="bg-green-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0">
+                        <span className="bg-orange-400 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0">
                           {thread.unread > 9 ? '9+' : thread.unread}
                         </span>
                       )}
@@ -461,20 +501,58 @@ export default function Inbox() {
         {activeLead ? (
           <>
             {/* En-tête conversation */}
-            <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center gap-3 shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-200 bg-white flex items-center gap-3 shadow-sm">
               <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-white shrink-0">
                 {avatar(activeLead.lead_nom)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-800">{activeLead.lead_nom}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-slate-800">{activeLead.lead_nom}</p>
+                  {/* Badge statut conversation */}
+                  {activeLead.thread_status === 'pending' && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                      🔴 Réponse requise
+                    </span>
+                  )}
+                  {activeLead.thread_status === 'open' && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      🟢 En cours
+                    </span>
+                  )}
+                  {activeLead.thread_status === 'resolved' && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                      ✅ Résolu
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-400">{activeLead.lead_tel || 'WhatsApp'}</p>
               </div>
+
+              {/* Bouton résolu / rouvrir */}
+              {activeLead.thread_status !== 'resolved' ? (
+                <button
+                  onClick={() => markResolved(activeLead.lead_id)}
+                  className="text-xs font-semibold text-slate-500 hover:text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors border border-slate-200 hover:border-green-200"
+                  title="Marquer comme résolu"
+                >
+                  ✓ Résolu
+                </button>
+              ) : (
+                <button
+                  onClick={() => markOpen(activeLead.lead_id)}
+                  className="text-xs font-semibold text-slate-500 hover:text-orange-700 px-3 py-1.5 rounded-lg hover:bg-orange-50 transition-colors border border-slate-200"
+                  title="Rouvrir la conversation"
+                >
+                  ↩ Rouvrir
+                </button>
+              )}
+
               {activeLead.lead_id && (
                 <a
                   href={`/lead/${activeLead.lead_id}`}
                   className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
                 >
-                  Voir fiche →
+                  Fiche →
                 </a>
               )}
             </div>
@@ -515,6 +593,9 @@ export default function Inbox() {
                               }`}
                           >
                             <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                            {isOut && msg.sender_name && (
+                              <p className="text-[10px] text-green-100 mb-0.5">{msg.sender_name}</p>
+                            )}
                             <p className={`text-[10px] mt-1 text-right ${isOut ? 'text-green-100' : 'text-slate-400'}`}>
                               {fmtTime(msg.created_at)}
                               {isOut && (
