@@ -89,27 +89,97 @@ async function callSource(functionName: string, payload: Record<string, any>): P
 
 // ── Normalisation téléphone → format international WhatsApp ────────
 // Convertit "04 77 58 31 22" → "+33477583122" selon le pays de la target
+
+// Codes internationaux par indicatif ISO 2 lettres
 const COUNTRY_CODES: Record<string, string> = {
-  FR: '33', GB: '44', BE: '32', CH: '41', CA: '1',
-  US: '1',  AU: '61', DE: '49', ES: '34', IT: '39',
-  NL: '31', PT: '351', MA: '212', SN: '221', CI: '225',
+  FR: '33',  GB: '44',  BE: '32',  CH: '41',  CA: '1',
+  US: '1',   AU: '61',  DE: '49',  ES: '34',  IT: '39',
+  NL: '31',  PT: '351', MA: '212', SN: '221', CI: '225',
+  LU: '352', TN: '216', DZ: '213', CM: '237', MG: '261',
+  MU: '230', RE: '262', GP: '590', MQ: '596', GF: '594',
 }
+
+// Noms complets / alias → code ISO 2 lettres
+// Gère les valeurs stockées par ScraperPage (PAYS_FR / PAYS_EN)
+const COUNTRY_NAME_TO_ISO: Record<string, string> = {
+  // FR
+  'FRANCE':           'FR',
+  'BELGIQUE':         'BE',
+  'SUISSE':           'CH',
+  'MAROC':            'MA',
+  "CÔTE D'IVOIRE":    'CI',
+  "COTE D'IVOIRE":    'CI',
+  'SÉNÉGAL':          'SN',
+  'SENEGAL':          'SN',
+  'LUXEMBOURG':       'LU',
+  'TUNISIE':          'TN',
+  'ALGÉRIE':          'DZ',
+  'ALGERIE':          'DZ',
+  'CAMEROUN':         'CM',
+  'MADAGASCAR':       'MG',
+  'MAURICE':          'MU',
+  'RÉUNION':          'RE',
+  'REUNION':          'RE',
+  'GUADELOUPE':       'GP',
+  'MARTINIQUE':       'MQ',
+  'GUYANE':           'GF',
+  // EN
+  'UK':               'GB',
+  'UNITED KINGDOM':   'GB',
+  'ENGLAND':          'GB',
+  'GRANDE-BRETAGNE':  'GB',
+  'GREAT BRITAIN':    'GB',
+  'USA':              'US',
+  'UNITED STATES':    'US',
+  'ÉTATS-UNIS':       'US',
+  'ETATS-UNIS':       'US',
+  'CANADA':           'CA',
+  'AUSTRALIA':        'AU',
+  'AUSTRALIE':        'AU',
+  'SWITZERLAND':      'CH',
+  'BELGIUM':          'BE',
+  'GERMANY':          'DE',
+  'ALLEMAGNE':        'DE',
+  'SPAIN':            'ES',
+  'ESPAGNE':          'ES',
+  'ITALY':            'IT',
+  'ITALIE':           'IT',
+  'NETHERLANDS':      'NL',
+  'PAYS-BAS':         'NL',
+  'PORTUGAL':         'PT',
+  'MOROCCO':          'MA',
+  'TUNISIA':          'TN',
+  'SENEGAL':          'SN',
+  'IVORY COAST':      'CI',
+}
+
+function resolveCountryCode(pays: any): string {
+  const raw = Array.isArray(pays) ? (pays[0] || 'FR') : (pays || 'FR')
+  const upper = String(raw).toUpperCase().trim()
+  // D'abord essayer comme ISO direct (FR, GB, US…)
+  if (COUNTRY_CODES[upper]) return COUNTRY_CODES[upper]
+  // Sinon convertir nom complet → ISO → indicatif
+  const iso = COUNTRY_NAME_TO_ISO[upper]
+  if (iso && COUNTRY_CODES[iso]) return COUNTRY_CODES[iso]
+  // Fallback France
+  return '33'
+}
+
 function normalizePhone(raw: any, pays: any = 'FR'): string | null {
   if (!raw) return null
   try {
-  const digits = String(raw).replace(/\D/g, '')
-  if (!digits) return null
-  const paysStr = Array.isArray(pays) ? (pays[0] || 'FR') : (pays || 'FR')
-  const cc = COUNTRY_CODES[String(paysStr).toUpperCase()] || '33'
-  // Déjà au format international (commence par l'indicatif pays)
-  if (digits.startsWith(cc) && digits.length > 10) return '+' + digits
-  // Format local FR/BE/CH : 10 chiffres commençant par 0
-  if (digits.startsWith('0') && digits.length === 10) return '+' + cc + digits.substring(1)
-  // Format local UK : 11 chiffres commençant par 0
-  if (digits.startsWith('0') && digits.length === 11) return '+' + cc + digits.substring(1)
-  // Déjà un format valide (9 chiffres sans 0 initial)
-  if (digits.length >= 9) return '+' + cc + digits
-  return String(raw) // garder tel quel si format inconnu
+    const digits = String(raw).replace(/\D/g, '')
+    if (!digits) return null
+    const cc = resolveCountryCode(pays)
+    // Déjà au format international complet (ex: +447911123456 → "447911123456")
+    if (digits.startsWith(cc) && digits.length > 10) return '+' + digits
+    // Format local avec 0 initial : 10 chiffres (FR/BE/CH) ou 11 (UK/US)
+    if (digits.startsWith('0') && (digits.length === 10 || digits.length === 11)) {
+      return '+' + cc + digits.substring(1)
+    }
+    // Déjà sans 0 initial (9+ chiffres)
+    if (digits.length >= 9) return '+' + cc + digits
+    return String(raw) // format inconnu → garder tel quel
   } catch { return raw != null ? String(raw) : null }
 }
 
