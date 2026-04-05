@@ -40,6 +40,7 @@ export default function Inbox() {
 
   // ── État ──────────────────────────────────────────────────────────────────
   const [agencyId,        setAgencyId]        = useState(null)
+  const [agencyName,      setAgencyName]      = useState('')
   const [twilioConfigured, setTwilioConfigured] = useState(null) // null=loading, false=non configuré, true=ok
   const [userId,          setUserId]          = useState(null)
   const [threads,         setThreads]         = useState([])   // résumé par lead
@@ -68,10 +69,11 @@ export default function Inbox() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('agency_id')
+        .select('agency_id, nom_agence')
         .eq('user_id', user.id)
         .single()
 
+      if (profile?.nom_agence) setAgencyName(profile.nom_agence)
       const aid = profile?.agency_id
       if (aid) {
         setAgencyId(aid)
@@ -263,6 +265,21 @@ export default function Inbox() {
     const msg = reply.trim()
     setReply('')
 
+    // ── Ajout optimiste immédiat (ne pas attendre le Realtime) ───────────
+    const tempId = `tmp-${Date.now()}`
+    const tempMsg = {
+      id:         tempId,
+      lead_id:    activeLead.lead_id,
+      agency_id:  agencyId,
+      channel:    'whatsapp',
+      direction:  'outbound',
+      content:    msg,
+      status:     'sending',
+      created_at: new Date().toISOString(),
+      read_at:    new Date().toISOString(),
+    }
+    setMessages(prev => [...prev, tempMsg])
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/whatsapp/send', {
@@ -275,10 +292,32 @@ export default function Inbox() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur envoi')
-      // Le message apparaîtra via Realtime (insert dans conversations)
+
+      // Remplacer le message temporaire par le vrai (avec l'ID Supabase)
+      if (data.message_id) {
+        setMessages(prev => prev.map(m =>
+          m.id === tempId
+            ? { ...m, id: data.message_id, status: data.status || 'sent' }
+            : m
+        ))
+      } else {
+        // Pas d'ID retourné → recharger les messages depuis la base
+        setMessages(prev => prev.filter(m => m.id !== tempId))
+        loadMessages(activeLead.lead_id)
+      }
+
+      // Mettre à jour le thread dans la sidebar
+      setThreads(prev => prev.map(t =>
+        t.lead_id === activeLead.lead_id
+          ? { ...t, last_msg: msg, last_ts: new Date().toISOString(), direction: 'outbound' }
+          : t
+      ))
+
     } catch (err) {
       console.error('[Inbox] send error:', err)
-      setReply(msg) // remettre le message en cas d'erreur
+      // Supprimer le message optimiste en cas d'erreur
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      setReply(msg)
       setToast({ msg: err.message, type: 'error' })
       setTimeout(() => setToast(null), 3500)
     } finally {
@@ -480,10 +519,11 @@ export default function Inbox() {
                               {fmtTime(msg.created_at)}
                               {isOut && (
                                 <span className="ml-1">
-                                  {msg.status === 'read'      ? ' ✓✓' :
+                                  {msg.status === 'sending'   ? ' ⏳'  :
+                                   msg.status === 'read'      ? ' ✓✓' :
                                    msg.status === 'delivered' ? ' ✓✓' :
                                    msg.status === 'sent'      ? ' ✓'  :
-                                   msg.status === 'failed'    ? ' ✗'  : ''}
+                                   msg.status === 'failed'    ? ' ✗'  : ' ✓'}
                                 </span>
                               )}
                             </p>
@@ -530,7 +570,7 @@ export default function Inbox() {
                 </button>
               </div>
               <p className="text-[10px] text-slate-400 mt-1 ml-1">
-                Envoi via WhatsApp Business · Twilio
+                Envoi via WhatsApp Business{agencyName ? ` · ${agencyName}` : ''}
               </p>
             </div>
           </>
