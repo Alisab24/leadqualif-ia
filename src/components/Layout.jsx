@@ -82,6 +82,23 @@ const ROUTE_PLAN = {
   '/settings':  null,
 };
 
+/* ─── Rôles autorisés par route ─────────────────────── */
+// null = accessible à tous les rôles
+const ROUTE_ROLES = {
+  '/dashboard': null,
+  '/stats':     ['owner', 'admin'],
+  '/documents': ['owner', 'admin', 'agent'],
+  '/scraper':   ['owner', 'admin', 'agent'],
+  '/settings':  null,
+};
+
+// Vérifie si un rôle a accès à une route
+function roleAllowed(role, allowedRoles) {
+  if (!allowedRoles) return true;        // null = tous les rôles
+  if (!role)         return true;        // pas encore chargé → optimiste
+  return allowedRoles.includes(role);
+}
+
 // Vérifie si un plan utilisateur donne accès à une route
 function routeAllowed(userPlan, requiredPlan) {
   if (!requiredPlan) return true;
@@ -272,11 +289,17 @@ export default function Layout() {
 
   /* ── NavItem ── */
   const NavItem = ({ to, icon, label }) => {
-    const active     = isActive(to);
-    const required   = ROUTE_PLAN[to];
-    const allowed    = routeAllowed(userPlan, required);
-    const locked     = !allowed && !planLoading;
-    const planNames  = { starter: 'Solo', growth: 'Agence' };
+    const active          = isActive(to);
+    const required        = ROUTE_PLAN[to];
+    const allowed         = routeAllowed(userPlan, required);
+    const locked          = !allowed && !planLoading;
+    const planNames       = { starter: 'Solo', growth: 'Agence' };
+
+    // Masquer le lien si le rôle courant n'a pas accès (viewer sur stats/scraper etc.)
+    const currentRole     = profile?.role || null;
+    const allowedRoles    = ROUTE_ROLES[to];
+    const roleOk          = roleAllowed(currentRole, allowedRoles);
+    if (!roleOk) return null;   // ← ne pas afficher du tout l'entrée de menu
 
     const handleClick = (e) => {
       if (locked) {

@@ -43,6 +43,7 @@ export default function TeamSettings() {
   // Résolu depuis Supabase Auth — pas de props
   const [agencyId, setAgencyId]           = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
+  const [selfProfile, setSelfProfile]     = useState(null)
 
   // ⚠️ Ne pas utiliser `?? 0` : l'opérateur ?? remplace aussi null par 0,
   // ce qui écrase la valeur null (= illimité) du plan enterprise.
@@ -123,6 +124,9 @@ export default function TeamSettings() {
             }
           : null
 
+      // Stocker le profil courant pour l'invitation (nom_agence, nom_complet)
+      if (!cancelled) setSelfProfile(self)
+
       // 2. Autres membres de l'agence
       let others = []
       if (aid) {
@@ -194,51 +198,39 @@ export default function TeamSettings() {
         return
       }
 
-      const alreadyInvited = invitations.some(i => i.email?.toLowerCase() === inviteEmail.toLowerCase())
-      if (alreadyInvited) {
-        showToast(t('team.alreadyInvited'), 'error')
+      if (!agencyId) {
+        showToast('Erreur : agence introuvable. Rechargez la page.', 'error')
         return
       }
 
-      const { data: invitation, error } = await supabase
-        .from('agency_invitations')
-        .insert({
-          agency_id:  agencyId,
-          invited_by: currentUserId,
-          email:      inviteEmail.trim().toLowerCase(),
-          role:       inviteRole,
-        })
-        .select()
-        .single()
+      const agencyName   = selfProfile?.nom_agence  || members.find(m => m.role === 'owner')?.nom_agence  || 'LeadQualif'
+      const inviterName  = selfProfile?.nom_complet || members.find(m => m.role === 'owner')?.nom_complet || ''
+
+      // Appel unique : crée ou renouvelle l'invitation ET envoie l'email
+      const { data, error } = await supabase.functions.invoke('send-invitation-email', {
+        body: {
+          agency_id:    agencyId,
+          invite_email: inviteEmail.trim().toLowerCase(),
+          role:         inviteRole,
+          agency_name:  agencyName,
+          inviter_name: inviterName,
+        }
+      })
 
       if (error) throw error
 
-      const inviteLink = `${window.location.origin}/join/${invitation.token}`
-      const agencyName = members.find(m => m.role === 'owner')?.nom_agence || 'LeadQualif'
-      
-      // Envoyer l'email d'invitation avec Resend
-      const emailResponse = await fetch('/api/send-invitation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: inviteEmail.trim(),
-          nom: agencyName,
-          lienInvitation: inviteLink
-        })
-      })
-
-      if (!emailResponse.ok) {
-        console.warn('Email non envoyé:', await emailResponse.text())
-        showToast(t('team.inviteCreatedNoEmail'))
+      const isRefresh = data?.is_refresh === true
+      if (isRefresh) {
+        showToast(`🔄 ${t('team.inviteResent', { email: inviteEmail }) || `Invitation renvoyée à ${inviteEmail}`}`)
       } else {
-        showToast(t('team.inviteSent', { email: inviteEmail }))
+        showToast(t('team.inviteSent', { email: inviteEmail }) || `Invitation envoyée à ${inviteEmail}`)
       }
 
       setInviteEmail('')
       await fetchTeam()
     } catch (err) {
       console.error('Erreur invitation:', err)
-      showToast(t('team.errors.inviteFailed'), 'error')
+      showToast(t('team.errors.inviteFailed') || 'Erreur lors de l\'envoi de l\'invitation', 'error')
     } finally {
       setInviting(false)
     }
@@ -560,6 +552,34 @@ export default function TeamSettings() {
                       {copiedToken === inv.token ? `✓ ${t('common.copied')}` : t('team.copyLink')}
                     </button>
                   </div>
+                  {/* Renvoyer l'email */}
+                  <button
+                    onClick={async () => {
+                      const agencyName  = selfProfile?.nom_agence  || 'LeadQualif'
+                      const inviterName = selfProfile?.nom_complet || ''
+                      try {
+                        const { data, error } = await supabase.functions.invoke('send-invitation-email', {
+                          body: {
+                            agency_id:    agencyId,
+                            invite_email: inv.email,
+                            role:         inv.role,
+                            agency_name:  agencyName,
+                            inviter_name: inviterName,
+                          }
+                        })
+                        if (error) throw error
+                        showToast(`🔄 Email renvoyé à ${inv.email}`)
+                        await fetchTeam()
+                      } catch (e) {
+                        console.error('resend error:', e)
+                        showToast('Erreur lors du renvoi', 'error')
+                      }
+                    }}
+                    className="shrink-0 p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Renvoyer l'email d'invitation"
+                  >
+                    🔄
+                  </button>
                   {/* Révoquer */}
                   <button
                     onClick={() => revokeInvitation(inv.id)}
