@@ -5,7 +5,7 @@
  * Envoi via /api/whatsapp/send.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,9 +36,11 @@ function avatar(name) {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function Inbox() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // ── État ──────────────────────────────────────────────────────────────────
   const [agencyId,        setAgencyId]        = useState(null)
+  const [twilioConfigured, setTwilioConfigured] = useState(null) // null=loading, false=non configuré, true=ok
   const [userId,          setUserId]          = useState(null)
   const [threads,         setThreads]         = useState([])   // résumé par lead
   const [messages,        setMessages]        = useState([])   // messages du thread actif
@@ -70,7 +72,22 @@ export default function Inbox() {
         .eq('user_id', user.id)
         .single()
 
-      if (profile?.agency_id) setAgencyId(profile.agency_id)
+      const aid = profile?.agency_id
+      if (aid) {
+        setAgencyId(aid)
+        // Vérifier si Twilio est configuré (agency_settings OU vars globales Vercel)
+        const { data: settings } = await supabase
+          .from('agency_settings')
+          .select('twilio_account_sid, twilio_whatsapp_number')
+          .eq('agency_id', aid)
+          .maybeSingle()
+
+        const hasLocalConfig = !!(settings?.twilio_account_sid && settings?.twilio_whatsapp_number)
+        // On considère aussi configuré si les vars Vercel globales sont présentes
+        // (on ne peut pas les lire côté client, donc on essaie de charger les threads
+        //  et si ça marche c'est que c'est ok — mais on se fie à agency_settings pour l'UX)
+        setTwilioConfigured(hasLocalConfig)
+      }
     }
     init()
   }, [])
@@ -518,25 +535,61 @@ export default function Inbox() {
             </div>
           </>
         ) : (
-          /* Écran vide (aucun thread sélectionné) */
+          /* Écran vide ou configuration requise */
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <span className="text-4xl">💬</span>
-            </div>
-            <h2 className="text-lg font-bold text-slate-700 mb-2">Inbox WhatsApp</h2>
-            <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-              Sélectionnez une conversation à gauche pour afficher les messages,
-              ou attendez qu'un nouveau message arrive.
-            </p>
-            {threads.length === 0 && !loadingThreads && (
-              <div className="mt-6 bg-white border border-slate-200 rounded-xl p-5 max-w-sm text-left">
-                <p className="text-xs font-bold text-slate-600 mb-2">📋 Configuration requise</p>
-                <ol className="text-xs text-slate-500 space-y-1.5 list-decimal list-inside">
-                  <li>Ajoutez vos credentials Twilio dans <a href="/settings?tab=integrations" className="text-indigo-600 underline">Paramètres → Intégrations</a></li>
-                  <li>Configurez le webhook Twilio sur <code className="bg-slate-100 px-1 rounded">votre-domaine.com/api/webhooks/whatsapp</code></li>
-                  <li>Envoyez un WhatsApp au numéro sandbox pour tester</li>
-                </ol>
+
+            {/* ── Twilio PAS configuré → écran de setup ── */}
+            {twilioConfigured === false ? (
+              <div className="max-w-md w-full">
+                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-5 mx-auto">
+                  <span className="text-4xl">⚙️</span>
+                </div>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">Configuration WhatsApp requise</h2>
+                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                  Pour envoyer et recevoir des messages WhatsApp, connectez votre compte Twilio dans les paramètres de messagerie.
+                </p>
+
+                {/* CTA principal */}
+                <button
+                  onClick={() => navigate('/settings?tab=messagerie')}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5
+                             bg-green-600 hover:bg-green-700 text-white rounded-xl
+                             font-semibold text-sm shadow-md shadow-green-200 transition-colors mb-4"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                  Configurer la messagerie WhatsApp
+                </button>
+
+                {/* Étapes résumées */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 text-left space-y-2.5">
+                  {[
+                    { n: 1, text: 'Créer un compte Twilio et activer WhatsApp' },
+                    { n: 2, text: 'Coller le Account SID et Auth Token dans Paramètres → Messagerie' },
+                    { n: 3, text: `Configurer le webhook : leadqualif.com/api/webhooks/whatsapp` },
+                  ].map(s => (
+                    <div key={s.n} className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center
+                                       justify-center font-bold text-[10px] shrink-0 mt-0.5">{s.n}</span>
+                      <p className="text-xs text-slate-600 leading-relaxed">{s.text}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
+            ) : (
+              /* Twilio configuré mais aucun thread sélectionné */
+              <>
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-4xl">💬</span>
+                </div>
+                <h2 className="text-lg font-bold text-slate-700 mb-2">Inbox WhatsApp</h2>
+                <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+                  Sélectionnez une conversation à gauche pour afficher les messages,
+                  ou attendez qu'un nouveau message arrive.
+                </p>
+              </>
             )}
           </div>
         )}
