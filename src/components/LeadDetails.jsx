@@ -276,6 +276,19 @@ const LeadDetails = () => {
     const text = waReply.trim()
     setWaReply('')
     setWaSending(true)
+
+    // Ajout optimiste immédiat dans la bulle
+    const tempId = `tmp-${Date.now()}`
+    setWaMsgs(prev => [...prev, {
+      id:         tempId,
+      lead_id:    id,
+      direction:  'outbound',
+      content:    text,
+      status:     'sending',
+      created_at: new Date().toISOString(),
+      read_at:    new Date().toISOString(),
+    }])
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/whatsapp/send', {
@@ -286,13 +299,20 @@ const LeadDetails = () => {
         },
         body: JSON.stringify({ leadId: id, message: text }),
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Erreur envoi')
-      }
+      const resData = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(resData.error || 'Erreur envoi')
+
+      // Remplacer le message temporaire par l'ID réel
+      setWaMsgs(prev => prev.map(m =>
+        m.id === tempId
+          ? { ...m, id: resData.message_id || tempId, status: resData.status || 'sent' }
+          : m
+      ))
     } catch (err) {
+      // Supprimer la bulle optimiste et remettre le texte
+      setWaMsgs(prev => prev.filter(m => m.id !== tempId))
+      setWaReply(text)
       alert(`❌ ${err.message}`)
-      setWaReply(text) // Restaurer le texte
     } finally {
       setWaSending(false)
     }
