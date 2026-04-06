@@ -260,6 +260,58 @@ async function handleCreateAppointment(req, res, supabase, user) {
   return res.status(200).json({ success: true, appointment: appt, wa_sent: !!waResult, email_sent: !!emailResult?.id })
 }
 
+/* ── Action : send-email ─────────────────────────────────────────────────── */
+async function handleSendEmail(req, res, supabase, user) {
+  const { leadId, subject, message, replyToThreadId } = req.body || {}
+  if (!leadId || !subject?.trim() || !message?.trim())
+    return res.status(400).json({ error: 'leadId, subject et message requis' })
+
+  const { data: profile } = await supabase.from('profiles')
+    .select('agency_id, nom_complet, nom_agence, email').eq('user_id', user.id).single()
+  if (!profile?.agency_id) return res.status(403).json({ error: 'Agence introuvable' })
+
+  const { data: lead } = await supabase.from('leads')
+    .select('id, nom, email, agency_id').eq('id', leadId).eq('agency_id', profile.agency_id).single()
+  if (!lead) return res.status(404).json({ error: 'Lead introuvable' })
+  if (!lead.email) return res.status(400).json({ error: "Ce lead n'a pas d'email" })
+
+  // Utiliser les clés workspace en priorité, sinon fallback env vars
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('resend_api_key, from_email, from_name')
+    .eq('agency_id', profile.agency_id).maybeSingle()
+
+  const resendKey  = ws?.resend_api_key  || process.env.RESEND_API_KEY
+  const fromEmail  = ws?.from_email      || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
+  const senderName = ws?.from_name       || profile.nom_complet || profile.nom_agence || "L'équipe"
+  if (!resendKey) return res.status(503).json({ error: 'RESEND_API_KEY non configuré' })
+
+  const threadId = replyToThreadId || `thread-${leadId}-${Date.now()}`
+
+  const resendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from:    `${senderName} <${fromEmail}>`,
+      to:      [lead.email],
+      subject: subject.trim(),
+      html:    `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#1e293b;">${message.trim().replace(/\n/g,'<br>')}</div>`,
+      text:    message.trim(),
+    }),
+  })
+  const resendData = await resendRes.json()
+  if (!resendRes.ok) throw new Error(`Resend ${resendRes.status}: ${resendData.message || JSON.stringify(resendData)}`)
+
+  const { data: conv } = await supabase.from('conversations').insert({
+    lead_id: lead.id, agency_id: profile.agency_id,
+    channel: 'email', direction: 'outbound',
+    subject: subject.trim(), content: message.trim(),
+    email_thread_id: threadId, from_email: fromEmail, to_email: lead.email,
+    sender_name: senderName, status: 'sent', read_at: new Date().toISOString(),
+  }).select().single()
+
+  return res.status(200).json({ success: true, message_id: conv?.id, thread_id: threadId, status: 'sent' })
+}
+
 /* ── Handler principal ────────────────────────────────────────────────────── */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -284,7 +336,8 @@ export default async function handler(req, res) {
   try {
     if (action === 'auto-contact')        return await handleAutoContact(req, res, supabase, user)
     if (action === 'create-appointment')  return await handleCreateAppointment(req, res, supabase, user)
-    return res.status(400).json({ error: `Action inconnue: "${action}". Utiliser 'auto-contact' ou 'create-appointment'.` })
+    if (action === 'send-email')          return await handleSendEmail(req, res, supabase, user)
+    return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[crm/${action}] Erreur:`, err)
     return res.status(500).json({ error: err.message || 'Erreur serveur' })

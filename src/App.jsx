@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Estimation from './pages/Estimation';
 import DocumentsPage from './pages/DocumentsPage';
 import Settings from './pages/Settings';
+import WorkspaceSettings from './pages/WorkspaceSettings';
 import Stats from './pages/Stats';
 import DocumentPreviewPage from './pages/DocumentPreviewPage';
 import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents-center" element={<DocumentsCenterRedirect />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/workspace" element={<WorkspaceSettings />} />
             <Route path="/inbox"    element={<Inbox />} />
             <Route path="/stats"    element={<RoleGate allowed={['owner','admin']}><Stats /></RoleGate>} />
             <Route path="/scraper"  element={<RoleGate allowed={['owner','admin','agent']}><ScraperPage /></RoleGate>} />

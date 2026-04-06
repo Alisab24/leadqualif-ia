@@ -367,10 +367,10 @@ const LeadDetails = () => {
     }])
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/email/send', {
+      const res = await fetch('/api/crm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ leadId: id, subject: emailSubject.trim(), message: emailBody.trim(), replyToThreadId: emailThreadId }),
+        body: JSON.stringify({ action: 'send-email', leadId: id, subject: emailSubject.trim(), message: emailBody.trim(), replyToThreadId: emailThreadId }),
       })
       const resData = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(resData.error || 'Erreur envoi email')

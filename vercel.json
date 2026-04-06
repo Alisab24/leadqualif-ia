@@ -33,8 +33,8 @@
     "api/webhooks/whatsapp.js": {
       "maxDuration": 10
     },
-    "api/email/send.js": {
-      "maxDuration": 15
+    "api/workspace.js": {
+      "maxDuration": 20
     },
     "api/crm.js": {
       "maxDuration": 30

@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import {
@@ -487,6 +488,7 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
 /* ════════════════════════════════════════════════════════════ */
 export default function Settings() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
   const [userId, setUserId]       = useState(null);
@@ -1158,6 +1160,16 @@ export default function Settings() {
             <span className="hidden sm:inline">{t.label}</span>
           </button>
         ))}
+        {/* Lien vers Workspace Settings */}
+        <button
+          onClick={() => navigate('/settings/workspace')}
+          className="flex items-center gap-1.5 px-4 py-3 text-sm font-semibold border-b-2
+                     border-transparent text-purple-600 hover:text-purple-700 hover:border-purple-300
+                     whitespace-nowrap transition-all ml-auto"
+        >
+          <span>🏗️</span>
+          <span className="hidden sm:inline">Workspace</span>
+        </button>
       </div>
 
       {/* ── CONTENU ───────────────────── */}
