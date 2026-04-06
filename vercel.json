@@ -33,13 +33,33 @@
     "api/submit-lead.js": {
       "memory": 512,
       "maxDuration": 10
+    },
+    "api/whatsapp/send.js": {
+      "memory": 512,
+      "maxDuration": 15
+    },
+    "api/webhooks/whatsapp.js": {
+      "memory": 512,
+      "maxDuration": 10
+    },
+    "api/email/send.js": {
+      "memory": 512,
+      "maxDuration": 15
+    },
+    "api/appointments/create.js": {
+      "memory": 512,
+      "maxDuration": 20
+    },
+    "api/agents/auto-contact.js": {
+      "memory": 512,
+      "maxDuration": 30
     }
   },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://nexapro.tech" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
