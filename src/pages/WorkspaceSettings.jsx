@@ -19,8 +19,15 @@ const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const DURATIONS = [15, 30, 45, 60, 90, 120]
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 7) // 7h→21h
 
+const COLOR_PRESETS = [
+  '#2563eb', '#7c3aed', '#db2777', '#dc2626',
+  '#ea580c', '#ca8a04', '#16a34a', '#0891b2',
+  '#0f172a', '#475569',
+]
+
 const TABS = [
   { key: 'identity',      icon: '🏢', label: 'Agence',        configKey: 'identity' },
+  { key: 'apparence',     icon: '🎨', label: 'Apparence',      configKey: 'apparence' },
   { key: 'email',         icon: '📧', label: 'Email',          configKey: 'email' },
   { key: 'whatsapp',      icon: '💬', label: 'WhatsApp',       configKey: 'whatsapp' },
   { key: 'calendar',      icon: '📅', label: 'Calendrier',     configKey: 'calendar' },
@@ -95,6 +102,14 @@ export default function WorkspaceSettings() {
   const [configured, setConfigured] = useState({})
   const [userEmail, setUserEmail] = useState('')
 
+  // Apparence state (profiles table)
+  const [appearance, setAppearance]         = useState({
+    logo_url: '', signature_url: '', ville_agence: '',
+    couleur_primaire: '#2563eb', couleur_secondaire: '#7c3aed',
+  })
+  const [appearanceSaving, setAppearanceSaving] = useState(false)
+  const setApp = (key, val) => setAppearance(p => ({ ...p, [key]: val }))
+
   // Test buttons state
   const [testEmailTo,     setTestEmailTo]     = useState('')
   const [testEmailResult, setTestEmailResult] = useState(null)
@@ -143,6 +158,23 @@ export default function WorkspaceSettings() {
           setForm(prev => ({ ...prev, ...data.settings }))
         }
         setConfigured(data.configured || {})
+
+        // Charger apparence depuis profiles
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('logo_url, signature_url, ville_agence, couleur_primaire, couleur_secondaire')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        if (profileData) {
+          setAppearance(prev => ({
+            logo_url:          profileData.logo_url          || prev.logo_url,
+            signature_url:     profileData.signature_url     || prev.signature_url,
+            ville_agence:      profileData.ville_agence      || prev.ville_agence,
+            couleur_primaire:  profileData.couleur_primaire  || prev.couleur_primaire,
+            couleur_secondaire:profileData.couleur_secondaire|| prev.couleur_secondaire,
+          }))
+          setConfigured(c => ({ ...c, apparence: !!(profileData.logo_url || profileData.couleur_primaire) }))
+        }
       } catch (e) {
         console.error('[WorkspaceSettings] load error:', e)
       } finally {
@@ -178,6 +210,29 @@ export default function WorkspaceSettings() {
       alert(`❌ ${e.message}`)
     } finally {
       setSaving(false)
+    }
+  }
+
+  /* ── Sauvegarder Apparence ───────────────────────────────────────────── */
+  const saveAppearance = async () => {
+    setAppearanceSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const { error } = await supabase.from('profiles').update({
+        logo_url:           appearance.logo_url           || null,
+        signature_url:      appearance.signature_url      || null,
+        ville_agence:       appearance.ville_agence       || null,
+        couleur_primaire:   appearance.couleur_primaire   || '#2563eb',
+        couleur_secondaire: appearance.couleur_secondaire || '#7c3aed',
+      }).eq('user_id', session.user.id)
+      if (error) throw error
+      setSaveOk(true)
+      setConfigured(c => ({ ...c, apparence: !!(appearance.logo_url || appearance.couleur_primaire) }))
+      setTimeout(() => setSaveOk(false), 3000)
+    } catch (e) {
+      alert(`❌ ${e.message}`)
+    } finally {
+      setAppearanceSaving(false)
     }
   }
 
@@ -301,6 +356,139 @@ export default function WorkspaceSettings() {
                   </div>
                 </Field>
               </section>
+            )}
+
+            {/* ═══ ONGLET APPARENCE ════════════════════════════ */}
+            {activeTab === 'apparence' && (
+              <div className="space-y-6">
+
+                {/* Bandeau info */}
+                <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 text-xs text-violet-700">
+                  🎨 Ces réglages alimentent vos <strong>documents générés</strong> (devis, factures, contrats) et le formulaire public de qualification.
+                </div>
+
+                {/* Logo */}
+                <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                  <h2 className="text-base font-bold text-slate-800">🖼️ Logo de l'agence</h2>
+                  <Field label="URL du logo" hint="Lien direct vers votre logo (PNG, SVG). Apparaît dans les documents PDF.">
+                    <Input value={appearance.logo_url} onChange={e => setApp('logo_url', e.target.value)}
+                      placeholder="https://monsite.com/logo.png" />
+                  </Field>
+                  {appearance.logo_url && (
+                    <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 inline-flex items-center gap-3">
+                      <img src={appearance.logo_url} alt="Logo" className="h-14 object-contain"
+                        onError={e => e.target.style.display = 'none'} />
+                      <span className="text-xs text-slate-400">Aperçu logo</span>
+                    </div>
+                  )}
+                </section>
+
+                {/* Signature + ville */}
+                <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                  <h2 className="text-base font-bold text-slate-800">📄 Documents légaux</h2>
+                  <Field label="Ville (pour les documents)" hint="Utilisée dans « Fait à ___, le … » des contrats et devis.">
+                    <Input value={appearance.ville_agence} onChange={e => setApp('ville_agence', e.target.value)}
+                      placeholder="ex : Paris, Lyon, Casablanca…" />
+                  </Field>
+                  <Field label="URL image de signature" hint="PNG transparent recommandé. Affichée dans le bloc signature des documents.">
+                    <Input value={appearance.signature_url} onChange={e => setApp('signature_url', e.target.value)}
+                      placeholder="https://monsite.com/signature.png" />
+                  </Field>
+                  {appearance.signature_url && (
+                    <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 inline-block">
+                      <p className="text-xs text-slate-400 mb-2">Aperçu signature :</p>
+                      <img src={appearance.signature_url} alt="Signature" className="h-16 object-contain"
+                        onError={e => e.target.style.display = 'none'} />
+                    </div>
+                  )}
+                </section>
+
+                {/* Couleurs */}
+                <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                  <h2 className="text-base font-bold text-slate-800">🎨 Couleurs de la marque</h2>
+                  <p className="text-xs text-slate-400">Utilisées dans le formulaire public et les documents générés.</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Couleur primaire */}
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 mb-3">Couleur primaire</p>
+                      <div className="flex items-center gap-3 mb-3">
+                        <input type="color" value={appearance.couleur_primaire}
+                          onChange={e => setApp('couleur_primaire', e.target.value)}
+                          className="h-10 w-14 p-0.5 border border-slate-200 rounded-lg cursor-pointer" />
+                        <Input value={appearance.couleur_primaire}
+                          onChange={e => setApp('couleur_primaire', e.target.value)}
+                          placeholder="#2563eb" />
+                        <div className="w-10 h-10 rounded-lg border border-slate-200 shrink-0"
+                          style={{ backgroundColor: appearance.couleur_primaire }} />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {COLOR_PRESETS.map(c => (
+                          <button key={c} type="button"
+                            onClick={() => setApp('couleur_primaire', c)}
+                            className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                              appearance.couleur_primaire === c ? 'border-slate-800 scale-110' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: c }} title={c} />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Couleur secondaire */}
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 mb-3">Couleur secondaire</p>
+                      <div className="flex items-center gap-3 mb-3">
+                        <input type="color" value={appearance.couleur_secondaire}
+                          onChange={e => setApp('couleur_secondaire', e.target.value)}
+                          className="h-10 w-14 p-0.5 border border-slate-200 rounded-lg cursor-pointer" />
+                        <Input value={appearance.couleur_secondaire}
+                          onChange={e => setApp('couleur_secondaire', e.target.value)}
+                          placeholder="#7c3aed" />
+                        <div className="w-10 h-10 rounded-lg border border-slate-200 shrink-0"
+                          style={{ backgroundColor: appearance.couleur_secondaire }} />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {COLOR_PRESETS.map(c => (
+                          <button key={c} type="button"
+                            onClick={() => setApp('couleur_secondaire', c)}
+                            className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                              appearance.couleur_secondaire === c ? 'border-slate-800 scale-110' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: c }} title={c} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold text-slate-600 mb-2">Aperçu — En-tête formulaire public</p>
+                    <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                      <div className="h-2" style={{ background: `linear-gradient(to right, ${appearance.couleur_primaire}, ${appearance.couleur_secondaire})` }} />
+                      <div className="p-4 bg-white flex items-center gap-3">
+                        {appearance.logo_url
+                          ? <img src={appearance.logo_url} alt="Logo" className="h-10 object-contain"
+                              onError={e => e.target.style.display = 'none'} />
+                          : <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                              style={{ background: appearance.couleur_primaire }}>A</div>
+                        }
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{form.agency_name || 'Nom de votre agence'}</p>
+                          <p className="text-xs font-medium" style={{ color: appearance.couleur_primaire }}>🏢 Agence</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bouton sauvegarder apparence */}
+                  <button onClick={saveAppearance} disabled={appearanceSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700
+                               text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors">
+                    {appearanceSaving ? '⏳ Sauvegarde…' : '💾 Sauvegarder l\'apparence'}
+                  </button>
+                </section>
+
+              </div>
             )}
 
             {/* ═══ ONGLET EMAIL ════════════════════════════════ */}

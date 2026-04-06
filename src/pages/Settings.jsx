@@ -584,7 +584,7 @@ export default function Settings() {
   // Réinitialiser l'onglet actif si le rôle ne l'autorise pas
   useEffect(() => {
     if (!loading && userRole) {
-      const allowed = { owner: ['general','visuel','form','legal','crm','messagerie','agents','equipe','facturation'], admin: ['form','crm','messagerie','agents'], agent: [] }[userRole] ?? [];
+      const allowed = { owner: ['general','form','legal','crm','agents','equipe','facturation'], admin: ['form','crm','agents'], agent: [] }[userRole] ?? [];
       if (allowed.length > 0 && !allowed.includes(activeTab)) {
         setActiveTab(allowed[0]);
       }
@@ -1048,8 +1048,8 @@ export default function Settings() {
    *  agent : aucun accès aux Paramètres → redirigé vers /dashboard
    * ──────────────────────────────────────────────────────────────────────── */
   const TABS_BY_ROLE = {
-    owner: ['general', 'visuel', 'form', 'legal', 'crm', 'messagerie', 'agents', 'equipe', 'facturation'],
-    admin: ['form', 'crm', 'messagerie', 'agents'],
+    owner: ['general', 'form', 'legal', 'crm', 'agents', 'equipe', 'facturation'],
+    admin: ['form', 'crm', 'agents'],
     agent: [],
   };
   const allowedTabs = TABS_BY_ROLE[userRole] ?? TABS_BY_ROLE.owner;
@@ -1058,11 +1058,9 @@ export default function Settings() {
   /* ── Onglets ───────────────────── */
   const ALL_TABS = [
     { key: 'general',     icon: '🏢', label: t('settings.tabs.general') },
-    { key: 'visuel',      icon: '🎨', label: t('settings.tabs.visuel') },
     { key: 'form',        icon: '🤖', label: t('settings.tabs.form') },
     { key: 'legal',       icon: '📋', label: t('settings.tabs.legal') },
     { key: 'crm',         icon: '⚙️', label: t('settings.tabs.crm') },
-    { key: 'messagerie',  icon: '💬', label: 'Messagerie' },
     { key: 'agents',      icon: '🤖', label: 'Agents IA' },
     { key: 'equipe',      icon: '👥', label: t('settings.tabs.equipe') },
     { key: 'facturation', icon: '💳', label: t('settings.tabs.facturation') },
@@ -1337,154 +1335,6 @@ export default function Settings() {
                   <p className="text-sm text-amber-800">Complétez le nom de l'agence pour activer la génération de documents.</p>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ═══ ONGLET APPARENCE ════════════════════════ */}
-          {activeTab === 'visuel' && (
-            <div className="space-y-6">
-
-              {/* Logo */}
-              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">🖼️ Logo de l'agence</h2>
-                <Field label="URL du logo" hint="Lien direct vers votre logo (PNG, SVG recommandé). Utilisé dans les documents générés.">
-                  <Input name="logo_url" value={formData.logo_url} onChange={handleChange} placeholder="https://..." />
-                </Field>
-                {formData.logo_url && (
-                  <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 inline-block">
-                    <img src={formData.logo_url} alt="Logo" className="h-14 object-contain"
-                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling?.remove(); }} />
-                  </div>
-                )}
-              </section>
-
-              {/* Documents légaux */}
-              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">📄 Documents légaux</h2>
-
-                <Field label="Ville (pour les documents)" hint="Utilisée dans la mention « Fait à ___, le … » des contrats et devis.">
-                  <Input name="ville_agence" value={formData.ville_agence} onChange={handleChange} placeholder="ex : Paris, Lyon, Casablanca…" />
-                </Field>
-
-                <div className="mt-5">
-                  <Field label="URL image de signature agence" hint="Lien direct vers l'image de votre signature (PNG transparent recommandé). Affichée dans le bloc signature des documents générés.">
-                    <Input name="signature_url" value={formData.signature_url} onChange={handleChange} placeholder="https://..." />
-                  </Field>
-                  {formData.signature_url && (
-                    <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 inline-block">
-                      <p className="text-xs text-slate-400 mb-2">Aperçu signature :</p>
-                      <img
-                        src={formData.signature_url}
-                        alt="Signature agence"
-                        className="h-16 object-contain"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* Couleurs */}
-              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">🎨 Couleurs de la marque</h2>
-                <p className="text-xs text-slate-400 mb-5">Ces couleurs sont utilisées dans le formulaire public et les documents générés (Phase 4 — White-label).</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Couleur primaire */}
-                  <div>
-                    <p className="text-xs font-bold text-slate-600 mb-3">Couleur primaire</p>
-                    <div className="flex items-center gap-3 mb-3">
-                      <input
-                        type="color"
-                        name="couleur_primaire"
-                        value={formData.couleur_primaire}
-                        onChange={handleChange}
-                        className="h-10 w-14 p-0.5 border border-slate-200 rounded-lg cursor-pointer"
-                      />
-                      <Input
-                        value={formData.couleur_primaire}
-                        onChange={(e) => setFormData(prev => ({ ...prev, couleur_primaire: e.target.value }))}
-                        className="font-mono text-xs max-w-[100px]"
-                        placeholder="#2563eb"
-                        maxLength={7}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {COLOR_PRESETS.map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setFormData(prev => ({ ...prev, couleur_primaire: c }))}
-                          className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
-                            formData.couleur_primaire === c ? 'border-slate-800 scale-110' : 'border-transparent'
-                          }`}
-                          style={{ backgroundColor: c }}
-                          title={c}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Couleur secondaire */}
-                  <div>
-                    <p className="text-xs font-bold text-slate-600 mb-3">Couleur secondaire</p>
-                    <div className="flex items-center gap-3 mb-3">
-                      <input
-                        type="color"
-                        name="couleur_secondaire"
-                        value={formData.couleur_secondaire}
-                        onChange={handleChange}
-                        className="h-10 w-14 p-0.5 border border-slate-200 rounded-lg cursor-pointer"
-                      />
-                      <Input
-                        value={formData.couleur_secondaire}
-                        onChange={(e) => setFormData(prev => ({ ...prev, couleur_secondaire: e.target.value }))}
-                        className="font-mono text-xs max-w-[100px]"
-                        placeholder="#7c3aed"
-                        maxLength={7}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {COLOR_PRESETS.map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setFormData(prev => ({ ...prev, couleur_secondaire: c }))}
-                          className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
-                            formData.couleur_secondaire === c ? 'border-slate-800 scale-110' : 'border-transparent'
-                          }`}
-                          style={{ backgroundColor: c }}
-                          title={c}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preview carte agence */}
-                <div className="mt-6">
-                  <p className="text-xs font-bold text-slate-600 mb-3">Aperçu — En-tête formulaire public</p>
-                  <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                    <div className="h-2" style={{ background: `linear-gradient(to right, ${formData.couleur_primaire}, ${formData.couleur_secondaire})` }} />
-                    <div className="p-4 bg-white flex items-center gap-3">
-                      {formData.logo_url
-                        ? <img src={formData.logo_url} alt="Logo" className="h-10 object-contain"
-                            onError={(e) => { e.target.style.display = 'none'; }} />
-                        : (
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-                            style={{ background: formData.couleur_primaire }}>
-                            {formData.nom_agence?.charAt(0)?.toUpperCase() || 'A'}
-                          </div>
-                        )
-                      }
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">{formData.nom_agence || 'Nom de votre agence'}</p>
-                        <p className="text-xs" style={{ color: formData.couleur_primaire }}>
-                          {isImmo ? '🏠 Agence immobilière' : '📱 Agence marketing'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
             </div>
           )}
 
@@ -1893,53 +1743,6 @@ export default function Settings() {
                     </Select>
                   </Field>
                 </div>
-              </section>
-
-            </div>
-          )}
-
-          {/* ═══ ONGLET MESSAGERIE WHATSAPP ══════════ */}
-          {activeTab === 'messagerie' && (
-            <div className="space-y-6 max-w-2xl">
-
-              {/* Carte de redirection */}
-              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-8 flex flex-col items-center text-center gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center text-3xl">
-                  💬
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-800 mb-1">
-                    Configuration WhatsApp déplacée
-                  </h2>
-                  <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
-                    Les identifiants Twilio (Account SID, Auth Token, numéro) sont désormais
-                    gérés dans <strong>Workspace → WhatsApp</strong> pour une meilleure organisation
-                    et des tests intégrés.
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate('/settings/workspace')}
-                  className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700
-                             text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
-                >
-                  ⚙️ Ouvrir Workspace → WhatsApp
-                </button>
-                <p className="text-xs text-slate-400">
-                  Vos identifiants existants sont conservés et toujours actifs.
-                </p>
-              </div>
-
-              {/* Rappel webhook */}
-              <section className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
-                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                  📡 URL Webhook Twilio (inchangée)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  L'URL à configurer dans votre console Twilio pour les messages entrants :
-                </p>
-                <code className="block bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 font-mono break-all">
-                  https://www.leadqualif.com/api/webhooks/whatsapp
-                </code>
               </section>
 
             </div>
