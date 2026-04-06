@@ -1168,6 +1168,16 @@ export default function Settings() {
           <span>🏗️</span>
           <span className="hidden sm:inline">Workspace</span>
         </button>
+        {/* Lien vers Integrations Settings */}
+        <button
+          onClick={() => navigate('/settings/integrations')}
+          className="flex items-center gap-1.5 px-4 py-3 text-sm font-semibold border-b-2
+                     border-transparent text-indigo-600 hover:text-indigo-700 hover:border-indigo-300
+                     whitespace-nowrap transition-all"
+        >
+          <span>🔌</span>
+          <span className="hidden sm:inline">Intégrations</span>
+        </button>
       </div>
 
       {/* ── CONTENU ───────────────────── */}

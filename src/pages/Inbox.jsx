@@ -284,13 +284,13 @@ export default function Inbox() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/whatsapp/send', {
+      const res = await fetch('/api/crm', {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ leadId: activeLead.lead_id, message: msg }),
+        body: JSON.stringify({ action: 'send-whatsapp', leadId: activeLead.lead_id, message: msg }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur envoi')

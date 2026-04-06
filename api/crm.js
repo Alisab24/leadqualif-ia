@@ -323,6 +323,155 @@ async function handleSendEmail(req, res, supabase, user) {
   return res.status(200).json({ success: true, message_id: conv?.id, thread_id: threadId, status: 'sent' })
 }
 
+/* ── Action : send-whatsapp ───────────────────────────────────────────────── */
+async function handleSendWhatsapp(req, res, supabase, user) {
+  const { leadId, message } = req.body || {}
+  if (!leadId || !message?.trim()) return res.status(400).json({ error: 'leadId et message requis' })
+
+  const { data: profile } = await supabase.from('profiles')
+    .select('agency_id, nom_complet, nom_agence').eq('user_id', user.id).single()
+  if (!profile?.agency_id) return res.status(403).json({ error: 'Agence introuvable' })
+
+  const { data: lead } = await supabase.from('leads')
+    .select('id, nom, telephone, agency_id').eq('id', leadId).eq('agency_id', profile.agency_id).single()
+  if (!lead)             return res.status(404).json({ error: 'Lead introuvable' })
+  if (!lead.telephone)   return res.status(400).json({ error: 'Lead sans numéro de téléphone' })
+
+  // Priorité : workspace_settings → agency_settings → env vars
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('twilio_account_sid, twilio_auth_token, twilio_whatsapp_number')
+    .eq('agency_id', profile.agency_id).maybeSingle()
+  const { data: ag } = (!ws?.twilio_account_sid)
+    ? await supabase.from('agency_settings')
+        .select('twilio_account_sid, twilio_auth_token, twilio_whatsapp_number')
+        .eq('agency_id', profile.agency_id).maybeSingle()
+    : { data: null }
+
+  const accountSid = ws?.twilio_account_sid    || ag?.twilio_account_sid    || process.env.TWILIO_ACCOUNT_SID
+  const authToken  = ws?.twilio_auth_token     || ag?.twilio_auth_token     || process.env.TWILIO_AUTH_TOKEN
+  const fromNumber = ws?.twilio_whatsapp_number || ag?.twilio_whatsapp_number || process.env.TWILIO_WHATSAPP_NUMBER
+  if (!accountSid || !authToken || !fromNumber)
+    return res.status(503).json({ error: 'Twilio non configuré' })
+
+  const toNumber = normalizePhone(lead.telephone)
+  const twilioResult = await sendTwilioMessage(fromNumber, toNumber, message.trim(), accountSid, authToken)
+
+  const senderName = profile.nom_complet || profile.nom_agence || 'Agent'
+  const { data: conv } = await supabase.from('conversations').insert({
+    lead_id: lead.id, agency_id: profile.agency_id,
+    channel: 'whatsapp', direction: 'outbound',
+    from_number: fromNumber.replace(/^whatsapp:/i, ''), to_number: toNumber,
+    content: message.trim(),
+    status: ['sent','delivered','read','failed'].includes(twilioResult.status) ? twilioResult.status : 'sent',
+    twilio_sid: twilioResult.sid || null,
+    read_at: new Date().toISOString(), sender_name: senderName, thread_status: 'open',
+  }).select().single()
+
+  return res.status(200).json({ success: true, message_id: conv?.id, twilio_sid: twilioResult.sid, status: twilioResult.status })
+}
+
+/* ── Action : send-document-email ────────────────────────────────────────── */
+// Labels par type de document
+const DOCUMENT_TYPE_LABELS = {
+  devis: 'Devis', facture: 'Facture', contrat: 'Contrat de prestation',
+  rapport: 'Rapport de performance', mandat: 'Mandat immobilier',
+  compromis: 'Compromis de vente', bon_visite: 'Bon de visite', contrat_gestion: 'Contrat de gestion',
+}
+
+function buildDocHtml(doc, agency) {
+  const label  = DOCUMENT_TYPE_LABELS[doc.type] || 'Document'
+  const cj     = typeof doc.content_json === 'string' ? JSON.parse(doc.content_json) : (doc.content_json || {})
+  const items  = Array.isArray(cj.items)  ? cj.items  : []
+  const totals = Array.isArray(cj.totals) ? cj.totals : []
+  const devise = doc.devise || cj.devise || '€'
+  const fmt    = v => Number(v || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })
+  const date   = doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')
+  const an = agency?.nom_agence || 'Votre agence'
+  const ae = agency?.email || ''
+  const aa = agency?.adresse_legale || agency?.adresse || ''
+  const as = agency?.siret || agency?.numero_enregistrement || ''
+  const itemsHtml = items.map(i => `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${i.description||''}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:center;">${i.quantity||1}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:right;font-weight:600;">${fmt(i.amount??i.unitPrice??i.total)} ${devise}</td></tr>`).join('')
+  const totalsHtml = totals.map(t => {
+    const isTtc = (t.label||'').toUpperCase().includes('TOTAL TTC')
+    return `<tr style="${isTtc?'background:#eff6ff;':''}"><td colspan="2" style="padding:6px 12px;text-align:right;font-size:${isTtc?'14':'12'}px;font-weight:${isTtc?'700':'400'};color:${isTtc?'#1d4ed8':'#6b7280'};border-top:1px solid #e5e7eb;">${t.label}</td><td style="padding:6px 12px;text-align:right;font-size:${isTtc?'14':'12'}px;font-weight:${isTtc?'700':'600'};color:${isTtc?'#1d4ed8':'#374151'};border-top:1px solid #e5e7eb;">${fmt(t.amount)} ${devise}</td></tr>`
+  }).join('')
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111827;background:#fff;line-height:1.5;}.page{max-width:800px;margin:0 auto;padding:36px;}table{border-collapse:collapse;}</style></head><body><div class="page"><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e5e7eb;padding-bottom:20px;margin-bottom:24px;"><div><div style="font-size:22px;font-weight:800;color:#1e3a5f;">${an}</div><div style="font-size:12px;color:#6b7280;margin-top:4px;">${aa?`<div>${aa}</div>`:''}${ae?`<div>${ae}</div>`:''}${as?`<div>N° ${as}</div>`:''}</div></div><div style="text-align:right;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">${label}</div><div style="font-size:13px;color:#6b7280;">${doc.reference?`Réf: ${doc.reference}`:''}</div><div style="font-size:12px;color:#9ca3af;">Date: ${date}</div></div></div><div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:6px;padding:14px 18px;margin-bottom:24px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:6px;">Client</div><div style="font-size:16px;font-weight:700;">${doc.client_nom||'—'}</div>${doc.client_email?`<div style="font-size:12px;color:#6b7280;margin-top:2px;">${doc.client_email}</div>`:''}</div>${items.length?`<div style="margin-bottom:24px;"><table style="width:100%;"><thead><tr style="background:#f3f4f6;"><th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Description</th><th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:60px;">Qté</th><th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:120px;">Montant</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot>${totalsHtml}</tfoot></table></div>`:''}<div style="margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;">${agency?.mention_legale?`<div>${agency.mention_legale}</div>`:''}<div>Document généré par NexaPro</div></div></div></body></html>`
+}
+
+async function handleSendDocumentEmail(req, res, supabase, user) {
+  const { documentId } = req.body || {}
+  if (!documentId) return res.status(400).json({ error: 'documentId requis' })
+
+  const { data: doc } = await supabase.from('documents').select('*').eq('id', documentId).single()
+  if (!doc)              return res.status(404).json({ error: 'Document introuvable' })
+  if (!doc.client_email) return res.status(400).json({ error: 'Aucun email client sur ce document' })
+
+  const { data: agencyArr } = await supabase.from('profiles')
+    .select('nom_agence, email, telephone, adresse_legale, adresse, siret, numero_enregistrement, mention_legale, conditions_paiement, carte_pro_t, carte_pro_s')
+    .eq('agency_id', doc.agency_id).order('created_at', { ascending: true }).limit(1)
+  const agency = Array.isArray(agencyArr) ? agencyArr[0] : agencyArr
+
+  // Clés email : workspace_settings → env vars
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('resend_api_key, from_email, from_name').eq('agency_id', doc.agency_id).maybeSingle()
+  const resendKey  = ws?.resend_api_key || process.env.RESEND_API_KEY
+  if (!resendKey)  return res.status(503).json({ error: 'RESEND_API_KEY non configuré' })
+
+  const fromEmail  = ws?.from_email || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
+  const senderName = ws?.from_name  || agency?.nom_agence || process.env.SENDER_NAME || 'LeadQualif'
+  const label      = DOCUMENT_TYPE_LABELS[doc.type] || 'Document'
+  const subject    = `${senderName} — Votre ${label.toLowerCase()}${doc.reference ? ' ' + doc.reference : ''}`
+
+  // Générer HTML du document
+  const docHtml = ['devis','facture'].includes(doc.type)
+    ? buildDocHtml(doc, agency)
+    : (doc.preview_html || buildDocHtml(doc, agency))
+
+  // Essayer génération PDF via pdfshift si clé disponible
+  let attachments = []
+  let emailHtml   = ''
+  if (docHtml && process.env.PDFSHIFT_API_KEY) {
+    try {
+      const pdfRes = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+        method: 'POST',
+        headers: { 'Authorization': 'Basic ' + Buffer.from(`api_key:${process.env.PDFSHIFT_API_KEY}`).toString('base64'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: docHtml, format: 'A4', margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } }),
+      })
+      if (pdfRes.ok) {
+        const buf = await pdfRes.arrayBuffer()
+        attachments = [{ filename: `${label}${doc.reference ? '-' + doc.reference : ''}.pdf`, content: Buffer.from(buf).toString('base64') }]
+        emailHtml = `<div style="font-family:sans-serif;max-width:580px;margin:0 auto;color:#1e293b;"><h2 style="color:#1e3a5f;">📄 ${label}${doc.reference ? ' — ' + doc.reference : ''}</h2><p>Bonjour <strong>${doc.client_nom || ''}</strong>,</p><p>Veuillez trouver <strong>en pièce jointe</strong> votre ${label.toLowerCase()}${doc.total_ttc ? ` d'un montant de <strong>${Number(doc.total_ttc).toLocaleString('fr-FR')} ${doc.devise || '€'}</strong>` : ''}.</p>${agency?.email ? `<p style="font-size:13px;color:#6b7280;">Contact : <a href="mailto:${agency.email}">${agency.email}</a></p>` : ''}<p>Cordialement,<br><strong>${senderName}</strong></p></div>`
+      }
+    } catch {}
+  }
+  if (!emailHtml) {
+    emailHtml = `<div style="font-family:sans-serif;max-width:700px;margin:0 auto;"><div style="background:#1e3a5f;color:#fff;padding:20px 28px;border-radius:12px 12px 0 0;"><h1 style="margin:0;font-size:18px;">📄 ${label}${doc.reference ? ' — ' + doc.reference : ''}</h1><p style="margin:6px 0 0;font-size:12px;opacity:.75;">De la part de ${senderName}</p></div><div style="background:#fff;padding:20px 28px;border-radius:0 0 12px 12px;">${docHtml}</div></div>`
+  }
+
+  const payload = { from: `${senderName} <${fromEmail}>`, to: doc.client_email, subject, html: emailHtml }
+  if (attachments.length) payload.attachments = attachments
+
+  const sendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const sendData = await sendRes.json()
+  if (!sendRes.ok) throw new Error(`Resend ${sendRes.status}: ${sendData.message || JSON.stringify(sendData)}`)
+
+  await supabase.from('documents').update({ statut: 'envoyé', updated_at: new Date().toISOString() }).eq('id', documentId)
+  if (doc.lead_id) {
+    await supabase.from('crm_events').insert({
+      lead_id: doc.lead_id, agency_id: doc.agency_id, type: 'document',
+      title: `📧 ${label} envoyé par email`,
+      description: `${doc.reference || label} — Envoyé à ${doc.client_email}`,
+      statut: 'complété', created_at: new Date().toISOString(),
+    }).catch(() => {})
+  }
+
+  return res.status(200).json({ ok: true, sentTo: doc.client_email, mode: attachments.length ? 'PDF joint' : 'HTML inline' })
+}
+
 /* ── Handler principal ────────────────────────────────────────────────────── */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -347,7 +496,9 @@ export default async function handler(req, res) {
   try {
     if (action === 'auto-contact')        return await handleAutoContact(req, res, supabase, user)
     if (action === 'create-appointment')  return await handleCreateAppointment(req, res, supabase, user)
-    if (action === 'send-email')          return await handleSendEmail(req, res, supabase, user)
+    if (action === 'send-email')           return await handleSendEmail(req, res, supabase, user)
+    if (action === 'send-whatsapp')        return await handleSendWhatsapp(req, res, supabase, user)
+    if (action === 'send-document-email') return await handleSendDocumentEmail(req, res, supabase, user)
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[crm/${action}] Erreur:`, err)

@@ -475,10 +475,10 @@ const DocumentsPage = () => {
     if (!window.confirm(`Envoyer le document à ${doc.client_email} ?`)) return;
     setSendingEmail(doc.id);
     try {
-      const res = await fetch('/api/documents/send-email', {
+      const res = await fetch('/api/crm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: doc.id }),
+        body: JSON.stringify({ action: 'send-document-email', documentId: doc.id }),
       });
       const data = await res.json();
       if (data.ok) {

@@ -15,7 +15,10 @@
     "api/stripe/webhook.js": {
       "maxDuration": 10
     },
-    "api/documents/send-email.js": {
+    "api/auth.js": {
+      "maxDuration": 15
+    },
+    "api/calendar.js": {
       "maxDuration": 30
     },
     "api/qualify.js": {
@@ -26,9 +29,6 @@
     },
     "api/submit-lead.js": {
       "maxDuration": 10
-    },
-    "api/whatsapp/send.js": {
-      "maxDuration": 15
     },
     "api/webhooks/whatsapp.js": {
       "maxDuration": 10
