@@ -425,10 +425,10 @@ const LeadDetails = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const scheduledAt = new Date(`${rdvDate}T${rdvTime}`).toISOString()
-      const res = await fetch('/api/appointments/create', {
+      const res = await fetch('/api/crm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ leadId: id, scheduledAt, type: rdvType, notes: rdvNotes }),
+        body: JSON.stringify({ action: 'create-appointment', leadId: id, scheduledAt, type: rdvType, notes: rdvNotes }),
       })
       const resData = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(resData.error || 'Erreur création RDV')
@@ -467,13 +467,13 @@ const LeadDetails = () => {
     setAgentResult(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/agents/auto-contact', {
+      const res = await fetch('/api/crm', {
         method: 'POST',
         headers: {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ leadId: id }),
+        body: JSON.stringify({ action: 'auto-contact', leadId: id }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Erreur agent')
