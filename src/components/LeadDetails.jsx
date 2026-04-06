@@ -1407,7 +1407,7 @@ const LeadDetails = () => {
         </div>
       </div>
    )}
-    </>         ← AJOUTER CETTE LIGNE
+    </>
   )
 }
 
