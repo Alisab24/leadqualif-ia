@@ -208,12 +208,18 @@ async function handleCreateAppointment(req, res, supabase, user) {
   let waResult = null
   if (lead.telephone) {
     try {
-      const { data: s } = await supabase.from('agency_settings')
+      // Priorité : workspace_settings → agency_settings → env vars
+      const { data: ws } = await supabase.from('workspace_settings')
         .select('twilio_account_sid, twilio_auth_token, twilio_whatsapp_number')
         .eq('agency_id', profile.agency_id).maybeSingle()
-      const sid  = s?.twilio_account_sid  || process.env.TWILIO_ACCOUNT_SID
-      const tok  = s?.twilio_auth_token   || process.env.TWILIO_AUTH_TOKEN
-      const from = s?.twilio_whatsapp_number || process.env.TWILIO_WHATSAPP_NUMBER
+      const { data: s } = (!ws?.twilio_account_sid)
+        ? await supabase.from('agency_settings')
+            .select('twilio_account_sid, twilio_auth_token, twilio_whatsapp_number')
+            .eq('agency_id', profile.agency_id).maybeSingle()
+        : { data: null }
+      const sid  = ws?.twilio_account_sid    || s?.twilio_account_sid    || process.env.TWILIO_ACCOUNT_SID
+      const tok  = ws?.twilio_auth_token     || s?.twilio_auth_token     || process.env.TWILIO_AUTH_TOKEN
+      const from = ws?.twilio_whatsapp_number || s?.twilio_whatsapp_number || process.env.TWILIO_WHATSAPP_NUMBER
       if (sid && tok && from) {
         const waMsg = `Bonjour ${prenom} 👋\n\nVotre rendez-vous *${type}* est confirmé pour le *${dateStr} à ${timeStr}*.\n${notes ? `\n📝 ${notes}\n` : ''}\nÀ bientôt,\n${agencyName}`
         waResult = await sendTwilioMessage(from, normalizePhone(lead.telephone), waMsg, sid, tok)
@@ -231,8 +237,12 @@ async function handleCreateAppointment(req, res, supabase, user) {
   let emailResult = null
   if (lead.email) {
     try {
-      const resendKey = process.env.RESEND_API_KEY
-      const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
+      // Priorité : workspace_settings → env vars
+      const { data: wsEmail } = await supabase.from('workspace_settings')
+        .select('resend_api_key, from_email, from_name')
+        .eq('agency_id', profile.agency_id).maybeSingle()
+      const resendKey = wsEmail?.resend_api_key || process.env.RESEND_API_KEY
+      const fromEmail = wsEmail?.from_email     || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
       const subject   = `✅ RDV confirmé — ${dateStr} à ${timeStr}`
       const html = `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1e293b;">
         <h2 style="color:#4f46e5;">Votre rendez-vous est confirmé ✅</h2>
@@ -244,7 +254,8 @@ async function handleCreateAppointment(req, res, supabase, user) {
           ${notes ? `<p style="margin:4px 0;"><strong>📝 Notes :</strong> ${notes}</p>` : ''}
         </div>
         <p>À bientôt,<br><strong>${agencyName}</strong></p></div>`
-      emailResult = await sendResendEmail(lead.email, subject, html, `RDV : ${dateStr} à ${timeStr}`, fromEmail, resendKey, agencyName)
+      const senderName = wsEmail?.from_name || agencyName
+      emailResult = await sendResendEmail(lead.email, subject, html, `RDV : ${dateStr} à ${timeStr}`, fromEmail, resendKey, senderName)
       if (emailResult?.id) {
         await supabase.from('conversations').insert({
           lead_id: lead.id, agency_id: profile.agency_id,

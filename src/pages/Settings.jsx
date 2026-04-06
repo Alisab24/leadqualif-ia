@@ -1902,131 +1902,44 @@ export default function Settings() {
           {activeTab === 'messagerie' && (
             <div className="space-y-6 max-w-2xl">
 
-              {/* Bandeau intro */}
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
-                <span className="text-2xl shrink-0">💬</span>
+              {/* Carte de redirection */}
+              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-8 flex flex-col items-center text-center gap-5">
+                <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center text-3xl">
+                  💬
+                </div>
                 <div>
-                  <p className="text-sm font-bold text-green-800">Messagerie WhatsApp (Twilio)</p>
-                  <p className="text-xs text-green-700 mt-0.5 leading-relaxed">
-                    Connectez votre compte Twilio pour envoyer et recevoir des messages WhatsApp directement depuis le CRM.
-                    Ces identifiants sont chiffrés et stockés en sécurité.
+                  <h2 className="text-base font-bold text-slate-800 mb-1">
+                    Configuration WhatsApp déplacée
+                  </h2>
+                  <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+                    Les identifiants Twilio (Account SID, Auth Token, numéro) sont désormais
+                    gérés dans <strong>Workspace → WhatsApp</strong> pour une meilleure organisation
+                    et des tests intégrés.
                   </p>
                 </div>
+                <button
+                  onClick={() => navigate('/settings/workspace')}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700
+                             text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                >
+                  ⚙️ Ouvrir Workspace → WhatsApp
+                </button>
+                <p className="text-xs text-slate-400">
+                  Vos identifiants existants sont conservés et toujours actifs.
+                </p>
               </div>
 
-              {/* Formulaire Twilio */}
-              <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-5">
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
-                  Identifiants Twilio
-                </h2>
-
-                {/* Account SID */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    Account SID
-                    <span className="ml-1 text-slate-400 font-normal">(commence par ACxx…)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={twilioSettings.account_sid}
-                    onChange={e => setTwilioSettings(p => ({ ...p, account_sid: e.target.value }))}
-                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg
-                               focus:outline-none focus:ring-2 focus:ring-green-400 font-mono"
-                  />
-                </div>
-
-                {/* Auth Token */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    Auth Token
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={twilioShowToken ? 'text' : 'password'}
-                      value={twilioSettings.auth_token}
-                      onChange={e => setTwilioSettings(p => ({ ...p, auth_token: e.target.value }))}
-                      placeholder="••••••••••••••••••••••••••••••••"
-                      className="w-full px-3 py-2.5 pr-10 text-sm border border-slate-200 rounded-lg
-                                 focus:outline-none focus:ring-2 focus:ring-green-400 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setTwilioShowToken(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      title={twilioShowToken ? 'Masquer' : 'Afficher'}
-                    >
-                      {twilioShowToken ? '🙈' : '👁️'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Numéro WhatsApp */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    Numéro WhatsApp expéditeur
-                    <span className="ml-1 text-slate-400 font-normal">(format : whatsapp:+14155238886)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={twilioSettings.whatsapp_number}
-                    onChange={e => setTwilioSettings(p => ({ ...p, whatsapp_number: e.target.value }))}
-                    placeholder="whatsapp:+14155238886"
-                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg
-                               focus:outline-none focus:ring-2 focus:ring-green-400 font-mono"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Numéro Twilio Sandbox ou votre numéro WhatsApp Business approuvé.
-                  </p>
-                </div>
-
-                {/* Bouton sauvegarder */}
-                <button
-                  onClick={saveTwilioSettings}
-                  disabled={twilioSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700
-                             text-white rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
-                >
-                  {twilioSaving ? (
-                    <><span className="animate-spin">⏳</span> Sauvegarde…</>
-                  ) : (
-                    <>💾 Sauvegarder les identifiants</>
-                  )}
-                </button>
-              </section>
-
-              {/* Guide Twilio */}
+              {/* Rappel webhook */}
               <section className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
                 <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                  📖 Comment configurer Twilio ?
+                  📡 URL Webhook Twilio (inchangée)
                 </h3>
-                <ol className="space-y-2 text-xs text-slate-600">
-                  <li className="flex gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">1</span>
-                    <span>Créez un compte sur <a href="https://www.twilio.com" target="_blank" rel="noreferrer" className="text-green-600 underline font-medium">twilio.com</a> et activez le canal WhatsApp</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">2</span>
-                    <span>Dans la console Twilio → <strong>Account Info</strong>, copiez votre <strong>Account SID</strong> et <strong>Auth Token</strong></span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">3</span>
-                    <span>Activez le <strong>Sandbox WhatsApp</strong> ou obtenez un numéro approuvé, et copiez-le au format <code className="bg-slate-200 px-1 rounded">whatsapp:+1xxx</code></span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold shrink-0 text-[10px]">4</span>
-                    <span>Configurez l'URL de webhook entrant dans Twilio : <code className="bg-slate-200 px-1 rounded">https://www.leadqualif.com/api/webhooks/whatsapp</code></span>
-                  </li>
-                </ol>
-              </section>
-
-              {/* Info variables Vercel (si déjà configuré globalement) */}
-              <section className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  <strong>💡 Priorité :</strong> Les identifiants saisis ici sont utilisés en priorité.
-                  Si vide, le système utilise les variables d'environnement Vercel globales
-                  (<code className="bg-blue-100 px-1 rounded">TWILIO_ACCOUNT_SID</code>, <code className="bg-blue-100 px-1 rounded">TWILIO_AUTH_TOKEN</code>, <code className="bg-blue-100 px-1 rounded">TWILIO_WHATSAPP_NUMBER</code>).
+                <p className="text-xs text-slate-500">
+                  L'URL à configurer dans votre console Twilio pour les messages entrants :
                 </p>
+                <code className="block bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 font-mono break-all">
+                  https://www.leadqualif.com/api/webhooks/whatsapp
+                </code>
               </section>
 
             </div>
