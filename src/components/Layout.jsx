@@ -201,8 +201,12 @@ export default function Layout() {
   });
   const [hovered, setHovered]   = useState(false);
   const [showUserPopup, setShowUserPopup] = useState(false);
-  const [inboxUnread, setInboxUnread]     = useState(0);
+  const [inboxUnread, setInboxUnread]         = useState(0);
   const inboxChannelRef = useRef(null);
+  const [notifications, setNotifications]     = useState([]);
+  const [notifUnread,   setNotifUnread]       = useState(0);
+  const [showNotifPanel, setShowNotifPanel]   = useState(false);
+  const notifChannelRef = useRef(null);
 
   // Plan guard — récupère le plan + statut de l'utilisateur connecté
   const { userPlan, status, loading: planLoading, trialEnd } = usePlanGuard();
@@ -317,6 +321,49 @@ export default function Layout() {
       if (inboxChannelRef.current) supabase.removeChannel(inboxChannelRef.current);
     };
   }, [profile?.agency_id]);
+
+  // ─── Notifications Realtime ──────────────────────────────
+  useEffect(() => {
+    if (!profile?.agency_id) return;
+    const { data: { session: s } } = supabase.auth.getSession ? { data: { session: null } } : { data: { session: null } };
+    supabase.auth.getSession().then(({ data: { session: sess } }) => {
+      if (!sess) return;
+      const userId = sess.user.id;
+      // Charger les 10 dernières notifs
+      supabase.from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+        .then(({ data }) => {
+          setNotifications(data || []);
+          setNotifUnread((data || []).filter(n => !n.read_at).length);
+        });
+      // Subscription Realtime
+      if (notifChannelRef.current) supabase.removeChannel(notifChannelRef.current);
+      const ch = supabase.channel(`notifs-${userId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        }, (payload) => {
+          setNotifications(prev => [payload.new, ...prev].slice(0, 10));
+          setNotifUnread(n => n + 1);
+        })
+        .subscribe();
+      notifChannelRef.current = ch;
+    });
+    return () => { if (notifChannelRef.current) supabase.removeChannel(notifChannelRef.current); };
+  }, [profile?.agency_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const markNotifsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+    setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
+    setNotifUnread(0);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -459,8 +506,64 @@ export default function Layout() {
           </div>
         </div>
 
+        {/* ── Notifications cloche ── */}
+        <div className="relative px-2 pt-2">
+          <button
+            onClick={() => { setShowNotifPanel(v => !v); if (!showNotifPanel) markNotifsRead(); }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors relative
+              ${showNotifPanel ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <div className="relative shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {notifUnread > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {notifUnread > 9 ? '9+' : notifUnread}
+                </span>
+              )}
+            </div>
+            {expanded && <span className="text-sm font-medium">Notifications</span>}
+          </button>
+
+          {/* Panel notifications */}
+          {showNotifPanel && (
+            <div className="absolute left-full top-0 ml-2 w-80 bg-slate-800 border border-white/10 rounded-2xl shadow-2xl z-[300] overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                <p className="text-sm font-bold text-white">🔔 Notifications</p>
+                <button onClick={() => setShowNotifPanel(false)} className="text-slate-400 hover:text-white text-lg">×</button>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400 text-xs">Aucune notification</div>
+                ) : (
+                  notifications.map(n => (
+                    <div key={n.id} onClick={() => { if (n.lead_id) navigate(`/lead/${n.lead_id}`); setShowNotifPanel(false); }}
+                      className={`px-4 py-3 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors ${!n.read_at ? 'bg-indigo-900/30' : ''}`}>
+                      <div className="flex items-start gap-2">
+                        <span className="text-base shrink-0">
+                          {n.type === 'lead_assigned' ? '👤' : n.type === 'new_message' ? '💬' : n.type === 'rdv_created' ? '📅' : '🔔'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-white truncate">{n.title}</p>
+                          {n.body && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{n.body}</p>}
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            {new Date(n.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        {!n.read_at && <span className="w-2 h-2 bg-indigo-400 rounded-full shrink-0 mt-1" />}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Navigation ── */}
-        <nav className="flex-1 pt-4 overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 pt-2 overflow-y-auto overflow-x-hidden">
           <NavItem to="/dashboard" icon={Icons.dashboard} label={t('nav.dashboard')} />
           <NavItem to="/inbox"     icon={Icons.inbox}     label="Inbox" badge={inboxUnread} />
           <NavItem to="/stats"     icon={Icons.stats}     label={t('nav.stats')} />

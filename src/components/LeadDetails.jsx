@@ -129,20 +129,45 @@ const LeadDetails = () => {
   // Onglet actif
   const [activeTab, setActiveTab]         = useState('info')
 
-  // ─── Onglet Messages WhatsApp ─────────────────────────────
-  const [waMsgs,      setWaMsgs]      = useState([])
+  // ─── Onglet Messages (unifié : WhatsApp + Email + Notes) ─
+  const [allMsgs,     setAllMsgs]     = useState([])
   const [waLoading,   setWaLoading]   = useState(false)
   const [waSending,   setWaSending]   = useState(false)
   const [waReply,     setWaReply]     = useState('')
   const [waUnread,    setWaUnread]    = useState(0)
+  const [msgChannel,  setMsgChannel]  = useState('all') // 'all' | 'whatsapp' | 'email' | 'internal'
   const waMsgEndRef = useRef(null)
+
+  // ─── Email composer ───────────────────────────────────────
+  const [emailComposer,   setEmailComposer]   = useState(false)
+  const [emailSubject,    setEmailSubject]    = useState('')
+  const [emailBody,       setEmailBody]       = useState('')
+  const [emailThreadId,   setEmailThreadId]   = useState(null)
+  const [emailSending,    setEmailSending]    = useState(false)
+
+  // ─── Notes internes ───────────────────────────────────────
+  const [noteText,    setNoteText]    = useState('')
+  const [noteSending, setNoteSending] = useState(false)
+
+  // ─── Modal RDV ────────────────────────────────────────────
+  const [rdvModal,      setRdvModal]      = useState(false)
+  const [rdvDate,       setRdvDate]       = useState('')
+  const [rdvTime,       setRdvTime]       = useState('09:00')
+  const [rdvType,       setRdvType]       = useState('Appel découverte')
+  const [rdvNotes,      setRdvNotes]      = useState('')
+  const [rdvSaving,     setRdvSaving]     = useState(false)
+  const [appointments,  setAppointments]  = useState([])
+
+  // ─── Assignation équipe ───────────────────────────────────
+  const [teamMembers,   setTeamMembers]   = useState([])
+  const [assignSaving,  setAssignSaving]  = useState(false)
 
   // ─── Agent IA Auto-Contact ────────────────────────────────
   const [agentLoading,  setAgentLoading]  = useState(false)
-  const [agentResult,   setAgentResult]   = useState(null) // { success, message_sent } | { skipped, reason } | { error }
+  const [agentResult,   setAgentResult]   = useState(null)
 
-  // ─── Chargement lead ──────────────────────────────────────
-  useEffect(() => { if (id) loadLead() }, [id])
+  // ─── Chargement lead + équipe ────────────────────────────
+  useEffect(() => { if (id) { loadLead(); fetchTeam() } }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadLead = async () => {
     try {
@@ -219,8 +244,8 @@ const LeadDetails = () => {
     })
   }
 
-  // ─── Messages WhatsApp ───────────────────────────────────
-  const fetchWaMessages = useCallback(async () => {
+  // ─── Messages unifiés (tous canaux) ─────────────────────
+  const fetchMessages = useCallback(async () => {
     if (!id) return
     setWaLoading(true)
     const { data } = await supabase
@@ -228,18 +253,43 @@ const LeadDetails = () => {
       .select('*')
       .eq('lead_id', id)
       .order('created_at', { ascending: true })
-      .limit(100)
+      .limit(200)
     const msgs = data || []
-    setWaMsgs(msgs)
+    setAllMsgs(msgs)
     setWaUnread(msgs.filter(m => m.direction === 'inbound' && !m.read_at).length)
     setWaLoading(false)
-    // Marquer les entrants comme lus
     const unreadIds = msgs.filter(m => m.direction === 'inbound' && !m.read_at).map(m => m.id)
     if (unreadIds.length > 0) {
       await supabase.from('conversations').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
       setWaUnread(0)
     }
   }, [id])
+
+  // ─── Charger les RDVs ────────────────────────────────────
+  const fetchAppointments = useCallback(async () => {
+    if (!id) return
+    const { data } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('lead_id', id)
+      .order('scheduled_at', { ascending: true })
+    setAppointments(data || [])
+  }, [id])
+
+  // ─── Charger les membres de l'équipe ─────────────────────
+  const fetchTeam = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: myProfile } = await supabase.from('profiles').select('agency_id').eq('user_id', user.id).single()
+    if (!myProfile?.agency_id) return
+    const { data } = await supabase
+      .from('profiles')
+      .select('user_id, nom_complet, email, role')
+      .eq('agency_id', myProfile.agency_id)
+    setTeamMembers(data || [])
+  }, [])
+
+  const fetchWaMessages = fetchMessages // alias de compat
 
   useEffect(() => {
     if (!id) return
@@ -251,7 +301,7 @@ const LeadDetails = () => {
         table: 'conversations',
         filter: `lead_id=eq.${id}`,
       }, (payload) => {
-        setWaMsgs(prev => {
+        setAllMsgs(prev => {
           if (prev.find(m => m.id === payload.new.id)) return prev
           return [...prev, payload.new]
         })
@@ -269,56 +319,143 @@ const LeadDetails = () => {
   }, [id, activeTab])
 
   useEffect(() => {
-    // Scroll vers le bas quand les messages changent
     if (activeTab === 'messages') {
       waMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [waMsgs, activeTab])
+  }, [allMsgs, activeTab])
 
   const sendWaMessage = async () => {
     if (!waReply.trim() || waSending) return
     const text = waReply.trim()
     setWaReply('')
     setWaSending(true)
-
-    // Ajout optimiste immédiat dans la bulle
     const tempId = `tmp-${Date.now()}`
-    setWaMsgs(prev => [...prev, {
-      id:         tempId,
-      lead_id:    id,
-      direction:  'outbound',
-      content:    text,
-      status:     'sending',
-      created_at: new Date().toISOString(),
-      read_at:    new Date().toISOString(),
+    setAllMsgs(prev => [...prev, {
+      id: tempId, lead_id: id, direction: 'outbound', channel: 'whatsapp',
+      content: text, status: 'sending', created_at: new Date().toISOString(), read_at: new Date().toISOString(),
     }])
-
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ leadId: id, message: text }),
       })
       const resData = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(resData.error || 'Erreur envoi')
-
-      // Remplacer le message temporaire par l'ID réel
-      setWaMsgs(prev => prev.map(m =>
-        m.id === tempId
-          ? { ...m, id: resData.message_id || tempId, status: resData.status || 'sent' }
-          : m
+      setAllMsgs(prev => prev.map(m =>
+        m.id === tempId ? { ...m, id: resData.message_id || tempId, status: resData.status || 'sent' } : m
       ))
     } catch (err) {
-      // Supprimer la bulle optimiste et remettre le texte
-      setWaMsgs(prev => prev.filter(m => m.id !== tempId))
+      setAllMsgs(prev => prev.filter(m => m.id !== tempId))
       setWaReply(text)
       alert(`❌ ${err.message}`)
     } finally {
       setWaSending(false)
+    }
+  }
+
+  // ─── Envoyer email ────────────────────────────────────────
+  const sendEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim() || emailSending) return
+    setEmailSending(true)
+    const tempId = `tmp-email-${Date.now()}`
+    setAllMsgs(prev => [...prev, {
+      id: tempId, lead_id: id, direction: 'outbound', channel: 'email',
+      subject: emailSubject.trim(), content: emailBody.trim(),
+      status: 'sending', created_at: new Date().toISOString(), read_at: new Date().toISOString(),
+    }])
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ leadId: id, subject: emailSubject.trim(), message: emailBody.trim(), replyToThreadId: emailThreadId }),
+      })
+      const resData = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(resData.error || 'Erreur envoi email')
+      setAllMsgs(prev => prev.map(m =>
+        m.id === tempId ? { ...m, id: resData.message_id || tempId, status: 'sent', email_thread_id: resData.thread_id } : m
+      ))
+      setEmailThreadId(resData.thread_id)
+      setEmailComposer(false)
+      setEmailBody('')
+      logCrm('email', 'Email envoyé', emailSubject.trim())
+    } catch (err) {
+      setAllMsgs(prev => prev.filter(m => m.id !== tempId))
+      alert(`❌ ${err.message}`)
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
+  // ─── Envoyer note interne ─────────────────────────────────
+  const sendNote = async () => {
+    if (!noteText.trim() || noteSending) return
+    setNoteSending(true)
+    const text = noteText.trim()
+    setNoteText('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await supabase.from('profiles').select('nom_complet, agency_id').eq('user_id', user.id).single()
+      const { data: conv, error: convErr } = await supabase.from('conversations').insert({
+        lead_id:     id,
+        agency_id:   profile?.agency_id,
+        channel:     'whatsapp',
+        direction:   'internal',
+        content:     text,
+        status:      'delivered',
+        sender_name: profile?.nom_complet || 'Agent',
+        read_at:     new Date().toISOString(),
+      }).select().single()
+      if (convErr) throw new Error(convErr.message)
+      setAllMsgs(prev => [...prev, conv])
+    } catch (err) {
+      setNoteText(text)
+      alert(`❌ ${err.message}`)
+    } finally {
+      setNoteSending(false)
+    }
+  }
+
+  // ─── Créer un RDV ─────────────────────────────────────────
+  const createRdv = async () => {
+    if (!rdvDate || !rdvTime || rdvSaving) return
+    setRdvSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const scheduledAt = new Date(`${rdvDate}T${rdvTime}`).toISOString()
+      const res = await fetch('/api/appointments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ leadId: id, scheduledAt, type: rdvType, notes: rdvNotes }),
+      })
+      const resData = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(resData.error || 'Erreur création RDV')
+      setAppointments(prev => [...prev, resData.appointment])
+      setRdvModal(false)
+      setRdvDate(''); setRdvTime('09:00'); setRdvNotes('')
+      logCrm('rdv', 'RDV créé', `${rdvType} le ${new Date(scheduledAt).toLocaleDateString('fr-FR')} à ${rdvTime}`)
+      const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
+      if (updated) setLead(updated)
+    } catch (err) {
+      alert(`❌ ${err.message}`)
+    } finally {
+      setRdvSaving(false)
+    }
+  }
+
+  // ─── Assigner le lead ─────────────────────────────────────
+  const assignLead = async (userId) => {
+    setAssignSaving(true)
+    try {
+      await supabase.from('leads').update({ assigned_to: userId || null }).eq('id', id)
+      setLead(prev => ({ ...prev, assigned_to: userId || null }))
+      logCrm('edit', 'Lead assigné', userId
+        ? `Assigné à ${teamMembers.find(m => m.user_id === userId)?.nom_complet || 'un membre'}`
+        : 'Désassigné')
+    } finally {
+      setAssignSaving(false)
     }
   }
 
@@ -359,7 +496,11 @@ const LeadDetails = () => {
     setActiveTab(key)
     if (key === 'historique' && crmHistory.length === 0) fetchHistory()
     if (key === 'ia' && !aiSuggestion) fetchAI()
-    if (key === 'messages') fetchWaMessages()
+    if (key === 'messages') {
+      fetchMessages()
+      fetchAppointments()
+      fetchTeam()
+    }
   }
 
   // ─── États de chargement / erreur ────────────────────────
@@ -486,17 +627,28 @@ const LeadDetails = () => {
               <IconMail /><span className="hidden sm:inline">Email</span>
             </button>
             <button
-              onClick={() => {
-                const url = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com';
-                window.open(url, '_blank');
-                logCrm('rdv', 'RDV proposé via Calendly');
-              }}
+              onClick={() => { fetchTeam(); setRdvModal(true) }}
               className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100
                          text-purple-600 rounded-lg text-xs font-semibold transition-colors border border-purple-100"
-              title="Proposer un RDV"
+              title="Créer un RDV natif"
             >
               <IconCalendar /><span className="hidden sm:inline">RDV</span>
             </button>
+            {/* Assignation rapide */}
+            <select
+              value={lead.assigned_to || ''}
+              onChange={e => assignLead(e.target.value || null)}
+              disabled={assignSaving}
+              className="hidden lg:block text-xs border border-slate-200 rounded-lg px-2 py-1.5
+                         bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-300
+                         max-w-[130px] truncate disabled:opacity-50"
+              title="Assigner ce lead"
+            >
+              <option value="">— Non assigné</option>
+              {teamMembers.map(m => (
+                <option key={m.user_id} value={m.user_id}>{m.nom_complet || m.email}</option>
+              ))}
+            </select>
           </div>
         </div>
       </header>
@@ -859,44 +1011,163 @@ const LeadDetails = () => {
           </div>
         )}
 
-        {/* ═══ ONGLET MESSAGES WHATSAPP ══════════════════ */}
-        {activeTab === 'messages' && (
-          <div className="max-w-2xl mx-auto flex flex-col h-full" style={{ minHeight: '500px' }}>
-            {/* Thread */}
-            <div className="flex-1 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm p-4 mb-3 space-y-2">
+        {/* ═══ ONGLET MESSAGES (unifié) ══════════════════ */}
+        {activeTab === 'messages' && (() => {
+          // Filtrer selon canal sélectionné
+          const visibleMsgs = allMsgs.filter(m => {
+            if (msgChannel === 'all') return true
+            if (msgChannel === 'whatsapp') return m.channel === 'whatsapp' && m.direction !== 'internal'
+            if (msgChannel === 'email')    return m.channel === 'email'
+            if (msgChannel === 'internal') return m.direction === 'internal'
+            return true
+          })
+
+          return (
+          <div className="max-w-2xl mx-auto flex flex-col gap-3" style={{ minHeight: '500px' }}>
+
+            {/* ── RDVs à venir ── */}
+            {appointments.filter(a => a.status === 'confirmed' && new Date(a.scheduled_at) > new Date()).length > 0 && (
+              <div className="flex-none flex gap-2 overflow-x-auto pb-1">
+                {appointments
+                  .filter(a => a.status === 'confirmed' && new Date(a.scheduled_at) > new Date())
+                  .map(a => (
+                    <div key={a.id} className="shrink-0 flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
+                      <span className="text-sm">📅</span>
+                      <div>
+                        <p className="text-xs font-semibold text-purple-800">{a.type}</p>
+                        <p className="text-[10px] text-purple-600">
+                          {new Date(a.scheduled_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short' })} à{' '}
+                          {new Date(a.scheduled_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {/* ── Switcher canal ── */}
+            <div className="flex-none flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+              {[
+                { key: 'all',      label: '💬 Tous',      count: allMsgs.length },
+                { key: 'whatsapp', label: '🟢 WhatsApp',  count: allMsgs.filter(m => m.channel === 'whatsapp' && m.direction !== 'internal').length },
+                { key: 'email',    label: '📧 Email',     count: allMsgs.filter(m => m.channel === 'email').length },
+                { key: 'internal', label: '🔒 Notes',     count: allMsgs.filter(m => m.direction === 'internal').length },
+              ].map(ch => (
+                <button key={ch.key}
+                  onClick={() => setMsgChannel(ch.key)}
+                  className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    msgChannel === ch.key
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {ch.label}
+                  {ch.count > 0 && (
+                    <span className={`text-[10px] px-1 rounded-full ${msgChannel === ch.key ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                      {ch.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Fil de messages ── */}
+            <div className="flex-1 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
               {waLoading && (
                 <div className="text-center text-slate-400 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-2" />
-                  <p className="text-sm">Chargement des messages…</p>
+                  <p className="text-sm">Chargement…</p>
                 </div>
               )}
-              {!waLoading && waMsgs.length === 0 && (
+              {!waLoading && visibleMsgs.length === 0 && (
                 <div className="text-center text-slate-400 py-12">
                   <div className="text-4xl mb-3">💬</div>
-                  <p className="text-sm font-medium">Aucun message WhatsApp</p>
-                  <p className="text-xs mt-1">Les messages échangés avec ce lead apparaîtront ici.</p>
+                  <p className="text-sm font-medium">Aucun message</p>
+                  <p className="text-xs mt-1">Les échanges avec ce lead apparaîtront ici.</p>
                 </div>
               )}
-              {waMsgs.map((msg) => {
-                const isOut = msg.direction === 'outbound'
+
+              {visibleMsgs.map((msg) => {
+                const isInternal = msg.direction === 'internal'
+                const isOut      = msg.direction === 'outbound'
+                const isEmail    = msg.channel === 'email'
+                const isAgent    = msg.sender_name?.includes('Agent IA') || msg.sender_name?.startsWith('🤖')
                 const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
                 const day  = new Date(msg.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+
+                // ── Note interne (fond jaune centré) ──
+                if (isInternal) return (
+                  <div key={msg.id} className="flex justify-center">
+                    <div className="max-w-[85%] bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-2.5 shadow-sm">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs">🔒</span>
+                        <span className="text-xs font-semibold text-yellow-800">{msg.sender_name || 'Note interne'}</span>
+                        <span className="text-[10px] text-yellow-500 ml-auto">{day} {time}</span>
+                      </div>
+                      <p className="text-sm text-yellow-900 leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                    </div>
+                  </div>
+                )
+
+                // ── Email ──
+                if (isEmail) return (
+                  <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl shadow-sm border text-sm ${
+                      isOut ? 'bg-blue-600 text-white border-blue-700 rounded-br-sm' : 'bg-white border-slate-200 rounded-bl-sm'
+                    }`}>
+                      <div className={`px-4 pt-3 pb-1 border-b ${isOut ? 'border-blue-500' : 'border-slate-100'}`}>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-xs opacity-80">📧</span>
+                          <span className={`text-[10px] font-semibold uppercase tracking-wide ${isOut ? 'text-blue-100' : 'text-slate-400'}`}>Email</span>
+                        </div>
+                        <p className={`text-xs font-bold truncate ${isOut ? 'text-white' : 'text-slate-800'}`}>{msg.subject || '(sans objet)'}</p>
+                      </div>
+                      <div className="px-4 py-2.5">
+                        <p className={`leading-relaxed whitespace-pre-wrap break-words ${isOut ? 'text-white' : 'text-slate-700'}`}>{msg.content}</p>
+                        <div className={`flex items-center justify-between mt-2 ${isOut ? 'text-blue-200' : 'text-slate-400'}`}>
+                          <p className="text-[10px]">{day} {time}</p>
+                          {!isOut && (
+                            <button
+                              onClick={() => {
+                                setEmailComposer(true)
+                                setEmailSubject(`Re: ${msg.subject || ''}`)
+                                setEmailThreadId(msg.email_thread_id)
+                                setMsgChannel('email')
+                              }}
+                              className="text-[10px] underline hover:text-indigo-600 transition-colors"
+                            >
+                              ↩ Répondre
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+
+                // ── WhatsApp (normal ou agent IA) ──
                 return (
                   <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
-                      isOut
-                        ? 'bg-green-500 text-white rounded-br-sm'
-                        : 'bg-slate-100 text-slate-800 rounded-bl-sm'
-                    }`}>
-                      <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                      <p className={`text-xs mt-1 ${isOut ? 'text-green-100' : 'text-slate-400'} text-right`}>
-                        {day} {time}
-                        {isOut && (
-                          <span className="ml-1">
-                            {msg.status === 'delivered' || msg.status === 'sent' ? ' ✓✓' : ' ✓'}
-                          </span>
-                        )}
-                      </p>
+                    <div className="flex flex-col gap-0.5 max-w-[75%]">
+                      {isAgent && isOut && (
+                        <p className="text-[10px] text-indigo-500 font-medium text-right mr-1">🤖 Agent IA</p>
+                      )}
+                      {!isOut && msg.sender_name && (
+                        <p className="text-[10px] text-slate-400 font-medium ml-1">{msg.sender_name}</p>
+                      )}
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
+                        isOut
+                          ? isAgent
+                            ? 'bg-indigo-500 text-white rounded-br-sm'
+                            : 'bg-green-500 text-white rounded-br-sm'
+                          : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                      }`}>
+                        <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                        <p className={`text-xs mt-1 ${isOut ? 'text-white/60' : 'text-slate-400'} text-right`}>
+                          {day} {time}
+                          {isOut && <span className="ml-1">{msg.status === 'delivered' || msg.status === 'sent' ? ' ✓✓' : msg.status === 'sending' ? ' ⏳' : ' ✓'}</span>}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )
@@ -904,96 +1175,238 @@ const LeadDetails = () => {
               <div ref={waMsgEndRef} />
             </div>
 
-            {/* Bouton Agent IA */}
-            <div className="flex-none mb-2">
-              {lead?.auto_contacted_at ? (
-                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
-                  <span className="text-sm">🤖</span>
-                  <p className="text-xs text-indigo-700">
-                    <strong>Auto-contact envoyé</strong> le{' '}
-                    {new Date(lead.auto_contacted_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  <button
-                    onClick={async () => {
-                      if (!window.confirm('Réinitialiser le statut auto-contact de ce lead ? Il pourra être recontacté par l\'agent.')) return
+            {/* ── Agent IA banner ── */}
+            {(msgChannel === 'all' || msgChannel === 'whatsapp') && (
+              <div className="flex-none">
+                {lead?.auto_contacted_at ? (
+                  <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
+                    <span className="text-sm">🤖</span>
+                    <p className="text-xs text-indigo-700">
+                      <strong>Auto-contact</strong> le{' '}
+                      {new Date(lead.auto_contacted_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                    </p>
+                    <button onClick={async () => {
+                      if (!window.confirm('Réinitialiser le statut auto-contact ?')) return
                       await supabase.from('leads').update({ auto_contacted_at: null }).eq('id', id)
-                      const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
-                      if (updated) setLead(updated)
-                    }}
-                    className="ml-auto text-[10px] text-indigo-400 hover:text-indigo-600 underline"
-                  >
-                    Réinitialiser
+                      const { data: u } = await supabase.from('leads').select('*').eq('id', id).single()
+                      if (u) setLead(u)
+                    }} className="ml-auto text-[10px] text-indigo-400 hover:text-indigo-600 underline">Réinitialiser</button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <button onClick={triggerAgent} disabled={agentLoading || lead?.do_not_contact}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-50 hover:bg-indigo-100
+                                 border border-indigo-200 rounded-xl text-xs font-semibold text-indigo-700
+                                 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      {agentLoading ? <><span className="animate-spin">⏳</span> Génération…</> : <>🤖 Contacter par l'agent IA</>}
+                    </button>
+                    {agentResult && (
+                      <div className={`text-xs px-3 py-1.5 rounded-lg ${
+                        agentResult.success ? 'bg-green-50 text-green-700 border border-green-200' :
+                        agentResult.skipped ? 'bg-slate-100 text-slate-500 border border-slate-200' :
+                                              'bg-red-50 text-red-600 border border-red-200'}`}>
+                        {agentResult.success && `✅ "${agentResult.message_sent?.slice(0,80)}…"`}
+                        {agentResult.skipped && `⏭ ${agentResult.reason}`}
+                        {agentResult.error   && `❌ ${agentResult.error}`}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Composer Email (si canal email ou ouvert manuellement) ── */}
+            {emailComposer && (
+              <div className="flex-none bg-white rounded-xl border border-blue-200 shadow-sm p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-blue-700">📧 Nouvel email</p>
+                  <button onClick={() => setEmailComposer(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+                </div>
+                {!lead.email && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    ⚠️ Ce lead n'a pas d'email enregistré.
+                  </p>
+                )}
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  placeholder="Objet de l'email…"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                <textarea
+                  rows={4}
+                  value={emailBody}
+                  onChange={e => setEmailBody(e.target.value)}
+                  placeholder="Corps de l'email…"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEmailComposer(false)}
+                    className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 rounded-lg border border-slate-200">
+                    Annuler
+                  </button>
+                  <button onClick={sendEmail}
+                    disabled={!emailSubject.trim() || !emailBody.trim() || emailSending || !lead.email}
+                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg
+                               disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    {emailSending ? '⏳ Envoi…' : '📧 Envoyer'}
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  <button
-                    onClick={triggerAgent}
-                    disabled={agentLoading || lead?.do_not_contact}
-                    title={lead?.do_not_contact ? 'Ce lead est marqué "Ne pas contacter"' : 'Générer et envoyer un message IA via WhatsApp'}
-                    className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-50 hover:bg-indigo-100
-                               border border-indigo-200 rounded-xl text-xs font-semibold text-indigo-700
-                               disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {agentLoading
-                      ? <><span className="animate-spin">⏳</span> L'agent génère le message…</>
-                      : <><span>🤖</span> Contacter par l'agent IA</>
-                    }
-                  </button>
-                  {agentResult && (
-                    <div className={`text-xs px-3 py-1.5 rounded-lg ${
-                      agentResult.success  ? 'bg-green-50 text-green-700 border border-green-200' :
-                      agentResult.skipped  ? 'bg-slate-100 text-slate-500 border border-slate-200' :
-                                             'bg-red-50 text-red-600 border border-red-200'
-                    }`}>
-                      {agentResult.success && `✅ Message envoyé : "${agentResult.message_sent?.slice(0, 80)}…"`}
-                      {agentResult.skipped && `⏭ Ignoré : ${agentResult.reason}`}
-                      {agentResult.error   && `❌ Erreur : ${agentResult.error}`}
+              </div>
+            )}
+
+            {/* ── Zone de saisie bas de page ── */}
+            <div className="flex-none space-y-2">
+
+              {/* WhatsApp composer */}
+              {(msgChannel === 'all' || msgChannel === 'whatsapp') && (
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-3">
+                  {lead.telephone ? (
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1 mb-1.5">
+                          <span className="text-xs">🟢</span>
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">WhatsApp</span>
+                        </div>
+                        <textarea
+                          value={waReply}
+                          onChange={e => setWaReply(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendWaMessage() } }}
+                          placeholder="Message WhatsApp… (Entrée pour envoyer, Maj+Entrée pour saut)"
+                          rows={2}
+                          disabled={waSending}
+                          className="w-full resize-none text-sm border border-slate-200 rounded-xl px-3 py-2
+                                     focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50"
+                        />
+                      </div>
+                      <button onClick={sendWaMessage} disabled={!waReply.trim() || waSending}
+                        className="shrink-0 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 transition-colors">
+                        {waSending ? '⏳' : '➤'}
+                      </button>
                     </div>
+                  ) : (
+                    <p className="text-xs text-amber-700 text-center py-1">⚠️ Pas de numéro de téléphone</p>
                   )}
                 </div>
               )}
-            </div>
 
-            {/* Zone de saisie */}
-            {lead.telephone ? (
-              <div className="flex-none bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-end gap-2">
-                <textarea
-                  value={waReply}
-                  onChange={e => setWaReply(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      sendWaMessage()
-                    }
-                  }}
-                  placeholder="Écrire un message WhatsApp… (Entrée pour envoyer)"
-                  rows={2}
-                  disabled={waSending}
-                  className="flex-1 resize-none text-sm border border-slate-200 rounded-xl px-3 py-2
-                             focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50"
-                />
+              {/* Email + Note boutons */}
+              <div className="flex gap-2">
+                {(msgChannel === 'all' || msgChannel === 'email') && (
+                  <button onClick={() => { setEmailComposer(true); setMsgChannel('email') }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 hover:bg-blue-100
+                               border border-blue-200 rounded-xl text-xs font-semibold text-blue-700 transition-colors">
+                    📧 Nouveau email
+                  </button>
+                )}
                 <button
-                  onClick={sendWaMessage}
-                  disabled={!waReply.trim() || waSending}
-                  className="shrink-0 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white
-                             rounded-xl text-sm font-semibold disabled:opacity-40 transition-colors"
-                >
-                  {waSending ? '⏳' : '➤'}
+                  onClick={() => {
+                    const note = window.prompt('Note interne (visible uniquement par l\'équipe) :')
+                    if (note?.trim()) { setNoteText(note.trim()); setTimeout(sendNote, 0) }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-yellow-50 hover:bg-yellow-100
+                             border border-yellow-300 rounded-xl text-xs font-semibold text-yellow-700 transition-colors">
+                  🔒 Note interne
                 </button>
               </div>
-            ) : (
-              <div className="flex-none bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-                <p className="text-sm text-amber-700">
-                  ⚠️ Ce lead n'a pas de numéro de téléphone. Ajoutez-en un pour envoyer des messages WhatsApp.
-                </p>
-              </div>
-            )}
+
+            </div>
           </div>
-        )}
+          )
+        })()}
 
       </main>
     </div>
+
+    {/* ═══ MODAL RDV ══════════════════════════════════════ */}
+    {rdvModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          {/* Header modal */}
+          <div className="bg-purple-600 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white">
+              <span className="text-lg">📅</span>
+              <span className="font-bold text-base">Planifier un RDV</span>
+            </div>
+            <button onClick={() => setRdvModal(false)} className="text-white/80 hover:text-white text-xl">✕</button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* Lead recap */}
+            <div className="bg-slate-50 rounded-xl px-4 py-3">
+              <p className="text-sm font-semibold text-slate-800">{lead.nom}</p>
+              {lead.email    && <p className="text-xs text-slate-500">{lead.email}</p>}
+              {lead.telephone && <p className="text-xs text-slate-500">{lead.telephone}</p>}
+            </div>
+
+            {/* Type de RDV */}
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Type de RDV</label>
+              <select value={rdvType} onChange={e => setRdvType(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300">
+                {['Appel découverte','Démo','Suivi','Autre'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date + Heure */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Date</label>
+                <input type="date" value={rdvDate} onChange={e => setRdvDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Heure</label>
+                <select value={rdvTime} onChange={e => setRdvTime(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300">
+                  {Array.from({ length: 19 }, (_, i) => {
+                    const h = Math.floor(i / 2) + 9
+                    const m = i % 2 === 0 ? '00' : '30'
+                    return `${String(h).padStart(2,'0')}:${m}`
+                  }).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Notes (optionnel)</label>
+              <textarea rows={2} value={rdvNotes} onChange={e => setRdvNotes(e.target.value)}
+                placeholder="Informations complémentaires, lien Zoom, etc."
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none" />
+            </div>
+
+            {/* Confirmations automatiques */}
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-purple-700 mb-1">Confirmations automatiques :</p>
+              <div className="space-y-0.5 text-xs text-purple-600">
+                {lead.telephone && <p>✅ WhatsApp envoyé à {lead.telephone}</p>}
+                {lead.email    && <p>✅ Email envoyé à {lead.email}</p>}
+                {!lead.telephone && !lead.email && <p>⚠️ Aucun contact disponible</p>}
+              </div>
+            </div>
+
+            {/* Boutons */}
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setRdvModal(false)}
+                className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 font-semibold">
+                Annuler
+              </button>
+              <button onClick={createRdv} disabled={!rdvDate || rdvSaving}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold
+                           disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {rdvSaving ? '⏳ Création…' : '📅 Confirmer le RDV'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
   )
 }
 

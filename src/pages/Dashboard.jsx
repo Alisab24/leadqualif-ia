@@ -148,6 +148,8 @@ export default function Dashboard() {
   // === NOUVEAUX ÉTATS ===
   const [searchQuery, setSearchQuery] = useState('');
   const [filterQualification, setFilterQualification] = useState('all');
+  const [filterAssignment, setFilterAssignment] = useState('all'); // 'all' | 'mine' | 'unassigned'
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [crmHistory, setCrmHistory] = useState([]);
@@ -212,7 +214,13 @@ export default function Dashboard() {
     const isArchived = lead.statut === 'Archivé';
     const matchesArchive = showArchived ? isArchived : !isArchived;
 
-    return matchesSearch && matchesFilter && matchesArchive;
+    // Filtre assignation
+    const matchesAssign =
+      filterAssignment === 'all' ? true :
+      filterAssignment === 'mine' ? lead.assigned_to === currentUserId :
+      filterAssignment === 'unassigned' ? !lead.assigned_to : true;
+
+    return matchesSearch && matchesFilter && matchesArchive && matchesAssign;
   });
 
   // === LOG CRM EVENT ===
@@ -454,6 +462,7 @@ export default function Dashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
+      setCurrentUserId(user.id);
 
       // Utiliser ProfileManager pour obtenir le bon agency_id
       // (cohérent avec Stats.jsx et les leads insérés via le formulaire public)
@@ -825,8 +834,26 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Filtre assignation */}
+          <div className="flex items-center gap-1">
+            {[
+              { key: 'all',        label: 'Tous' },
+              { key: 'mine',       label: '👤 Mes leads' },
+              { key: 'unassigned', label: '— Non assignés' },
+            ].map(f => (
+              <button key={f.key} onClick={() => setFilterAssignment(f.key)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                  filterAssignment === f.key
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           {/* Compteur résultats */}
-          {(searchQuery || filterQualification !== 'all') && (
+          {(searchQuery || filterQualification !== 'all' || filterAssignment !== 'all') && (
             <span className="text-xs text-slate-500 whitespace-nowrap">
               {filteredLeads.length} résultat{filteredLeads.length !== 1 ? 's' : ''}
             </span>
@@ -997,6 +1024,13 @@ export default function Dashboard() {
                                 <span title={`Agent IA le ${new Date(lead.auto_contacted_at).toLocaleDateString('fr-FR')}`}
                                   className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold">
                                   🤖 Auto
+                                </span>
+                              )}
+                              {lead.assigned_to && (
+                                <span title={`Assigné à un membre`}
+                                  className="shrink-0 w-5 h-5 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500
+                                             flex items-center justify-center text-white text-[9px] font-bold">
+                                  {lead.assigned_to === currentUserId ? 'M' : '👤'}
                                 </span>
                               )}
                             </div>
