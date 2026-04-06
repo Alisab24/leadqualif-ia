@@ -125,11 +125,19 @@ export default function IntegrationsSettings() {
     setActionLoading(provider)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      // Encoder le token dans le state pour le callback
-      const state = btoa(JSON.stringify({ token: session.access_token, nonce: Math.random().toString(36).slice(2) }))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-      // Rediriger vers l'OAuth
-      window.location.href = `/api/auth?action=${provider}-init&state=${encodeURIComponent(state)}`
+      if (!session) { navigate('/login'); return }
+
+      // Le backend génère l'URL avec un state court (uid+nonce) — évite JWT dans l'URL
+      const res = await fetch('/api/auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body:    JSON.stringify({ action: 'get-oauth-url', provider }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'Impossible de générer l\'URL OAuth')
+
+      // Rediriger vers Google/Microsoft
+      window.location.href = data.url
     } catch (e) {
       showToast(`❌ ${e.message}`, 'error')
       setActionLoading('')

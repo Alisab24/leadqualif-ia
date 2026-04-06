@@ -46,15 +46,17 @@ function supabaseService() {
   )
 }
 
-/** Encode state = base64(JSON{token, nonce}) */
-function encodeState(token) {
+/** Encode state = base64(JSON{uid, nonce}) — court, sans JWT dans l'URL */
+function encodeState(uid) {
   const nonce = Math.random().toString(36).slice(2)
-  return Buffer.from(JSON.stringify({ token, nonce })).toString('base64url')
+  return Buffer.from(JSON.stringify({ uid, nonce })).toString('base64')
 }
 
 function decodeState(state) {
   try {
-    return JSON.parse(Buffer.from(state, 'base64url').toString())
+    // Normalise base64url → base64 standard si nécessaire
+    const normalized = state.replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(Buffer.from(normalized, 'base64').toString())
   } catch {
     return null
   }
@@ -126,14 +128,11 @@ async function handleGoogleCallback(req, res) {
   }
 
   const stateObj = decodeState(state)
-  if (!stateObj?.token) {
+  if (!stateObj?.uid) {
     return res.redirect(302, `${APP_URL}/settings/integrations?error=invalid_state`)
   }
 
-  const user = await verifyToken(stateObj.token)
-  if (!user) {
-    return res.redirect(302, `${APP_URL}/login?error=session_expired`)
-  }
+  const userId = stateObj.uid
 
   try {
     // Échanger le code contre les tokens
@@ -157,13 +156,13 @@ async function handleGoogleCallback(req, res) {
 
     // Stocker email integration ET calendar integration (même token, scopes combinés)
     await Promise.all([
-      upsertEmailIntegration(user.id, 'google', {
+      upsertEmailIntegration(userId, 'google', {
         email:         info.email,
         access_token:  tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_in:    tokens.expires_in,
       }),
-      upsertCalendarIntegration(user.id, 'google', {
+      upsertCalendarIntegration(userId, 'google', {
         access_token:  tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_in:    tokens.expires_in,
@@ -206,14 +205,11 @@ async function handleMicrosoftCallback(req, res) {
   }
 
   const stateObj = decodeState(state)
-  if (!stateObj?.token) {
+  if (!stateObj?.uid) {
     return res.redirect(302, `${APP_URL}/settings/integrations?error=invalid_state`)
   }
 
-  const user = await verifyToken(stateObj.token)
-  if (!user) {
-    return res.redirect(302, `${APP_URL}/login?error=session_expired`)
-  }
+  const userId = stateObj.uid
 
   try {
     const clientId     = process.env.MICROSOFT_CLIENT_ID
@@ -236,13 +232,13 @@ async function handleMicrosoftCallback(req, res) {
     const email = me.mail || me.userPrincipalName || ''
 
     await Promise.all([
-      upsertEmailIntegration(user.id, 'microsoft', {
+      upsertEmailIntegration(userId, 'microsoft', {
         email,
         access_token:  tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_in:    tokens.expires_in,
       }),
-      upsertCalendarIntegration(user.id, 'microsoft', {
+      upsertCalendarIntegration(userId, 'microsoft', {
         access_token:  tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_in:    tokens.expires_in,
@@ -286,7 +282,7 @@ async function handleDisconnect(req, res, user) {
 /** Encode state et retourner l'URL OAuth à appeler (sans redirect, utilisé par le frontend) */
 async function handleGetOAuthUrl(req, res, user) {
   const { provider } = req.body
-  const stateEncoded = encodeState(req.body.access_token || '')
+  const stateEncoded = encodeState(user.id)   // state court : uid + nonce (~50 chars)
   let url = ''
   if (provider === 'google') {
     const params = new URLSearchParams({
