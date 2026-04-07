@@ -283,6 +283,10 @@ export default function IntegrationsSettings() {
     const error     = searchParams.get('error')
     if (connected) showToast(`✅ ${connected === 'google' ? 'Google' : 'Microsoft'} connecté avec succès !`)
     if (error)     showToast(`❌ Erreur : ${decodeURIComponent(error)}`, 'error')
+
+    // Auto-refresh du statut toutes les 60 secondes
+    const interval = setInterval(() => loadStatus(), 60_000)
+    return () => clearInterval(interval)
   }, [loadStatus, searchParams])
 
   /* ── Lancer OAuth ─────────────────────────────────────────────────────── */
@@ -376,8 +380,12 @@ export default function IntegrationsSettings() {
           <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3 text-sm text-indigo-700">
             <span className="text-xl shrink-0">ℹ️</span>
             <div>
-              <p className="font-semibold mb-1">Connexion OAuth sécurisée</p>
-              <p className="text-xs text-indigo-600">Vos emails seront envoyés <strong>depuis votre vraie boîte</strong> (apparaissent dans "Envoyés"). Les RDV créés sont synchronisés avec votre calendrier. Aucun mot de passe stocké.</p>
+              <p className="font-semibold mb-1">3 modes de connexion email</p>
+              <p className="text-xs text-indigo-600">
+                <strong>OAuth Google/Microsoft</strong> — emails depuis votre vraie boîte, visibles dans "Envoyés". &nbsp;|&nbsp;
+                <strong>SMTP manuel</strong> — pour OVH, Ionos, Infomaniak, etc. &nbsp;|&nbsp;
+                Priorité : OAuth &gt; SMTP. Les RDV sont synchronisés avec votre calendrier.
+              </p>
             </div>
           </div>
 
@@ -553,29 +561,6 @@ export default function IntegrationsSettings() {
             </section>
           )}
 
-          {/* ── Guide de configuration OAuth ─────────────────────────── */}
-          <section className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
-            <h3 className="text-sm font-bold text-amber-800">⚙️ Configuration requise</h3>
-            <p className="text-xs text-amber-700">
-              Pour activer les boutons ci-dessus, configurez ces variables dans <strong>Vercel → Settings → Environment Variables</strong> :
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="bg-white rounded-xl border border-amber-100 p-3">
-                <p className="font-bold text-slate-700 mb-2">🔵 Google OAuth</p>
-                <p className="text-slate-500 mb-1">console.cloud.google.com → Credentials → OAuth 2.0</p>
-                <code className="block text-indigo-700">GOOGLE_CLIENT_ID</code>
-                <code className="block text-indigo-700">GOOGLE_CLIENT_SECRET</code>
-                <p className="text-slate-400 mt-2">Redirect URI : <br/><code>https://www.leadqualif.com/api/auth?action=google-callback</code></p>
-              </div>
-              <div className="bg-white rounded-xl border border-amber-100 p-3">
-                <p className="font-bold text-slate-700 mb-2">🟣 Microsoft OAuth</p>
-                <p className="text-slate-500 mb-1">portal.azure.com → App registrations → Certificates</p>
-                <code className="block text-indigo-700">MICROSOFT_CLIENT_ID</code>
-                <code className="block text-indigo-700">MICROSOFT_CLIENT_SECRET</code>
-                <p className="text-slate-400 mt-2">Redirect URI : <br/><code>https://www.leadqualif.com/api/auth?action=microsoft-callback</code></p>
-              </div>
-            </div>
-          </section>
 
         </div>
       </main>
