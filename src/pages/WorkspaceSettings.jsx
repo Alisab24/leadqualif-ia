@@ -200,7 +200,7 @@ export default function WorkspaceSettings() {
       // Recalculer configured
       setConfigured({
         identity:      !!(form.agency_name),
-        email:         !!(form.resend_api_key && form.from_email),
+        email:         true, // Configuré via Intégrations (OAuth/SMTP) ou Resend fallback
         whatsapp:      !!(form.twilio_account_sid && form.twilio_auth_token && form.twilio_whatsapp_number),
         calendar:      true,
         notifications: !!(form.notification_email),
@@ -493,50 +493,89 @@ export default function WorkspaceSettings() {
 
             {/* ═══ ONGLET EMAIL ════════════════════════════════ */}
             {activeTab === 'email' && (
-              <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
-                <h2 className="text-base font-bold text-slate-800">📧 Configuration email (Resend)</h2>
+              <section className="space-y-4">
 
-                <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
-                  💡 Obtenez votre clé API sur <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="font-semibold underline">resend.com/api-keys</a>
-                </div>
-
-                <Field label="Clé API Resend" hint="Commence par re_...">
-                  <Input type="password" value={form.resend_api_key}
-                    onChange={e => set('resend_api_key', e.target.value)}
-                    placeholder="re_••••••••••••••••••••••••" autoComplete="off" />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Email d'envoi">
-                    <Input value={form.from_email} onChange={e => set('from_email', e.target.value)}
-                      placeholder="contact@monagence.com" type="email" />
-                  </Field>
-                  <Field label="Nom affiché">
-                    <Input value={form.from_name} onChange={e => set('from_name', e.target.value)}
-                      placeholder='Marie — Agence XYZ' />
-                  </Field>
-                </div>
-
-                <Field label="Signature email" hint="Apparaît en bas de chaque email envoyé">
-                  <Textarea value={form.email_signature}
-                    onChange={e => set('email_signature', e.target.value)}
-                    placeholder="Cordialement,&#10;Marie Dupont — Agence XYZ&#10;📞 06 12 34 56 78" />
-                </Field>
-
-                {/* Test */}
-                <div className="border-t border-slate-100 pt-5 space-y-3">
-                  <p className="text-sm font-semibold text-slate-700">🧪 Envoyer un email de test</p>
-                  <div className="flex gap-2">
-                    <Input value={testEmailTo} onChange={e => setTestEmailTo(e.target.value)}
-                      placeholder="destinataire@test.com" type="email" />
-                    <button onClick={testEmail} disabled={testEmailLoading || !testEmailTo}
-                      className="shrink-0 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
-                                 rounded-xl disabled:opacity-40 transition-colors whitespace-nowrap">
-                      {testEmailLoading ? '⏳' : '📤 Tester'}
+                {/* Bannière principale → Intégrations */}
+                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 flex items-start gap-4">
+                  <span className="text-3xl shrink-0">🔌</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-indigo-800 mb-1">Configurez votre email dans Intégrations</p>
+                    <p className="text-xs text-indigo-600 mb-3">
+                      Connectez <strong>Gmail</strong>, <strong>Outlook</strong> (OAuth — les emails apparaissent dans vos "Envoyés")
+                      ou configurez votre <strong>SMTP</strong> (OVH, Ionos, Infomaniak, Gandi…).
+                      Les emails seront envoyés depuis votre vraie adresse.
+                    </p>
+                    <button onClick={() => navigate('/settings/integrations')}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
+                                 text-white text-sm font-semibold rounded-xl transition-colors">
+                      🔗 Ouvrir les Intégrations
                     </button>
                   </div>
-                  <TestResult result={testEmailResult} />
                 </div>
+
+                {/* Signature — utile pour tous les modes d'envoi */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                  <h2 className="text-base font-bold text-slate-800">✍️ Signature email</h2>
+                  <p className="text-xs text-slate-400">Ajoutée automatiquement en bas de chaque email, quel que soit le mode d'envoi (OAuth, SMTP ou Resend).</p>
+                  <Field label="Signature">
+                    <Textarea value={form.email_signature}
+                      onChange={e => set('email_signature', e.target.value)}
+                      placeholder="Cordialement,&#10;Marie Dupont — Agence XYZ&#10;📞 06 12 34 56 78" />
+                  </Field>
+                </div>
+
+                {/* Resend — fallback uniquement */}
+                <details className="group bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                  <summary className="flex items-center justify-between cursor-pointer px-6 py-4 hover:bg-slate-50 transition-colors list-none">
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">⚙️</span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Resend API <span className="text-xs font-normal text-slate-400 ml-1">(fallback uniquement)</span></p>
+                        <p className="text-xs text-slate-400">Utilisé si aucun OAuth ni SMTP n'est configuré dans Intégrations</p>
+                      </div>
+                    </div>
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform text-xs">▼</span>
+                  </summary>
+                  <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700">
+                      ⚠️ Avec Resend, les emails partent depuis une adresse générique (pas votre vraie boîte). Préférez OAuth ou SMTP.
+                      Clé API sur <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="font-semibold underline">resend.com/api-keys</a>
+                    </div>
+
+                    <Field label="Clé API Resend" hint="Commence par re_...">
+                      <Input type="password" value={form.resend_api_key}
+                        onChange={e => set('resend_api_key', e.target.value)}
+                        placeholder="re_••••••••••••••••••••••••" autoComplete="off" />
+                    </Field>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Email d'envoi fallback">
+                        <Input value={form.from_email} onChange={e => set('from_email', e.target.value)}
+                          placeholder="contact@monagence.com" type="email" />
+                      </Field>
+                      <Field label="Nom affiché fallback">
+                        <Input value={form.from_name} onChange={e => set('from_name', e.target.value)}
+                          placeholder='Marie — Agence XYZ' />
+                      </Field>
+                    </div>
+
+                    {/* Test Resend */}
+                    <div className="border-t border-slate-100 pt-4 space-y-3">
+                      <p className="text-sm font-semibold text-slate-700">🧪 Tester Resend</p>
+                      <div className="flex gap-2">
+                        <Input value={testEmailTo} onChange={e => setTestEmailTo(e.target.value)}
+                          placeholder="destinataire@test.com" type="email" />
+                        <button onClick={testEmail} disabled={testEmailLoading || !testEmailTo || !form.resend_api_key}
+                          className="shrink-0 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
+                                     rounded-xl disabled:opacity-40 transition-colors whitespace-nowrap">
+                          {testEmailLoading ? '⏳' : '📤 Tester'}
+                        </button>
+                      </div>
+                      <TestResult result={testEmailResult} />
+                    </div>
+                  </div>
+                </details>
+
               </section>
             )}
 
