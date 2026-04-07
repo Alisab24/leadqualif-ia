@@ -49,11 +49,13 @@ async function sendResendEmail(to, subject, html, text, fromEmail, resendKey, se
 /** Déchiffre le mot de passe SMTP stocké en base */
 function _decryptSmtpPwd(encoded) {
   try {
+    if (!encoded) return null
     const secret  = process.env.SMTP_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || 'leadqualif-smtp-fallback-key'
     const key     = createHash('sha256').update(secret).digest()
-    const [ivHex, tagHex, encHex] = encoded.split(':')
-    const { createDecipheriv: dec } = { createDecipheriv }
-    const decipher = dec('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
+    const parts   = (encoded || '').split(':')
+    if (parts.length !== 3) return null
+    const [ivHex, tagHex, encHex] = parts
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
     decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
     return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8')
   } catch { return null }
@@ -131,11 +133,13 @@ async function _sendViaSmtp(to, subject, html, text, integration) {
  */
 async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbackFrom, fallbackName, resendKey }) {
   // Récupérer les intégrations actives de l'agent
-  const { data: integrations } = await supabase
+  const { data: integrations, error: intError } = await supabase
     .from('email_integrations')
     .select('provider,email,access_token,smtp_host,smtp_port,smtp_user,smtp_display_name,smtp_password_enc,smtp_encryption')
     .eq('user_id', userId)
     .eq('is_active', true)
+
+  if (intError) console.warn('[sendEmailAny] Erreur lecture email_integrations:', intError.message)
 
   const googleInt    = integrations?.find(i => i.provider === 'google')
   const microsoftInt = integrations?.find(i => i.provider === 'microsoft')
@@ -146,7 +150,10 @@ async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbac
   if (smtpInt)                    return _sendViaSmtp(to, subject, html, text, smtpInt)
 
   // Fallback Resend
-  if (!resendKey) throw new Error('Aucun moyen d\'envoi configuré (OAuth, SMTP ou Resend)')
+  if (!resendKey) {
+    const noProviderMsg = 'Aucun email configuré. Ajoutez une intégration Gmail, Outlook ou SMTP dans Paramètres → Intégrations.'
+    throw Object.assign(new Error(noProviderMsg), { code: 'NO_EMAIL_PROVIDER', status: 503 })
+  }
   const result = await sendResendEmail(to, subject, html, text, fallbackFrom, resendKey, fallbackName)
   if (result?.statusCode >= 400) throw new Error(result.message || 'Erreur Resend')
   return { provider: 'resend', email: fallbackFrom }
@@ -616,6 +623,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[crm/${action}] Erreur:`, err)
-    return res.status(500).json({ error: err.message || 'Erreur serveur' })
+    const status = err.status || 500
+    return res.status(status).json({ error: err.message || 'Erreur serveur' })
   }
 }

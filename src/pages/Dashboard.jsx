@@ -147,6 +147,13 @@ export default function Dashboard() {
 
   // === NOUVEAUX ÉTATS ===
   const [searchQuery, setSearchQuery] = useState('');
+
+  // === PANEL EMAIL COMPOSER ===
+  const [panelEmailComposer, setPanelEmailComposer] = useState(false);
+  const [panelEmailSubject, setPanelEmailSubject] = useState('');
+  const [panelEmailBody, setPanelEmailBody] = useState('');
+  const [panelEmailSending, setPanelEmailSending] = useState(false);
+  const [panelEmailProvider, setPanelEmailProvider] = useState(null); // 'google' | 'microsoft' | 'smtp' | null
   const [filterQualification, setFilterQualification] = useState('all');
   const [filterAssignment, setFilterAssignment] = useState('all'); // 'all' | 'mine' | 'unassigned'
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -293,6 +300,63 @@ export default function Dashboard() {
       setCrmHistory([]);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  // === FETCH EMAIL PROVIDER FOR PANEL ===
+  useEffect(() => {
+    if (!selectedLead || !session) return;
+    setPanelEmailComposer(false);
+    setPanelEmailSubject('');
+    setPanelEmailBody('');
+    const fetchProvider = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!s) return;
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.access_token}` },
+          body: JSON.stringify({ action: 'get-status' }),
+        });
+        const json = await res.json();
+        const emailInt = json?.integrations?.email;
+        if (emailInt?.provider) setPanelEmailProvider(emailInt.provider);
+        else setPanelEmailProvider(null);
+      } catch (e) { setPanelEmailProvider(null); }
+    };
+    fetchProvider();
+  }, [selectedLead?.id]);
+
+  // === PANEL SEND EMAIL ===
+  const handlePanelSendEmail = async () => {
+    if (!selectedLead?.email || !panelEmailSubject.trim() || !panelEmailBody.trim()) return;
+    setPanelEmailSending(true);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const res = await fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.access_token}` },
+        body: JSON.stringify({
+          action: 'send-email',
+          leadId: selectedLead.id,
+          subject: panelEmailSubject,
+          message: panelEmailBody,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('✅ Email envoyé !');
+        setPanelEmailComposer(false);
+        setPanelEmailSubject('');
+        setPanelEmailBody('');
+        handleContactAction(selectedLead, 'email');
+      } else {
+        showToast('❌ Erreur envoi email', 'error');
+      }
+    } catch (e) {
+      showToast('❌ Erreur envoi email', 'error');
+    } finally {
+      setPanelEmailSending(false);
     }
   };
 
@@ -1289,7 +1353,10 @@ export default function Dashboard() {
                 {/* Actions rapides */}
                 <div className="grid grid-cols-4 gap-2">
                   <button
-                    onClick={() => { const url = buildWhatsAppUrl(selectedLead.telephone || ''); if (url) window.open(url, '_blank'); handleContactAction(selectedLead, 'whatsapp'); }}
+                    onClick={() => {
+                      handleContactAction(selectedLead, 'whatsapp');
+                      navigate(`/lead/${selectedLead.id}?tab=messages&channel=whatsapp`);
+                    }}
                     className="flex flex-col items-center justify-center p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold transition-colors"
                   >
                     <span className="mb-1"><WhatsAppIcon size={20} /></span>WhatsApp
@@ -1301,10 +1368,26 @@ export default function Dashboard() {
                     <span className="text-lg mb-1">📞</span>Appeler
                   </button>
                   <button
-                    onClick={() => { window.open(`mailto:${selectedLead.email}`, '_blank'); handleContactAction(selectedLead, 'email'); }}
-                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold transition-colors"
+                    onClick={() => {
+                      setPanelEmailComposer(prev => !prev);
+                      if (!panelEmailComposer) {
+                        setPanelEmailSubject(`Bonjour ${selectedLead.nom?.split(' ')[0] || ''}`);
+                        setPanelEmailBody('');
+                      }
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold transition-colors ${
+                      panelEmailComposer
+                        ? 'bg-orange-200 text-orange-800'
+                        : 'bg-orange-50 hover:bg-orange-100 text-orange-700'
+                    }`}
                   >
-                    <span className="text-lg mb-1">📧</span>Email
+                    <span className="text-lg mb-0.5">📧</span>
+                    <span>Email</span>
+                    {panelEmailProvider && (
+                      <span className="text-[9px] mt-0.5 opacity-70 leading-tight">
+                        {panelEmailProvider === 'google' ? 'Gmail' : panelEmailProvider === 'microsoft' ? 'Outlook' : 'SMTP'}
+                      </span>
+                    )}
                   </button>
                   <button
                     onClick={() => handleRendezVous(selectedLead)}
@@ -1313,6 +1396,64 @@ export default function Dashboard() {
                     <span className="text-lg mb-1">📅</span>RDV
                   </button>
                 </div>
+
+                {/* Mini compositeur email */}
+                {panelEmailComposer && (
+                  <div className="mt-2 border border-orange-200 rounded-lg bg-orange-50 p-3 space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-orange-800">
+                        📧 Email à {selectedLead.nom}
+                        {panelEmailProvider && (
+                          <span className="ml-1 text-[10px] bg-orange-200 text-orange-700 rounded px-1 py-0.5 font-normal">
+                            {panelEmailProvider === 'google' ? 'via Gmail' : panelEmailProvider === 'microsoft' ? 'via Outlook' : 'via SMTP'}
+                          </span>
+                        )}
+                        {!panelEmailProvider && (
+                          <span className="ml-1 text-[10px] bg-red-100 text-red-600 rounded px-1 py-0.5 font-normal">
+                            ⚠ aucun provider
+                          </span>
+                        )}
+                      </span>
+                      <button onClick={() => setPanelEmailComposer(false)} className="text-orange-400 hover:text-orange-700 text-sm">✕</button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Objet"
+                      value={panelEmailSubject}
+                      onChange={e => setPanelEmailSubject(e.target.value)}
+                      className="w-full text-xs border border-orange-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                    />
+                    <textarea
+                      rows={4}
+                      placeholder="Votre message…"
+                      value={panelEmailBody}
+                      onChange={e => setPanelEmailBody(e.target.value)}
+                      className="w-full text-xs border border-orange-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handlePanelSendEmail}
+                        disabled={panelEmailSending || !panelEmailSubject.trim() || !panelEmailBody.trim() || !panelEmailProvider}
+                        className="flex-1 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors"
+                      >
+                        {panelEmailSending ? 'Envoi…' : '✉️ Envoyer'}
+                      </button>
+                      <button
+                        onClick={() => navigate(`/lead/${selectedLead.id}?tab=messages`)}
+                        className="px-3 py-1.5 bg-white border border-orange-200 hover:bg-orange-100 text-orange-700 text-xs font-semibold rounded transition-colors"
+                        title="Ouvrir la fiche complète"
+                      >
+                        ↗
+                      </button>
+                    </div>
+                    {!panelEmailProvider && (
+                      <p className="text-[10px] text-red-500">
+                        Configurez un email dans{' '}
+                        <button onClick={() => navigate('/settings/integrations')} className="underline">Intégrations</button>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Onglets */}
