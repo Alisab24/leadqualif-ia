@@ -17,9 +17,41 @@
  *   APP_URL  (ex: https://www.leadqualif.com)
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient }                                    from '@supabase/supabase-js'
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto'
+import nodemailer                                           from 'nodemailer'
 
 const APP_URL = process.env.APP_URL || 'https://www.leadqualif.com'
+
+/* ── Chiffrement mot de passe SMTP (AES-256-GCM) ─────────────────────────── */
+function getSmtpKey() {
+  const secret = process.env.SMTP_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || 'leadqualif-smtp-fallback-key'
+  return createHash('sha256').update(secret).digest() // 32 bytes
+}
+
+function encryptSmtpPassword(plaintext) {
+  const key = getSmtpKey()
+  const iv  = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`
+}
+
+function decryptSmtpPassword(encoded) {
+  try {
+    const [ivHex, tagHex, encHex] = encoded.split(':')
+    const key     = getSmtpKey()
+    const iv      = Buffer.from(ivHex,  'hex')
+    const tag     = Buffer.from(tagHex, 'hex')
+    const enc     = Buffer.from(encHex, 'hex')
+    const decipher = createDecipheriv('aes-256-gcm', key, iv)
+    decipher.setAuthTag(tag)
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8')
+  } catch {
+    return null
+  }
+}
 
 /* ── Google OAuth ─────────────────────────────────────────────────────────── */
 const GOOGLE_AUTH_URL    = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -252,17 +284,91 @@ async function handleMicrosoftCallback(req, res) {
   }
 }
 
+/* ── Handlers SMTP ────────────────────────────────────────────────────────── */
+
+/** Tester une connexion SMTP sans sauvegarder */
+async function handleTestSmtp(req, res, user) {
+  const { host, port, email, displayName, password, encryption } = req.body
+  if (!host || !port || !email || !password) {
+    return res.status(400).json({ error: 'Champs requis : host, port, email, password' })
+  }
+
+  const secure = encryption === 'ssl'
+  const transport = nodemailer.createTransport({
+    host,
+    port:    parseInt(port, 10),
+    secure,
+    auth:    { user: email, pass: password },
+    tls:     { rejectUnauthorized: false },
+    connectionTimeout: 10000,
+    greetingTimeout:   10000,
+  })
+
+  try {
+    await transport.verify()
+    // Envoyer un vrai email test à l'adresse Supabase de l'agent
+    await transport.sendMail({
+      from:    `"${displayName || email}" <${email}>`,
+      to:      user.email,
+      subject: '✅ Test SMTP — LeadQualif',
+      html:    '<p>Votre configuration SMTP fonctionne correctement avec <strong>LeadQualif</strong>. Vous pouvez maintenant enregistrer vos paramètres.</p>',
+    })
+    return res.status(200).json({ success: true, message: `Email test envoyé à ${user.email}` })
+  } catch (err) {
+    return res.status(200).json({ success: false, error: err.message })
+  }
+}
+
+/** Sauvegarder la config SMTP (mot de passe chiffré) */
+async function handleSaveSmtp(req, res, user) {
+  const { host, port, email, displayName, password, encryption } = req.body
+  if (!host || !port || !email || !password) {
+    return res.status(400).json({ error: 'Champs requis manquants' })
+  }
+
+  const sb = supabaseService()
+  const { error } = await sb.from('email_integrations').upsert({
+    user_id:            user.id,
+    provider:           'smtp',
+    email,
+    smtp_host:          host,
+    smtp_port:          parseInt(port, 10),
+    smtp_user:          email,
+    smtp_display_name:  displayName || '',
+    smtp_password_enc:  encryptSmtpPassword(password),
+    smtp_encryption:    encryption || 'tls',
+    is_active:          true,
+    updated_at:         new Date().toISOString(),
+  }, { onConflict: 'user_id,provider' })
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ success: true })
+}
+
+/** Récupérer la config SMTP sans mot de passe */
+async function handleGetSmtpConfig(req, res, user) {
+  const sb = supabaseService()
+  const { data } = await sb.from('email_integrations')
+    .select('smtp_host,smtp_port,smtp_user,smtp_display_name,smtp_encryption,is_active,updated_at')
+    .eq('user_id', user.id).eq('provider', 'smtp').eq('is_active', true)
+    .maybeSingle()
+  return res.status(200).json({ config: data || null })
+}
+
 /* ── Handlers POST ────────────────────────────────────────────────────────── */
 
 async function handleGetStatus(req, res, user) {
   const sb = supabaseService()
   const [{ data: emails }, { data: cals }] = await Promise.all([
-    sb.from('email_integrations').select('provider,email,is_active,updated_at').eq('user_id', user.id).eq('is_active', true),
-    sb.from('calendar_integrations').select('provider,is_active,updated_at').eq('user_id', user.id).eq('is_active', true),
+    sb.from('email_integrations')
+      .select('provider,email,smtp_host,smtp_port,smtp_user,smtp_display_name,smtp_encryption,is_active,updated_at')
+      .eq('user_id', user.id).eq('is_active', true),
+    sb.from('calendar_integrations')
+      .select('provider,is_active,updated_at').eq('user_id', user.id).eq('is_active', true),
   ])
   return res.status(200).json({
-    email:    emails    || [],
-    calendar: cals      || [],
+    email:    emails || [],
+    calendar: cals   || [],
   })
 }
 
@@ -337,9 +443,12 @@ export default async function handler(req, res) {
     if (!user) return res.status(401).json({ error: 'Token invalide' })
 
     try {
-      if (action === 'get-status')    return handleGetStatus(req, res, user)
-      if (action === 'disconnect')    return handleDisconnect(req, res, user)
-      if (action === 'get-oauth-url') return handleGetOAuthUrl(req, res, user)
+      if (action === 'get-status')     return handleGetStatus(req, res, user)
+      if (action === 'disconnect')     return handleDisconnect(req, res, user)
+      if (action === 'get-oauth-url')  return handleGetOAuthUrl(req, res, user)
+      if (action === 'test-smtp')      return handleTestSmtp(req, res, user)
+      if (action === 'save-smtp')      return handleSaveSmtp(req, res, user)
+      if (action === 'get-smtp-config')return handleGetSmtpConfig(req, res, user)
       return res.status(400).json({ error: `Action inconnue: "${action}"` })
     } catch (err) {
       console.error(`[auth/${action}]`, err)

@@ -57,6 +57,168 @@ const EventRow = ({ event }) => {
   )
 }
 
+/* ── Table d'aide hébergeurs ────────────────────────────────────────────── */
+const SMTP_PROVIDERS = [
+  { name: 'OVH',         host: 'ssl0.ovh.net',          port: 465, enc: 'SSL' },
+  { name: 'Ionos (1&1)', host: 'smtp.ionos.fr',          port: 587, enc: 'TLS' },
+  { name: 'Infomaniak',  host: 'mail.infomaniak.com',    port: 587, enc: 'TLS' },
+  { name: 'Gandi',       host: 'mail.gandi.net',         port: 587, enc: 'TLS' },
+  { name: 'Hostinger',   host: 'smtp.hostinger.com',     port: 587, enc: 'TLS' },
+]
+
+/* ── Formulaire SMTP ────────────────────────────────────────────────────── */
+const SmtpForm = ({ session, onSaved, onCancel, existing }) => {
+  const [form, setForm]         = useState({
+    host:        existing?.smtp_host        || '',
+    port:        existing?.smtp_port        || '587',
+    email:       existing?.smtp_user        || '',
+    displayName: existing?.smtp_display_name|| '',
+    password:    '',
+    encryption:  existing?.smtp_encryption  || 'tls',
+  })
+  const [showPwd, setShowPwd]   = useState(false)
+  const [testing, setTesting]   = useState(false)
+  const [saving,  setSaving]    = useState(false)
+  const [testResult, setTestResult] = useState(null) // {success, message, error}
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setTestResult(null) }
+
+  const testSmtp = async () => {
+    if (!form.host || !form.email || !form.password) {
+      setTestResult({ success: false, error: 'Remplissez au moins : serveur, email et mot de passe' })
+      return
+    }
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res  = await fetch('/api/auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body:    JSON.stringify({ action: 'test-smtp', ...form }),
+      })
+      const data = await res.json()
+      setTestResult(data)
+    } catch (e) {
+      setTestResult({ success: false, error: e.message })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const saveSmtp = async () => {
+    setSaving(true)
+    try {
+      const res  = await fetch('/api/auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body:    JSON.stringify({ action: 'save-smtp', ...form }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Erreur lors de l\'enregistrement')
+      onSaved()
+    } catch (e) {
+      setTestResult({ success: false, error: e.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white'
+  const labelCls = 'block text-xs font-semibold text-slate-600 mb-1'
+
+  return (
+    <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-slate-800">⚙️ Configuration SMTP manuelle</p>
+        <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Serveur */}
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Serveur SMTP</label>
+          <input className={inputCls} placeholder="mail.monagence.com" value={form.host}
+            onChange={e => set('host', e.target.value)} />
+        </div>
+
+        {/* Port + Chiffrement */}
+        <div>
+          <label className={labelCls}>Port</label>
+          <select className={inputCls} value={form.port} onChange={e => set('port', e.target.value)}>
+            <option value="25">25</option>
+            <option value="465">465</option>
+            <option value="587">587 (recommandé)</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Chiffrement</label>
+          <select className={inputCls} value={form.encryption} onChange={e => set('encryption', e.target.value)}>
+            <option value="tls">TLS — STARTTLS (recommandé)</option>
+            <option value="ssl">SSL (port 465)</option>
+            <option value="none">Aucun</option>
+          </select>
+        </div>
+
+        {/* Email */}
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Email expéditeur</label>
+          <input className={inputCls} type="email" placeholder="contact@monagence.com" value={form.email}
+            onChange={e => set('email', e.target.value)} />
+        </div>
+
+        {/* Nom affiché */}
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Nom affiché</label>
+          <input className={inputCls} placeholder="Marie — Agence XYZ" value={form.displayName}
+            onChange={e => set('displayName', e.target.value)} />
+        </div>
+
+        {/* Mot de passe */}
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Mot de passe</label>
+          <div className="relative">
+            <input className={`${inputCls} pr-10`} type={showPwd ? 'text' : 'password'}
+              placeholder={existing ? '(inchangé si vide — resaisissez pour modifier)' : '••••••••'}
+              value={form.password} onChange={e => set('password', e.target.value)} />
+            <button type="button" onClick={() => setShowPwd(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+              {showPwd ? '🙈' : '👁️'}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">Stocké chiffré (AES-256-GCM). Jamais retourné en clair.</p>
+        </div>
+      </div>
+
+      {/* Résultat du test */}
+      {testResult && (
+        <div className={`flex items-start gap-2 px-3 py-2 rounded-lg text-sm
+          ${testResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          <span className="text-base shrink-0">{testResult.success ? '✅' : '❌'}</span>
+          <span>{testResult.success ? testResult.message : testResult.error}</span>
+        </div>
+      )}
+
+      {/* Boutons */}
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={testSmtp} disabled={testing || saving}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl disabled:opacity-40 transition-colors">
+          {testing ? '⏳ Test en cours…' : '🔌 Tester la connexion'}
+        </button>
+        <button onClick={saveSmtp}
+          disabled={saving || !testResult?.success}
+          title={!testResult?.success ? 'Testez la connexion d\'abord' : ''}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          {saving ? '⏳ Enregistrement…' : '💾 Enregistrer'}
+        </button>
+        <button onClick={onCancel}
+          className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold rounded-xl transition-colors">
+          Annuler
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Composant principal ────────────────────────────────────────────────── */
 export default function IntegrationsSettings() {
   const navigate           = useNavigate()
@@ -70,6 +232,8 @@ export default function IntegrationsSettings() {
   const [calendarIntegrations, setCalendarIntegrations] = useState([])
   const [upcomingEvents, setUpcomingEvents]             = useState([])
   const [eventsProvider, setEventsProvider]             = useState(null)
+  const [showSmtpForm, setShowSmtpForm]                 = useState(false)
+  const [currentSession, setCurrentSession]             = useState(null)
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
@@ -80,6 +244,7 @@ export default function IntegrationsSettings() {
   const loadStatus = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { navigate('/login'); return }
+    setCurrentSession(session)
 
     try {
       const res = await fetch('/api/auth', {
@@ -167,6 +332,7 @@ export default function IntegrationsSettings() {
   /* ── Getters ──────────────────────────────────────────────────────────── */
   const getEmail = (provider) => emailIntegrations.find(i => i.provider === provider)
   const getCal   = (provider) => calendarIntegrations.find(i => i.provider === provider)
+  const getSmtp  = ()         => emailIntegrations.find(i => i.provider === 'smtp')
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-slate-400">
@@ -248,6 +414,90 @@ export default function IntegrationsSettings() {
                 </p>
               </ProviderCard>
             </div>
+
+            {/* SMTP manuel */}
+            {showSmtpForm && currentSession ? (
+              <SmtpForm
+                session={currentSession}
+                existing={getSmtp()}
+                onSaved={() => { setShowSmtpForm(false); showToast('✅ SMTP enregistré !'); loadStatus() }}
+                onCancel={() => setShowSmtpForm(false)}
+              />
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📮</span>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">SMTP manuel</p>
+                      {getSmtp()
+                        ? <p className="text-xs text-slate-500 mt-0.5">{getSmtp().smtp_host}:{getSmtp().smtp_port} — {getSmtp().smtp_user}</p>
+                        : <p className="text-xs text-slate-400 mt-0.5">OVH, Ionos, Infomaniak, Gandi, Hostinger…</p>
+                      }
+                    </div>
+                  </div>
+                  {getSmtp()
+                    ? <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">✅ Configuré</span>
+                    : <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">⚪ Non configuré</span>
+                  }
+                </div>
+                <p className="text-xs text-slate-400">Pour les agences hébergées chez OVH, Ionos, Infomaniak, etc. Priorité : OAuth Google/Microsoft &gt; SMTP.</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowSmtpForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition-colors">
+                    ⚙️ {getSmtp() ? 'Modifier' : 'Configurer manuellement'}
+                  </button>
+                  {getSmtp() && (
+                    <button onClick={() => disconnectProvider('smtp')}
+                      className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-xl transition-colors">
+                      Déconnecter
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Table d'aide hébergeurs */}
+            <details className="group bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+              <summary className="flex items-center gap-2 cursor-pointer px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors list-none">
+                <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                📋 Paramètres SMTP selon votre hébergeur
+              </summary>
+              <div className="px-5 pb-4 pt-2">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-2 pr-4 font-semibold text-slate-600">Hébergeur</th>
+                      <th className="text-left py-2 pr-4 font-semibold text-slate-600">Serveur SMTP</th>
+                      <th className="text-left py-2 pr-4 font-semibold text-slate-600">Port</th>
+                      <th className="text-left py-2 font-semibold text-slate-600">Chiffrement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SMTP_PROVIDERS.map(p => (
+                      <tr key={p.name} className="border-b border-slate-100 hover:bg-white transition-colors">
+                        <td className="py-2 pr-4 font-medium text-slate-800">{p.name}</td>
+                        <td className="py-2 pr-4 text-indigo-600 font-mono">
+                          <button onClick={() => { setShowSmtpForm(true) }}
+                            title="Utiliser ce serveur"
+                            className="hover:underline">{p.host}</button>
+                        </td>
+                        <td className="py-2 pr-4 text-slate-600">{p.port}</td>
+                        <td className="py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold
+                            ${p.enc === 'SSL' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            {p.enc}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-[11px] text-slate-400 mt-3">
+                  💡 Utilisez votre adresse email complète comme identifiant et votre mot de passe de messagerie (ou mot de passe d'application si 2FA activé).
+                </p>
+              </div>
+            </details>
           </section>
 
           {/* ── Section Calendrier ──────────────────────────────────────── */}

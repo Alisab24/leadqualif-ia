@@ -5,7 +5,9 @@
  * Body : { action: 'auto-contact' | 'create-appointment', ...params }
  * Headers : Authorization: Bearer <supabase_access_token>
  */
-import { createClient } from '@supabase/supabase-js'
+import { createClient }                              from '@supabase/supabase-js'
+import { createDecipheriv, createHash }             from 'crypto'
+import nodemailer                                   from 'nodemailer'
 
 /* ── Helpers communs ──────────────────────────────────────────────────────── */
 function formatDateFr(iso) {
@@ -40,6 +42,114 @@ async function sendResendEmail(to, subject, html, text, fromEmail, resendKey, se
     body: JSON.stringify({ from: `${senderName} <${fromEmail}>`, to: [to], subject, html, text }),
   })
   return await res.json()
+}
+
+/* ── Envoi email multi-canal (OAuth > SMTP > Resend) ─────────────────────── */
+
+/** Déchiffre le mot de passe SMTP stocké en base */
+function _decryptSmtpPwd(encoded) {
+  try {
+    const secret  = process.env.SMTP_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || 'leadqualif-smtp-fallback-key'
+    const key     = createHash('sha256').update(secret).digest()
+    const [ivHex, tagHex, encHex] = encoded.split(':')
+    const { createDecipheriv: dec } = { createDecipheriv }
+    const decipher = dec('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+    return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8')
+  } catch { return null }
+}
+
+/** Gmail API (OAuth Google) */
+async function _sendViaGmail(to, subject, html, text, integration) {
+  const mime = [
+    `From: ${integration.email}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    html,
+  ].join('\r\n')
+  const raw = Buffer.from(mime).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'')
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${integration.access_token}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ raw }),
+  })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    throw new Error(`Gmail API ${res.status}: ${e.error?.message || JSON.stringify(e)}`)
+  }
+  return { provider: 'gmail', email: integration.email }
+}
+
+/** Microsoft Graph API (OAuth Microsoft) */
+async function _sendViaMicrosoft(to, subject, html, text, integration) {
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${integration.access_token}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      message: {
+        subject,
+        body: { contentType: 'HTML', content: html },
+        toRecipients: [{ emailAddress: { address: to } }],
+      },
+      saveToSentItems: true,
+    }),
+  })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    throw new Error(`Graph API ${res.status}: ${e.error?.message || ''}`)
+  }
+  return { provider: 'microsoft', email: integration.email }
+}
+
+/** SMTP via nodemailer */
+async function _sendViaSmtp(to, subject, html, text, integration) {
+  const password = _decryptSmtpPwd(integration.smtp_password_enc)
+  if (!password) throw new Error('Impossible de déchiffrer le mot de passe SMTP')
+  const transport = nodemailer.createTransport({
+    host:   integration.smtp_host,
+    port:   integration.smtp_port   || 587,
+    secure: integration.smtp_encryption === 'ssl',
+    auth:   { user: integration.smtp_user, pass: password },
+    tls:    { rejectUnauthorized: false },
+    connectionTimeout: 10000,
+  })
+  await transport.sendMail({
+    from:    integration.smtp_display_name
+               ? `"${integration.smtp_display_name}" <${integration.smtp_user}>`
+               : integration.smtp_user,
+    to, subject, html, text,
+  })
+  return { provider: 'smtp', email: integration.smtp_user }
+}
+
+/**
+ * Envoi email unifié — Priorité : OAuth Google > OAuth Microsoft > SMTP > Resend
+ * @param {object} opts - { supabase, userId, agencyId, to, subject, html, text, fallbackFrom, fallbackName, resendKey }
+ */
+async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbackFrom, fallbackName, resendKey }) {
+  // Récupérer les intégrations actives de l'agent
+  const { data: integrations } = await supabase
+    .from('email_integrations')
+    .select('provider,email,access_token,smtp_host,smtp_port,smtp_user,smtp_display_name,smtp_password_enc,smtp_encryption')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+
+  const googleInt    = integrations?.find(i => i.provider === 'google')
+  const microsoftInt = integrations?.find(i => i.provider === 'microsoft')
+  const smtpInt      = integrations?.find(i => i.provider === 'smtp' && i.smtp_host)
+
+  if (googleInt?.access_token)    return _sendViaGmail(to, subject, html, text, googleInt)
+  if (microsoftInt?.access_token) return _sendViaMicrosoft(to, subject, html, text, microsoftInt)
+  if (smtpInt)                    return _sendViaSmtp(to, subject, html, text, smtpInt)
+
+  // Fallback Resend
+  if (!resendKey) throw new Error('Aucun moyen d\'envoi configuré (OAuth, SMTP ou Resend)')
+  const result = await sendResendEmail(to, subject, html, text, fallbackFrom, resendKey, fallbackName)
+  if (result?.statusCode >= 400) throw new Error(result.message || 'Erreur Resend')
+  return { provider: 'resend', email: fallbackFrom }
 }
 
 function normalizePhone(phone) {
@@ -286,7 +396,7 @@ async function handleSendEmail(req, res, supabase, user) {
   if (!lead) return res.status(404).json({ error: 'Lead introuvable' })
   if (!lead.email) return res.status(400).json({ error: "Ce lead n'a pas d'email" })
 
-  // Utiliser les clés workspace en priorité, sinon fallback env vars
+  // Clés fallback Resend (utilisées uniquement si aucune intégration OAuth/SMTP active)
   const { data: ws } = await supabase.from('workspace_settings')
     .select('resend_api_key, from_email, from_name')
     .eq('agency_id', profile.agency_id).maybeSingle()
@@ -294,33 +404,27 @@ async function handleSendEmail(req, res, supabase, user) {
   const resendKey  = ws?.resend_api_key  || process.env.RESEND_API_KEY
   const fromEmail  = ws?.from_email      || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
   const senderName = ws?.from_name       || profile.nom_complet || profile.nom_agence || "L'équipe"
-  if (!resendKey) return res.status(503).json({ error: 'RESEND_API_KEY non configuré' })
+  const threadId   = replyToThreadId || `thread-${leadId}-${Date.now()}`
+  const htmlBody   = `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#1e293b;">${message.trim().replace(/\n/g,'<br>')}</div>`
 
-  const threadId = replyToThreadId || `thread-${leadId}-${Date.now()}`
-
-  const resendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from:    `${senderName} <${fromEmail}>`,
-      to:      [lead.email],
-      subject: subject.trim(),
-      html:    `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#1e293b;">${message.trim().replace(/\n/g,'<br>')}</div>`,
-      text:    message.trim(),
-    }),
+  const result = await sendEmailAny({
+    supabase, userId: user.id,
+    to: lead.email, subject: subject.trim(),
+    html: htmlBody, text: message.trim(),
+    fallbackFrom: fromEmail, fallbackName: senderName, resendKey,
   })
-  const resendData = await resendRes.json()
-  if (!resendRes.ok) throw new Error(`Resend ${resendRes.status}: ${resendData.message || JSON.stringify(resendData)}`)
 
   const { data: conv } = await supabase.from('conversations').insert({
     lead_id: lead.id, agency_id: profile.agency_id,
     channel: 'email', direction: 'outbound',
     subject: subject.trim(), content: message.trim(),
-    email_thread_id: threadId, from_email: fromEmail, to_email: lead.email,
+    email_thread_id: threadId,
+    from_email: result.email || fromEmail,
+    to_email: lead.email,
     sender_name: senderName, status: 'sent', read_at: new Date().toISOString(),
   }).select().single()
 
-  return res.status(200).json({ success: true, message_id: conv?.id, thread_id: threadId, status: 'sent' })
+  return res.status(200).json({ success: true, message_id: conv?.id, thread_id: threadId, status: 'sent', provider: result.provider })
 }
 
 /* ── Action : send-whatsapp ───────────────────────────────────────────────── */
@@ -411,12 +515,10 @@ async function handleSendDocumentEmail(req, res, supabase, user) {
     .eq('agency_id', doc.agency_id).order('created_at', { ascending: true }).limit(1)
   const agency = Array.isArray(agencyArr) ? agencyArr[0] : agencyArr
 
-  // Clés email : workspace_settings → env vars
+  // Clés fallback Resend
   const { data: ws } = await supabase.from('workspace_settings')
     .select('resend_api_key, from_email, from_name').eq('agency_id', doc.agency_id).maybeSingle()
   const resendKey  = ws?.resend_api_key || process.env.RESEND_API_KEY
-  if (!resendKey)  return res.status(503).json({ error: 'RESEND_API_KEY non configuré' })
-
   const fromEmail  = ws?.from_email || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
   const senderName = ws?.from_name  || agency?.nom_agence || process.env.SENDER_NAME || 'LeadQualif'
   const label      = DOCUMENT_TYPE_LABELS[doc.type] || 'Document'
@@ -448,28 +550,40 @@ async function handleSendDocumentEmail(req, res, supabase, user) {
     emailHtml = `<div style="font-family:sans-serif;max-width:700px;margin:0 auto;"><div style="background:#1e3a5f;color:#fff;padding:20px 28px;border-radius:12px 12px 0 0;"><h1 style="margin:0;font-size:18px;">📄 ${label}${doc.reference ? ' — ' + doc.reference : ''}</h1><p style="margin:6px 0 0;font-size:12px;opacity:.75;">De la part de ${senderName}</p></div><div style="background:#fff;padding:20px 28px;border-radius:0 0 12px 12px;">${docHtml}</div></div>`
   }
 
-  const payload = { from: `${senderName} <${fromEmail}>`, to: doc.client_email, subject, html: emailHtml }
-  if (attachments.length) payload.attachments = attachments
-
-  const sendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const sendData = await sendRes.json()
-  if (!sendRes.ok) throw new Error(`Resend ${sendRes.status}: ${sendData.message || JSON.stringify(sendData)}`)
+  // Envoi : OAuth Google/Microsoft > SMTP > Resend (les pièces jointes PDF ne sont supportées que via Resend)
+  let sentResult
+  if (attachments.length) {
+    // Pièces jointes PDF → uniquement via Resend
+    if (!resendKey) throw new Error('Resend requis pour les pièces jointes PDF (RESEND_API_KEY)')
+    const payload = { from: `${senderName} <${fromEmail}>`, to: doc.client_email, subject, html: emailHtml, attachments }
+    const sendRes  = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const sendData = await sendRes.json()
+    if (!sendRes.ok) throw new Error(`Resend ${sendRes.status}: ${sendData.message || JSON.stringify(sendData)}`)
+    sentResult = { provider: 'resend', email: fromEmail }
+  } else {
+    sentResult = await sendEmailAny({
+      supabase, userId: user.id,
+      to: doc.client_email, subject,
+      html: emailHtml, text: `${label}${doc.reference ? ' — ' + doc.reference : ''} — Consulter en ligne.`,
+      fallbackFrom: fromEmail, fallbackName: senderName, resendKey,
+    })
+  }
 
   await supabase.from('documents').update({ statut: 'envoyé', updated_at: new Date().toISOString() }).eq('id', documentId)
   if (doc.lead_id) {
     await supabase.from('crm_events').insert({
       lead_id: doc.lead_id, agency_id: doc.agency_id, type: 'document',
       title: `📧 ${label} envoyé par email`,
-      description: `${doc.reference || label} — Envoyé à ${doc.client_email}`,
+      description: `${doc.reference || label} — Envoyé à ${doc.client_email} via ${sentResult.provider}`,
       statut: 'complété', created_at: new Date().toISOString(),
     }).catch(() => {})
   }
 
-  return res.status(200).json({ ok: true, sentTo: doc.client_email, mode: attachments.length ? 'PDF joint' : 'HTML inline' })
+  return res.status(200).json({ ok: true, sentTo: doc.client_email, provider: sentResult.provider, mode: attachments.length ? 'PDF joint' : 'HTML inline' })
 }
 
 /* ── Handler principal ────────────────────────────────────────────────────── */
