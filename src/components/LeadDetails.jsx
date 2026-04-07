@@ -146,8 +146,16 @@ const LeadDetails = () => {
   const [emailSending,    setEmailSending]    = useState(false)
 
   // ─── Notes internes ───────────────────────────────────────
-  const [noteText,    setNoteText]    = useState('')
-  const [noteSending, setNoteSending] = useState(false)
+  const [noteText,       setNoteText]       = useState('')
+  const [noteSending,    setNoteSending]    = useState(false)
+  const [noteComposer,   setNoteComposer]   = useState(false)
+
+  // ─── Intégration email active ─────────────────────────────
+  const [emailProvider,  setEmailProvider]  = useState(null) // 'google'|'microsoft'|'smtp'|null
+
+  // ─── Calendar sync (RDV) ──────────────────────────────────
+  const [rdvCalendarSync, setRdvCalendarSync] = useState(true)
+  const [rdvCalendarProvider, setRdvCalendarProvider] = useState(null) // 'google'|'microsoft'|null
 
   // ─── Modal RDV ────────────────────────────────────────────
   const [rdvModal,      setRdvModal]      = useState(false)
@@ -166,8 +174,31 @@ const LeadDetails = () => {
   const [agentLoading,  setAgentLoading]  = useState(false)
   const [agentResult,   setAgentResult]   = useState(null)
 
-  // ─── Chargement lead + équipe ────────────────────────────
-  useEffect(() => { if (id) { loadLead(); fetchTeam() } }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ─── Chargement lead + équipe + intégrations ─────────────
+  useEffect(() => {
+    if (id) {
+      loadLead(); fetchTeam()
+      // Charger les intégrations email + calendrier actives
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return
+        fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ action: 'get-status' }),
+        }).then(r => r.json()).then(data => {
+          const email = data.email || []
+          const cal   = data.calendar || []
+          const ep = email.find(i => i.provider === 'google') ? 'google'
+                   : email.find(i => i.provider === 'microsoft') ? 'microsoft'
+                   : email.find(i => i.provider === 'smtp') ? 'smtp' : null
+          setEmailProvider(ep)
+          const cp = cal.find(i => i.provider === 'google') ? 'google'
+                   : cal.find(i => i.provider === 'microsoft') ? 'microsoft' : null
+          setRdvCalendarProvider(cp)
+        }).catch(() => {})
+      })
+    }
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadLead = async () => {
     try {
@@ -425,6 +456,8 @@ const LeadDetails = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const scheduledAt = new Date(`${rdvDate}T${rdvTime}`).toISOString()
+
+      // 1. Créer le RDV local + envoyer confirmations WA/email
       const res = await fetch('/api/crm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -433,9 +466,27 @@ const LeadDetails = () => {
       const resData = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(resData.error || 'Erreur création RDV')
       setAppointments(prev => [...prev, resData.appointment])
+
+      // 2. Sync Google/Outlook Calendar si activé
+      if (rdvCalendarSync && rdvCalendarProvider) {
+        fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+          body: JSON.stringify({
+            action:          'create-event',
+            leadId:          id,
+            title:           `${rdvType} — ${lead.nom}`,
+            scheduledAt,
+            durationMinutes: 60,
+            type:            rdvType,
+            notes:           rdvNotes,
+          }),
+        }).catch(() => {}) // non-bloquant — ne pas bloquer si Calendar échoue
+      }
+
       setRdvModal(false)
       setRdvDate(''); setRdvTime('09:00'); setRdvNotes('')
-      logCrm('rdv', 'RDV créé', `${rdvType} le ${new Date(scheduledAt).toLocaleDateString('fr-FR')} à ${rdvTime}`)
+      logCrm('rdv', 'RDV créé', `${rdvType} le ${new Date(scheduledAt).toLocaleDateString('fr-FR')} à ${rdvTime}${rdvCalendarSync && rdvCalendarProvider ? ` · ${rdvCalendarProvider === 'google' ? 'Google Calendar' : 'Outlook'} sync` : ''}`)
       const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
       if (updated) setLead(updated)
     } catch (err) {
@@ -593,11 +644,7 @@ const LeadDetails = () => {
           <div className="flex items-center gap-2 shrink-0">
             {lead.telephone && (
               <button
-                onClick={() => {
-                  const url = buildWAUrl(lead.telephone);
-                  if (url) window.open(url, '_blank');
-                  logCrm('whatsapp', 'Message WhatsApp envoyé');
-                }}
+                onClick={() => { switchTab('messages'); setMsgChannel('whatsapp') }}
                 className="flex items-center gap-1.5 px-3 py-2 bg-green-50 hover:bg-green-100
                            text-green-700 rounded-lg text-xs font-semibold transition-colors border border-green-100"
                 title={`WhatsApp · ${lead.telephone}`}
@@ -607,8 +654,8 @@ const LeadDetails = () => {
             )}
             <button
               onClick={() => {
-                window.open(`tel:${lead.telephone}`, '_blank');
-                logCrm('call', 'Appel téléphonique');
+                if (lead.telephone) window.open(`tel:${lead.telephone}`, '_blank')
+                logCrm('call', 'Appel téléphonique')
               }}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100
                          text-blue-600 rounded-lg text-xs font-semibold transition-colors border border-blue-100"
@@ -618,14 +665,21 @@ const LeadDetails = () => {
             </button>
             <button
               onClick={() => {
-                window.open(`mailto:${lead.email}`, '_blank');
-                logCrm('email', 'Email envoyé');
+                switchTab('messages')
+                setMsgChannel('email')
+                setEmailComposer(true)
+                if (!emailSubject) setEmailSubject(`Message de votre agence`)
               }}
               className="flex items-center gap-1.5 px-3 py-2 bg-orange-50 hover:bg-orange-100
                          text-orange-600 rounded-lg text-xs font-semibold transition-colors border border-orange-100"
-              title="Email"
+              title={`Email${emailProvider ? ` via ${emailProvider === 'google' ? 'Gmail' : emailProvider === 'microsoft' ? 'Outlook' : 'SMTP'}` : ''}`}
             >
               <IconMail /><span className="hidden sm:inline">Email</span>
+              {emailProvider && (
+                <span className="hidden sm:inline text-[10px] bg-orange-100 text-orange-500 px-1 rounded">
+                  {emailProvider === 'google' ? 'Gmail' : emailProvider === 'microsoft' ? 'Outlook' : 'SMTP'}
+                </span>
+              )}
             </button>
             <button
               onClick={() => { fetchTeam(); setRdvModal(true) }}
@@ -1220,7 +1274,22 @@ const LeadDetails = () => {
             {emailComposer && (
               <div className="flex-none bg-white rounded-xl border border-blue-200 shadow-sm p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-blue-700">📧 Nouvel email</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-blue-700">📧 Nouvel email</p>
+                    {emailProvider ? (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                        emailProvider === 'google' ? 'bg-red-100 text-red-600' :
+                        emailProvider === 'microsoft' ? 'bg-blue-100 text-blue-600' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        via {emailProvider === 'google' ? '📨 Gmail' : emailProvider === 'microsoft' ? '📬 Outlook' : '📮 SMTP'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                        ⚠️ Configurez un email dans Intégrations
+                      </span>
+                    )}
+                  </div>
                   <button onClick={() => setEmailComposer(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
                 </div>
                 {!lead.email && (
@@ -1292,22 +1361,51 @@ const LeadDetails = () => {
                 </div>
               )}
 
+              {/* Note interne inline */}
+              {noteComposer && (
+                <div className="bg-yellow-50 rounded-xl border border-yellow-300 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-yellow-800">🔒 Note interne</p>
+                    <button onClick={() => { setNoteComposer(false); setNoteText('') }}
+                      className="text-yellow-500 hover:text-yellow-700 text-lg leading-none">×</button>
+                  </div>
+                  <textarea rows={2} value={noteText} onChange={e => setNoteText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendNote(); setNoteComposer(false) } }}
+                    placeholder="Note visible uniquement par l'équipe… (Entrée pour valider)"
+                    className="w-full resize-none text-sm border border-yellow-200 rounded-lg px-3 py-2
+                               focus:outline-none focus:ring-2 focus:ring-yellow-300 bg-white" />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => { setNoteComposer(false); setNoteText('') }}
+                      className="px-3 py-1 text-xs text-yellow-600 rounded-lg border border-yellow-200">Annuler</button>
+                    <button onClick={() => { sendNote(); setNoteComposer(false) }}
+                      disabled={!noteText.trim() || noteSending}
+                      className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-semibold rounded-lg disabled:opacity-40">
+                      {noteSending ? '⏳' : '💾 Enregistrer'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Email + Note boutons */}
               <div className="flex gap-2">
                 {(msgChannel === 'all' || msgChannel === 'email') && (
                   <button onClick={() => { setEmailComposer(true); setMsgChannel('email') }}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 hover:bg-blue-100
                                border border-blue-200 rounded-xl text-xs font-semibold text-blue-700 transition-colors">
-                    📧 Nouveau email
+                    📧 Nouvel email
+                    {emailProvider && (
+                      <span className="text-[10px] bg-blue-100 text-blue-400 px-1 rounded">
+                        {emailProvider === 'google' ? 'Gmail' : emailProvider === 'microsoft' ? 'Outlook' : 'SMTP'}
+                      </span>
+                    )}
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    const note = window.prompt('Note interne (visible uniquement par l\'équipe) :')
-                    if (note?.trim()) { setNoteText(note.trim()); setTimeout(sendNote, 0) }
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-yellow-50 hover:bg-yellow-100
-                             border border-yellow-300 rounded-xl text-xs font-semibold text-yellow-700 transition-colors">
+                <button onClick={() => setNoteComposer(n => !n)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 border rounded-xl text-xs font-semibold transition-colors ${
+                    noteComposer
+                      ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
+                      : 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300 text-yellow-700'
+                  }`}>
                   🔒 Note interne
                 </button>
               </div>
@@ -1382,13 +1480,26 @@ const LeadDetails = () => {
             </div>
 
             {/* Confirmations automatiques */}
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-purple-700 mb-1">Confirmations automatiques :</p>
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-purple-700">Confirmations automatiques :</p>
               <div className="space-y-0.5 text-xs text-purple-600">
                 {lead.telephone && <p>✅ WhatsApp envoyé à {lead.telephone}</p>}
-                {lead.email    && <p>✅ Email envoyé à {lead.email}</p>}
+                {lead.email    && <p>✅ Email envoyé à {lead.email}{emailProvider ? ` (${emailProvider === 'google' ? 'Gmail' : emailProvider === 'microsoft' ? 'Outlook' : 'SMTP'})` : ''}</p>}
                 {!lead.telephone && !lead.email && <p>⚠️ Aucun contact disponible</p>}
               </div>
+              {/* Sync calendrier */}
+              <label className={`flex items-center gap-2 cursor-pointer pt-1 border-t border-purple-200 ${!rdvCalendarProvider ? 'opacity-40' : ''}`}>
+                <input type="checkbox"
+                  checked={rdvCalendarSync && !!rdvCalendarProvider}
+                  onChange={e => setRdvCalendarSync(e.target.checked)}
+                  disabled={!rdvCalendarProvider}
+                  className="w-3.5 h-3.5 accent-purple-600" />
+                <span className="text-xs text-purple-700 font-medium">
+                  {rdvCalendarProvider === 'google'    ? '📅 Ajouter à Google Calendar' :
+                   rdvCalendarProvider === 'microsoft' ? '📋 Ajouter à Outlook Calendar' :
+                   '📅 Sync calendrier (non configuré)'}
+                </span>
+              </label>
             </div>
 
             {/* Boutons */}
