@@ -136,7 +136,8 @@ const LeadDetails = () => {
   const [waReply,     setWaReply]     = useState('')
   const [waUnread,    setWaUnread]    = useState(0)
   const [msgChannel,  setMsgChannel]  = useState('all') // 'all' | 'whatsapp' | 'email' | 'internal'
-  const waMsgEndRef = useRef(null)
+  const waMsgEndRef    = useRef(null)
+  const msgContainerRef = useRef(null)
 
   // ─── Email composer ───────────────────────────────────────
   const [emailComposer,   setEmailComposer]   = useState(false)
@@ -643,6 +644,10 @@ const LeadDetails = () => {
         await fetchMessages()
         setEmailUnread(prev => prev + json.fetched)
         showToast(`📬 ${json.fetched} nouveau${json.fetched > 1 ? 'x' : ''} email${json.fetched > 1 ? 's' : ''} reçu${json.fetched > 1 ? 's' : ''}`)
+        // Scroller en bas après un court délai (les nouveaux emails sont à created_at=now())
+        setTimeout(() => {
+          waMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }, 150)
       }
     } catch {}
     finally { setFetchingInbox(false) }
@@ -1286,7 +1291,18 @@ const LeadDetails = () => {
 
             {/* ── Bouton actualiser inbox (canal email) ── */}
             {(msgChannel === 'email' || msgChannel === 'all') && emailProvider && (
-              <div className="flex justify-end px-1 -mt-1 mb-1">
+              <div className="flex items-center justify-between px-1 -mt-1 mb-1">
+                {emailUnread > 0 ? (
+                  <button
+                    onClick={() => {
+                      msgContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                      setEmailUnread(0)
+                    }}
+                    className="flex items-center gap-1 text-[11px] bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg font-semibold transition-colors"
+                  >
+                    ⬆ {emailUnread} email{emailUnread > 1 ? 's' : ''} reçu{emailUnread > 1 ? 's' : ''} — voir
+                  </button>
+                ) : <span />}
                 <button
                   onClick={() => fetchInbox(true)}
                   disabled={fetchingInbox}
@@ -1298,7 +1314,7 @@ const LeadDetails = () => {
             )}
 
             {/* ── Fil de messages ── */}
-            <div className="flex-1 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+            <div ref={msgContainerRef} className="flex-1 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
               {waLoading && (
                 <div className="text-center text-slate-400 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-2" />
