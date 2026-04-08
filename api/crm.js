@@ -123,15 +123,31 @@ async function _refreshMicrosoftToken(integration, supabase, userId) {
   return newToken
 }
 
+/** Encode un header RFC 2047 si non-ASCII (Subject, From display name…) */
+function _rfc2047(str = '') {
+  // Si tout est ASCII on renvoie tel quel
+  if (/^[\x20-\x7E]*$/.test(str)) return str
+  return `=?UTF-8?B?${Buffer.from(str).toString('base64')}?=`
+}
+
+/** Extrait l'adresse email pure depuis "Nom Prénom <addr@domain>" ou "addr@domain" */
+function _extractEmail(str = '') {
+  const m = str.match(/<([^>]+)>/)
+  return (m ? m[1] : str).trim().toLowerCase()
+}
+
 /** Gmail API (OAuth Google) — avec refresh automatique si token expiré */
 async function _sendViaGmail(to, subject, html, text, integration, supabase, userId) {
   const buildRaw = () => {
+    const toAddr   = _extractEmail(to)
+    const fromAddr = _extractEmail(integration.email)
     const mime = [
-      `From: ${integration.email}`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
+      `From: ${fromAddr}`,
+      `To: ${toAddr}`,
+      `Subject: ${_rfc2047(subject)}`,
       'MIME-Version: 1.0',
       'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: quoted-printable',
       '',
       html,
     ].join('\r\n')
@@ -173,7 +189,7 @@ async function _sendViaMicrosoft(to, subject, html, text, integration, supabase,
       message: {
         subject,
         body: { contentType: 'HTML', content: html },
-        toRecipients: [{ emailAddress: { address: to } }],
+        toRecipients: [{ emailAddress: { address: _extractEmail(to) } }],
       },
       saveToSentItems: true,
     }),
