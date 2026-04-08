@@ -61,23 +61,102 @@ function _decryptSmtpPwd(encoded) {
   } catch { return null }
 }
 
-/** Gmail API (OAuth Google) */
-async function _sendViaGmail(to, subject, html, text, integration) {
-  const mime = [
-    `From: ${integration.email}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=utf-8',
-    '',
-    html,
-  ].join('\r\n')
-  const raw = Buffer.from(mime).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'')
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${integration.access_token}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ raw }),
+/** Rafraîchit le token Google et met à jour la base */
+async function _refreshGoogleToken(integration, supabase, userId) {
+  const clientId     = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  if (!clientId || !clientSecret || !integration.refresh_token)
+    throw new Error('Impossible de rafraîchir le token Google (config manquante)')
+
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     clientId,
+      client_secret: clientSecret,
+      refresh_token: integration.refresh_token,
+      grant_type:    'refresh_token',
+    }).toString(),
   })
+  const d = await r.json()
+  if (!r.ok) throw new Error(`Refresh Google: ${d.error_description || d.error || r.status}`)
+
+  const newToken  = d.access_token
+  const expiresAt = new Date(Date.now() + (d.expires_in || 3600) * 1000).toISOString()
+  // Mettre à jour en base (best-effort, on n'échoue pas si ça rate)
+  await supabase.from('email_integrations')
+    .update({ access_token: newToken, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
+    .eq('user_id', userId).eq('provider', 'google')
+    .catch(e => console.warn('[_refreshGoogleToken] update base échoué:', e.message))
+
+  return newToken
+}
+
+/** Rafraîchit le token Microsoft et met à jour la base */
+async function _refreshMicrosoftToken(integration, supabase, userId) {
+  const clientId     = process.env.MICROSOFT_CLIENT_ID
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+  if (!clientId || !clientSecret || !integration.refresh_token)
+    throw new Error('Impossible de rafraîchir le token Microsoft (config manquante)')
+
+  const r = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     clientId,
+      client_secret: clientSecret,
+      refresh_token: integration.refresh_token,
+      grant_type:    'refresh_token',
+      scope:         'https://graph.microsoft.com/Mail.Send offline_access',
+    }).toString(),
+  })
+  const d = await r.json()
+  if (!r.ok) throw new Error(`Refresh Microsoft: ${d.error_description || d.error || r.status}`)
+
+  const newToken  = d.access_token
+  const expiresAt = new Date(Date.now() + (d.expires_in || 3600) * 1000).toISOString()
+  await supabase.from('email_integrations')
+    .update({ access_token: newToken, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
+    .eq('user_id', userId).eq('provider', 'microsoft')
+    .catch(e => console.warn('[_refreshMicrosoftToken] update base échoué:', e.message))
+
+  return newToken
+}
+
+/** Gmail API (OAuth Google) — avec refresh automatique si token expiré */
+async function _sendViaGmail(to, subject, html, text, integration, supabase, userId) {
+  const buildRaw = () => {
+    const mime = [
+      `From: ${integration.email}`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      html,
+    ].join('\r\n')
+    return Buffer.from(mime).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'')
+  }
+
+  const callGmail = async (token) => fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ raw: buildRaw() }),
+  })
+
+  let res = await callGmail(integration.access_token)
+
+  // Token expiré → on rafraîchit et on réessaie
+  if (res.status === 401 && supabase && userId) {
+    try {
+      const newToken = await _refreshGoogleToken(integration, supabase, userId)
+      res = await callGmail(newToken)
+    } catch (refreshErr) {
+      console.error('[_sendViaGmail] refresh échoué:', refreshErr.message)
+      // On laisse la réponse 401 originale remonter
+    }
+  }
+
   if (!res.ok) {
     const e = await res.json().catch(() => ({}))
     throw new Error(`Gmail API ${res.status}: ${e.error?.message || JSON.stringify(e)}`)
@@ -85,11 +164,11 @@ async function _sendViaGmail(to, subject, html, text, integration) {
   return { provider: 'gmail', email: integration.email }
 }
 
-/** Microsoft Graph API (OAuth Microsoft) */
-async function _sendViaMicrosoft(to, subject, html, text, integration) {
-  const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+/** Microsoft Graph API (OAuth Microsoft) — avec refresh automatique */
+async function _sendViaMicrosoft(to, subject, html, text, integration, supabase, userId) {
+  const callGraph = async (token) => fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
     method:  'POST',
-    headers: { Authorization: `Bearer ${integration.access_token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({
       message: {
         subject,
@@ -99,6 +178,18 @@ async function _sendViaMicrosoft(to, subject, html, text, integration) {
       saveToSentItems: true,
     }),
   })
+
+  let res = await callGraph(integration.access_token)
+
+  if (res.status === 401 && supabase && userId) {
+    try {
+      const newToken = await _refreshMicrosoftToken(integration, supabase, userId)
+      res = await callGraph(newToken)
+    } catch (refreshErr) {
+      console.error('[_sendViaMicrosoft] refresh échoué:', refreshErr.message)
+    }
+  }
+
   if (!res.ok) {
     const e = await res.json().catch(() => ({}))
     throw new Error(`Graph API ${res.status}: ${e.error?.message || ''}`)
@@ -145,8 +236,8 @@ async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbac
   const microsoftInt = integrations?.find(i => i.provider === 'microsoft')
   const smtpInt      = integrations?.find(i => i.provider === 'smtp' && i.smtp_host)
 
-  if (googleInt?.access_token)    return _sendViaGmail(to, subject, html, text, googleInt)
-  if (microsoftInt?.access_token) return _sendViaMicrosoft(to, subject, html, text, microsoftInt)
+  if (googleInt?.access_token)    return _sendViaGmail(to, subject, html, text, googleInt, supabase, userId)
+  if (microsoftInt?.access_token) return _sendViaMicrosoft(to, subject, html, text, microsoftInt, supabase, userId)
   if (smtpInt)                    return _sendViaSmtp(to, subject, html, text, smtpInt)
 
   // Fallback Resend
