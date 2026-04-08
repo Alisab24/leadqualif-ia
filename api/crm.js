@@ -239,6 +239,15 @@ async function _sendViaSmtp(to, subject, html, text, integration) {
  * @param {object} opts - { supabase, userId, agencyId, to, subject, html, text, fallbackFrom, fallbackName, resendKey }
  */
 async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbackFrom, fallbackName, resendKey }) {
+  // Valider l'adresse email destinataire
+  const cleanTo = _extractEmail(to || '')
+  if (!cleanTo || !cleanTo.includes('@') || !cleanTo.includes('.')) {
+    throw Object.assign(
+      new Error(`Adresse email invalide : "${cleanTo || to}". Mettez à jour la fiche du lead.`),
+      { status: 400 }
+    )
+  }
+
   // Récupérer les intégrations actives de l'agent
   const { data: integrations, error: intError } = await supabase
     .from('email_integrations')
@@ -260,7 +269,7 @@ async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbac
         googleInt.access_token = newToken
       } catch (e) { console.warn('[sendEmailAny] refresh Google proactif échoué:', e.message) }
     }
-    return _sendViaGmail(to, subject, html, text, googleInt, supabase, userId)
+    return _sendViaGmail(cleanTo, subject, html, text, googleInt, supabase, userId)
   }
   if (microsoftInt?.access_token) {
     if (microsoftInt.token_expires_at && new Date(microsoftInt.token_expires_at) < new Date(Date.now() + 5 * 60 * 1000)) {
@@ -269,16 +278,16 @@ async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbac
         microsoftInt.access_token = newToken
       } catch (e) { console.warn('[sendEmailAny] refresh Microsoft proactif échoué:', e.message) }
     }
-    return _sendViaMicrosoft(to, subject, html, text, microsoftInt, supabase, userId)
+    return _sendViaMicrosoft(cleanTo, subject, html, text, microsoftInt, supabase, userId)
   }
-  if (smtpInt)                    return _sendViaSmtp(to, subject, html, text, smtpInt)
+  if (smtpInt)                    return _sendViaSmtp(cleanTo, subject, html, text, smtpInt)
 
   // Fallback Resend
   if (!resendKey) {
     const noProviderMsg = 'Aucun email configuré. Ajoutez une intégration Gmail, Outlook ou SMTP dans Paramètres → Intégrations.'
     throw Object.assign(new Error(noProviderMsg), { code: 'NO_EMAIL_PROVIDER', status: 503 })
   }
-  const result = await sendResendEmail(to, subject, html, text, fallbackFrom, resendKey, fallbackName)
+  const result = await sendResendEmail(cleanTo, subject, html, text, fallbackFrom, resendKey, fallbackName)
   if (result?.statusCode >= 400) throw new Error(result.message || 'Erreur Resend')
   return { provider: 'resend', email: fallbackFrom }
 }
