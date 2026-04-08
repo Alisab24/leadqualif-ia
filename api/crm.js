@@ -825,11 +825,8 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
       try { token = await _refreshGoogleToken(googleInt, supabase, user.id) } catch {}
     }
 
-    // Dernière date de fetch pour éviter doublons
-    const { data: lastMsg } = await supabase.from('conversations')
-      .select('created_at').eq('lead_id', leadId).eq('channel', 'email').eq('direction', 'inbound')
-      .order('created_at', { ascending: false }).limit(1).maybeSingle()
-    const since = lastMsg ? Math.floor(new Date(lastMsg.created_at).getTime() / 1000) - 60 : Math.floor(Date.now()/1000) - 30*24*3600
+    // Toujours chercher les 30 derniers jours - la déduplication via gmail_message_id évite les doublons
+    const since = Math.floor(Date.now()/1000) - 30*24*3600
 
     // Chercher emails de/vers le lead
     const query = encodeURIComponent(`from:${leadEmail} OR to:${leadEmail} after:${since}`)
@@ -883,7 +880,9 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
         }
         const { html, text } = getBody(msg.payload)
         const cleanText = extractEmailText(html, text)
-        const msgDate = dateH ? new Date(dateH).toISOString() : new Date().toISOString()
+        // Utiliser l'heure actuelle + offset pour que les emails apparaissent en bas du fil
+        // (et non en haut avec leur date historique)
+        const insertDate = new Date(Date.now() + newCount * 1000).toISOString()
 
         await supabase.from('conversations').insert({
           lead_id: leadId, agency_id: profile.agency_id,
@@ -892,7 +891,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
           from_email: fromEmail, to_email: _extractEmail(toH),
           sender_name: isInbound ? fromH : null,
           gmail_message_id: gmailId,
-          status: 'received', created_at: msgDate,
+          status: 'received', created_at: insertDate,
           read_at: isInbound ? null : new Date().toISOString(),
         }).select()
 
@@ -945,6 +944,8 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
             const isInbound = fromEmail.toLowerCase() === leadEmail.toLowerCase()
             const cleanText = extractEmailText(parsed.html || '', parsed.text || '')
 
+            // Utiliser l'heure actuelle + offset pour que les emails apparaissent en bas du fil
+            const insertDate = new Date(Date.now() + fetched * 1000).toISOString()
             await supabase.from('conversations').insert({
               lead_id: leadId, agency_id: profile.agency_id,
               channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
@@ -953,7 +954,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
               from_email: fromEmail, to_email: parsed.to?.value?.[0]?.address || '',
               sender_name: isInbound ? parsed.from?.text : null,
               imap_uid: msg.uid,
-              status: 'received', created_at: parsed.date?.toISOString() || new Date().toISOString(),
+              status: 'received', created_at: insertDate,
               read_at: isInbound ? null : new Date().toISOString(),
             })
             fetched++
