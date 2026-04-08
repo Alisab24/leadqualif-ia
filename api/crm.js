@@ -914,7 +914,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
           from_email: fromEmail, to_email: _extractEmail(toH),
           sender_name: isInbound ? fromH : null,
           gmail_message_id: gmailId,
-          status: 'received', created_at: insertDate,
+          status: 'delivered', created_at: insertDate,
           read_at: isInbound ? null : new Date().toISOString(),
         })
 
@@ -986,7 +986,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
               from_email: fromEmail, to_email: parsed.to?.value?.[0]?.address || '',
               sender_name: isInbound ? parsed.from?.text : null,
               imap_uid: msg.uid,
-              status: 'received', created_at: insertDate,
+              status: 'delivered', created_at: insertDate,
               read_at: isInbound ? null : new Date().toISOString(),
             })
             if (insErr) {
@@ -997,7 +997,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
                   channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
                   content: `[${parsed.subject || '(sans objet)'}] ${cleanText}`,
                   sender_name: isInbound ? parsed.from?.text : null,
-                  status: 'received', created_at: insertDate,
+                  status: 'delivered', created_at: insertDate,
                   read_at: isInbound ? null : new Date().toISOString(),
                 })
                 if (!ins2) fetched++
