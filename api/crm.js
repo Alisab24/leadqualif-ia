@@ -226,7 +226,7 @@ async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbac
   // Récupérer les intégrations actives de l'agent
   const { data: integrations, error: intError } = await supabase
     .from('email_integrations')
-    .select('provider,email,access_token,smtp_host,smtp_port,smtp_user,smtp_display_name,smtp_password_enc,smtp_encryption')
+    .select('provider,email,access_token,refresh_token,token_expires_at,smtp_host,smtp_port,smtp_user,smtp_display_name,smtp_password_enc,smtp_encryption')
     .eq('user_id', userId)
     .eq('is_active', true)
 
@@ -236,8 +236,25 @@ async function sendEmailAny({ supabase, userId, to, subject, html, text, fallbac
   const microsoftInt = integrations?.find(i => i.provider === 'microsoft')
   const smtpInt      = integrations?.find(i => i.provider === 'smtp' && i.smtp_host)
 
-  if (googleInt?.access_token)    return _sendViaGmail(to, subject, html, text, googleInt, supabase, userId)
-  if (microsoftInt?.access_token) return _sendViaMicrosoft(to, subject, html, text, microsoftInt, supabase, userId)
+  // Refresh proactif si le token expire dans moins de 5 minutes
+  if (googleInt?.access_token) {
+    if (googleInt.token_expires_at && new Date(googleInt.token_expires_at) < new Date(Date.now() + 5 * 60 * 1000)) {
+      try {
+        const newToken = await _refreshGoogleToken(googleInt, supabase, userId)
+        googleInt.access_token = newToken
+      } catch (e) { console.warn('[sendEmailAny] refresh Google proactif échoué:', e.message) }
+    }
+    return _sendViaGmail(to, subject, html, text, googleInt, supabase, userId)
+  }
+  if (microsoftInt?.access_token) {
+    if (microsoftInt.token_expires_at && new Date(microsoftInt.token_expires_at) < new Date(Date.now() + 5 * 60 * 1000)) {
+      try {
+        const newToken = await _refreshMicrosoftToken(microsoftInt, supabase, userId)
+        microsoftInt.access_token = newToken
+      } catch (e) { console.warn('[sendEmailAny] refresh Microsoft proactif échoué:', e.message) }
+    }
+    return _sendViaMicrosoft(to, subject, html, text, microsoftInt, supabase, userId)
+  }
   if (smtpInt)                    return _sendViaSmtp(to, subject, html, text, smtpInt)
 
   // Fallback Resend

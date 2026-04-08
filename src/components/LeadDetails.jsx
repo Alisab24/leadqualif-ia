@@ -157,6 +157,13 @@ const LeadDetails = () => {
   const [rdvCalendarSync, setRdvCalendarSync] = useState(true)
   const [rdvCalendarProvider, setRdvCalendarProvider] = useState(null) // 'google'|'microsoft'|null
 
+  // ─── Toast ───────────────────────────────────────────────
+  const [toast, setToast] = useState(null) // { msg, type: 'success'|'error' }
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 4000)
+  }
+
   // ─── Modal RDV ────────────────────────────────────────────
   const [rdvModal,      setRdvModal]      = useState(false)
   const [rdvDate,       setRdvDate]       = useState('')
@@ -380,7 +387,7 @@ const LeadDetails = () => {
     } catch (err) {
       setAllMsgs(prev => prev.filter(m => m.id !== tempId))
       setWaReply(text)
-      alert(`❌ ${err.message}`)
+      showToast(`❌ ${err.message}`, 'error')
     } finally {
       setWaSending(false)
     }
@@ -414,7 +421,7 @@ const LeadDetails = () => {
       logCrm('email', 'Email envoyé', emailSubject.trim())
     } catch (err) {
       setAllMsgs(prev => prev.filter(m => m.id !== tempId))
-      alert(`❌ ${err.message}`)
+      showToast(`❌ ${err.message}`, 'error')
     } finally {
       setEmailSending(false)
     }
@@ -443,7 +450,7 @@ const LeadDetails = () => {
       setAllMsgs(prev => [...prev, conv])
     } catch (err) {
       setNoteText(text)
-      alert(`❌ ${err.message}`)
+      showToast(`❌ ${err.message}`, 'error')
     } finally {
       setNoteSending(false)
     }
@@ -490,7 +497,7 @@ const LeadDetails = () => {
       const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
       if (updated) setLead(updated)
     } catch (err) {
-      alert(`❌ ${err.message}`)
+      showToast(`❌ ${err.message}`, 'error')
     } finally {
       setRdvSaving(false)
     }
@@ -598,6 +605,14 @@ const LeadDetails = () => {
   /* ───────────────────────────────────────────────────────── */
   return (
     <>
+    {/* ── Toast notification ──────────────────────────────── */}
+    {toast && (
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-white text-sm font-semibold flex items-center gap-2 transition-all ${
+        toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'
+      }`}>
+        {toast.type === 'error' ? '❌' : '✅'} {toast.msg}
+      </div>
+    )}
     <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
 
       {/* ── HEADER ─────────────────────────────────────────── */}
