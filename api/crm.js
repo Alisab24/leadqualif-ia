@@ -201,20 +201,36 @@ async function _sendViaGmail(to, subject, html, text, integration, supabase, use
 
   let res = await callGmail(integration.access_token)
 
-  // Token expiré → on rafraîchit et on réessaie
+  // Token expiré (401) → on rafraîchit et on réessaie
   if (res.status === 401 && supabase && userId) {
+    let refreshed = false
     try {
       const newToken = await _refreshGoogleToken(integration, supabase, userId)
       res = await callGmail(newToken)
+      refreshed = true
     } catch (refreshErr) {
       console.error('[_sendViaGmail] refresh échoué:', refreshErr.message)
-      // On laisse la réponse 401 originale remonter
+    }
+    // Si le refresh a échoué ou si après refresh c'est encore 401 → message actionnable
+    if (!refreshed || res.status === 401) {
+      throw Object.assign(
+        new Error('Votre connexion Gmail a expiré. Reconnectez votre compte dans Paramètres → Intégrations → Email.'),
+        { status: 401, code: 'TOKEN_EXPIRED' }
+      )
     }
   }
 
   if (!res.ok) {
     const e = await res.json().catch(() => ({}))
-    throw new Error(`Gmail API ${res.status}: ${e.error?.message || JSON.stringify(e)}`)
+    const msg = e.error?.message || JSON.stringify(e)
+    // 401 sans refresh possible → même message actionnable
+    if (res.status === 401) {
+      throw Object.assign(
+        new Error('Votre connexion Gmail a expiré. Reconnectez votre compte dans Paramètres → Intégrations → Email.'),
+        { status: 401, code: 'TOKEN_EXPIRED' }
+      )
+    }
+    throw new Error(`Gmail ${res.status}: ${msg}`)
   }
   return { provider: 'gmail', email: integration.email }
 }
@@ -237,17 +253,26 @@ async function _sendViaMicrosoft(to, subject, html, text, integration, supabase,
   let res = await callGraph(integration.access_token)
 
   if (res.status === 401 && supabase && userId) {
+    let refreshed = false
     try {
       const newToken = await _refreshMicrosoftToken(integration, supabase, userId)
       res = await callGraph(newToken)
+      refreshed = true
     } catch (refreshErr) {
       console.error('[_sendViaMicrosoft] refresh échoué:', refreshErr.message)
+    }
+    if (!refreshed || res.status === 401) {
+      throw Object.assign(
+        new Error('Votre connexion Outlook a expiré. Reconnectez votre compte dans Paramètres → Intégrations → Email.'),
+        { status: 401, code: 'TOKEN_EXPIRED' }
+      )
     }
   }
 
   if (!res.ok) {
     const e = await res.json().catch(() => ({}))
-    throw new Error(`Graph API ${res.status}: ${e.error?.message || ''}`)
+    if (res.status === 401) throw Object.assign(new Error('Votre connexion Outlook a expiré. Reconnectez votre compte dans Paramètres → Intégrations → Email.'), { status: 401 })
+    throw new Error(`Outlook ${res.status}: ${e.error?.message || ''}`)
   }
   return { provider: 'microsoft', email: integration.email }
 }

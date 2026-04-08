@@ -436,7 +436,13 @@ const LeadDetails = () => {
       logCrm('email', 'Email envoyé', emailSubject.trim())
     } catch (err) {
       setAllMsgs(prev => prev.filter(m => m.id !== tempId))
-      showToast(`❌ ${err.message}`, 'error')
+      // Erreur token expiré → afficher lien vers Intégrations
+      if (err.message?.includes('expiré') || err.message?.includes('expired') || err.message?.includes('Reconnectez')) {
+        setToast({ msg: err.message, type: 'error', action: { label: '→ Intégrations', href: '/settings/integrations' } })
+        setTimeout(() => setToast(null), 8000)
+      } else {
+        showToast(`❌ ${err.message}`, 'error')
+      }
     } finally {
       setEmailSending(false)
     }
@@ -672,10 +678,15 @@ const LeadDetails = () => {
     <>
     {/* ── Toast notification ──────────────────────────────── */}
     {toast && (
-      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-white text-sm font-semibold flex items-center gap-2 transition-all ${
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-white text-sm font-semibold flex items-center gap-3 transition-all max-w-sm text-center ${
         toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'
       }`}>
-        {toast.type === 'error' ? '❌' : '✅'} {toast.msg}
+        <span>{toast.type === 'error' ? '❌' : '✅'} {toast.msg}</span>
+        {toast.action && (
+          <a href={toast.action.href} className="shrink-0 bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors whitespace-nowrap">
+            {toast.action.label}
+          </a>
+        )}
       </div>
     )}
     {/* ── Modal email complet ─────────────────────────────── */}
