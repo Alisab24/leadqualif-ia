@@ -164,6 +164,14 @@ const LeadDetails = () => {
     setTimeout(() => setToast(null), 4000)
   }
 
+  // ─── Modal email complet ──────────────────────────────────
+  const [emailModal, setEmailModal] = useState(null) // msg object
+
+  // ─── Polling inbox ────────────────────────────────────────
+  const [fetchingInbox, setFetchingInbox] = useState(false)
+  const [emailUnread, setEmailUnread]     = useState(0)
+  const lastInboxFetch = useRef(0)
+
   // ─── Modal RDV ────────────────────────────────────────────
   const [rdvModal,      setRdvModal]      = useState(false)
   const [rdvDate,       setRdvDate]       = useState('')
@@ -361,6 +369,13 @@ const LeadDetails = () => {
       waMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [allMsgs, activeTab])
+
+  // Polling inbox quand on bascule sur le canal email
+  useEffect(() => {
+    if (activeTab === 'messages' && (msgChannel === 'email' || msgChannel === 'all') && emailProvider) {
+      fetchInbox()
+    }
+  }, [activeTab, msgChannel, emailProvider])
 
   const sendWaMessage = async () => {
     if (!waReply.trim() || waSending) return
@@ -602,6 +617,56 @@ const LeadDetails = () => {
   const agencyId = agencyProfile?.agency_id || agencyProfile?.id
   const agencyType = agencyProfile?.type_agence || null
 
+  // ─── Fetch inbox emails ───────────────────────────────────
+  const fetchInbox = async (force = false) => {
+    if (!id || fetchingInbox) return
+    const now = Date.now()
+    if (!force && now - lastInboxFetch.current < 120_000) return // throttle 2min
+    lastInboxFetch.current = now
+    setFetchingInbox(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: 'fetch-email-inbox', leadId: id }),
+      })
+      const json = await res.json()
+      if (json.fetched > 0) {
+        await fetchMessages()
+        setEmailUnread(prev => prev + json.fetched)
+        showToast(`📬 ${json.fetched} nouveau${json.fetched > 1 ? 'x' : ''} email${json.fetched > 1 ? 's' : ''} reçu${json.fetched > 1 ? 's' : ''}`)
+      }
+    } catch {}
+    finally { setFetchingInbox(false) }
+  }
+
+  // ─── Helper affichage email ───────────────────────────────
+  const cleanContent = (content = '') => {
+    if (!content) return ''
+    // Décode base64 si nécessaire
+    if (/^[A-Za-z0-9+/\-_]{20,}={0,2}$/.test(content.replace(/\s/g, ''))) {
+      try {
+        const dec = atob(content.replace(/-/g,'+').replace(/_/g,'/'))
+        if (/[\x20-\x7E]/.test(dec)) return dec
+      } catch {}
+    }
+    // Décode quoted-printable
+    if (content.includes('=?') || /=[0-9A-Fa-f]{2}/.test(content)) {
+      return content
+        .replace(/=\r?\n/g, '')
+        .replace(/=([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    }
+    return content
+  }
+
+  const previewContent = (content = '', lines = 2) => {
+    const clean = cleanContent(content)
+    const rows = clean.split('\n').filter(l => l.trim()).slice(0, lines)
+    return rows.join(' ').slice(0, 160) + (clean.length > 160 ? '…' : '')
+  }
+
   /* ───────────────────────────────────────────────────────── */
   return (
     <>
@@ -611,6 +676,63 @@ const LeadDetails = () => {
         toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'
       }`}>
         {toast.type === 'error' ? '❌' : '✅'} {toast.msg}
+      </div>
+    )}
+    {/* ── Modal email complet ─────────────────────────────── */}
+    {emailModal && (
+      <div className="fixed inset-0 z-[9998] bg-black/50 flex items-center justify-center p-4" onClick={() => setEmailModal(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          {/* Header modal */}
+          <div className="flex items-start justify-between px-6 py-4 border-b border-slate-200">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm">📧</span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${emailModal.direction === 'inbound' ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}`}>
+                  {emailModal.direction === 'inbound' ? 'Reçu' : 'Envoyé'}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {new Date(emailModal.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 truncate">{emailModal.subject || '(sans objet)'}</h3>
+              {emailModal.direction === 'inbound' && emailModal.from_email && (
+                <p className="text-xs text-slate-500 mt-0.5">De : {emailModal.sender_name || emailModal.from_email}</p>
+              )}
+            </div>
+            <button onClick={() => setEmailModal(null)} className="text-slate-400 hover:text-slate-700 ml-4 text-lg leading-none">✕</button>
+          </div>
+          {/* Corps email */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {emailModal.html_content ? (
+              <div
+                className="prose prose-sm max-w-none text-slate-800"
+                dangerouslySetInnerHTML={{ __html: emailModal.html_content }}
+              />
+            ) : (
+              <pre className="text-sm text-slate-800 whitespace-pre-wrap break-words font-sans leading-relaxed">
+                {cleanContent(emailModal.content)}
+              </pre>
+            )}
+          </div>
+          {/* Pied modal */}
+          <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+            <button
+              onClick={() => {
+                setEmailComposer(true)
+                setEmailSubject(`Re: ${emailModal.subject || ''}`)
+                setEmailThreadId(emailModal.email_thread_id)
+                setMsgChannel('email')
+                setEmailModal(null)
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              ↩ Répondre
+            </button>
+            <button onClick={() => setEmailModal(null)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg transition-colors">
+              Fermer
+            </button>
+          </div>
+        </div>
       </div>
     )}
     <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
@@ -1120,18 +1242,28 @@ const LeadDetails = () => {
               {[
                 { key: 'all',      label: '💬 Tous',      count: allMsgs.length },
                 { key: 'whatsapp', label: '🟢 WhatsApp',  count: allMsgs.filter(m => m.channel === 'whatsapp' && m.direction !== 'internal').length },
-                { key: 'email',    label: '📧 Email',     count: allMsgs.filter(m => m.channel === 'email').length },
+                { key: 'email',    label: '📧 Email',     count: allMsgs.filter(m => m.channel === 'email').length, unread: emailUnread },
                 { key: 'internal', label: '🔒 Notes',     count: allMsgs.filter(m => m.direction === 'internal').length },
               ].map(ch => (
                 <button key={ch.key}
-                  onClick={() => setMsgChannel(ch.key)}
+                  onClick={() => {
+                    setMsgChannel(ch.key)
+                    if (ch.key === 'email') setEmailUnread(0)
+                  }}
                   className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     msgChannel === ch.key
                       ? 'bg-indigo-600 text-white shadow'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  {ch.label}
+                  <span className="relative">
+                    {ch.label}
+                    {ch.unread > 0 && (
+                      <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {ch.unread}
+                      </span>
+                    )}
+                  </span>
                   {ch.count > 0 && (
                     <span className={`text-[10px] px-1 rounded-full ${msgChannel === ch.key ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
                       {ch.count}
@@ -1140,6 +1272,19 @@ const LeadDetails = () => {
                 </button>
               ))}
             </div>
+
+            {/* ── Bouton actualiser inbox (canal email) ── */}
+            {(msgChannel === 'email' || msgChannel === 'all') && emailProvider && (
+              <div className="flex justify-end px-1 -mt-1 mb-1">
+                <button
+                  onClick={() => fetchInbox(true)}
+                  disabled={fetchingInbox}
+                  className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors disabled:opacity-50"
+                >
+                  {fetchingInbox ? <span className="animate-spin">⏳</span> : '🔄'} Actualiser la boîte mail
+                </button>
+              </div>
+            )}
 
             {/* ── Fil de messages ── */}
             <div className="flex-1 overflow-auto bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
@@ -1180,40 +1325,59 @@ const LeadDetails = () => {
                 )
 
                 // ── Email ──
-                if (isEmail) return (
-                  <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl shadow-sm border text-sm ${
-                      isOut ? 'bg-blue-600 text-white border-blue-700 rounded-br-sm' : 'bg-white border-slate-200 rounded-bl-sm'
-                    }`}>
-                      <div className={`px-4 pt-3 pb-1 border-b ${isOut ? 'border-blue-500' : 'border-slate-100'}`}>
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-xs opacity-80">📧</span>
-                          <span className={`text-[10px] font-semibold uppercase tracking-wide ${isOut ? 'text-blue-100' : 'text-slate-400'}`}>Email</span>
+                if (isEmail) {
+                  const preview = previewContent(msg.content, 2)
+                  return (
+                    <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[82%] rounded-2xl shadow-sm border text-sm overflow-hidden ${
+                        isOut ? 'bg-blue-600 border-blue-700 rounded-br-sm' : 'bg-white border-slate-200 rounded-bl-sm'
+                      }`}>
+                        {/* Header bulle */}
+                        <div className={`px-4 pt-3 pb-2 border-b flex items-start gap-2 ${isOut ? 'border-blue-500' : 'border-slate-100'}`}>
+                          <span className="text-sm mt-0.5">📧</span>
+                          <div className="flex-1 min-w-0">
+                            {!isOut && msg.from_email && (
+                              <p className="text-[10px] text-slate-400 truncate mb-0.5">De : {msg.sender_name || msg.from_email}</p>
+                            )}
+                            <p className={`text-xs font-bold truncate ${isOut ? 'text-white' : 'text-slate-800'}`}>
+                              {msg.subject || '(sans objet)'}
+                            </p>
+                          </div>
                         </div>
-                        <p className={`text-xs font-bold truncate ${isOut ? 'text-white' : 'text-slate-800'}`}>{msg.subject || '(sans objet)'}</p>
-                      </div>
-                      <div className="px-4 py-2.5">
-                        <p className={`leading-relaxed whitespace-pre-wrap break-words ${isOut ? 'text-white' : 'text-slate-700'}`}>{msg.content}</p>
-                        <div className={`flex items-center justify-between mt-2 ${isOut ? 'text-blue-200' : 'text-slate-400'}`}>
-                          <p className="text-[10px]">{day} {time}</p>
-                          {!isOut && (
-                            <button
-                              onClick={() => {
-                                setEmailComposer(true)
-                                setEmailSubject(`Re: ${msg.subject || ''}`)
-                                setEmailThreadId(msg.email_thread_id)
-                                setMsgChannel('email')
-                              }}
-                              className="text-[10px] underline hover:text-indigo-600 transition-colors"
-                            >
-                              ↩ Répondre
-                            </button>
-                          )}
+                        {/* Preview */}
+                        <div className="px-4 py-2.5">
+                          <p className={`text-xs leading-relaxed line-clamp-2 ${isOut ? 'text-blue-100' : 'text-slate-500'}`}>
+                            {preview || '—'}
+                          </p>
+                          <div className={`flex items-center justify-between mt-2.5 ${isOut ? 'text-blue-200' : 'text-slate-400'}`}>
+                            <p className="text-[10px]">{day} {time}</p>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setEmailModal(msg)}
+                                className={`text-[10px] underline font-medium transition-colors ${isOut ? 'text-blue-200 hover:text-white' : 'text-blue-500 hover:text-blue-700'}`}
+                              >
+                                Voir l'email complet ▼
+                              </button>
+                              {!isOut && (
+                                <button
+                                  onClick={() => {
+                                    setEmailComposer(true)
+                                    setEmailSubject(`Re: ${msg.subject || ''}`)
+                                    setEmailThreadId(msg.email_thread_id)
+                                    setMsgChannel('email')
+                                  }}
+                                  className="text-[10px] text-slate-400 hover:text-indigo-600 underline transition-colors"
+                                >
+                                  ↩ Répondre
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
+                  )
+                }
 
                 // ── WhatsApp (normal ou agent IA) ──
                 return (

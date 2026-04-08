@@ -8,6 +8,45 @@
 import { createClient }                              from '@supabase/supabase-js'
 import { createDecipheriv, createHash }             from 'crypto'
 import nodemailer                                   from 'nodemailer'
+import { ImapFlow }                                 from 'imapflow'
+import { simpleParser }                             from 'mailparser'
+
+/* ── Helpers encodage email ───────────────────────────────────────────────── */
+
+/** Décode un corps email (base64url/base64/quoted-printable) → texte propre */
+function decodeEmailBody(raw = '', encoding = '') {
+  if (!raw) return ''
+  try {
+    const enc = (encoding || '').toLowerCase()
+    if (enc === 'base64' || /^[A-Za-z0-9+/\-_]+=*$/.test(raw.replace(/\s/g, ''))) {
+      const normalized = raw.replace(/-/g,'+').replace(/_/g,'/').replace(/\s/g,'')
+      const decoded = Buffer.from(normalized, 'base64').toString('utf-8')
+      if (decoded && decoded.length > 0 && /[\x20-\x7E\u00C0-\u024F]/.test(decoded)) return decoded
+    }
+    if (enc === 'quoted-printable' || raw.includes('=?')) {
+      return raw
+        .replace(/=\r?\n/g, '')
+        .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    }
+    return raw
+  } catch { return raw }
+}
+
+/** Extrait le texte lisible d'un email (HTML → texte, nettoyage) */
+function extractEmailText(html = '', text = '') {
+  if (text) return text.trim()
+  if (!html) return ''
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
 /* ── Helpers communs ──────────────────────────────────────────────────────── */
 function formatDateFr(iso) {
@@ -726,6 +765,187 @@ async function handleSendDocumentEmail(req, res, supabase, user) {
   return res.status(200).json({ ok: true, sentTo: doc.client_email, provider: sentResult.provider, mode: attachments.length ? 'PDF joint' : 'HTML inline' })
 }
 
+/* ── Action : fetch-email-inbox (Gmail API polling) ─────────────────────── */
+async function handleFetchEmailInbox(req, res, supabase, user) {
+  const { leadId } = req.body || {}
+  if (!leadId) return res.status(400).json({ error: 'leadId requis' })
+
+  const { data: profile } = await supabase.from('profiles')
+    .select('agency_id').eq('user_id', user.id).single()
+  if (!profile?.agency_id) return res.status(403).json({ error: 'Agence introuvable' })
+
+  const { data: lead } = await supabase.from('leads')
+    .select('id, email, agency_id').eq('id', leadId).eq('agency_id', profile.agency_id).single()
+  if (!lead?.email) return res.status(200).json({ fetched: 0, provider: null })
+
+  const leadEmail = _extractEmail(lead.email)
+  if (!leadEmail.includes('@')) return res.status(200).json({ fetched: 0, provider: null })
+
+  // Récupérer l'intégration email active (avec refresh_token)
+  const { data: integrations } = await supabase.from('email_integrations')
+    .select('provider,email,access_token,refresh_token,token_expires_at,smtp_host,smtp_port,smtp_user,smtp_password_enc,smtp_encryption')
+    .eq('user_id', user.id).eq('is_active', true)
+
+  const googleInt    = integrations?.find(i => i.provider === 'google')
+  const microsoftInt = integrations?.find(i => i.provider === 'microsoft')
+  const smtpInt      = integrations?.find(i => i.provider === 'smtp' && i.smtp_host)
+
+  let newCount = 0
+
+  // ── Gmail polling ──────────────────────────────────────────
+  if (googleInt?.access_token) {
+    // Refresh proactif si expiré
+    let token = googleInt.access_token
+    if (googleInt.token_expires_at && new Date(googleInt.token_expires_at) < new Date(Date.now() + 60000)) {
+      try { token = await _refreshGoogleToken(googleInt, supabase, user.id) } catch {}
+    }
+
+    // Dernière date de fetch pour éviter doublons
+    const { data: lastMsg } = await supabase.from('conversations')
+      .select('created_at').eq('lead_id', leadId).eq('channel', 'email').eq('direction', 'inbound')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    const since = lastMsg ? Math.floor(new Date(lastMsg.created_at).getTime() / 1000) - 60 : Math.floor(Date.now()/1000) - 30*24*3600
+
+    // Chercher emails de/vers le lead
+    const query = encodeURIComponent(`from:${leadEmail} OR to:${leadEmail} after:${since}`)
+    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=20`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!listRes.ok) return res.status(200).json({ fetched: 0, provider: 'google', error: 'Gmail list failed' })
+    const listData = await listRes.json()
+    const messages = listData.messages || []
+
+    // Récupérer les IDs déjà stockés pour éviter doublons
+    const { data: existing } = await supabase.from('conversations')
+      .select('gmail_message_id').eq('lead_id', leadId).eq('channel', 'email')
+      .not('gmail_message_id', 'is', null)
+    const existingIds = new Set((existing || []).map(e => e.gmail_message_id))
+
+    for (const { id: gmailId } of messages) {
+      if (existingIds.has(gmailId)) continue
+      try {
+        const msgRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=full`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!msgRes.ok) continue
+        const msg = await msgRes.json()
+
+        const headers   = msg.payload?.headers || []
+        const getH      = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || ''
+        const fromH     = getH('From')
+        const toH       = getH('To')
+        const subjectH  = getH('Subject')
+        const dateH     = getH('Date')
+        const fromEmail = _extractEmail(fromH)
+        const isInbound = fromEmail.toLowerCase() === leadEmail.toLowerCase()
+
+        // Extraire le corps du message
+        const getBody = (payload) => {
+          if (!payload) return { html: '', text: '' }
+          if (payload.body?.data) {
+            const decoded = Buffer.from(payload.body.data, 'base64').toString('utf-8')
+            return payload.mimeType === 'text/html' ? { html: decoded, text: '' } : { html: '', text: decoded }
+          }
+          if (payload.parts) {
+            let html = '', text = ''
+            for (const p of payload.parts) {
+              if (p.mimeType === 'text/html' && p.body?.data) html = Buffer.from(p.body.data, 'base64').toString('utf-8')
+              if (p.mimeType === 'text/plain' && p.body?.data) text = Buffer.from(p.body.data, 'base64').toString('utf-8')
+            }
+            return { html, text }
+          }
+          return { html: '', text: '' }
+        }
+        const { html, text } = getBody(msg.payload)
+        const cleanText = extractEmailText(html, text)
+        const msgDate = dateH ? new Date(dateH).toISOString() : new Date().toISOString()
+
+        await supabase.from('conversations').insert({
+          lead_id: leadId, agency_id: profile.agency_id,
+          channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
+          subject: subjectH, content: cleanText, html_content: html || null,
+          from_email: fromEmail, to_email: _extractEmail(toH),
+          sender_name: isInbound ? fromH : null,
+          gmail_message_id: gmailId,
+          status: 'received', created_at: msgDate,
+          read_at: isInbound ? null : new Date().toISOString(),
+        }).select()
+
+        newCount++
+      } catch (e) { console.warn('[fetch-email-inbox] msg error:', e.message) }
+    }
+    return res.status(200).json({ fetched: newCount, provider: 'google' })
+  }
+
+  // ── IMAP polling (SMTP) ────────────────────────────────────
+  if (smtpInt) {
+    const password = _decryptSmtpPwd(smtpInt.smtp_password_enc)
+    if (!password) return res.status(200).json({ fetched: 0, provider: 'smtp', error: 'Impossible de déchiffrer le mot de passe' })
+
+    const secureMap = { ssl: true, tls: false, none: false }
+    const portMap   = { ssl: 993, tls: 993, none: 143 }
+    const enc = smtpInt.smtp_encryption || 'tls'
+    // Pour IMAP, on utilise le port IMAP (993 ou 143), pas le port SMTP
+    const imapPort = enc === 'ssl' ? 993 : 143
+
+    const client = new ImapFlow({
+      host: smtpInt.smtp_host,
+      port: imapPort,
+      secure: enc === 'ssl',
+      auth: { user: smtpInt.smtp_user, pass: password },
+      tls: { rejectUnauthorized: false },
+      logger: false,
+    })
+
+    try {
+      await client.connect()
+      const lock = await client.getMailboxLock('INBOX')
+      let fetched = 0
+      try {
+        // Chercher emails non lus + emails du lead
+        const since = new Date(Date.now() - 30*24*3600*1000)
+        const uids = await client.search({ since, from: leadEmail }, { uid: true })
+        const uids2 = await client.search({ since, to: leadEmail }, { uid: true })
+        const allUids = [...new Set([...uids, ...uids2])].slice(-20)
+
+        const { data: existing } = await supabase.from('conversations')
+          .select('imap_uid').eq('lead_id', leadId).eq('channel', 'email').not('imap_uid', 'is', null)
+        const existingUids = new Set((existing || []).map(e => String(e.imap_uid)))
+
+        for await (const msg of client.fetch(allUids, { source: true, uid: true })) {
+          if (existingUids.has(String(msg.uid))) continue
+          try {
+            const parsed = await simpleParser(msg.source)
+            const fromEmail = parsed.from?.value?.[0]?.address || ''
+            const isInbound = fromEmail.toLowerCase() === leadEmail.toLowerCase()
+            const cleanText = extractEmailText(parsed.html || '', parsed.text || '')
+
+            await supabase.from('conversations').insert({
+              lead_id: leadId, agency_id: profile.agency_id,
+              channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
+              subject: parsed.subject || '(sans objet)', content: cleanText,
+              html_content: parsed.html || null,
+              from_email: fromEmail, to_email: parsed.to?.value?.[0]?.address || '',
+              sender_name: isInbound ? parsed.from?.text : null,
+              imap_uid: msg.uid,
+              status: 'received', created_at: parsed.date?.toISOString() || new Date().toISOString(),
+              read_at: isInbound ? null : new Date().toISOString(),
+            })
+            fetched++
+          } catch {}
+        }
+        newCount = fetched
+      } finally { lock.release() }
+      await client.logout()
+    } catch (e) {
+      return res.status(200).json({ fetched: 0, provider: 'smtp', error: e.message })
+    }
+    return res.status(200).json({ fetched: newCount, provider: 'smtp' })
+  }
+
+  return res.status(200).json({ fetched: 0, provider: null })
+}
+
 /* ── Handler principal ────────────────────────────────────────────────────── */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -753,6 +973,7 @@ export default async function handler(req, res) {
     if (action === 'send-email')           return await handleSendEmail(req, res, supabase, user)
     if (action === 'send-whatsapp')        return await handleSendWhatsapp(req, res, supabase, user)
     if (action === 'send-document-email') return await handleSendDocumentEmail(req, res, supabase, user)
+    if (action === 'fetch-email-inbox')   return await handleFetchEmailInbox(req, res, supabase, user)
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[crm/${action}] Erreur:`, err)
