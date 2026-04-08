@@ -881,10 +881,9 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
         const { html, text } = getBody(msg.payload)
         const cleanText = extractEmailText(html, text)
         // Utiliser l'heure actuelle + offset pour que les emails apparaissent en bas du fil
-        // (et non en haut avec leur date historique)
         const insertDate = new Date(Date.now() + newCount * 1000).toISOString()
 
-        await supabase.from('conversations').insert({
+        const { error: insErr } = await supabase.from('conversations').insert({
           lead_id: leadId, agency_id: profile.agency_id,
           channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
           subject: subjectH, content: cleanText, html_content: html || null,
@@ -893,9 +892,26 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
           gmail_message_id: gmailId,
           status: 'received', created_at: insertDate,
           read_at: isInbound ? null : new Date().toISOString(),
-        }).select()
+        })
 
-        newCount++
+        if (insErr) {
+          console.error('[fetch-email-inbox] INSERT FAILED:', insErr.message, insErr.code)
+          // Si colonne manquante → essai sans les colonnes optionnelles
+          if (insErr.code === '42703' || insErr.message?.includes('column')) {
+            const { error: ins2Err } = await supabase.from('conversations').insert({
+              lead_id: leadId, agency_id: profile.agency_id,
+              channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
+              content: `[${subjectH}] ${cleanText}`,
+              sender_name: isInbound ? (fromH || fromEmail) : null,
+              status: 'received', created_at: insertDate,
+              read_at: isInbound ? null : new Date().toISOString(),
+            })
+            if (!ins2Err) newCount++
+            else console.error('[fetch-email-inbox] INSERT FALLBACK FAILED:', ins2Err.message)
+          }
+        } else {
+          newCount++
+        }
       } catch (e) { console.warn('[fetch-email-inbox] msg error:', e.message) }
     }
     return res.status(200).json({ fetched: newCount, provider: 'google' })
@@ -946,7 +962,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
 
             // Utiliser l'heure actuelle + offset pour que les emails apparaissent en bas du fil
             const insertDate = new Date(Date.now() + fetched * 1000).toISOString()
-            await supabase.from('conversations').insert({
+            const { error: insErr } = await supabase.from('conversations').insert({
               lead_id: leadId, agency_id: profile.agency_id,
               channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
               subject: parsed.subject || '(sans objet)', content: cleanText,
@@ -957,8 +973,23 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
               status: 'received', created_at: insertDate,
               read_at: isInbound ? null : new Date().toISOString(),
             })
-            fetched++
-          } catch {}
+            if (insErr) {
+              console.error('[fetch-email-inbox/imap] INSERT FAILED:', insErr.message, insErr.code)
+              if (insErr.code === '42703' || insErr.message?.includes('column')) {
+                const { error: ins2 } = await supabase.from('conversations').insert({
+                  lead_id: leadId, agency_id: profile.agency_id,
+                  channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
+                  content: `[${parsed.subject || '(sans objet)'}] ${cleanText}`,
+                  sender_name: isInbound ? parsed.from?.text : null,
+                  status: 'received', created_at: insertDate,
+                  read_at: isInbound ? null : new Date().toISOString(),
+                })
+                if (!ins2) fetched++
+              }
+            } else {
+              fetched++
+            }
+          } catch (e) { console.warn('[fetch-email-inbox/imap] parse error:', e.message) }
         }
         newCount = fetched
       } finally { lock.release() }
