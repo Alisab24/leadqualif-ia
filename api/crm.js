@@ -795,73 +795,92 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
   const { leadId } = req.body || {}
   if (!leadId) return res.status(400).json({ error: 'leadId requis' })
 
+  const dbg = [] // journal de debug retourné au client
+
   const { data: profile } = await supabase.from('profiles')
     .select('agency_id').eq('user_id', user.id).single()
   if (!profile?.agency_id) return res.status(403).json({ error: 'Agence introuvable' })
 
   const { data: lead } = await supabase.from('leads')
     .select('id, email, agency_id').eq('id', leadId).eq('agency_id', profile.agency_id).single()
-  if (!lead?.email) return res.status(200).json({ fetched: 0, provider: null })
+  if (!lead?.email) return res.status(200).json({ fetched: 0, provider: null, debug: ['lead.email vide'] })
 
   const leadEmail = _extractEmail(lead.email)
-  if (!leadEmail.includes('@')) return res.status(200).json({ fetched: 0, provider: null })
+  dbg.push(`leadEmail: ${leadEmail}`)
+  if (!leadEmail.includes('@')) return res.status(200).json({ fetched: 0, provider: null, debug: [`email invalide: ${leadEmail}`] })
 
-  // Récupérer l'intégration email active (avec refresh_token)
-  const { data: integrations } = await supabase.from('email_integrations')
+  // Récupérer l'intégration email active
+  const { data: integrations, error: intErr } = await supabase.from('email_integrations')
     .select('provider,email,access_token,refresh_token,token_expires_at,smtp_host,smtp_port,smtp_user,smtp_password_enc,smtp_encryption')
     .eq('user_id', user.id).eq('is_active', true)
 
-  const googleInt    = integrations?.find(i => i.provider === 'google')
-  const microsoftInt = integrations?.find(i => i.provider === 'microsoft')
-  const smtpInt      = integrations?.find(i => i.provider === 'smtp' && i.smtp_host)
+  dbg.push(`intégrations trouvées: ${integrations?.length ?? 0}${intErr ? ' ERR:'+intErr.message : ''}`)
+  integrations?.forEach(i => dbg.push(`  → provider=${i.provider} email=${i.email}`))
+
+  const googleInt = integrations?.find(i => i.provider === 'google')
+  const smtpInt   = integrations?.find(i => i.provider === 'smtp' && i.smtp_host)
 
   let newCount = 0
 
   // ── Gmail polling ──────────────────────────────────────────
   if (googleInt?.access_token) {
+    dbg.push('provider=google → démarrage Gmail poll')
+
     // Refresh proactif si expiré
     let token = googleInt.access_token
     if (googleInt.token_expires_at && new Date(googleInt.token_expires_at) < new Date(Date.now() + 60000)) {
-      try { token = await _refreshGoogleToken(googleInt, supabase, user.id) } catch {}
+      try { token = await _refreshGoogleToken(googleInt, supabase, user.id); dbg.push('token rafraîchi') }
+      catch(e) { dbg.push(`refresh échoué: ${e.message}`) }
     }
 
-    // Toujours chercher les 30 derniers jours - la déduplication via gmail_message_id évite les doublons
-    const since = Math.floor(Date.now()/1000) - 30*24*3600
+    // Date il y a 30 jours au format YYYY/MM/DD (format supporté par Gmail)
+    const sinceDate = new Date(Date.now() - 30*24*3600*1000)
+    const sinceStr  = `${sinceDate.getFullYear()}/${String(sinceDate.getMonth()+1).padStart(2,'0')}/${String(sinceDate.getDate()).padStart(2,'0')}`
+    const query     = encodeURIComponent(`(from:${leadEmail} OR to:${leadEmail}) after:${sinceStr}`)
+    dbg.push(`Gmail query: (from:${leadEmail} OR to:${leadEmail}) after:${sinceStr}`)
 
-    // Chercher emails de/vers le lead
-    const query = encodeURIComponent(`from:${leadEmail} OR to:${leadEmail} after:${since}`)
     const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=20`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    if (!listRes.ok) return res.status(200).json({ fetched: 0, provider: 'google', error: 'Gmail list failed' })
+    const listStatus = listRes.status
+    dbg.push(`Gmail list HTTP ${listStatus}`)
+
+    if (!listRes.ok) {
+      const errBody = await listRes.text()
+      dbg.push(`Gmail list error: ${errBody.slice(0,200)}`)
+      return res.status(200).json({ fetched: 0, provider: 'google', error: `Gmail list HTTP ${listStatus}`, debug: dbg })
+    }
+
     const listData = await listRes.json()
     const messages = listData.messages || []
+    dbg.push(`Gmail messages trouvés: ${messages.length} (resultSizeEstimate=${listData.resultSizeEstimate})`)
 
     // Récupérer les IDs déjà stockés pour éviter doublons
-    const { data: existing } = await supabase.from('conversations')
+    const { data: existing, error: exErr } = await supabase.from('conversations')
       .select('gmail_message_id').eq('lead_id', leadId).eq('channel', 'email')
       .not('gmail_message_id', 'is', null)
+    dbg.push(`existingIds en base: ${existing?.length ?? 0}${exErr ? ' ERR:'+exErr.message : ''}`)
     const existingIds = new Set((existing || []).map(e => e.gmail_message_id))
 
     for (const { id: gmailId } of messages) {
-      if (existingIds.has(gmailId)) continue
+      if (existingIds.has(gmailId)) { dbg.push(`skip (déjà en base): ${gmailId}`); continue }
       try {
         const msgRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=full`, {
           headers: { Authorization: `Bearer ${token}` }
         })
-        if (!msgRes.ok) continue
+        if (!msgRes.ok) { dbg.push(`skip msgGet HTTP ${msgRes.status}: ${gmailId}`); continue }
         const msg = await msgRes.json()
 
-        const headers   = msg.payload?.headers || []
-        const getH      = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || ''
-        const fromH     = getH('From')
-        const toH       = getH('To')
-        const subjectH  = getH('Subject')
-        const dateH     = getH('Date')
+        const headers  = msg.payload?.headers || []
+        const getH     = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || ''
+        const fromH    = getH('From')
+        const toH      = getH('To')
+        const subjectH = getH('Subject')
         const fromEmail = _extractEmail(fromH)
         const isInbound = fromEmail.toLowerCase() === leadEmail.toLowerCase()
+        dbg.push(`msg ${gmailId}: from=${fromEmail} isInbound=${isInbound} subject="${subjectH?.slice(0,30)}"`)
 
-        // Extraire le corps du message
+        // Extraire le corps
         const getBody = (payload) => {
           if (!payload) return { html: '', text: '' }
           if (payload.body?.data) {
@@ -873,6 +892,11 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
             for (const p of payload.parts) {
               if (p.mimeType === 'text/html' && p.body?.data) html = Buffer.from(p.body.data, 'base64').toString('utf-8')
               if (p.mimeType === 'text/plain' && p.body?.data) text = Buffer.from(p.body.data, 'base64').toString('utf-8')
+              // multipart imbriqué
+              if (p.parts) for (const pp of p.parts) {
+                if (pp.mimeType === 'text/html' && pp.body?.data) html = Buffer.from(pp.body.data, 'base64').toString('utf-8')
+                if (pp.mimeType === 'text/plain' && pp.body?.data && !text) text = Buffer.from(pp.body.data, 'base64').toString('utf-8')
+              }
             }
             return { html, text }
           }
@@ -880,13 +904,13 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
         }
         const { html, text } = getBody(msg.payload)
         const cleanText = extractEmailText(html, text)
-        // Utiliser l'heure actuelle + offset pour que les emails apparaissent en bas du fil
         const insertDate = new Date(Date.now() + newCount * 1000).toISOString()
 
         const { error: insErr } = await supabase.from('conversations').insert({
           lead_id: leadId, agency_id: profile.agency_id,
           channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
-          subject: subjectH, content: cleanText, html_content: html || null,
+          subject: subjectH, content: cleanText || '(corps vide)',
+          html_content: html || null,
           from_email: fromEmail, to_email: _extractEmail(toH),
           sender_name: isInbound ? fromH : null,
           gmail_message_id: gmailId,
@@ -895,26 +919,18 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
         })
 
         if (insErr) {
-          console.error('[fetch-email-inbox] INSERT FAILED:', insErr.message, insErr.code)
-          // Si colonne manquante → essai sans les colonnes optionnelles
-          if (insErr.code === '42703' || insErr.message?.includes('column')) {
-            const { error: ins2Err } = await supabase.from('conversations').insert({
-              lead_id: leadId, agency_id: profile.agency_id,
-              channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
-              content: `[${subjectH}] ${cleanText}`,
-              sender_name: isInbound ? (fromH || fromEmail) : null,
-              status: 'received', created_at: insertDate,
-              read_at: isInbound ? null : new Date().toISOString(),
-            })
-            if (!ins2Err) newCount++
-            else console.error('[fetch-email-inbox] INSERT FALLBACK FAILED:', ins2Err.message)
-          }
+          dbg.push(`INSERT FAILED ${gmailId}: [${insErr.code}] ${insErr.message}`)
+          console.error('[fetch-email-inbox] INSERT FAILED:', insErr.code, insErr.message)
         } else {
           newCount++
+          dbg.push(`INSERT OK ${gmailId} dir=${isInbound?'inbound':'outbound'}`)
         }
-      } catch (e) { console.warn('[fetch-email-inbox] msg error:', e.message) }
+      } catch (e) {
+        dbg.push(`exception ${gmailId}: ${e.message}`)
+        console.warn('[fetch-email-inbox] msg error:', e.message)
+      }
     }
-    return res.status(200).json({ fetched: newCount, provider: 'google' })
+    return res.status(200).json({ fetched: newCount, provider: 'google', debug: dbg })
   }
 
   // ── IMAP polling (SMTP) ────────────────────────────────────

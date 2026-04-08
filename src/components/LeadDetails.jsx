@@ -640,14 +640,22 @@ const LeadDetails = () => {
         body: JSON.stringify({ action: 'fetch-email-inbox', leadId: id }),
       })
       const json = await res.json()
+      // Afficher le debug dans la console navigateur
+      if (json.debug) {
+        console.group('📬 fetch-email-inbox debug')
+        json.debug.forEach(l => console.log(l))
+        console.groupEnd()
+      }
       if (json.fetched > 0) {
         await fetchMessages()
         setEmailUnread(prev => prev + json.fetched)
         showToast(`📬 ${json.fetched} nouveau${json.fetched > 1 ? 'x' : ''} email${json.fetched > 1 ? 's' : ''} reçu${json.fetched > 1 ? 's' : ''}`)
-        // Scroller en bas après un court délai (les nouveaux emails sont à created_at=now())
-        setTimeout(() => {
-          waMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-        }, 150)
+        setTimeout(() => { waMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, 150)
+      } else {
+        // Afficher le résultat même si 0 emails pour aider au debug
+        const info = json.error ? `❌ ${json.error}` : `ℹ️ 0 nouveaux emails (${json.provider || 'aucun provider'})`
+        console.log('fetch-email-inbox:', info, json)
+        showToast(info, json.error ? 'error' : 'success')
       }
     } catch {}
     finally { setFetchingInbox(false) }
