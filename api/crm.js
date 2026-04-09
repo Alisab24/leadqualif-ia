@@ -506,7 +506,7 @@ async function handleCreateAppointment(req, res, supabase, user) {
     scheduled_at: scheduledAt, duration_minutes: Number(durationMinutes),
     type, notes: notes || null, status: 'confirmed',
   }).select().single()
-  if (apptErr) throw new Error(`Création RDV: ${JSON.stringify(apptErr)}`)
+  if (apptErr) throw Object.assign(new Error(`Création RDV: [${apptErr.code}] ${apptErr.message}`), { status: 400 })
 
   const dateStr    = formatDateFr(scheduledAt)
   const timeStr    = formatTimeFr(scheduledAt)
