@@ -476,11 +476,11 @@ async function handleAutoContact(req, res, supabase, user) {
   }).catch(e => console.error('[crm/auto-contact] conv error:', e))
 
   // Logger + marquer lead
-  await supabase.from('agent_actions').insert({
+  try { await supabase.from('agent_actions').insert({
     lead_id: leadId, agency_id: profile.agency_id,
     agent_type: 'auto_contact', action: 'Premier contact WhatsApp',
     message_sent: message, status: 'sent',
-  }).catch(() => {})
+  }) } catch {}
   await supabase.from('leads').update({ auto_contacted_at: new Date().toISOString() }).eq('id', leadId)
 
   return res.status(200).json({ success: true, message_sent: message, twilio_sid: twilioResult.sid })
@@ -513,10 +513,10 @@ async function handleCreateAppointment(req, res, supabase, user) {
   const prenom     = (lead.nom || '').split(' ')[0] || lead.nom
   const agencyName = profile.nom_agence || profile.nom_complet || 'Notre équipe'
 
-  await supabase.from('crm_events').insert({
+  try { await supabase.from('crm_events').insert({
     lead_id: lead.id, type: 'rdv', title: 'RDV créé',
     description: `${type} le ${dateStr} à ${timeStr}${notes ? ` — ${notes}` : ''}`,
-  }).catch(() => {})
+  }) } catch {}
 
   // Confirmation WhatsApp
   let waResult = null
@@ -537,12 +537,12 @@ async function handleCreateAppointment(req, res, supabase, user) {
       if (sid && tok && from) {
         const waMsg = `Bonjour ${prenom} 👋\n\nVotre rendez-vous *${type}* est confirmé pour le *${dateStr} à ${timeStr}*.\n${notes ? `\n📝 ${notes}\n` : ''}\nÀ bientôt,\n${agencyName}`
         waResult = await sendTwilioMessage(from, normalizePhone(lead.telephone), waMsg, sid, tok)
-        await supabase.from('conversations').insert({
+        try { await supabase.from('conversations').insert({
           lead_id: lead.id, agency_id: profile.agency_id,
           channel: 'whatsapp', direction: 'outbound',
           content: waMsg, status: 'sent', twilio_sid: waResult?.sid || null,
           sender_name: `📅 ${agencyName}`, thread_status: 'open', read_at: new Date().toISOString(),
-        }).catch(() => {})
+        }) } catch {}
       }
     } catch (e) { console.warn('[crm/appointment] WA failed:', e.message) }
   }
@@ -571,13 +571,13 @@ async function handleCreateAppointment(req, res, supabase, user) {
       const senderName = wsEmail?.from_name || agencyName
       emailResult = await sendResendEmail(lead.email, subject, html, `RDV : ${dateStr} à ${timeStr}`, fromEmail, resendKey, senderName)
       if (emailResult?.id) {
-        await supabase.from('conversations').insert({
+        try { await supabase.from('conversations').insert({
           lead_id: lead.id, agency_id: profile.agency_id,
           channel: 'email', direction: 'outbound',
           subject, content: `RDV confirmé : ${type} le ${dateStr} à ${timeStr}`,
           from_email: fromEmail, to_email: lead.email,
           sender_name: agencyName, status: 'sent', read_at: new Date().toISOString(),
-        }).catch(() => {})
+        }) } catch {}
       }
     } catch (e) { console.warn('[crm/appointment] email failed:', e.message) }
   }
@@ -779,12 +779,12 @@ async function handleSendDocumentEmail(req, res, supabase, user) {
 
   await supabase.from('documents').update({ statut: 'envoyé', updated_at: new Date().toISOString() }).eq('id', documentId)
   if (doc.lead_id) {
-    await supabase.from('crm_events').insert({
+    try { await supabase.from('crm_events').insert({
       lead_id: doc.lead_id, agency_id: doc.agency_id, type: 'document',
       title: `📧 ${label} envoyé par email`,
       description: `${doc.reference || label} — Envoyé à ${doc.client_email} via ${sentResult.provider}`,
       statut: 'complété', created_at: new Date().toISOString(),
-    }).catch(() => {})
+    }) } catch {}
   }
 
   return res.status(200).json({ ok: true, sentTo: doc.client_email, provider: sentResult.provider, mode: attachments.length ? 'PDF joint' : 'HTML inline' })
