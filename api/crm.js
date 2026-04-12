@@ -1038,6 +1038,82 @@ export default async function handler(req, res) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
   if (authErr || !user) return res.status(401).json({ error: 'Token invalide' })
 
+/* ── Action : send-invitation ───────────────────────────────────────────────── */
+async function handleSendInvitation(req, res, supabase, user) {
+  const { agency_id, invite_email, role = 'agent', agency_name = 'LeadQualif', inviter_name = '' } = req.body || {}
+  if (!agency_id || !invite_email) return res.status(400).json({ error: 'agency_id et invite_email requis' })
+
+  const normalizedEmail = invite_email.trim().toLowerCase()
+
+  // Vérifier que l'utilisateur appartient bien à cette agence
+  const { data: profile } = await supabase.from('profiles')
+    .select('agency_id, nom_complet').eq('user_id', user.id).single()
+  if (profile?.agency_id !== agency_id) return res.status(403).json({ error: 'Accès refusé' })
+
+  // Créer ou renouveler l'invitation
+  const { data: existing } = await supabase.from('agency_invitations')
+    .select('id').eq('agency_id', agency_id).eq('email', normalizedEmail).eq('status', 'pending').maybeSingle()
+
+  let token, isRefresh = false
+  const newToken = crypto.randomUUID()
+  const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+
+  if (existing) {
+    await supabase.from('agency_invitations').update({
+      token: newToken, role, invited_by: user.id, expires_at: expiresAt,
+    }).eq('id', existing.id)
+    token = newToken; isRefresh = true
+  } else {
+    const { data: inv, error: invErr } = await supabase.from('agency_invitations').insert({
+      agency_id, invited_by: user.id, email: normalizedEmail,
+      role, status: 'pending', expires_at: expiresAt, token: newToken,
+    }).select('token').single()
+    if (invErr) throw Object.assign(new Error(`Création invitation: [${invErr.code}] ${invErr.message}`), { status: 400 })
+    token = inv.token
+  }
+
+  const appUrl     = process.env.APP_URL || process.env.VITE_APP_URL || 'https://www.leadqualif.com'
+  const inviteLink = `${appUrl}/join/${token}`
+
+  // Envoyer l'email si Resend disponible
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('resend_api_key, from_email, from_name').eq('agency_id', agency_id).maybeSingle()
+  const resendKey = ws?.resend_api_key || process.env.RESEND_API_KEY
+  const fromEmail = ws?.from_email     || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
+  const fromName  = ws?.from_name      || agency_name
+
+  const roleLabels = { owner: 'Propriétaire', admin: 'Admin', agent: 'Agent', viewer: 'Lecture seule' }
+  const roleLabel  = roleLabels[role] || 'Agent'
+
+  const html = `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;color:#1e293b;">
+    <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px 40px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">👥</div>
+      <h1 style="margin:0;color:#fff;font-size:20px;">Invitation à rejoindre l'équipe</h1>
+      <p style="margin:6px 0 0;color:#c7d2fe;font-size:14px;">${agency_name}</p>
+    </div>
+    <div style="background:#fff;padding:32px 40px;border:1px solid #e2e8f0;border-top:none;">
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.6;"><strong>${inviter_name || agency_name}</strong> vous invite à rejoindre <strong>${agency_name}</strong> en tant que <strong>${roleLabel}</strong>.</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${inviteLink}" style="display:inline-block;padding:13px 32px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:700;">👥 Rejoindre ${agency_name} →</a>
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;font-size:13px;color:#64748b;">
+        <strong>ℹ️</strong> Ce lien est valable <strong>7 jours</strong> · Rôle : <strong>${roleLabel}</strong>
+      </div>
+      <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;">Si le bouton ne fonctionne pas : <a href="${inviteLink}" style="color:#4f46e5;word-break:break-all;">${inviteLink}</a></p>
+    </div>
+  </div>`
+
+  let emailSent = false
+  if (resendKey) {
+    try {
+      const r = await sendResendEmail(normalizedEmail, `👥 ${inviter_name || agency_name} vous invite à rejoindre ${agency_name}`, html, `Lien d'invitation : ${inviteLink}`, fromEmail, resendKey, fromName)
+      emailSent = !!r?.id
+    } catch (e) { console.warn('[send-invitation] email failed:', e.message) }
+  }
+
+  return res.status(200).json({ success: true, token, invite_link: inviteLink, is_refresh: isRefresh, email_sent: emailSent })
+}
+
   const { action } = req.body || {}
 
   try {
@@ -1047,6 +1123,7 @@ export default async function handler(req, res) {
     if (action === 'send-whatsapp')        return await handleSendWhatsapp(req, res, supabase, user)
     if (action === 'send-document-email') return await handleSendDocumentEmail(req, res, supabase, user)
     if (action === 'fetch-email-inbox')   return await handleFetchEmailInbox(req, res, supabase, user)
+    if (action === 'send-invitation')     return await handleSendInvitation(req, res, supabase, user)
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[crm/${action}] Erreur:`, err)

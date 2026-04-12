@@ -206,18 +206,22 @@ export default function TeamSettings() {
       const agencyName   = selfProfile?.nom_agence  || members.find(m => m.role === 'owner')?.nom_agence  || 'LeadQualif'
       const inviterName  = selfProfile?.nom_complet || members.find(m => m.role === 'owner')?.nom_complet || ''
 
-      // Appel unique : crée ou renouvelle l'invitation ET envoie l'email
-      const { data, error } = await supabase.functions.invoke('send-invitation-email', {
-        body: {
+      // Appel via /api/crm (remplace la Edge Function)
+      const { data: { session } } = await supabase.auth.getSession()
+      const apiRes = await fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          action:       'send-invitation',
           agency_id:    agencyId,
           invite_email: inviteEmail.trim().toLowerCase(),
           role:         inviteRole,
           agency_name:  agencyName,
           inviter_name: inviterName,
-        }
+        }),
       })
-
-      if (error) throw error
+      const data = await apiRes.json()
+      if (!apiRes.ok) throw new Error(data.error || 'Erreur invitation')
 
       const isRefresh = data?.is_refresh === true
       if (isRefresh) {
@@ -558,16 +562,21 @@ export default function TeamSettings() {
                       const agencyName  = selfProfile?.nom_agence  || 'LeadQualif'
                       const inviterName = selfProfile?.nom_complet || ''
                       try {
-                        const { data, error } = await supabase.functions.invoke('send-invitation-email', {
-                          body: {
+                        const { data: { session } } = await supabase.auth.getSession()
+                        const apiRes = await fetch('/api/crm', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                          body: JSON.stringify({
+                            action:       'send-invitation',
                             agency_id:    agencyId,
                             invite_email: inv.email,
                             role:         inv.role,
                             agency_name:  agencyName,
                             inviter_name: inviterName,
-                          }
+                          }),
                         })
-                        if (error) throw error
+                        const data = await apiRes.json()
+                        if (!apiRes.ok) throw new Error(data.error || 'Erreur renvoi')
                         showToast(`🔄 Email renvoyé à ${inv.email}`)
                         await fetchTeam()
                       } catch (e) {
