@@ -125,7 +125,7 @@ export default function TeamSettings() {
           : null
 
       // Stocker le profil courant pour l'invitation (nom_agence, nom_complet)
-      if (!cancelled) setSelfProfile(self)
+      setSelfProfile(self)
 
       // 2. Autres membres de l'agence
       let others = []
