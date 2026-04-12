@@ -24,6 +24,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [inviteApplied, setInviteApplied] = useState('')   // nom agence si invitation appliquée
   const [showForgot, setShowForgot] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -44,52 +45,68 @@ export default function Login() {
 
   // ── Appliquer une invitation sur un compte existant ──────────────
   const applyInvitationAfterLogin = async (userId, userEmail) => {
-    if (!inviteToken) return
+    if (!inviteToken) return null
     try {
       // 1. Charger l'invitation par token
-      const { data: inv, error: invErr } = await supabase
+      const { data: inv } = await supabase
         .from('agency_invitations')
         .select('id, agency_id, role, email, status, expires_at')
         .eq('token', inviteToken)
         .maybeSingle()
 
-      if (invErr || !inv) { console.warn('[Login] Invitation introuvable:', inviteToken); return }
-      if (inv.status !== 'pending') { console.warn('[Login] Invitation déjà traitée:', inv.status); return }
-      if (new Date(inv.expires_at) < new Date()) { console.warn('[Login] Invitation expirée'); return }
+      if (!inv) { console.warn('[Login] Invitation introuvable:', inviteToken); return null }
+      if (inv.status !== 'pending') { console.warn('[Login] Invitation déjà traitée:', inv.status); return null }
+      if (new Date(inv.expires_at) < new Date()) { console.warn('[Login] Invitation expirée'); return null }
 
-      // 2. Lire le profil actuel
+      // 2. Récupérer le nom réel de l'agence invitante
+      let agencyName = ''
+      const { data: ownerProfile } = await supabase
+        .from('profiles').select('nom_agence, nom_complet')
+        .eq('agency_id', inv.agency_id).eq('role', 'owner').maybeSingle()
+      agencyName = ownerProfile?.nom_agence || ownerProfile?.nom_complet || ''
+      if (!agencyName) {
+        const { data: anyMember } = await supabase
+          .from('profiles').select('nom_agence').eq('agency_id', inv.agency_id).maybeSingle()
+        agencyName = anyMember?.nom_agence || ''
+      }
+
+      // 3. Lire le profil actuel (pour ne pas écraser les champs existants)
       const { data: existing } = await supabase
         .from('profiles')
-        .select('user_id, agency_id')
+        .select('user_id, agency_id, nom_agence, nom_complet')
         .eq('user_id', userId)
         .maybeSingle()
 
       // Déjà lié à une autre agence → ne pas écraser
       const alreadyLinked = existing?.agency_id && existing.agency_id !== userId
-      if (alreadyLinked) { console.log('[Login] Profil déjà lié à une agence'); return }
+      if (alreadyLinked) { console.log('[Login] Profil déjà lié à une agence'); return null }
 
-      // 3. Mettre à jour / créer le profil avec la bonne agency
+      // 4. Mettre à jour le profil — conserver nom_complet, mettre à jour agency
       const profilePayload = {
         user_id:    userId,
         email:      userEmail,
         agency_id:  inv.agency_id,
         role:       inv.role || 'agent',
-        nom_agence: '',
+        nom_agence: agencyName || existing?.nom_agence || '',
       }
+      if (existing?.nom_complet) profilePayload.nom_complet = existing.nom_complet
+
       const { error: upsertErr } = await supabase
         .from('profiles')
         .upsert([profilePayload], { onConflict: 'user_id' })
-      if (upsertErr) { console.error('[Login] Erreur upsert profil invitation:', upsertErr.message); return }
+      if (upsertErr) { console.error('[Login] Erreur upsert profil invitation:', upsertErr.message); return null }
 
-      // 4. Marquer l'invitation comme acceptée
+      // 5. Marquer l'invitation comme acceptée
       await supabase
         .from('agency_invitations')
         .update({ status: 'accepted', accepted_at: new Date().toISOString() })
         .eq('id', inv.id)
 
-      console.log('[Login] Invitation appliquée avec succès → agency_id:', inv.agency_id)
+      console.log('[Login] Invitation appliquée → agency_id:', inv.agency_id, 'agence:', agencyName)
+      return agencyName || 'l\'équipe'
     } catch (err) {
       console.error('[Login] applyInvitationAfterLogin:', err)
+      return null
     }
   }
 
@@ -110,7 +127,8 @@ export default function Login() {
     } else {
       // Si un token d'invitation est présent, l'appliquer avant de rediriger
       if (inviteToken && data?.user) {
-        await applyInvitationAfterLogin(data.user.id, data.user.email)
+        const joinedAgency = await applyInvitationAfterLogin(data.user.id, data.user.email)
+        if (joinedAgency) setInviteApplied(joinedAgency)
       }
       navigate(returnTo ? decodeURIComponent(returnTo) : '/app')
     }
@@ -164,6 +182,17 @@ export default function Login() {
 
         {/* Carte principale */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
+
+          {/* Bandeau invitation */}
+          {inviteToken && !showForgot && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 mb-5 flex items-start gap-3">
+              <span className="text-2xl mt-0.5">👥</span>
+              <div>
+                <p className="text-sm font-semibold text-indigo-800">Vous avez été invité !</p>
+                <p className="text-xs text-indigo-600 mt-0.5">Connectez-vous pour rejoindre l'équipe et accepter l'invitation.</p>
+              </div>
+            </div>
+          )}
 
           {!showForgot ? (
             <>

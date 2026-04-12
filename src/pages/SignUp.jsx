@@ -15,9 +15,10 @@ export default function SignUp() {
   })
   const [showPassword, setShowPassword]               = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading]   = useState(false)
-  const [error, setError]           = useState('')
-  const [emailSent, setEmailSent]   = useState(false)
+  const [isLoading, setIsLoading]         = useState(false)
+  const [error, setError]                 = useState('')
+  const [emailSent, setEmailSent]         = useState(false)
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
   // Invitation
   const [inviteInfo, setInviteInfo]       = useState(null)   // { id, agency_id, role, email, agencyName }
@@ -145,6 +146,16 @@ export default function SignUp() {
         options:  { data: userMeta },
       })
       if (authError) {
+        // Supabase retourne "User already registered" pour un email déjà confirmé
+        const isAlreadyRegistered =
+          authError.message?.toLowerCase().includes('already registered') ||
+          authError.message?.toLowerCase().includes('already been registered') ||
+          authError.message?.toLowerCase().includes('email already')
+        if (isAlreadyRegistered) {
+          setAlreadyRegistered(true)
+          setIsLoading(false)
+          return
+        }
         setError(authError.message || t('signup.errors.signupFailed'))
         setIsLoading(false); return
       }
@@ -401,7 +412,23 @@ export default function SignUp() {
             </p>
           )}
 
-          {error && (
+          {alreadyRegistered && (
+            <div className="bg-blue-50 border border-blue-300 rounded-xl p-4 text-sm text-blue-900">
+              <p className="font-semibold mb-1">✉️ Vous avez déjà un compte !</p>
+              <p className="text-blue-700 mb-3">
+                Cet email est déjà associé à un compte LeadQualif.
+                {inviteInfo && <> Connectez-vous pour rejoindre <strong>{inviteInfo.agencyName}</strong>.</>}
+              </p>
+              <Link
+                to={inviteToken ? `/login?invite=${inviteToken}` : '/login'}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors"
+              >
+                Se connecter →
+              </Link>
+            </div>
+          )}
+
+          {!alreadyRegistered && error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">⚠️ {error}</div>
           )}
 

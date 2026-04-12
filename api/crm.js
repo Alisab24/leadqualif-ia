@@ -1040,15 +1040,27 @@ export default async function handler(req, res) {
 
 /* ── Action : send-invitation ───────────────────────────────────────────────── */
 async function handleSendInvitation(req, res, supabase, user) {
-  const { agency_id, invite_email, role = 'agent', agency_name = 'LeadQualif', inviter_name = '' } = req.body || {}
+  const { agency_id, invite_email, role = 'agent', agency_name: agencyNameFromFrontend = '', inviter_name: inviterNameFromFrontend = '' } = req.body || {}
   if (!agency_id || !invite_email) return res.status(400).json({ error: 'agency_id et invite_email requis' })
 
   const normalizedEmail = invite_email.trim().toLowerCase()
 
-  // Vérifier que l'utilisateur appartient bien à cette agence
+  // Vérifier que l'utilisateur appartient bien à cette agence + récupérer son profil
   const { data: profile } = await supabase.from('profiles')
-    .select('agency_id, nom_complet').eq('user_id', user.id).single()
+    .select('agency_id, nom_complet, nom_agence').eq('user_id', user.id).single()
   if (profile?.agency_id !== agency_id) return res.status(403).json({ error: 'Accès refusé' })
+
+  // Nom d'agence réel — priorité : profil DB > ce que le frontend a envoyé
+  // Si le profil ne l'a pas, chercher le propriétaire de l'agence
+  let agency_name = profile?.nom_agence || agencyNameFromFrontend || ''
+  if (!agency_name) {
+    const { data: ownerProfile } = await supabase.from('profiles')
+      .select('nom_agence, nom_complet').eq('agency_id', agency_id).eq('role', 'owner').maybeSingle()
+    agency_name = ownerProfile?.nom_agence || ownerProfile?.nom_complet || agencyNameFromFrontend || 'votre agence'
+  }
+
+  // Nom de l'expéditeur — profil courant ou ce que le frontend a envoyé
+  const inviter_name = profile?.nom_complet || inviterNameFromFrontend || ''
 
   // Créer ou renouveler l'invitation
   const { data: existing } = await supabase.from('agency_invitations')
