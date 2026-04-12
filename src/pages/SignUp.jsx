@@ -160,6 +160,15 @@ export default function SignUp() {
         setIsLoading(false); return
       }
 
+      // ── Détection silencieuse de Supabase : email déjà enregistré ──────────────
+      // Quand email confirmation est activée + email déjà confirmé, Supabase retourne
+      // un "faux succès" sans envoyer d'email. Signe = identities tableau vide.
+      if (authData?.user?.identities?.length === 0) {
+        setAlreadyRegistered(true)
+        setIsLoading(false)
+        return
+      }
+
       const profilePayload = {
         user_id:             authData.user.id,
         agency_id:           invitedAgencyId || authData.user.id,
@@ -221,19 +230,32 @@ export default function SignUp() {
         <p className="font-semibold text-blue-700 mb-4">{formData.email}</p>
         {inviteInfo && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4 text-sm text-indigo-700">
-            ✅ {t('signup.inviteSuccess', { agency: inviteInfo.agencyName })}
+            ✅ Après confirmation, vous rejoindrez automatiquement l'équipe de <strong>{inviteInfo.agencyName}</strong>.
           </div>
         )}
-        <p className="text-slate-500 text-sm mb-6">
-          {t('signup.confirmLink')}
+        <p className="text-slate-500 text-sm mb-4">
+          Cliquez sur le lien dans l'email pour activer votre compte. Valable 24 heures.
         </p>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left text-sm text-amber-800 mb-6">
-          <p className="font-semibold mb-1">📧 {t('signup.noEmailReceived')}</p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left text-sm text-amber-800 mb-4">
+          <p className="font-semibold mb-1">📧 Pas de mail reçu ?</p>
           <ul className="list-disc list-inside space-y-1 text-amber-700">
-            <li>{t('signup.checkSpam')}</li>
-            <li>{t('signup.waitMinutes')}</li>
+            <li>Vérifiez votre dossier <strong>Spam / Courrier indésirable</strong></li>
+            <li>Attendez 1–2 minutes avant de vérifier</li>
+            <li>L'email provient de <strong>noreply@mail.supabase.io</strong></li>
           </ul>
         </div>
+        {/* Si invitation : donner aussi l'option de se connecter directement */}
+        {inviteInfo && inviteToken && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 mb-4">
+            <p className="mb-2">Vous avez déjà un compte sur une autre adresse ?</p>
+            <Link
+              to={`/login?invite=${inviteToken}`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-xs hover:bg-indigo-700 transition-colors"
+            >
+              Se connecter avec un autre compte →
+            </Link>
+          </div>
+        )}
         <button onClick={() => navigate('/login')}
           className="w-full py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors text-sm">
           {t('signup.backToLogin')}
