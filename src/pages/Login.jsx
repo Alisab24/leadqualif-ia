@@ -127,8 +127,13 @@ export default function Login() {
     } else {
       // Si un token d'invitation est présent, l'appliquer avant de rediriger
       if (inviteToken && data?.user) {
-        const joinedAgency = await applyInvitationAfterLogin(data.user.id, data.user.email)
-        if (joinedAgency) setInviteApplied(joinedAgency)
+        await applyInvitationAfterLogin(data.user.id, data.user.email)
+        // ⚠️ window.location au lieu de navigate() pour éviter la race condition :
+        // signInWithPassword déclenche onAuthStateChange → Layout monte et lit l'ancien profil
+        // pendant que applyInvitationAfterLogin met à jour la DB.
+        // Un rechargement complet garantit que Layout lira le profil mis à jour.
+        window.location.replace(returnTo ? decodeURIComponent(returnTo) : '/app')
+        return
       }
       navigate(returnTo ? decodeURIComponent(returnTo) : '/app')
     }

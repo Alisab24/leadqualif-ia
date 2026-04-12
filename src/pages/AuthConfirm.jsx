@@ -25,9 +25,28 @@ async function applyProfileAfterConfirm() {
     const meta = user.user_metadata || {}
 
     // ── Détecter si c'est un membre invité ──────────────────────────────────
-    const invitedAgencyId = meta.invited_agency_id || null
-    const invitedRole     = meta.invited_role || 'agent'
-    const invitationId    = meta.invitation_id || null
+    let invitedAgencyId = meta.invited_agency_id || null
+    let invitedRole     = meta.invited_role || 'agent'
+    let invitationId    = meta.invitation_id || null
+
+    // ── Fallback : chercher une invitation en attente par email ─────────────
+    // Utile si user_metadata n'a pas été transmis (trigger DB, metadata perdu, etc.)
+    if (!invitedAgencyId && user.email) {
+      const { data: pendingInv } = await supabase
+        .from('agency_invitations')
+        .select('id, agency_id, role')
+        .eq('email', user.email.toLowerCase())
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (pendingInv) {
+        console.log('[AuthConfirm] Invitation trouvée par email (fallback):', pendingInv)
+        invitedAgencyId = pendingInv.agency_id
+        invitedRole     = pendingInv.role || 'agent'
+        invitationId    = pendingInv.id
+      }
+    }
 
     // ── Vérifier le profil existant (lecture complète incl. abonnement) ─────
     const { data: existing } = await supabase
@@ -38,9 +57,13 @@ async function applyProfileAfterConfirm() {
 
     // ── Décider si une mise à jour est nécessaire ────────────────────────────
     // Cas 1 : nouveau profil (jamais créé)
-    // Cas 2 : membre invité dont l'agency_id est encore son user_id (erreur de création)
+    // Cas 2 : membre invité dont l'agency_id est encore son user_id (profil auto-créé basique)
+    // Cas 3 : membre invité avec un agency_id qui ne correspond pas encore à l'agence invitante
     const isNewProfile      = !existing
-    const isInviteNotLinked = !!(invitedAgencyId && existing?.agency_id === user.id)
+    const isInviteNotLinked = !!(invitedAgencyId && (
+      existing?.agency_id === user.id ||     // profil basique auto-créé
+      existing?.agency_id !== invitedAgencyId // mauvaise agence
+    ))
     const needsUpdate       = isNewProfile || isInviteNotLinked
 
     if (!needsUpdate) {
@@ -181,10 +204,11 @@ export default function AuthConfirm() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Email confirmé !</h1>
-        <p className="text-slate-600 mb-6">
-          Votre compte est activé. Vous êtes redirigé vers votre tableau de bord…
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">✅ Compte activé !</h1>
+        <p className="text-slate-600 mb-2">
+          Votre email est confirmé. Vous rejoignez l'équipe…
         </p>
+        <p className="text-slate-400 text-sm mb-6">Redirection vers votre tableau de bord dans quelques secondes.</p>
         <div className="flex justify-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
         </div>
