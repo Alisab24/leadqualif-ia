@@ -133,13 +133,13 @@ function SubscriptionWall({ plan, onPortal }) {
         </p>
         <div className="space-y-3">
           <button
-            onClick={() => window.location.href = '/settings?tab=facturation'}
+            onClick={() => window.location.href = '/settings?tab=abonnement'}
             className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition"
           >
-            🚀 Choisir mon plan — 49€/mois
+            🚀 Choisir mon plan — à partir de 79€/mois
           </button>
           <p className="text-xs text-slate-400">
-            7 jours gratuits · Sans engagement · Annulation en 1 clic
+            14 jours gratuits · Sans engagement · Annulation en 1 clic
           </p>
         </div>
       </div>
@@ -164,25 +164,64 @@ function PastDueBanner() {
   );
 }
 
-/* ─── Bannière essai en cours ───────────────────────── */
-function TrialBannerInline({ plan, trialEnd }) {
+/* ─── Bannière essai en cours (3 états) ───────────────────────────────── */
+function TrialBannerInline({ status, trialEnd }) {
   if (!trialEnd) return null;
-  const diff  = new Date(trialEnd) - new Date();
-  const days  = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  const urgent = days <= 3;
+
+  const trialEndDate  = new Date(trialEnd);
+  const diff          = trialEndDate - new Date();
+  const days          = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  const isExpired     = status !== 'trialing' && trialEndDate < new Date();
+  const isTrialing    = status === 'trialing';
+
+  if (!isTrialing && !isExpired) return null;
+
+  // ── Essai expiré ────────────────────────────────────────────────────────
+  if (isExpired) {
+    return (
+      <div className="flex items-center justify-between px-4 py-2.5 text-sm border-b bg-red-50 border-red-200 text-red-800">
+        <span className="font-medium">🔴 Votre période d'essai est terminée — passez à un plan pour continuer</span>
+        <button
+          onClick={() => window.location.href = '/settings?tab=abonnement'}
+          className="text-xs font-bold px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 transition whitespace-nowrap"
+        >
+          Choisir un plan →
+        </button>
+      </div>
+    );
+  }
+
+  // ── Essai actif ≤ 7 jours → orange ─────────────────────────────────────
+  if (days <= 7) {
+    return (
+      <div className="flex items-center justify-between px-4 py-2.5 text-sm border-b bg-orange-50 border-orange-200 text-orange-800">
+        <span className="font-medium">
+          {days === 0
+            ? "⚠️ Votre essai se termine aujourd'hui — choisissez un plan pour continuer"
+            : `⚠️ Plus que ${days} jour${days > 1 ? 's' : ''} d'essai !`
+          }
+        </span>
+        <button
+          onClick={() => window.location.href = '/settings?tab=abonnement'}
+          className="text-xs font-bold px-3 py-1 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition whitespace-nowrap"
+        >
+          Continuer sans interruption →
+        </button>
+      </div>
+    );
+  }
+
+  // ── Essai actif > 7 jours → bleu ───────────────────────────────────────
   return (
-    <div className={`flex items-center justify-between px-4 py-2.5 text-sm border-b ${urgent ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+    <div className="flex items-center justify-between px-4 py-2.5 text-sm border-b bg-blue-50 border-blue-200 text-blue-800">
       <span className="font-medium">
-        {urgent
-          ? `⏰ Essai gratuit : ${days === 0 ? 'se termine aujourd\'hui' : `${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`}`
-          : `🎯 Essai gratuit — ${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`
-        }
+        🎉 Période d'essai — Il vous reste {days} jour{days > 1 ? 's' : ''} pour explorer toutes les fonctionnalités
       </span>
       <button
-        onClick={() => window.location.href = '/settings?tab=facturation'}
-        className={`text-xs font-bold px-3 py-1 rounded-lg ${urgent ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-blue-600 text-white hover:bg-blue-700'} transition`}
+        onClick={() => window.location.href = '/settings?tab=abonnement'}
+        className="text-xs font-bold px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition whitespace-nowrap"
       >
-        {urgent ? 'Continuer sans interruption →' : 'Choisir un plan →'}
+        Voir les offres →
       </button>
     </div>
   );
@@ -218,18 +257,25 @@ export default function Layout() {
     trialEnd instanceof Date &&
     trialEnd < new Date();
 
-  // Abonnement suspendu : mur affiché si :
-  //  1. Statut inactive/canceled ET l'utilisateur avait un abonnement Stripe (stripe_subscription_id conservé)
-  //  2. OU l'essai est expiré côté client avant que le webhook ait mis à jour le statut
+  // Essai expiré sans abonnement actif (côté client, avant que le webhook reçoive la mise à jour)
+  const trialExpiredNoSub = trialEnd instanceof Date &&
+    trialEnd < new Date() &&
+    !['active', 'trialing'].includes(status);
+
+  // Mur affiché si :
+  //  1. Essai expiré côté client avant webhook
+  //  2. Essai expiré et pas d'abonnement actif
+  //  3. Statut inactive/canceled ET avait un abonnement Stripe confirmé
   const isWalled = !planLoading && (
     trialExpiredClient ||
+    trialExpiredNoSub ||
     (
       ['inactive', 'canceled'].includes(status) &&
       profile?.stripe_subscription_id !== null &&
       profile?.stripe_subscription_id !== undefined &&
       typeof profile?.stripe_subscription_id === 'string'
     )
-  );
+  ) && location.pathname !== '/settings'; // toujours laisser accès aux paramètres
 
   const isTrialing  = status === 'trialing';
   const isPastDue   = status === 'past_due';
@@ -738,10 +784,10 @@ export default function Layout() {
         {/* Bannière paiement rejeté */}
         {isPastDue && <PastDueBanner />}
 
-        {/* Bannière essai en cours */}
-        {isTrialing && (
+        {/* Bannière essai (actif ou expiré) */}
+        {(isTrialing || (trialEnd && new Date(trialEnd) < new Date())) && (
           <TrialBannerInline
-            plan={userPlan}
+            status={status}
             trialEnd={trialEnd ? trialEnd.toISOString() : profile?.subscription_current_period_end}
           />
         )}

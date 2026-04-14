@@ -11,60 +11,69 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 // ─── Plans alignés avec la landing page ───────────────────────────────────────
-// Solo    → 49€/mois  ou 39€/mois annuel (= 468€/an)
+// Solo    → 79€/mois  ou 63€/mois annuel (= 756€/an)
 // Agence  → 149€/mois ou 119€/mois annuel (= 1428€/an)
-// Expert  → 399€/mois ou 319€/mois annuel (= 3828€/an)
+// Expert  → Sur devis (contacter équipe)
+// Crédits → 500 leads 29€ / 1 000 leads 49€ (one-time)
 // Les IDs "starter" / "growth" / "enterprise" restent identiques pour rétrocompat.
 const PLANS = {
   // ── Solo ──────────────────────────────────────────────────────────────────
   starter: {
     name: 'LeadQualif Solo',
-    description: '1 utilisateur · 100 leads/mois · Docs & CRM',
-    amount: 4900,           // 49 € HT
-    annualAmount: 46800,    // 39 € × 12 = 468 €
+    description: '1 utilisateur · 300 leads/mois · Docs & CRM · Inbox unifiée',
+    amount: 7900,           // 79 € HT
     interval: 'month',
-    trialDays: 7,
+    trialDays: 14,
   },
   starter_annual: {
     name: 'LeadQualif Solo Annuel',
-    description: '1 utilisateur · 100 leads/mois · Docs & CRM — facturé annuellement',
-    amount: 46800,          // 468 €/an (= 39 €/mois)
+    description: '1 utilisateur · 300 leads/mois · Docs & CRM — facturé annuellement',
+    amount: 75600,          // 63 € × 12 = 756 €
     interval: 'year',
-    trialDays: 7,
+    trialDays: 14,
   },
 
   // ── Agence (Growth) ───────────────────────────────────────────────────────
   growth: {
     name: 'LeadQualif Agence',
-    description: '5 utilisateurs · Leads illimités · IA avancée · Stats & Docs complets',
+    description: '5 utilisateurs · 1 000 leads/mois · Agent IA · Booking · Stats & Docs complets',
     amount: 14900,          // 149 € HT
-    annualAmount: 142800,   // 119 € × 12 = 1 428 €
     interval: 'month',
-    trialDays: 7,
+    trialDays: 14,
   },
   growth_annual: {
     name: 'LeadQualif Agence Annuel',
-    description: '5 utilisateurs · Leads illimités · IA avancée · Stats & Docs complets — facturé annuellement',
-    amount: 142800,         // 1 428 €/an (= 119 €/mois)
+    description: '5 utilisateurs · 1 000 leads/mois · Agent IA · Booking — facturé annuellement',
+    amount: 142800,         // 119 € × 12 = 1 428 €
     interval: 'year',
-    trialDays: 7,
+    trialDays: 14,
   },
 
-  // ── Expert (Enterprise) ───────────────────────────────────────────────────
+  // ── Expert (Enterprise) — contact only, pas de checkout direct ────────────
+  // (bouton "Nous contacter" sur la landing, pas de session Stripe ici)
   enterprise: {
     name: 'LeadQualif Expert',
-    description: 'Utilisateurs illimités · Multi-agences · Onboarding dédié · SLA',
-    amount: 39900,          // 399 € HT
-    annualAmount: 382800,   // 319 € × 12 = 3 828 €
+    description: 'Utilisateurs illimités · White-label · Multi-agences · Onboarding dédié · SLA',
+    amount: 0,              // Sur devis — désactivé dans checkout
     interval: 'month',
-    trialDays: 7,
+    trialDays: 14,
+    contactOnly: true,
   },
-  enterprise_annual: {
-    name: 'LeadQualif Expert Annuel',
-    description: 'Utilisateurs illimités · Multi-agences · Onboarding dédié · SLA — facturé annuellement',
-    amount: 382800,         // 3 828 €/an (= 319 €/mois)
-    interval: 'year',
-    trialDays: 7,
+
+  // ── Crédits leads (paiement unique) ───────────────────────────────────────
+  credits_500: {
+    name: '500 crédits leads',
+    description: '+500 leads à votre quota · Valables 12 mois',
+    amount: 2900,           // 29 € HT
+    mode: 'payment',        // one-time
+    trialDays: 0,
+  },
+  credits_1000: {
+    name: '1 000 crédits leads',
+    description: '+1 000 leads à votre quota · Valables 12 mois',
+    amount: 4900,           // 49 € HT
+    mode: 'payment',        // one-time
+    trialDays: 0,
   },
 };
 
@@ -92,33 +101,42 @@ export default async function handler(req, res) {
 
     if (!plan || !PLANS[plan]) {
       return res.status(400).json({
-        error: 'Plan invalide. Valeurs acceptées : starter, starter_annual, growth, growth_annual, enterprise, enterprise_annual',
+        error: 'Plan invalide. Valeurs acceptées : starter, starter_annual, growth, growth_annual, credits_500, credits_1000',
       });
     }
 
     const planData = PLANS[plan];
+
+    // Expert → contact only, pas de session Stripe
+    if (planData.contactOnly) {
+      return res.status(400).json({ error: 'Le plan Expert est sur devis. Contactez contact@nexapro.tech' });
+    }
+
     // Plan de base pour stocker en DB (ex: "growth_annual" → "growth")
-    const basePlan = plan.replace('_annual', '');
+    const basePlan = plan.replace('_annual', '').replace('credits_', '')
+    const isOneTime = planData.mode === 'payment'
 
     const sessionParams = {
       payment_method_types: ['card'],
-      mode: 'subscription',
+      mode: isOneTime ? 'payment' : 'subscription',
       line_items: [{
         price_data: {
           currency: 'eur',
           product_data: { name: planData.name, description: planData.description },
           unit_amount: planData.amount,
-          recurring: { interval: planData.interval },
+          ...(isOneTime ? {} : { recurring: { interval: planData.interval } }),
         },
         quantity: 1,
       }],
-      subscription_data: {
-        trial_period_days: planData.trialDays || 7,
-        metadata: { userId: userId || '', plan: basePlan, billingCycle: plan.includes('annual') ? 'annual' : 'monthly', agencyName: agencyName || '' },
-      },
-      success_url: successUrl || `https://www.leadqualif.com/dashboard?subscription=success&plan=${basePlan}`,
+      ...(isOneTime ? {} : {
+        subscription_data: {
+          trial_period_days: planData.trialDays || 14,
+          metadata: { userId: userId || '', plan: basePlan, billingCycle: plan.includes('annual') ? 'annual' : 'monthly', agencyName: agencyName || '' },
+        },
+      }),
+      success_url: successUrl || `https://www.leadqualif.com/dashboard?subscription=success&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `https://www.leadqualif.com/?canceled=true`,
-      metadata: { userId: userId || '', plan: basePlan, billingCycle: plan.includes('annual') ? 'annual' : 'monthly' },
+      metadata: { userId: userId || '', plan: isOneTime ? plan : basePlan, billingCycle: plan.includes('annual') ? 'annual' : 'monthly' },
       locale: 'fr',
       allow_promotion_codes: true,
     };

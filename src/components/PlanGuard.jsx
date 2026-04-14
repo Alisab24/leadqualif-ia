@@ -5,31 +5,56 @@ import { supabase } from '../supabaseClient'
 // Limites par plan
 // ──────────────────────────────────────
 export const PLAN_LIMITS = {
-  free:       { leads_per_month: 10,   docs: false, stats: false, ia: false, multiUsers: false, maxUsers: 1 },
-  starter:    { leads_per_month: 100,  docs: true,  stats: false, ia: false, multiUsers: true,  maxUsers: 3 },
-  growth:     { leads_per_month: null, docs: true,  stats: true,  ia: true,  multiUsers: true,  maxUsers: 5 },
-  enterprise: { leads_per_month: null, docs: true,  stats: true,  ia: true,  multiUsers: true,  maxUsers: null },
-  trialing:   { leads_per_month: null, docs: true,  stats: true,  ia: true,  multiUsers: true,  maxUsers: 5 },
+  free: {
+    leads_per_month: 10, docs: false, stats: false, ia: false, multiUsers: false, maxUsers: 1,
+    canUseAgentIA: false, canUseBookingAuto: false, canUseAnalytics: false,
+    canUseWhatsAppSerie: false, canUseReports: false, canUseTeam: false,
+    canUseWhiteLabel: false, canUseMultiAgency: false,
+  },
+  starter: {
+    leads_per_month: 300, docs: true, stats: false, ia: false, multiUsers: false, maxUsers: 1,
+    canUseAgentIA: false, canUseBookingAuto: false, canUseAnalytics: false,
+    canUseWhatsAppSerie: false, canUseReports: false, canUseTeam: false,
+    canUseWhiteLabel: false, canUseMultiAgency: false,
+  },
+  growth: {
+    leads_per_month: 1000, docs: true, stats: true, ia: true, multiUsers: true, maxUsers: 5,
+    canUseAgentIA: true, canUseBookingAuto: true, canUseAnalytics: true,
+    canUseWhatsAppSerie: true, canUseReports: true, canUseTeam: true,
+    canUseWhiteLabel: false, canUseMultiAgency: false,
+  },
+  enterprise: {
+    leads_per_month: null, docs: true, stats: true, ia: true, multiUsers: true, maxUsers: null,
+    canUseAgentIA: true, canUseBookingAuto: true, canUseAnalytics: true,
+    canUseWhatsAppSerie: true, canUseReports: true, canUseTeam: true,
+    canUseWhiteLabel: true, canUseMultiAgency: true,
+  },
+  trialing: {
+    leads_per_month: null, docs: true, stats: true, ia: true, multiUsers: true, maxUsers: 5,
+    canUseAgentIA: true, canUseBookingAuto: true, canUseAnalytics: true,
+    canUseWhatsAppSerie: true, canUseReports: true, canUseTeam: true,
+    canUseWhiteLabel: false, canUseMultiAgency: false,
+  },
 }
 
 export const PLAN_LABELS = {
   free:       '🆓 Gratuit',
-  starter:    '🚀 Starter',
-  growth:     '⭐ Growth',
-  enterprise: '🏢 Enterprise',
+  starter:    '🚀 Solo',
+  growth:     '⭐ Agence',
+  enterprise: '🏢 Expert',
   trialing:   '🎯 Essai gratuit',
 }
 
 export const PLAN_PRICES = {
-  starter:    '49 €/mois',     // Solo
-  growth:     '149 €/mois',   // Agence
-  enterprise: '399 €/mois',   // Expert
+  starter:    '79 €/mois',    // Solo
+  growth:     '149 €/mois',  // Agence
+  enterprise: 'Sur devis',   // Expert
 }
 
 export const PLAN_ANNUAL_PRICES = {
-  starter:    '39 €/mois',    // facturé 468 €/an
-  growth:     '119 €/mois',   // facturé 1 428 €/an
-  enterprise: '319 €/mois',   // facturé 3 828 €/an
+  starter:    '63 €/mois',   // facturé 756 €/an
+  growth:     '119 €/mois',  // facturé 1 428 €/an
+  enterprise: 'Sur devis',
 }
 
 // ──────────────────────────────────────
@@ -116,7 +141,7 @@ export function usePlanGuard() {
       }
 
       // Compteur leads du mois (seulement pour les plans limités)
-      if (['free', 'starter'].includes(effectivePlan) && p.agency_id) {
+      if (['free', 'starter', 'growth'].includes(effectivePlan) && p.agency_id) {
         const start = new Date()
         start.setDate(1)
         start.setHours(0, 0, 0, 0)
@@ -142,12 +167,20 @@ export function usePlanGuard() {
   const canAccess = (feature) => {
     const limits = PLAN_LIMITS[userPlan] || PLAN_LIMITS.free
     switch (feature) {
-      case 'docs':       return limits.docs
-      case 'stats':      return limits.stats
-      case 'ia':         return limits.ia
-      case 'multiUsers': return limits.multiUsers
-      case 'addLead':    return canAddLead()
-      default:           return true
+      case 'docs':               return limits.docs
+      case 'stats':              return limits.stats
+      case 'ia':                 return limits.ia
+      case 'multiUsers':         return limits.multiUsers
+      case 'addLead':            return canAddLead()
+      case 'agentIA':            return limits.canUseAgentIA
+      case 'bookingAuto':        return limits.canUseBookingAuto
+      case 'analytics':          return limits.canUseAnalytics
+      case 'whatsappSerie':      return limits.canUseWhatsAppSerie
+      case 'reports':            return limits.canUseReports
+      case 'team':               return limits.canUseTeam
+      case 'whiteLabel':         return limits.canUseWhiteLabel
+      case 'multiAgency':        return limits.canUseMultiAgency
+      default:                   return true
     }
   }
 
@@ -192,30 +225,76 @@ export function usePlanGuard() {
 // Bannière : Essai gratuit en cours
 // ──────────────────────────────────────
 export function TrialBanner() {
-  const { status, trialDaysLeft } = usePlanGuard()
-  if (status !== 'trialing') return null
+  const { status, trialDaysLeft, trialEnd } = usePlanGuard()
 
-  const days   = trialDaysLeft()
-  const urgent = days !== null && days <= 3
+  // Essai expiré : statut repassé à inactive/free mais une date de fin existe dans le passé
+  const isExpired = status !== 'trialing' && trialEnd && new Date(trialEnd) < new Date()
+  const isTrialing = status === 'trialing'
 
+  if (!isTrialing && !isExpired) return null
+
+  const days = isTrialing ? trialDaysLeft() : 0
+
+  // ── Essai expiré ──────────────────────────────────────────────
+  if (isExpired) {
+    return (
+      <div className="flex items-center justify-between px-4 py-3 rounded-lg mb-4 shadow-sm bg-red-50 border border-red-200">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-lg">🔴</span>
+          <span className="font-semibold text-red-700">
+            Votre période d'essai est terminée — accès limité
+          </span>
+        </div>
+        <button
+          onClick={() => window.location.href = '/settings?tab=abonnement'}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors bg-red-600 text-white hover:bg-red-700 whitespace-nowrap"
+        >
+          Choisir un plan →
+        </button>
+      </div>
+    )
+  }
+
+  // ── Essai actif : ≤ 7 jours (orange) ─────────────────────────
+  if (days !== null && days <= 7) {
+    return (
+      <div className="flex items-center justify-between px-4 py-3 rounded-lg mb-4 shadow-sm bg-orange-50 border border-orange-200">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-lg">⚠️</span>
+          <span className="font-medium text-orange-700">
+            {days === 0
+              ? "Votre essai se termine aujourd'hui — choisissez un plan pour continuer"
+              : `Plus que ${days} jour${days > 1 ? 's' : ''} d'essai ! Choisissez votre plan pour ne pas perdre vos données.`
+            }
+          </span>
+        </div>
+        <button
+          onClick={() => window.location.href = '/settings?tab=abonnement'}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors bg-orange-600 text-white hover:bg-orange-700 whitespace-nowrap"
+        >
+          Continuer sans interruption →
+        </button>
+      </div>
+    )
+  }
+
+  // ── Essai actif : > 7 jours (bleu) ───────────────────────────
   return (
-    <div className={`flex items-center justify-between px-4 py-3 rounded-lg mb-4 shadow-sm ${urgent ? 'bg-orange-50 border border-orange-200' : 'bg-blue-50 border border-blue-200'}`}>
+    <div className="flex items-center justify-between px-4 py-3 rounded-lg mb-4 shadow-sm bg-blue-50 border border-blue-200">
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-lg">{urgent ? '⏰' : '🎯'}</span>
-        <span className={`font-medium ${urgent ? 'text-orange-700' : 'text-blue-700'}`}>
+        <span className="text-lg">🎉</span>
+        <span className="font-medium text-blue-700">
           {days === null
-            ? 'Essai gratuit actif — toutes les fonctionnalités débloquées'
-            : days === 0
-            ? 'Votre essai se termine aujourd\'hui'
-            : `Essai gratuit : ${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`
+            ? 'Période d\'essai — toutes les fonctionnalités débloquées gratuitement'
+            : `Période d'essai — Il vous reste ${days} jour${days > 1 ? 's' : ''} pour explorer toutes les fonctionnalités`
           }
         </span>
       </div>
       <button
-        onClick={() => window.location.href = '/settings?tab=facturation'}
-        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${urgent ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+        onClick={() => window.location.href = '/settings?tab=abonnement'}
+        className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap"
       >
-        {urgent ? 'Continuer sans interruption →' : 'Choisir un plan →'}
+        Voir les offres →
       </button>
     </div>
   )
@@ -248,7 +327,7 @@ export function LeadQuotaBanner() {
           </p>
           <p className={`text-xs mt-0.5 ${isFull ? 'text-red-500' : 'text-amber-500'}`}>
             {isFull
-              ? 'Passez au plan Agence pour des leads illimités'
+              ? 'Passez au plan Agence (1 000 leads/mois) ou achetez des crédits leads'
               : `Il vous reste ${limit - leadsThisMonth} leads pour ce mois`
             }
           </p>
@@ -292,7 +371,7 @@ export function UpgradeBanner({ feature } = {}) {
         <div className="flex items-center gap-2">
           <span className="text-xl">🚀</span>
           <span className="text-sm font-medium">
-            {messages[feature] || messages.default} — à partir de 49 €/mois
+            {messages[feature] || messages.default} — à partir de 79 €/mois
           </span>
         </div>
         <button
@@ -312,10 +391,18 @@ export function UpgradeBanner({ feature } = {}) {
 
 // Quel plan minimum est requis pour chaque feature
 const FEATURE_REQUIRED_PLAN = {
-  docs:       { name: 'Solo',   key: 'starter' },
-  stats:      { name: 'Agence', key: 'growth'  },
-  ia:         { name: 'Agence', key: 'growth'  },
-  multiUsers: { name: 'Solo',   key: 'starter' },
+  docs:           { name: 'Solo',   key: 'starter'    },
+  stats:          { name: 'Agence', key: 'growth'     },
+  ia:             { name: 'Agence', key: 'growth'     },
+  multiUsers:     { name: 'Agence', key: 'growth'     },
+  agentIA:        { name: 'Agence', key: 'growth'     },
+  bookingAuto:    { name: 'Agence', key: 'growth'     },
+  analytics:      { name: 'Agence', key: 'growth'     },
+  whatsappSerie:  { name: 'Agence', key: 'growth'     },
+  reports:        { name: 'Agence', key: 'growth'     },
+  team:           { name: 'Agence', key: 'growth'     },
+  whiteLabel:     { name: 'Expert', key: 'enterprise' },
+  multiAgency:    { name: 'Expert', key: 'enterprise' },
 }
 
 // Mode : 'blur' (overlay flou) | 'banner' (bannière en haut) | 'hide' (cache le contenu)
@@ -346,7 +433,7 @@ export function FeatureGate({ feature, children, fallback, mode = 'blur' }) {
           >
             Débloquer le plan {planName} →
           </button>
-          <p className="text-xs text-slate-400 mt-3">7 jours gratuits · Sans carte bancaire · Annulation à tout moment</p>
+          <p className="text-xs text-slate-400 mt-3">14 jours gratuits · Sans carte bancaire · Annulation à tout moment</p>
         </div>
       )
     }
@@ -369,7 +456,7 @@ export function FeatureGate({ feature, children, fallback, mode = 'blur' }) {
           >
             Débloquer →
           </button>
-          <p className="text-xs text-slate-400 mt-2">7 jours offerts · Sans carte bancaire</p>
+          <p className="text-xs text-slate-400 mt-2">14 jours offerts · Sans carte bancaire</p>
         </div>
       </div>
     )

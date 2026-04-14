@@ -113,9 +113,9 @@ export const openBillingPortal = async (userEmail) => {
 // Noms des plans
 export const PLAN_LABELS = {
   free: '🆓 Gratuit',
-  starter: '🚀 Starter',
-  growth: '⭐ Growth',
-  enterprise: '🏢 Enterprise',
+  starter: '🚀 Solo',
+  growth: '⭐ Agence',
+  enterprise: '🏢 Expert',
   trialing: '🎯 Essai gratuit',
 };
 

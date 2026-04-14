@@ -99,23 +99,24 @@ const BILLING_PLANS = [
   {
     key: 'starter',
     name: 'Solo',
-    monthlyPrice: 49,
-    annualMonthly: 39,
-    annualTotal: 468,
+    monthlyPrice: 79,
+    annualMonthly: 63,
+    annualTotal: 756,
     border: 'border-slate-200',
     badge: null,
     btnCls: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
     features: [
       { icon: '👤', text: '1 utilisateur' },
-      { icon: '📊', text: '100 leads / mois' },
+      { icon: '🎯', text: '300 leads / mois' },
       { icon: '🤖', text: 'Scoring IA 0–100 (chaud / tiède / froid)' },
       { icon: '📋', text: 'Pipeline Kanban' },
       { icon: '📄', text: 'Factures & devis PDF' },
       { icon: '📧', text: 'Envoi documents par email (PDF joint)' },
       { icon: '💬', text: 'Partage WhatsApp en 1 clic' },
+      { icon: '📥', text: 'Inbox unifiée' },
       { icon: '🙋', text: 'Support email' },
     ],
-    locked: ['Stats & Analytics', 'Recommandations IA avancées', 'Contrats & rapports', 'Gestion équipe (multi-users)'],
+    locked: ['Agent IA Auto-Contact', 'Booking automatique IA', 'Stats & Analytics', 'Gestion équipe (multi-users)'],
   },
   {
     key: 'growth',
@@ -128,13 +129,13 @@ const BILLING_PLANS = [
     btnCls: 'bg-blue-600 text-white hover:bg-blue-700',
     features: [
       { icon: '👥', text: '5 utilisateurs inclus' },
-      { icon: '♾️', text: 'Leads illimités' },
-      { icon: '🤖', text: 'Scoring IA avancé + recommandations' },
+      { icon: '🎯', text: "Jusqu'à 1 000 leads / mois" },
+      { icon: '🤖', text: 'Agent Auto-Contact IA (qualification automatique)' },
+      { icon: '📅', text: 'Booking automatique IA (Calendly intégré)' },
+      { icon: '📥', text: 'Inbox unifiée multi-canaux' },
       { icon: '📄', text: 'Documents illimités (factures, devis, contrats, rapports)' },
-      { icon: '📧', text: 'Envoi automatique par email (PDF haute qualité)' },
-      { icon: '💬', text: 'WhatsApp enrichi (réf., montant) + contact en série' },
+      { icon: '💬', text: 'Séries WhatsApp automatisées' },
       { icon: '📊', text: 'Stats & Analytics (CA, ROI, pipeline)' },
-      { icon: '✉️', text: 'Invitations équipe par email' },
       { icon: '🚀', text: 'Support prioritaire 24/7' },
     ],
     locked: [],
@@ -142,17 +143,17 @@ const BILLING_PLANS = [
   {
     key: 'enterprise',
     name: 'Expert',
-    monthlyPrice: 399,
-    annualMonthly: 319,
-    annualTotal: 3828,
+    monthlyPrice: null,
+    annualMonthly: null,
+    annualTotal: null,
     border: 'border-purple-200',
     badge: null,
     btnCls: 'border border-purple-300 text-purple-700 hover:bg-purple-50',
     features: [
       { icon: '♾️', text: 'Utilisateurs illimités' },
-      { icon: '♾️', text: 'Leads illimités' },
+      { icon: '♾️', text: 'Volume de leads illimité' },
       { icon: '✅', text: 'Tout le plan Agence' },
-      { icon: '📧', text: 'Envoi email & WhatsApp à volume illimité' },
+      { icon: '🏷️', text: 'White-label (votre marque)' },
       { icon: '🏢', text: 'Multi-agences sur un seul compte' },
       { icon: '🎓', text: 'Onboarding dédié & formation équipe' },
       { icon: '🛡️', text: 'SLA garanti & support téléphonique' },
@@ -163,31 +164,36 @@ const BILLING_PLANS = [
 
 // Mapping fonctionnalité → plans requis (pour l'affichage du résumé)
 const FEATURE_MAP = [
-  { label: 'Leads / mois',                    free: '10',     starter: '100',    growth: '∞',             enterprise: '∞' },
-  { label: 'Pipeline Kanban',                  free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
-  { label: 'Scoring IA 0–100',                 free: '✅',     starter: '✅',     growth: '✅ avancé',      enterprise: '✅ avancé' },
-  { label: 'Factures & devis PDF',             free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
-  { label: 'Envoi doc par email (PDF joint)',   free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅ illimité' },
-  { label: 'Partage WhatsApp en 1 clic',       free: '✅',     starter: '✅',     growth: '✅ enrichi',     enterprise: '✅ enrichi' },
-  { label: 'Contact WhatsApp en série',         free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
-  { label: 'Contrats & rapports',              free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
-  { label: 'Stats & Analytics',                free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
-  { label: 'Recommandations IA',               free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
-  { label: 'Invitations équipe',               free: '—',      starter: '✅ 3',   growth: '✅ 5',           enterprise: '✅ ∞' },
-  { label: 'Import CSV / Excel',               free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
-  { label: 'Pixels FB / Google Ads',           free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
-  { label: 'Support',                          free: 'Email',  starter: 'Email',  growth: 'Prioritaire',   enterprise: 'Dédié + tél.' },
-  { label: 'API dédiée',                       free: '—',      starter: '—',      growth: '—',              enterprise: '✅' },
-  { label: 'SLA garanti',                      free: '—',      starter: '—',      growth: '—',              enterprise: '99,9%' },
+  { label: 'Leads / mois',                    free: '10',     starter: '300',    growth: '1 000',         enterprise: '∞' },
+  { label: 'Utilisateurs',                    free: '1',      starter: '1',      growth: '5',             enterprise: '∞' },
+  { label: 'Pipeline Kanban',                 free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Scoring IA 0–100',                free: '✅',     starter: '✅',     growth: '✅ avancé',      enterprise: '✅ avancé' },
+  { label: 'Agent IA Auto-Contact',           free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Booking automatique IA',          free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Inbox unifiée',                   free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Factures & devis PDF',            free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Envoi doc par email (PDF joint)', free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅ illimité' },
+  { label: 'Partage WhatsApp en 1 clic',      free: '✅',     starter: '✅',     growth: '✅ enrichi',     enterprise: '✅ enrichi' },
+  { label: 'Séries WhatsApp automatisées',    free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Contrats & rapports',             free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Stats & Analytics',               free: '—',      starter: '—',      growth: '✅',             enterprise: '✅' },
+  { label: 'Gestion équipe',                  free: '—',      starter: '—',      growth: '✅ 5 users',     enterprise: '✅ ∞' },
+  { label: 'White-label',                     free: '—',      starter: '—',      growth: '—',              enterprise: '✅' },
+  { label: 'Multi-agences',                   free: '—',      starter: '—',      growth: '—',              enterprise: '✅' },
+  { label: 'Import CSV / Excel',              free: '—',      starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Pixels FB / Google Ads',          free: '✅',     starter: '✅',     growth: '✅',             enterprise: '✅' },
+  { label: 'Support',                         free: 'Email',  starter: 'Email',  growth: 'Prioritaire',   enterprise: 'Dédié + tél.' },
+  { label: 'API dédiée',                      free: '—',      starter: '—',      growth: '—',              enterprise: '✅' },
+  { label: 'SLA garanti',                     free: '—',      starter: '—',      growth: '—',              enterprise: '99,9%' },
 ]
 
 // Fonctionnalités actives/bloquées selon le plan
 const PLAN_ACTIVE_FEATURES = {
-  free:       { stats: false, docs: false,  ia: false, multiUsers: false, contracts: false, emailSend: false, whatsapp: true,  leads: '10/mois'  },
-  starter:    { stats: false, docs: true,   ia: false, multiUsers: true,  contracts: false, emailSend: true,  whatsapp: true,  leads: '100/mois' },
-  growth:     { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité' },
-  trialing:   { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité' },
-  enterprise: { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité' },
+  free:       { stats: false, docs: false,  ia: false, multiUsers: false, contracts: false, emailSend: false, whatsapp: true,  leads: '10/mois'    },
+  starter:    { stats: false, docs: true,   ia: false, multiUsers: false, contracts: false, emailSend: true,  whatsapp: true,  leads: '300/mois'   },
+  growth:     { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: '1 000/mois' },
+  trialing:   { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: '1 000/mois' },
+  enterprise: { stats: true,  docs: true,   ia: true,  multiUsers: true,  contracts: true,  emailSend: true,  whatsapp: true,  leads: 'Illimité'   },
 }
 
 const FEATURE_LABELS = {
@@ -310,7 +316,7 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
             <p className="font-bold text-amber-900 text-base">Aucun abonnement actif</p>
             <p className="text-sm text-amber-700 mt-1">Choisissez un plan ci-dessous pour débloquer toutes les fonctionnalités</p>
             <div className="flex flex-wrap gap-3 mt-3 text-xs font-medium text-amber-600">
-              <span>🎯 7 jours d'essai gratuit</span>
+              <span>🎯 14 jours d'essai gratuit</span>
               <span>🚫 Sans engagement</span>
               <span>🔒 Paiement sécurisé Stripe</span>
             </div>
@@ -375,7 +381,7 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
                   Facturé {plan.annualTotal}€/an — économie {(plan.monthlyPrice - plan.annualMonthly) * 12}€
                 </p>
               )}
-              <p className="text-[11px] text-green-600 font-medium mt-0.5">🎯 7 jours offerts</p>
+              <p className="text-[11px] text-green-600 font-medium mt-0.5">🎯 14 jours offerts</p>
 
               <ul className="mt-3 space-y-1.5 flex-1 mb-4">
                 {plan.features.map(f => (
@@ -419,6 +425,42 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
       <p className="text-xs text-center text-slate-400">
         🔒 Paiement sécurisé via Stripe · Annulation à tout moment · Sans engagement · Données hébergées en Europe
       </p>
+
+      {/* ── Crédits leads ────────────────────────────────────────── */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700">🎯 Crédits leads supplémentaires</h3>
+            <p className="text-xs text-slate-500 mt-1">Besoin de plus de leads ce mois-ci ? Achetez des crédits ponctuels sans changer de plan.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { label: '500 leads', price: '29 €', priceDetail: 'paiement unique', plan: 'credits_500', popular: false },
+            { label: '1 000 leads', price: '49 €', priceDetail: 'paiement unique', plan: 'credits_1000', popular: true },
+          ].map((pack) => (
+            <div key={pack.plan} className={`bg-white rounded-xl border-2 p-4 flex items-center justify-between gap-3 ${pack.popular ? 'border-indigo-400' : 'border-slate-200'}`}>
+              <div>
+                {pack.popular && (
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Meilleure offre</span>
+                )}
+                <p className="font-bold text-slate-800 mt-1">{pack.label}</p>
+                <p className="text-xs text-slate-500">{pack.priceDetail}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-extrabold text-indigo-600">{pack.price}</p>
+                <button
+                  onClick={() => onSubscribe(pack.plan)}
+                  disabled={stripeLoading}
+                  className="mt-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
+                  {stripeLoading ? '⏳…' : 'Acheter'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 mt-3">Les crédits sont valables 12 mois et s'ajoutent à votre quota mensuel.</p>
+      </div>
 
       {/* ── Tableau comparatif ───────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -565,7 +607,11 @@ export default function Settings() {
       window.history.replaceState({}, '', '/settings?tab=facturation');
       return;
     }
-    if (params.get('tab')) setActiveTab(params.get('tab'));
+    if (params.get('tab')) {
+      // 'abonnement' est un alias de 'facturation'
+      const tabParam = params.get('tab') === 'abonnement' ? 'facturation' : params.get('tab')
+      setActiveTab(tabParam)
+    }
     const planParam = params.get('plan');
     const VALID_PLANS = ['starter', 'growth', 'enterprise', 'starter_annual', 'growth_annual', 'enterprise_annual'];
     if (planParam && VALID_PLANS.includes(planParam)) {
