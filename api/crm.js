@@ -936,84 +936,109 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
   // ── IMAP polling (SMTP) ────────────────────────────────────
   if (smtpInt) {
     const password = _decryptSmtpPwd(smtpInt.smtp_password_enc)
-    if (!password) return res.status(200).json({ fetched: 0, provider: 'smtp', error: 'Impossible de déchiffrer le mot de passe' })
+    if (!password) return res.status(200).json({ fetched: 0, provider: 'smtp', error: 'Impossible de déchiffrer le mot de passe', debug: dbg })
 
-    const secureMap = { ssl: true, tls: false, none: false }
-    const portMap   = { ssl: 993, tls: 993, none: 143 }
     const enc = smtpInt.smtp_encryption || 'tls'
-    // Pour IMAP, on utilise le port IMAP (993 ou 143), pas le port SMTP
-    const imapPort = enc === 'ssl' ? 993 : 143
+
+    // Dériver le host IMAP depuis le host SMTP :
+    // smtp.example.com  → imap.example.com
+    // mail.example.com  → mail.example.com (inchangé)
+    // smtp.gmail.com    → imap.gmail.com
+    const smtpHost = smtpInt.smtp_host || ''
+    const imapHost = smtpHost.startsWith('smtp.') ? smtpHost.replace(/^smtp\./, 'imap.') : smtpHost
+
+    // Port IMAP : 993 (SSL/IMAPS) ou 143 (STARTTLS/plain)
+    const imapPort   = enc === 'ssl' ? 993 : 143
+    const imapSecure = enc === 'ssl'   // true = IMAPS directement, false = STARTTLS
+
+    dbg.push(`IMAP host=${imapHost} port=${imapPort} secure=${imapSecure} user=${smtpInt.smtp_user}`)
 
     const client = new ImapFlow({
-      host: smtpInt.smtp_host,
-      port: imapPort,
-      secure: enc === 'ssl',
-      auth: { user: smtpInt.smtp_user, pass: password },
-      tls: { rejectUnauthorized: false },
+      host:   imapHost,
+      port:   imapPort,
+      secure: imapSecure,
+      auth:   { user: smtpInt.smtp_user, pass: password },
+      tls:    { rejectUnauthorized: false },
       logger: false,
     })
 
     try {
       await client.connect()
+      dbg.push('IMAP connecté')
+
       const lock = await client.getMailboxLock('INBOX')
       let fetched = 0
       try {
-        // Chercher emails non lus + emails du lead
         const since = new Date(Date.now() - 30*24*3600*1000)
-        const uids = await client.search({ since, from: leadEmail }, { uid: true })
-        const uids2 = await client.search({ since, to: leadEmail }, { uid: true })
+        const uids  = await client.search({ since, from: leadEmail }, { uid: true })
+        const uids2 = await client.search({ since, to:   leadEmail }, { uid: true })
         const allUids = [...new Set([...uids, ...uids2])].slice(-20)
+        dbg.push(`IMAP UIDs trouvés: ${allUids.length}`)
 
-        const { data: existing } = await supabase.from('conversations')
-          .select('imap_uid').eq('lead_id', leadId).eq('channel', 'email').not('imap_uid', 'is', null)
-        const existingUids = new Set((existing || []).map(e => String(e.imap_uid)))
+        // ⚠️ Un fetch vide est une commande IMAP invalide → "Command failed"
+        if (allUids.length === 0) {
+          dbg.push('Aucun UID → skip fetch')
+        } else {
+          const { data: existing } = await supabase.from('conversations')
+            .select('imap_uid').eq('lead_id', leadId).eq('channel', 'email').not('imap_uid', 'is', null)
+          const existingUids = new Set((existing || []).map(e => String(e.imap_uid)))
 
-        for await (const msg of client.fetch(allUids, { source: true, uid: true })) {
-          if (existingUids.has(String(msg.uid))) continue
-          try {
-            const parsed = await simpleParser(msg.source)
-            const fromEmail = parsed.from?.value?.[0]?.address || ''
-            const isInbound = fromEmail.toLowerCase() === leadEmail.toLowerCase()
-            const cleanText = extractEmailText(parsed.html || '', parsed.text || '')
+          for await (const msg of client.fetch(allUids, { source: true, uid: true })) {
+            if (existingUids.has(String(msg.uid))) { dbg.push(`skip UID ${msg.uid} (déjà en base)`); continue }
+            try {
+              const parsed      = await simpleParser(msg.source)
+              const fromEmail   = parsed.from?.value?.[0]?.address || ''
+              const isInbound   = fromEmail.toLowerCase() === leadEmail.toLowerCase()
+              const cleanText   = extractEmailText(parsed.html || '', parsed.text || '')
+              const insertDate  = new Date(Date.now() + fetched * 1000).toISOString()
 
-            // Utiliser l'heure actuelle + offset pour que les emails apparaissent en bas du fil
-            const insertDate = new Date(Date.now() + fetched * 1000).toISOString()
-            const { error: insErr } = await supabase.from('conversations').insert({
-              lead_id: leadId, agency_id: profile.agency_id,
-              channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
-              subject: parsed.subject || '(sans objet)', content: cleanText,
-              html_content: parsed.html || null,
-              from_email: fromEmail, to_email: parsed.to?.value?.[0]?.address || '',
-              sender_name: isInbound ? parsed.from?.text : null,
-              imap_uid: msg.uid,
-              status: 'delivered', created_at: insertDate,
-              read_at: isInbound ? null : new Date().toISOString(),
-            })
-            if (insErr) {
-              console.error('[fetch-email-inbox/imap] INSERT FAILED:', insErr.message, insErr.code)
-              if (insErr.code === '42703' || insErr.message?.includes('column')) {
-                const { error: ins2 } = await supabase.from('conversations').insert({
-                  lead_id: leadId, agency_id: profile.agency_id,
-                  channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
-                  content: `[${parsed.subject || '(sans objet)'}] ${cleanText}`,
-                  sender_name: isInbound ? parsed.from?.text : null,
-                  status: 'delivered', created_at: insertDate,
-                  read_at: isInbound ? null : new Date().toISOString(),
-                })
-                if (!ins2) fetched++
+              const { error: insErr } = await supabase.from('conversations').insert({
+                lead_id: leadId, agency_id: profile.agency_id,
+                channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
+                subject: parsed.subject || '(sans objet)', content: cleanText || '(corps vide)',
+                html_content: parsed.html || null,
+                from_email: fromEmail, to_email: parsed.to?.value?.[0]?.address || '',
+                sender_name: isInbound ? parsed.from?.text : null,
+                imap_uid: msg.uid,
+                status: 'delivered', created_at: insertDate,
+                read_at: isInbound ? null : new Date().toISOString(),
+              })
+
+              if (insErr) {
+                dbg.push(`INSERT FAILED UID ${msg.uid}: [${insErr.code}] ${insErr.message}`)
+                console.error('[fetch-email-inbox/imap] INSERT FAILED:', insErr.code, insErr.message)
+                // Fallback sans colonnes optionnelles si erreur de colonne manquante
+                if (insErr.code === '42703' || insErr.message?.includes('column')) {
+                  const { error: ins2 } = await supabase.from('conversations').insert({
+                    lead_id: leadId, agency_id: profile.agency_id,
+                    channel: 'email', direction: isInbound ? 'inbound' : 'outbound',
+                    content: `[${parsed.subject || '(sans objet)'}] ${cleanText}`,
+                    sender_name: isInbound ? parsed.from?.text : null,
+                    status: 'delivered', created_at: insertDate,
+                    read_at: isInbound ? null : new Date().toISOString(),
+                  })
+                  if (!ins2) { fetched++; dbg.push(`INSERT fallback OK UID ${msg.uid}`) }
+                }
+              } else {
+                fetched++
+                dbg.push(`INSERT OK UID ${msg.uid} dir=${isInbound ? 'inbound' : 'outbound'}`)
               }
-            } else {
-              fetched++
+            } catch (e) {
+              dbg.push(`parse error UID ${msg.uid}: ${e.message}`)
+              console.warn('[fetch-email-inbox/imap] parse error:', e.message)
             }
-          } catch (e) { console.warn('[fetch-email-inbox/imap] parse error:', e.message) }
+          }
         }
         newCount = fetched
       } finally { lock.release() }
+
       await client.logout()
     } catch (e) {
-      return res.status(200).json({ fetched: 0, provider: 'smtp', error: e.message })
+      dbg.push(`IMAP erreur: ${e.message}`)
+      console.error('[fetch-email-inbox/imap] connect/search error:', e.message)
+      return res.status(200).json({ fetched: 0, provider: 'smtp', error: e.message, debug: dbg })
     }
-    return res.status(200).json({ fetched: newCount, provider: 'smtp' })
+    return res.status(200).json({ fetched: newCount, provider: 'smtp', debug: dbg })
   }
 
   return res.status(200).json({ fetched: 0, provider: null })
