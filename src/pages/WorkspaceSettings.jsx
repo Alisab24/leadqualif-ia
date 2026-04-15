@@ -159,10 +159,10 @@ export default function WorkspaceSettings() {
         }
         setConfigured(data.configured || {})
 
-        // Charger apparence depuis profiles
+        // Charger apparence + calendly_link depuis profiles
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('logo_url, signature_url, ville_agence, couleur_primaire, couleur_secondaire')
+          .select('logo_url, signature_url, ville_agence, couleur_primaire, couleur_secondaire, calendly_link')
           .eq('user_id', session.user.id)
           .maybeSingle()
         if (profileData) {
@@ -174,6 +174,10 @@ export default function WorkspaceSettings() {
             couleur_secondaire:profileData.couleur_secondaire|| prev.couleur_secondaire,
           }))
           setConfigured(c => ({ ...c, apparence: !!(profileData.logo_url || profileData.couleur_primaire) }))
+          // Priorité : booking_link de workspace_settings, sinon calendly_link du profil
+          if (profileData.calendly_link) {
+            setForm(prev => ({ ...prev, booking_link: prev.booking_link || profileData.calendly_link }))
+          }
         }
       } catch (e) {
         console.error('[WorkspaceSettings] load error:', e)
@@ -196,6 +200,14 @@ export default function WorkspaceSettings() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
+
+      // Synchroniser calendly_link dans profiles (lu par la fiche lead CRM)
+      if (form.booking_link !== undefined) {
+        await supabase.from('profiles')
+          .update({ calendly_link: form.booking_link || null })
+          .eq('user_id', session.user.id)
+      }
+
       setSaveOk(true)
       // Recalculer configured
       setConfigured({

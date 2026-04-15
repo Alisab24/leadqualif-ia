@@ -983,7 +983,11 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
             .select('imap_uid').eq('lead_id', leadId).eq('channel', 'email').not('imap_uid', 'is', null)
           const existingUids = new Set((existing || []).map(e => String(e.imap_uid)))
 
-          for await (const msg of client.fetch(allUids, { source: true, uid: true })) {
+          // ⚠️ 3ème argument { uid: true } indispensable : dit à ImapFlow que allUids
+          //    contient des UIDs (retournés par client.search) et NON des numéros de séquence.
+          //    Sans ça, les UIDs (ex: 54321) sont interprétés comme séquence → "Command failed"
+          //    si la boîte a moins de messages que le UID le plus grand.
+          for await (const msg of client.fetch(allUids, { source: true, uid: true }, { uid: true })) {
             if (existingUids.has(String(msg.uid))) { dbg.push(`skip UID ${msg.uid} (déjà en base)`); continue }
             try {
               const parsed      = await simpleParser(msg.source)

@@ -1367,22 +1367,21 @@ export default function Settings() {
                 </div>
               </section>
 
-              {/* Calendly */}
-              <section className="bg-white rounded-xl border border-indigo-100 shadow-sm p-5">
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">📅 Lien prise de RDV</h2>
-                <p className="text-xs text-slate-400 mb-4">Utilisé pour le bouton "Proposer un RDV" sur la fiche lead.</p>
-                <Input
-                  name="calendly_link"
-                  value={formData.calendly_link}
-                  onChange={handleChange}
-                  placeholder="https://calendly.com/votre-agence"
-                />
-                {formData.calendly_link && (
-                  <a href={formData.calendly_link} target="_blank" rel="noopener noreferrer"
-                    className="inline-block mt-2 text-xs text-indigo-600 hover:text-indigo-800 underline">
-                    Tester le lien ↗
+              {/* Calendly → redirige vers Workspace */}
+              <section className="bg-indigo-50 rounded-xl border border-indigo-100 shadow-sm p-5 flex items-start gap-4">
+                <span className="text-2xl shrink-0 mt-0.5">📅</span>
+                <div className="flex-1">
+                  <h2 className="text-sm font-bold text-indigo-800 mb-1">Lien prise de RDV (Calendly…)</h2>
+                  <p className="text-xs text-indigo-600 mb-3">
+                    Ce paramètre est géré dans <strong>Workspace → Calendrier</strong> pour éviter toute confusion.
+                  </p>
+                  <a
+                    href="/settings/workspace"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors px-3 py-1.5 rounded-lg"
+                  >
+                    Configurer dans Workspace →
                   </a>
-                )}
+                </div>
               </section>
 
               {!formData.nom_agence && (
