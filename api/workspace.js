@@ -48,6 +48,7 @@ async function handleGetSettings(supabase, profile) {
     resend_api_key:     maskKey(data.resend_api_key),
     twilio_account_sid: maskKey(data.twilio_account_sid),
     twilio_auth_token:  maskKey(data.twilio_auth_token),
+    anthropic_api_key:  maskKey(data.anthropic_api_key),
   }
 
   const configured = {
@@ -69,11 +70,12 @@ async function handleSaveSettings(supabase, profile, body) {
     calendar_timezone, working_hours_start, working_hours_end,
     working_days, appointment_duration, booking_link,
     notification_email, notify_new_lead, notify_hot_lead, notify_new_message,
+    anthropic_api_key,
   } = body
 
   // Lire les valeurs actuelles pour ne pas écraser des clés masquées
   const { data: current } = await supabase.from('workspace_settings')
-    .select('resend_api_key, twilio_account_sid, twilio_auth_token')
+    .select('resend_api_key, twilio_account_sid, twilio_auth_token, anthropic_api_key')
     .eq('agency_id', profile.agency_id).maybeSingle()
 
   const payload = {
@@ -95,6 +97,9 @@ async function handleSaveSettings(supabase, profile, body) {
 
   if (twilio_auth_token && !twilio_auth_token.startsWith('••')) payload.twilio_auth_token = twilio_auth_token
   else if (current?.twilio_auth_token) payload.twilio_auth_token = current.twilio_auth_token
+
+  if (anthropic_api_key && !anthropic_api_key.startsWith('••')) payload.anthropic_api_key = anthropic_api_key
+  else if (current?.anthropic_api_key) payload.anthropic_api_key = current.anthropic_api_key
 
   const { data, error } = await supabase.from('workspace_settings')
     .upsert(payload, { onConflict: 'agency_id' }).select().single()

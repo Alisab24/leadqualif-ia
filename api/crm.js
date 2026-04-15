@@ -362,8 +362,7 @@ function normalizePhone(phone) {
 }
 
 /* ── Action : auto-contact agent IA ──────────────────────────────────────── */
-async function generateClaudeMessage(lead, agencyName) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+async function generateClaudeMessage(lead, agencyName, apiKey, channel = 'whatsapp') {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
 
   const secteur = (lead.secteur_activite || lead.type_service || lead.secteur || '').toLowerCase()
@@ -374,7 +373,26 @@ async function generateClaudeMessage(lead, agencyName) {
     contexte = 'Le lead est dans l\'immobilier. Axe sur : trouver des propriétaires et acheteurs qualifiés, automatiser la qualification des prospects.'
   }
 
-  const prompt = `Tu es un assistant commercial expert pour ${agencyName || 'LeadQualif'}.
+  const isEmail = channel === 'email'
+  const prompt = isEmail
+    ? `Tu es un assistant commercial expert pour ${agencyName || 'LeadQualif'}.
+Génère un email de premier contact professionnel pour ce lead.
+
+Règles STRICTES :
+- Objet de l'email sur la 1ère ligne, préfixé par "Objet: "
+- Corps de l'email ensuite (séparé par une ligne vide)
+- Maximum 4-5 phrases, ton professionnel et chaleureux
+- Personnalisé avec le prénom du lead si disponible
+- Termine par une question ouverte et une signature avec ${agencyName}
+- Maximum 1 emoji
+- Langue : français
+- Ne mentionne PAS le nom de l'outil ou du logiciel
+
+Contexte : ${contexte}
+Lead : Nom: ${lead.nom || 'le contact'} | Secteur: ${lead.secteur_activite || lead.secteur || 'non précisé'} | Score: ${lead.score_ia || lead.score || 0}%
+
+Génère UNIQUEMENT l'email (Objet + corps), sans guillemets ni préambule.`
+    : `Tu es un assistant commercial expert pour ${agencyName || 'LeadQualif'}.
 Génère un message WhatsApp de premier contact pour ce lead.
 
 Règles STRICTES :
@@ -416,15 +434,25 @@ async function handleAutoContact(req, res, supabase, user) {
   if (settings?.agent_ia_enabled === false)
     return res.status(200).json({ skipped: true, reason: 'Agent IA désactivé pour cette agence' })
 
+  // Récupérer la clé Anthropic depuis workspace_settings (priorité DB > env var)
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('anthropic_api_key, resend_api_key, from_email, from_name')
+    .eq('agency_id', profile.agency_id).maybeSingle()
+  const anthropicKey = ws?.anthropic_api_key || process.env.ANTHROPIC_API_KEY
+
   const { data: lead, error: leadErr } = await supabase.from('leads')
-    .select('id, nom, telephone, agency_id, score_ia, score, statut_crm, secteur, secteur_activite, type_service, source, do_not_contact, auto_contacted_at, agent_ia_enabled')
+    .select('id, nom, email, telephone, agency_id, score_ia, score, statut_crm, secteur, secteur_activite, type_service, source, do_not_contact, auto_contacted_at, agent_ia_enabled')
     .eq('id', leadId).eq('agency_id', profile.agency_id).single()
   if (leadErr || !lead) return res.status(404).json({ error: 'Lead introuvable' })
 
   if (lead.do_not_contact) return res.status(200).json({ skipped: true, reason: 'Lead marqué "Ne pas contacter"' })
   if (lead.agent_ia_enabled === false) return res.status(200).json({ skipped: true, reason: 'Agent IA désactivé pour ce lead' })
   if (lead.auto_contacted_at) return res.status(200).json({ skipped: true, reason: 'Lead déjà contacté automatiquement' })
-  if (!lead.telephone) return res.status(200).json({ skipped: true, reason: 'Lead sans numéro de téléphone' })
+
+  const hasPhone = !!lead.telephone
+  const hasEmail = !!_extractEmail(lead.email || '')?.includes('@')
+  if (!hasPhone && !hasEmail)
+    return res.status(200).json({ skipped: true, reason: 'Lead sans téléphone ni email' })
 
   // Rate-limit 20/heure
   const { count } = await supabase.from('agent_actions').select('id', { count: 'exact', head: true })
@@ -441,49 +469,125 @@ async function handleAutoContact(req, res, supabase, user) {
   if (isSmma && settings?.agent_smma_template) template = settings.agent_smma_template
   if (isImmo && settings?.agent_immo_template) template = settings.agent_immo_template
 
-  let message = ''
-  if (template) {
-    const prenom = (lead.nom || '').split(' ')[0] || lead.nom || 'vous'
-    message = template
-      .replace(/\{\{nom\}\}/gi, lead.nom || 'vous')
-      .replace(/\{\{prenom\}\}/gi, prenom)
-      .replace(/\{\{agence\}\}/gi, agencyName)
-      .replace(/\{\{secteur\}\}/gi, lead.secteur_activite || lead.secteur || '')
-  } else {
-    message = await generateClaudeMessage(lead, agencyName)
-  }
-  if (!message) throw new Error('Message généré vide')
+  const prenom = (lead.nom || '').split(' ')[0] || lead.nom || 'vous'
+  const applyTemplate = (tpl) => tpl
+    .replace(/\{\{nom\}\}/gi, lead.nom || 'vous')
+    .replace(/\{\{prenom\}\}/gi, prenom)
+    .replace(/\{\{agence\}\}/gi, agencyName)
+    .replace(/\{\{secteur\}\}/gi, lead.secteur_activite || lead.secteur || '')
 
+  // ── Message WhatsApp ──────────────────────────────────────────────────────
+  let waMessage = ''
+  const waTemplate = template  // déjà résolu plus haut (smma/immo/default)
+  if (waTemplate) {
+    waMessage = applyTemplate(waTemplate)
+  } else if (anthropicKey) {
+    waMessage = await generateClaudeMessage(lead, agencyName, anthropicKey, 'whatsapp')
+  }
+
+  // ── Message Email ─────────────────────────────────────────────────────────
+  let emailSubject = ''
+  let emailBody    = ''
+  if (hasEmail) {
+    let rawEmail = ''
+    if (waTemplate) {
+      // Utiliser le même template adapté pour email
+      rawEmail = applyTemplate(waTemplate)
+      emailSubject = `Premier contact — ${agencyName}`
+      emailBody    = rawEmail
+    } else if (anthropicKey) {
+      const rawEmailFull = await generateClaudeMessage(lead, agencyName, anthropicKey, 'email')
+      // L'IA retourne "Objet: xxx\n\ncorps"
+      const lines = rawEmailFull.split('\n')
+      const subjectLine = lines.find(l => /^objet\s*:/i.test(l))
+      emailSubject = subjectLine ? subjectLine.replace(/^objet\s*:\s*/i, '').trim() : `Premier contact — ${agencyName}`
+      emailBody    = lines.filter(l => !/^objet\s*:/i.test(l)).join('\n').trim()
+    }
+  }
+
+  // Vérification : au moins un canal disponible
   const accountSid = settings?.twilio_account_sid || process.env.TWILIO_ACCOUNT_SID
   const authToken  = settings?.twilio_auth_token  || process.env.TWILIO_AUTH_TOKEN
   const fromNumber = settings?.twilio_whatsapp_number || process.env.TWILIO_WHATSAPP_NUMBER
-  if (!accountSid || !authToken || !fromNumber)
-    return res.status(503).json({ error: 'Twilio non configuré' })
+  const hasWa      = hasPhone && !!(accountSid && authToken && fromNumber)
 
-  const toNumber = normalizePhone(lead.telephone)
-  const twilioResult = await sendTwilioMessage(fromNumber, toNumber, message, accountSid, authToken)
+  const resendKey  = ws?.resend_api_key || process.env.RESEND_API_KEY
+  const fromEmail  = ws?.from_email || process.env.RESEND_FROM_EMAIL || `noreply@leadqualif.com`
+  const fromName   = ws?.from_name  || agencyName
+  const hasResend  = hasEmail && !!(resendKey && emailBody)
 
-  // Stocker conversation
-  await supabase.from('conversations').insert({
-    lead_id: lead.id, agency_id: profile.agency_id,
-    channel: 'whatsapp', direction: 'outbound',
-    from_number: fromNumber.replace(/^whatsapp:/i, ''), to_number: toNumber,
-    content: message,
-    status: ['sent','delivered','read','failed'].includes(twilioResult.status) ? twilioResult.status : 'sent',
-    twilio_sid: twilioResult.sid || null,
-    read_at: new Date().toISOString(),
-    sender_name: `🤖 Agent IA · ${agencyName}`, thread_status: 'open',
-  }).catch(e => console.error('[crm/auto-contact] conv error:', e))
+  if (!hasWa && !hasResend)
+    return res.status(503).json({ error: 'Ni WhatsApp (Twilio) ni email (Resend) configuré' })
+  if (!waMessage && !emailBody)
+    throw new Error('Impossible de générer un message : clé Anthropic manquante et pas de template')
 
-  // Logger + marquer lead
+  const channels = []
+
+  // ── Envoi WhatsApp ────────────────────────────────────────────────────────
+  if (hasWa && waMessage) {
+    const toNumber    = normalizePhone(lead.telephone)
+    const twilioResult = await sendTwilioMessage(fromNumber, toNumber, waMessage, accountSid, authToken)
+    await supabase.from('conversations').insert({
+      lead_id: lead.id, agency_id: profile.agency_id,
+      channel: 'whatsapp', direction: 'outbound',
+      from_number: fromNumber.replace(/^whatsapp:/i, ''), to_number: toNumber,
+      content: waMessage,
+      status: ['sent','delivered','read','failed'].includes(twilioResult.status) ? twilioResult.status : 'sent',
+      twilio_sid: twilioResult.sid || null,
+      read_at: new Date().toISOString(),
+      sender_name: `🤖 Agent IA · ${agencyName}`, thread_status: 'open',
+    }).catch(e => console.error('[crm/auto-contact] wa conv error:', e))
+    channels.push('whatsapp')
+  }
+
+  // ── Envoi Email ───────────────────────────────────────────────────────────
+  if (hasResend && emailBody) {
+    const leadEmailAddr = _extractEmail(lead.email)
+    const htmlBody = `<div style="font-family:sans-serif;max-width:560px;color:#1e293b;line-height:1.6">
+      ${emailBody.replace(/\n/g, '<br>')}
+    </div>`
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `${fromName} <${fromEmail}>`,
+          to: [leadEmailAddr],
+          subject: emailSubject || `Premier contact — ${agencyName}`,
+          html: htmlBody,
+          text: emailBody,
+        }),
+      })
+      await supabase.from('conversations').insert({
+        lead_id: lead.id, agency_id: profile.agency_id,
+        channel: 'email', direction: 'outbound',
+        subject: emailSubject, content: emailBody,
+        html_content: htmlBody,
+        from_email: fromEmail, to_email: leadEmailAddr,
+        status: 'sent', read_at: new Date().toISOString(),
+        sender_name: `🤖 Agent IA · ${agencyName}`,
+      }).catch(e => console.error('[crm/auto-contact] email conv error:', e))
+      channels.push('email')
+    } catch (e) {
+      console.warn('[crm/auto-contact] email send failed:', e.message)
+    }
+  }
+
+  // ── Logger + marquer lead ─────────────────────────────────────────────────
+  const actionLabel = channels.length > 1 ? 'Premier contact WhatsApp + Email' : `Premier contact ${channels[0] || '?'}`
   try { await supabase.from('agent_actions').insert({
     lead_id: leadId, agency_id: profile.agency_id,
-    agent_type: 'auto_contact', action: 'Premier contact WhatsApp',
-    message_sent: message, status: 'sent',
+    agent_type: 'auto_contact', action: actionLabel,
+    message_sent: waMessage || emailBody, status: 'sent',
   }) } catch {}
   await supabase.from('leads').update({ auto_contacted_at: new Date().toISOString() }).eq('id', leadId)
 
-  return res.status(200).json({ success: true, message_sent: message, twilio_sid: twilioResult.sid })
+  return res.status(200).json({
+    success: true,
+    channels,
+    message_sent: waMessage || emailBody,
+    email_subject: emailSubject || null,
+  })
 }
 
 /* ── Action : create-appointment ─────────────────────────────────────────── */

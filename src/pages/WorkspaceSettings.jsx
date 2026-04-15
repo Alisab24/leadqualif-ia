@@ -135,6 +135,8 @@ export default function WorkspaceSettings() {
     // Notifications
     notification_email: '',
     notify_new_lead: true, notify_hot_lead: true, notify_new_message: true,
+    // Agent IA
+    anthropic_api_key: '',
   })
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }))
@@ -741,6 +743,36 @@ export default function WorkspaceSettings() {
                 <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-500">
                   📌 Les notifications Realtime dans l'interface (cloche 🔔) sont toujours actives, indépendamment de ces réglages.
                 </div>
+              </section>
+            )}
+
+            {/* ═══ ONGLET AGENT IA — clé Anthropic ════════════ */}
+            {activeTab === 'notifications' && (
+              <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4 mt-2">
+                <h2 className="text-base font-bold text-slate-800">🤖 Agent IA — Clé Anthropic</h2>
+                <p className="text-xs text-slate-400">
+                  Utilisée par l'agent IA pour générer des messages personnalisés (WhatsApp + Email).
+                  Obtenez votre clé sur{' '}
+                  <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer"
+                    className="text-indigo-600 hover:underline font-semibold">console.anthropic.com</a>.
+                </p>
+
+                <Field label="Clé API Anthropic" hint="Commence par sk-ant-...">
+                  <Input
+                    type="password"
+                    value={form.anthropic_api_key}
+                    onChange={e => set('anthropic_api_key', e.target.value)}
+                    placeholder="sk-ant-••••••••••••••••••••••••"
+                    autoComplete="off"
+                  />
+                </Field>
+
+                {form.anthropic_api_key && !form.anthropic_api_key.startsWith('••') && (
+                  <p className="text-xs text-green-600 font-semibold">✅ Nouvelle clé saisie — sera sauvegardée à l'enregistrement</p>
+                )}
+                {form.anthropic_api_key?.startsWith('••') && (
+                  <p className="text-xs text-slate-500">🔒 Clé déjà configurée (masquée). Saisissez une nouvelle valeur pour la remplacer.</p>
+                )}
               </section>
             )}
 
