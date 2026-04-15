@@ -361,6 +361,100 @@ function normalizePhone(phone) {
   return phone.startsWith('+') ? phone : '+' + phone.replace(/^00/, '')
 }
 
+/* ── Templates par défaut LeadQualif Kit (Premier contact) ──────────────── */
+// Ces templates sont utilisés quand aucun template personnalisé n'est configuré.
+// Les agences clientes peuvent surcharger via Paramètres → Agent IA.
+const LEADQUALIF_TEMPLATES = {
+  // ─── WhatsApp ────────────────────────────────────────────────────────────
+  smma_wa: `Bonjour {{prenom}},
+
+J'ai vu que tu gères des campagnes Meta pour tes clients.
+
+On a développé LeadQualif — un outil qui génère des leads qualifiés avec score IA pour les agences comme la tienne.
+
+Je t'offre 50 leads gratuits sur ton secteur pour tester. Sans engagement.
+
+Ça t'intéresse ?`,
+
+  immo_wa: `Bonjour {{prenom}},
+
+J'ai vu que votre agence est active sur {{ville}}.
+
+LeadQualif identifie automatiquement les propriétaires et acheteurs potentiels dans votre zone avec un score IA.
+
+Je vous offre 50 contacts qualifiés sur {{ville}} pour tester.
+
+Ça vous intéresse ?`,
+
+  default_wa: `Bonjour {{prenom}},
+
+J'ai vu que vous êtes actif dans le secteur {{secteur}}.
+
+On a développé LeadQualif — un outil qui génère des leads qualifiés avec score IA et automatise le premier contact.
+
+Je vous offre 50 leads gratuits pour tester. Sans engagement.
+
+Ça vous intéresse ?`,
+
+  // ─── Email — Objet ────────────────────────────────────────────────────────
+  smma_email_subject:    `50 leads qualifiés offerts pour {{nom_agence}}`,
+  immo_email_subject:    `50 contacts vendeurs offerts sur {{ville}}`,
+  default_email_subject: `50 leads qualifiés offerts — LeadQualif`,
+
+  // ─── Email — Corps ────────────────────────────────────────────────────────
+  smma_email_body: `Bonjour {{prenom}},
+
+Je m'appelle {{ton_prenom}}, fondateur de LeadQualif.
+
+J'ai vu que {{nom_agence}} gère des campagnes Meta pour ses clients — et je parie que trouver des prospects qualifiés prend beaucoup de temps à ton équipe.
+
+LeadQualif automatise exactement ça :
+→ Scraping automatique (Facebook Pages + Pages Jaunes)
+→ Score IA 0-100 : Chaud / Tiède / Froid
+→ Agent WhatsApp qui contacte les leads chauds en 5 minutes
+
+Je t'offre 50 leads qualifiés gratuits sur ton secteur pour tester.
+
+Tu veux que je te les envoie ?
+
+Bonne journée,
+{{ton_prenom}}
+LeadQualif — leadqualif.com`,
+
+  immo_email_body: `Bonjour {{prenom}},
+
+Je m'appelle {{ton_prenom}}, fondateur de LeadQualif.
+
+J'ai vu que votre agence est spécialisée sur {{ville}} — et je sais que trouver des vendeurs potentiels avant la concurrence est un enjeu clé.
+
+LeadQualif identifie automatiquement :
+→ Les propriétaires susceptibles de vendre dans votre zone
+→ Les acheteurs actifs en recherche
+→ Avec un Score IA pour prioriser les plus chauds
+
+Je vous offre 50 contacts qualifiés sur {{ville}} pour tester.
+
+Vous voulez que je vous les envoie ?
+
+Bien cordialement,
+{{ton_prenom}}
+LeadQualif — leadqualif.com`,
+
+  default_email_body: `Bonjour {{prenom}},
+
+Je m'appelle {{ton_prenom}}, fondateur de LeadQualif.
+
+LeadQualif automatise la qualification de vos leads avec un score IA 0-100 et un agent de premier contact automatique — pour que vos commerciaux se concentrent uniquement sur les prospects chauds.
+
+Je vous offre 50 leads qualifiés gratuits sur votre secteur pour tester.
+
+Vous voulez que je vous les envoie ?
+
+Cordialement,
+{{ton_prenom}}
+LeadQualif — leadqualif.com`,
+}
+
 /* ── Action : auto-contact agent IA ──────────────────────────────────────── */
 async function generateClaudeMessage(lead, agencyName, apiKey, channel = 'whatsapp') {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
@@ -441,7 +535,7 @@ async function handleAutoContact(req, res, supabase, user) {
   const anthropicKey = ws?.anthropic_api_key || process.env.ANTHROPIC_API_KEY
 
   const { data: lead, error: leadErr } = await supabase.from('leads')
-    .select('id, nom, email, telephone, agency_id, score_ia, score, statut_crm, secteur, secteur_activite, type_service, source, do_not_contact, auto_contacted_at, agent_ia_enabled')
+    .select('id, nom, email, telephone, ville, nom_agence, agency_id, score_ia, score, statut_crm, secteur, secteur_activite, type_service, source, do_not_contact, auto_contacted_at, agent_ia_enabled')
     .eq('id', leadId).eq('agency_id', profile.agency_id).single()
   if (leadErr || !lead) return res.status(404).json({ error: 'Lead introuvable' })
 
@@ -460,72 +554,74 @@ async function handleAutoContact(req, res, supabase, user) {
     .gte('created_at', new Date(Date.now() - 3600000).toISOString())
   if ((count || 0) >= 20) return res.status(429).json({ error: 'Rate limit atteint (20 messages/heure max)' })
 
-  // Générer le message
+  // ── Variables communes ────────────────────────────────────────────────────
   const agencyName = profile.nom_agence || profile.nom_complet || 'LeadQualif'
-  const secteur = (lead.secteur_activite || lead.type_service || lead.secteur || '').toLowerCase()
-  const isSmma = secteur.includes('smma') || secteur.includes('marketing') || secteur.includes('agence')
-  const isImmo = secteur.includes('immo') || secteur.includes('bien') || secteur.includes('achat')
-  let template = settings?.agent_default_template || null
-  if (isSmma && settings?.agent_smma_template) template = settings.agent_smma_template
-  if (isImmo && settings?.agent_immo_template) template = settings.agent_immo_template
+  const tonPrenom  = (profile.nom_complet || '').split(' ')[0] || profile.nom_complet || 'L\'équipe'
+  const secteur    = (lead.secteur_activite || lead.type_service || lead.secteur || '').toLowerCase()
+  const isSmma     = secteur.includes('smma') || secteur.includes('marketing') || secteur.includes('agence')
+  const isImmo     = secteur.includes('immo') || secteur.includes('bien') || secteur.includes('achat')
+  const prenom     = (lead.nom || '').split(' ')[0] || lead.nom || 'vous'
+  const leadVille  = lead.ville || lead.ville_agence || 'votre zone'
+  const leadAgence = lead.nom_agence || lead.nom || 'votre agence'
 
-  const prenom = (lead.nom || '').split(' ')[0] || lead.nom || 'vous'
-  const applyTemplate = (tpl) => tpl
-    .replace(/\{\{nom\}\}/gi, lead.nom || 'vous')
-    .replace(/\{\{prenom\}\}/gi, prenom)
-    .replace(/\{\{agence\}\}/gi, agencyName)
-    .replace(/\{\{secteur\}\}/gi, lead.secteur_activite || lead.secteur || '')
+  // Applique les variables {{...}} dans un template (custom ou par défaut)
+  const applyVars = (tpl) => (tpl || '')
+    .replace(/\{\{nom\}\}/gi,        lead.nom      || 'vous')
+    .replace(/\{\{prenom\}\}/gi,     prenom)
+    .replace(/\{\{agence\}\}/gi,     agencyName)
+    .replace(/\{\{secteur\}\}/gi,    lead.secteur_activite || lead.secteur || 'votre secteur')
+    .replace(/\{\{ville\}\}/gi,      leadVille)
+    .replace(/\{\{nom_agence\}\}/gi, leadAgence)
+    .replace(/\{\{ton_prenom\}\}/gi, tonPrenom)
+
+  // ── Résolution des templates ──────────────────────────────────────────────
+  // Priorité : template personnalisé (agency_settings) → LeadQualif par défaut
+  const customWa      = isSmma ? settings?.agent_smma_template
+                      : isImmo ? settings?.agent_immo_template
+                      :          settings?.agent_default_template
+  const defaultWaKey  = isSmma ? 'smma_wa'  : isImmo ? 'immo_wa'  : 'default_wa'
+  const defaultEmSubj = isSmma ? 'smma_email_subject' : isImmo ? 'immo_email_subject' : 'default_email_subject'
+  const defaultEmBody = isSmma ? 'smma_email_body'    : isImmo ? 'immo_email_body'    : 'default_email_body'
 
   // ── Message WhatsApp ──────────────────────────────────────────────────────
   let waMessage = ''
-  const waTemplate = template  // déjà résolu plus haut (smma/immo/default)
-  if (waTemplate) {
-    waMessage = applyTemplate(waTemplate)
-  } else if (anthropicKey) {
-    waMessage = await generateClaudeMessage(lead, agencyName, anthropicKey, 'whatsapp')
+  if (customWa) {
+    waMessage = applyVars(customWa)
+  } else {
+    // Template LeadQualif par défaut — pas besoin de clé Anthropic
+    waMessage = applyVars(LEADQUALIF_TEMPLATES[defaultWaKey])
   }
 
   // ── Message Email ─────────────────────────────────────────────────────────
   let emailSubject = ''
   let emailBody    = ''
   if (hasEmail) {
-    let rawEmail = ''
-    if (waTemplate) {
-      // Utiliser le même template adapté pour email
-      rawEmail = applyTemplate(waTemplate)
+    if (customWa) {
+      // Si l'agence a un template custom WhatsApp, l'adapter pour email
       emailSubject = `Premier contact — ${agencyName}`
-      emailBody    = rawEmail
-    } else if (anthropicKey) {
-      const rawEmailFull = await generateClaudeMessage(lead, agencyName, anthropicKey, 'email')
-      // L'IA retourne "Objet: xxx\n\ncorps"
-      const lines = rawEmailFull.split('\n')
-      const subjectLine = lines.find(l => /^objet\s*:/i.test(l))
-      emailSubject = subjectLine ? subjectLine.replace(/^objet\s*:\s*/i, '').trim() : `Premier contact — ${agencyName}`
-      emailBody    = lines.filter(l => !/^objet\s*:/i.test(l)).join('\n').trim()
+      emailBody    = applyVars(customWa)
+    } else {
+      // Utiliser le template email LeadQualif par défaut
+      emailSubject = applyVars(LEADQUALIF_TEMPLATES[defaultEmSubj])
+      emailBody    = applyVars(LEADQUALIF_TEMPLATES[defaultEmBody])
     }
   }
 
-  // Vérification : au moins un canal disponible
-  const accountSid = settings?.twilio_account_sid || process.env.TWILIO_ACCOUNT_SID
-  const authToken  = settings?.twilio_auth_token  || process.env.TWILIO_AUTH_TOKEN
+  // ── Vérification canaux disponibles ──────────────────────────────────────
+  const accountSid = settings?.twilio_account_sid   || process.env.TWILIO_ACCOUNT_SID
+  const authToken  = settings?.twilio_auth_token    || process.env.TWILIO_AUTH_TOKEN
   const fromNumber = settings?.twilio_whatsapp_number || process.env.TWILIO_WHATSAPP_NUMBER
   const hasWa      = hasPhone && !!(accountSid && authToken && fromNumber)
+  const hasEmailInt = hasEmail && !!(emailBody)  // sendEmailAny gère OAuth/SMTP
 
-  const resendKey  = ws?.resend_api_key || process.env.RESEND_API_KEY
-  const fromEmail  = ws?.from_email || process.env.RESEND_FROM_EMAIL || `noreply@leadqualif.com`
-  const fromName   = ws?.from_name  || agencyName
-  const hasResend  = hasEmail && !!(resendKey && emailBody)
-
-  if (!hasWa && !hasResend)
-    return res.status(503).json({ error: 'Ni WhatsApp (Twilio) ni email (Resend) configuré' })
-  if (!waMessage && !emailBody)
-    throw new Error('Impossible de générer un message : clé Anthropic manquante et pas de template')
+  if (!hasWa && !hasEmailInt)
+    return res.status(503).json({ error: 'Ni WhatsApp (Twilio) ni email (intégration) configuré' })
 
   const channels = []
 
   // ── Envoi WhatsApp ────────────────────────────────────────────────────────
   if (hasWa && waMessage) {
-    const toNumber    = normalizePhone(lead.telephone)
+    const toNumber     = normalizePhone(lead.telephone)
     const twilioResult = await sendTwilioMessage(fromNumber, toNumber, waMessage, accountSid, authToken)
     await supabase.from('conversations').insert({
       lead_id: lead.id, agency_id: profile.agency_id,
@@ -540,41 +636,44 @@ async function handleAutoContact(req, res, supabase, user) {
     channels.push('whatsapp')
   }
 
-  // ── Envoi Email ───────────────────────────────────────────────────────────
-  if (hasResend && emailBody) {
+  // ── Envoi Email (via OAuth/SMTP — sendEmailAny) ───────────────────────────
+  if (hasEmailInt && emailBody) {
     const leadEmailAddr = _extractEmail(lead.email)
-    const htmlBody = `<div style="font-family:sans-serif;max-width:560px;color:#1e293b;line-height:1.6">
+    const htmlBody = `<div style="font-family:sans-serif;max-width:560px;color:#1e293b;line-height:1.6;font-size:14px;">
       ${emailBody.replace(/\n/g, '<br>')}
     </div>`
     try {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: `${fromName} <${fromEmail}>`,
-          to: [leadEmailAddr],
-          subject: emailSubject || `Premier contact — ${agencyName}`,
-          html: htmlBody,
-          text: emailBody,
-        }),
+      const emailResult = await sendEmailAny({
+        supabase, userId: user.id,
+        to: leadEmailAddr,
+        subject: emailSubject || `Premier contact — ${agencyName}`,
+        html: htmlBody, text: emailBody,
+        fallbackFrom: ws?.from_email || process.env.RESEND_FROM_EMAIL || 'contact@nexapro.tech',
+        fallbackName:  tonPrenom || agencyName,
+        resendKey:     ws?.resend_api_key || process.env.RESEND_API_KEY,
       })
       await supabase.from('conversations').insert({
         lead_id: lead.id, agency_id: profile.agency_id,
         channel: 'email', direction: 'outbound',
         subject: emailSubject, content: emailBody,
         html_content: htmlBody,
-        from_email: fromEmail, to_email: leadEmailAddr,
+        from_email: emailResult?.email || 'contact@nexapro.tech',
+        to_email: leadEmailAddr,
         status: 'sent', read_at: new Date().toISOString(),
         sender_name: `🤖 Agent IA · ${agencyName}`,
       }).catch(e => console.error('[crm/auto-contact] email conv error:', e))
       channels.push('email')
     } catch (e) {
       console.warn('[crm/auto-contact] email send failed:', e.message)
+      // Ne pas bloquer si l'email échoue — WhatsApp peut être suffisant
     }
   }
 
+  if (channels.length === 0)
+    return res.status(503).json({ error: 'Aucun message envoyé — vérifiez Twilio (WhatsApp) ou votre intégration email' })
+
   // ── Logger + marquer lead ─────────────────────────────────────────────────
-  const actionLabel = channels.length > 1 ? 'Premier contact WhatsApp + Email' : `Premier contact ${channels[0] || '?'}`
+  const actionLabel = channels.length > 1 ? 'Premier contact WhatsApp + Email' : `Premier contact ${channels[0]}`
   try { await supabase.from('agent_actions').insert({
     lead_id: leadId, agency_id: profile.agency_id,
     agent_type: 'auto_contact', action: actionLabel,
