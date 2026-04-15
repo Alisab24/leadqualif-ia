@@ -1256,26 +1256,7 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
   return res.status(200).json({ fetched: 0, provider: null })
 }
 
-/* ── Handler principal ────────────────────────────────────────────────────── */
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  if (req.method === 'OPTIONS') return res.status(200).end()
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' })
-
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
-  if (!token) return res.status(401).json({ error: 'Non authentifié' })
-
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'Config Supabase manquante' })
-
-  const supabase = createClient(supabaseUrl, supabaseKey)
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-  if (authErr || !user) return res.status(401).json({ error: 'Token invalide' })
-
-/* ── Action : send-invitation ───────────────────────────────────────────────── */
+/* ── Action : send-invitation ─────────────────────────────────────────────── */
 async function handleSendInvitation(req, res, supabase, user) {
   const { agency_id, invite_email, role = 'agent', agency_name: agencyNameFromFrontend = '', inviter_name: inviterNameFromFrontend = '' } = req.body || {}
   if (!agency_id || !invite_email) return res.status(400).json({ error: 'agency_id et invite_email requis' })
@@ -1288,7 +1269,6 @@ async function handleSendInvitation(req, res, supabase, user) {
   if (profile?.agency_id !== agency_id) return res.status(403).json({ error: 'Accès refusé' })
 
   // Nom d'agence réel — priorité : profil DB > ce que le frontend a envoyé
-  // Si le profil ne l'a pas, chercher le propriétaire de l'agence
   let agency_name = profile?.nom_agence || agencyNameFromFrontend || ''
   if (!agency_name) {
     const { data: ownerProfile } = await supabase.from('profiles')
@@ -1296,14 +1276,14 @@ async function handleSendInvitation(req, res, supabase, user) {
     agency_name = ownerProfile?.nom_agence || ownerProfile?.nom_complet || agencyNameFromFrontend || 'votre agence'
   }
 
-  // Nom de l'expéditeur — profil courant ou ce que le frontend a envoyé
+  // Nom de l'expéditeur
   const inviter_name = profile?.nom_complet || inviterNameFromFrontend || ''
 
   // Créer ou renouveler l'invitation
   const { data: existing } = await supabase.from('agency_invitations')
     .select('id').eq('agency_id', agency_id).eq('email', normalizedEmail).eq('status', 'pending').maybeSingle()
 
-  let token, isRefresh = false
+  let inviteToken, isRefresh = false
   const newToken = crypto.randomUUID()
   const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
 
@@ -1311,18 +1291,18 @@ async function handleSendInvitation(req, res, supabase, user) {
     await supabase.from('agency_invitations').update({
       token: newToken, role, invited_by: user.id, expires_at: expiresAt,
     }).eq('id', existing.id)
-    token = newToken; isRefresh = true
+    inviteToken = newToken; isRefresh = true
   } else {
     const { data: inv, error: invErr } = await supabase.from('agency_invitations').insert({
       agency_id, invited_by: user.id, email: normalizedEmail,
       role, status: 'pending', expires_at: expiresAt, token: newToken,
     }).select('token').single()
     if (invErr) throw Object.assign(new Error(`Création invitation: [${invErr.code}] ${invErr.message}`), { status: 400 })
-    token = inv.token
+    inviteToken = inv.token
   }
 
   const appUrl     = process.env.APP_URL || process.env.VITE_APP_URL || 'https://www.leadqualif.com'
-  const inviteLink = `${appUrl}/join/${token}`
+  const inviteLink = `${appUrl}/join/${inviteToken}`
 
   // Envoyer l'email si Resend disponible
   const { data: ws } = await supabase.from('workspace_settings')
@@ -1360,16 +1340,35 @@ async function handleSendInvitation(req, res, supabase, user) {
     } catch (e) { console.warn('[send-invitation] email failed:', e.message) }
   }
 
-  return res.status(200).json({ success: true, token, invite_link: inviteLink, is_refresh: isRefresh, email_sent: emailSent })
+  return res.status(200).json({ success: true, token: inviteToken, invite_link: inviteLink, is_refresh: isRefresh, email_sent: emailSent })
 }
+
+/* ── Handler principal ────────────────────────────────────────────────────── */
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' })
+
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
+  if (!token) return res.status(401).json({ error: 'Non authentifié' })
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'Config Supabase manquante' })
+
+  const supabase = createClient(supabaseUrl, supabaseKey)
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+  if (authErr || !user) return res.status(401).json({ error: 'Token invalide' })
 
   const { action } = req.body || {}
 
   try {
     if (action === 'auto-contact')        return await handleAutoContact(req, res, supabase, user)
     if (action === 'create-appointment')  return await handleCreateAppointment(req, res, supabase, user)
-    if (action === 'send-email')           return await handleSendEmail(req, res, supabase, user)
-    if (action === 'send-whatsapp')        return await handleSendWhatsapp(req, res, supabase, user)
+    if (action === 'send-email')          return await handleSendEmail(req, res, supabase, user)
+    if (action === 'send-whatsapp')       return await handleSendWhatsapp(req, res, supabase, user)
     if (action === 'send-document-email') return await handleSendDocumentEmail(req, res, supabase, user)
     if (action === 'fetch-email-inbox')   return await handleFetchEmailInbox(req, res, supabase, user)
     if (action === 'send-invitation')     return await handleSendInvitation(req, res, supabase, user)
