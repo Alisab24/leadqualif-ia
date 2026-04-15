@@ -542,7 +542,7 @@ const LeadDetails = () => {
   // ─── Agent IA : déclencher l'auto-contact ────────────────
   const triggerAgent = async () => {
     if (agentLoading) return
-    if (!window.confirm('Envoyer un message WhatsApp généré par l\'agent IA à ce lead ?')) return
+    if (!window.confirm('Envoyer un message généré par l\'agent IA à ce lead (WhatsApp + Email selon canaux disponibles) ?')) return
     setAgentLoading(true)
     setAgentResult(null)
     try {
@@ -560,7 +560,7 @@ const LeadDetails = () => {
       setAgentResult(data)
       // Si envoyé → recharger les messages + le lead
       if (data.success) {
-        fetchWaMessages()
+        fetchMessages()  // recharge tous les canaux (WA + email)
         const { data: updated } = await supabase.from('leads').select('*').eq('id', id).single()
         if (updated) setLead(updated)
       }
@@ -1470,13 +1470,24 @@ const LeadDetails = () => {
                       {agentLoading ? <><span className="animate-spin">⏳</span> Génération…</> : <>🤖 Contacter par l'agent IA</>}
                     </button>
                     {agentResult && (
-                      <div className={`text-xs px-3 py-1.5 rounded-lg ${
+                      <div className={`text-xs px-3 py-2 rounded-lg ${
                         agentResult.success ? 'bg-green-50 text-green-700 border border-green-200' :
                         agentResult.skipped ? 'bg-slate-100 text-slate-500 border border-slate-200' :
                                               'bg-red-50 text-red-600 border border-red-200'}`}>
-                        {agentResult.success && `✅ "${agentResult.message_sent?.slice(0,80)}…"`}
+                        {agentResult.success && (
+                          <span>✅ Envoyé sur : {(agentResult.channels || ['whatsapp']).join(' + ')} — &ldquo;{agentResult.message_sent?.slice(0,60)}…&rdquo;</span>
+                        )}
                         {agentResult.skipped && `⏭ ${agentResult.reason}`}
-                        {agentResult.error   && `❌ ${agentResult.error}`}
+                        {agentResult.error && (
+                          <span>
+                            ❌ {agentResult.error}
+                            {agentResult.error?.toLowerCase().includes('anthropic') && (
+                              <a href="/settings/workspace" className="ml-1 underline font-semibold">
+                                → Configurer dans Workspace
+                              </a>
+                            )}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
