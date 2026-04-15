@@ -535,7 +535,7 @@ async function handleAutoContact(req, res, supabase, user) {
   const anthropicKey = ws?.anthropic_api_key || process.env.ANTHROPIC_API_KEY
 
   const { data: lead, error: leadErr } = await supabase.from('leads')
-    .select('id, nom, email, telephone, ville, nom_agence, agency_id, score_ia, score, statut_crm, secteur, secteur_activite, type_service, source, do_not_contact, auto_contacted_at, agent_ia_enabled')
+    .select('id, nom, email, telephone, adresse, localisation_souhaitee, adresse_bien, agency_id, score_ia, score, statut_crm, secteur, secteur_activite, type_service, source, do_not_contact, auto_contacted_at, agent_ia_enabled')
     .eq('id', leadId).eq('agency_id', profile.agency_id).single()
   if (leadErr || !lead) return res.status(404).json({ error: 'Lead introuvable' })
 
@@ -561,8 +561,8 @@ async function handleAutoContact(req, res, supabase, user) {
   const isSmma     = secteur.includes('smma') || secteur.includes('marketing') || secteur.includes('agence')
   const isImmo     = secteur.includes('immo') || secteur.includes('bien') || secteur.includes('achat')
   const prenom     = (lead.nom || '').split(' ')[0] || lead.nom || 'vous'
-  const leadVille  = lead.ville || lead.ville_agence || 'votre zone'
-  const leadAgence = lead.nom_agence || lead.nom || 'votre agence'
+  const leadVille  = lead.localisation_souhaitee || lead.adresse_bien || lead.adresse || 'votre zone'
+  const leadAgence = lead.nom || 'votre agence'
 
   // Applique les variables {{...}} dans un template (custom ou par défaut)
   const applyVars = (tpl) => (tpl || '')
