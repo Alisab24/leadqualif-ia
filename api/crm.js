@@ -970,10 +970,15 @@ async function handleFetchEmailInbox(req, res, supabase, user) {
       let fetched = 0
       try {
         const since = new Date(Date.now() - 30*24*3600*1000)
-        const uids  = await client.search({ since, from: leadEmail }, { uid: true })
-        const uids2 = await client.search({ since, to:   leadEmail }, { uid: true })
-        const allUids = [...new Set([...uids, ...uids2])].slice(-20)
-        dbg.push(`IMAP UIDs trouvés: ${allUids.length}`)
+        // Deux recherches séparées (from + to) car certains serveurs IMAP
+        // ne supportent pas les critères OR combinés.
+        // On enveloppe dans try/catch au cas où un critère serait rejeté.
+        let uids  = []
+        let uids2 = []
+        try { uids  = await client.search({ since, from: leadEmail }, { uid: true }) } catch(e) { dbg.push(`search from err: ${e.message}`) }
+        try { uids2 = await client.search({ since, to:   leadEmail }, { uid: true }) } catch(e) { dbg.push(`search to err: ${e.message}`) }
+        const allUids = [...new Set([...(uids||[]), ...(uids2||[])])].slice(-20)
+        dbg.push(`IMAP UIDs trouvés: from=${uids.length} to=${uids2.length} total=${allUids.length}`)
 
         // ⚠️ Un fetch vide est une commande IMAP invalide → "Command failed"
         if (allUids.length === 0) {
