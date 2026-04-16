@@ -661,16 +661,18 @@ async function handleAutoContact(req, res, supabase, user) {
         fallbackName:  tonPrenom || agencyName,
         resendKey:     ws?.resend_api_key || process.env.RESEND_API_KEY,
       })
-      await supabase.from('conversations').insert({
-        lead_id: lead.id, agency_id: profile.agency_id,
-        channel: 'email', direction: 'outbound',
-        subject: emailSubject, content: emailBody,
-        html_content: htmlBody,
-        from_email: emailResult?.email || 'contact@nexapro.tech',
-        to_email: leadEmailAddr,
-        status: 'sent', read_at: new Date().toISOString(),
-        sender_name: `🤖 Agent IA · ${agencyName}`,
-      }).catch(e => console.error('[crm/auto-contact] email conv error:', e))
+      try {
+        await supabase.from('conversations').insert({
+          lead_id: lead.id, agency_id: profile.agency_id,
+          channel: 'email', direction: 'outbound',
+          subject: emailSubject, content: emailBody,
+          html_content: htmlBody,
+          from_email: emailResult?.email || 'contact@nexapro.tech',
+          to_email: leadEmailAddr,
+          status: 'sent', read_at: new Date().toISOString(),
+          sender_name: `🤖 Agent IA · ${agencyName}`,
+        })
+      } catch (e) { console.error('[crm/auto-contact] email conv error:', e.message) }
       channels.push('email')
     } catch (e) {
       console.warn('[crm/auto-contact] email send failed:', e.message)
