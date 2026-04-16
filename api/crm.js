@@ -363,6 +363,28 @@ function normalizePhone(phone) {
   return phone.startsWith('+') ? phone : '+' + phone.replace(/^00/, '')
 }
 
+/* ── Avancement pipeline Kanban ───────────────────────────────────────────── */
+// Même logique que la RPC advance_lead_statut, mais appelable depuis le service role.
+// Ne rétrograde jamais, ne touche pas les statuts terminaux (Négociation/Gagné/Perdu/Archivé).
+const PIPELINE_ORDER = ['À traiter', 'Contacté', 'RDV fixé', 'Offre en cours', 'Négociation', 'Gagné', 'Perdu', 'Archivé']
+const PIPELINE_TERMINAL = ['Négociation', 'Gagné', 'Perdu', 'Archivé']
+
+async function advanceLeadStatut(supabase, leadId, targetStatut) {
+  if (!leadId || !targetStatut) return
+  try {
+    const { data: lead } = await supabase.from('leads').select('statut').eq('id', leadId).maybeSingle()
+    if (!lead) return
+    const curIdx = PIPELINE_ORDER.indexOf(lead.statut)
+    const tgtIdx = PIPELINE_ORDER.indexOf(targetStatut)
+    if (tgtIdx < 0) return                          // cible inconnue
+    if (PIPELINE_TERMINAL.includes(lead.statut)) return  // statut terminal → pas de modification
+    if (curIdx >= tgtIdx) return                    // déjà à ce stade ou plus avancé
+    await supabase.from('leads').update({ statut: targetStatut, updated_at: new Date().toISOString() }).eq('id', leadId)
+  } catch (e) {
+    console.warn('[advanceLeadStatut] erreur:', e.message)
+  }
+}
+
 /* ── Templates par défaut LeadQualif Kit (Premier contact) ──────────────── */
 // Ces templates sont utilisés quand aucun template personnalisé n'est configuré.
 // Les agences clientes peuvent surcharger via Paramètres → Agent IA.
@@ -692,6 +714,9 @@ async function handleAutoContact(req, res, supabase, user) {
   }) } catch {}
   await supabase.from('leads').update({ auto_contacted_at: new Date().toISOString() }).eq('id', leadId)
 
+  // ── Avancer le pipeline → Contacté ───────────────────────────────────────
+  await advanceLeadStatut(supabase, leadId, 'Contacté')
+
   return res.status(200).json({
     success: true,
     channels,
@@ -796,6 +821,9 @@ async function handleCreateAppointment(req, res, supabase, user) {
     } catch (e) { console.warn('[crm/appointment] email failed:', e.message) }
   }
 
+  // ── Avancer le pipeline → RDV fixé ───────────────────────────────────────
+  await advanceLeadStatut(supabase, lead.id, 'RDV fixé')
+
   return res.status(200).json({ success: true, appointment: appt, wa_sent: !!waResult, email_sent: !!emailResult?.id })
 }
 
@@ -850,6 +878,9 @@ async function handleSendEmail(req, res, supabase, user) {
     sender_name: senderName, status: 'sent', read_at: new Date().toISOString(),
   }).select().single()
 
+  // ── Avancer le pipeline → Contacté ───────────────────────────────────────
+  await advanceLeadStatut(supabase, lead.id, 'Contacté')
+
   return res.status(200).json({ success: true, message_id: conv?.id, thread_id: threadId, status: 'sent', provider: result.provider })
 }
 
@@ -903,6 +934,9 @@ async function handleSendWhatsapp(req, res, supabase, user) {
     twilio_sid: twilioResult.sid || null,
     read_at: new Date().toISOString(), sender_name: senderName, thread_status: 'open',
   }).select().single()
+
+  // ── Avancer le pipeline → Contacté ───────────────────────────────────────
+  await advanceLeadStatut(supabase, lead.id, 'Contacté')
 
   return res.status(200).json({ success: true, message_id: conv?.id, twilio_sid: twilioResult.sid, status: twilioResult.status })
 }
@@ -1014,6 +1048,11 @@ async function handleSendDocumentEmail(req, res, supabase, user) {
       description: `${doc.reference || label} — Envoyé à ${doc.client_email} via ${sentResult.provider}`,
       statut: 'complété', created_at: new Date().toISOString(),
     }) } catch {}
+
+    // ── Avancer le pipeline selon le type de document ─────────────────────
+    // devis/contrat/mandat → Offre en cours | facture → Négociation (force=false, respecte l'ordre)
+    const docTargetStatut = ['facture'].includes(doc.type) ? 'Négociation' : 'Offre en cours'
+    await advanceLeadStatut(supabase, doc.lead_id, docTargetStatut)
   }
 
   return res.status(200).json({ ok: true, sentTo: doc.client_email, provider: sentResult.provider, mode: attachments.length ? 'PDF joint' : 'HTML inline' })
