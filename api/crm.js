@@ -123,10 +123,11 @@ async function _refreshGoogleToken(integration, supabase, userId) {
   const newToken  = d.access_token
   const expiresAt = new Date(Date.now() + (d.expires_in || 3600) * 1000).toISOString()
   // Mettre à jour en base (best-effort, on n'échoue pas si ça rate)
-  await supabase.from('email_integrations')
-    .update({ access_token: newToken, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
-    .eq('user_id', userId).eq('provider', 'google')
-    .catch(e => console.warn('[_refreshGoogleToken] update base échoué:', e.message))
+  try {
+    await supabase.from('email_integrations')
+      .update({ access_token: newToken, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
+      .eq('user_id', userId).eq('provider', 'google')
+  } catch (e) { console.warn('[_refreshGoogleToken] update base échoué:', e.message) }
 
   return newToken
 }
@@ -154,10 +155,11 @@ async function _refreshMicrosoftToken(integration, supabase, userId) {
 
   const newToken  = d.access_token
   const expiresAt = new Date(Date.now() + (d.expires_in || 3600) * 1000).toISOString()
-  await supabase.from('email_integrations')
-    .update({ access_token: newToken, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
-    .eq('user_id', userId).eq('provider', 'microsoft')
-    .catch(e => console.warn('[_refreshMicrosoftToken] update base échoué:', e.message))
+  try {
+    await supabase.from('email_integrations')
+      .update({ access_token: newToken, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
+      .eq('user_id', userId).eq('provider', 'microsoft')
+  } catch (e) { console.warn('[_refreshMicrosoftToken] update base échoué:', e.message) }
 
   return newToken
 }
@@ -621,19 +623,26 @@ async function handleAutoContact(req, res, supabase, user) {
 
   // ── Envoi WhatsApp ────────────────────────────────────────────────────────
   if (hasWa && waMessage) {
-    const toNumber     = normalizePhone(lead.telephone)
-    const twilioResult = await sendTwilioMessage(fromNumber, toNumber, waMessage, accountSid, authToken)
-    await supabase.from('conversations').insert({
-      lead_id: lead.id, agency_id: profile.agency_id,
-      channel: 'whatsapp', direction: 'outbound',
-      from_number: fromNumber.replace(/^whatsapp:/i, ''), to_number: toNumber,
-      content: waMessage,
-      status: ['sent','delivered','read','failed'].includes(twilioResult.status) ? twilioResult.status : 'sent',
-      twilio_sid: twilioResult.sid || null,
-      read_at: new Date().toISOString(),
-      sender_name: `🤖 Agent IA · ${agencyName}`, thread_status: 'open',
-    }).catch(e => console.error('[crm/auto-contact] wa conv error:', e))
-    channels.push('whatsapp')
+    try {
+      const toNumber     = normalizePhone(lead.telephone)
+      const twilioResult = await sendTwilioMessage(fromNumber, toNumber, waMessage, accountSid, authToken)
+      try {
+        await supabase.from('conversations').insert({
+          lead_id: lead.id, agency_id: profile.agency_id,
+          channel: 'whatsapp', direction: 'outbound',
+          from_number: fromNumber.replace(/^whatsapp:/i, ''), to_number: toNumber,
+          content: waMessage,
+          status: ['sent','delivered','read','failed'].includes(twilioResult.status) ? twilioResult.status : 'sent',
+          twilio_sid: twilioResult.sid || null,
+          read_at: new Date().toISOString(),
+          sender_name: `🤖 Agent IA · ${agencyName}`, thread_status: 'open',
+        })
+      } catch (e) { console.error('[crm/auto-contact] wa conv error:', e.message) }
+      channels.push('whatsapp')
+    } catch (e) {
+      console.warn('[crm/auto-contact] whatsapp send failed:', e.message)
+      // Ne pas bloquer si WhatsApp échoue — l'email peut être suffisant
+    }
   }
 
   // ── Envoi Email (via OAuth/SMTP — sendEmailAny) ───────────────────────────
@@ -814,12 +823,20 @@ async function handleSendEmail(req, res, supabase, user) {
   const threadId   = replyToThreadId || `thread-${leadId}-${Date.now()}`
   const htmlBody   = `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#1e293b;">${message.trim().replace(/\n/g,'<br>')}</div>`
 
-  const result = await sendEmailAny({
-    supabase, userId: user.id,
-    to: lead.email, subject: subject.trim(),
-    html: htmlBody, text: message.trim(),
-    fallbackFrom: fromEmail, fallbackName: senderName, resendKey,
-  })
+  let result
+  try {
+    result = await sendEmailAny({
+      supabase, userId: user.id,
+      to: lead.email, subject: subject.trim(),
+      html: htmlBody, text: message.trim(),
+      fallbackFrom: fromEmail, fallbackName: senderName, resendKey,
+    })
+  } catch (emailErr) {
+    const status = emailErr.status || 503
+    const msg    = emailErr.message || 'Erreur envoi email'
+    console.error('[send-email] sendEmailAny erreur:', msg)
+    return res.status(status).json({ error: msg })
+  }
 
   const { data: conv } = await supabase.from('conversations').insert({
     lead_id: lead.id, agency_id: profile.agency_id,
@@ -865,7 +882,14 @@ async function handleSendWhatsapp(req, res, supabase, user) {
     return res.status(503).json({ error: 'Twilio non configuré' })
 
   const toNumber = normalizePhone(lead.telephone)
-  const twilioResult = await sendTwilioMessage(fromNumber, toNumber, message.trim(), accountSid, authToken)
+  let twilioResult
+  try {
+    twilioResult = await sendTwilioMessage(fromNumber, toNumber, message.trim(), accountSid, authToken)
+  } catch (twilioErr) {
+    const msg = twilioErr.message || 'Erreur Twilio inconnue'
+    console.error('[send-whatsapp] Twilio erreur:', msg)
+    return res.status(503).json({ error: `WhatsApp non envoyé : ${msg}` })
+  }
 
   const senderName = profile.nom_complet || profile.nom_agence || 'Agent'
   const { data: conv } = await supabase.from('conversations').insert({
