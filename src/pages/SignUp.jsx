@@ -4,8 +4,16 @@ import { Building, Eye, EyeOff, Mail, Lock, User, CheckCircle, Users } from 'luc
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../supabaseClient'
 
-const PLAN_LABELS = { starter: 'Starter — 49€/mois', growth: 'Growth — 149€/mois', enterprise: 'Enterprise' }
-const PLAN_COLORS = { starter: 'bg-blue-50 border-blue-200 text-blue-700', growth: 'bg-indigo-50 border-indigo-200 text-indigo-700', enterprise: 'bg-purple-50 border-purple-200 text-purple-700' }
+const PLAN_LABELS = {
+  starter:    '🚀 Solo — 79€/mois',
+  growth:     '⭐ Agence — 149€/mois',
+  enterprise: '🏢 Expert — Sur devis',
+}
+const PLAN_COLORS = {
+  starter:    'bg-blue-50 border-blue-200 text-blue-700',
+  growth:     'bg-indigo-50 border-indigo-200 text-indigo-700',
+  enterprise: 'bg-purple-50 border-purple-200 text-purple-700',
+}
 
 export default function SignUp() {
   const { t } = useTranslation()

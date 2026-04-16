@@ -25,14 +25,20 @@ import ErrorBoundary from './components/ErrorBoundary';
 import RoleGate from './components/RoleGate';
 
 /**
- * Route racine "/" — redirige vers nexapro.tech SAUF si
+ * Route racine "/" — redirige vers /signup SAUF si
  * l'URL contient un token Supabase (confirmation email).
  * Dans ce cas, on redirige vers /auth/confirm qui traite le token.
+ *
+ * Paramètres transmis :
+ *   ?plan=solo   → /signup?plan=solo
+ *   ?plan=agency → /signup?plan=agency
  */
 function LeadQualifRedirect() {
   useEffect(() => {
     const hash   = window.location.hash;
     const search = window.location.search;
+    const params = new URLSearchParams(search);
+
     // Supabase met le token dans le hash (#access_token=...) ou
     // la query string (?token_hash=...&type=signup)
     const hasAuthToken =
@@ -45,7 +51,13 @@ function LeadQualifRedirect() {
       // Préserve hash + query → /auth/confirm les traitera
       window.location.replace('/auth/confirm' + search + hash);
     } else {
-      window.location.replace('https://nexapro.tech/leadqualif.html');
+      // Transmettre le plan si présent, en normalisant les alias du site marketing
+      // solo → starter, agency → growth
+      const planRaw = params.get('plan');
+      const planMap = { solo: 'starter', agency: 'growth', agence: 'growth', expert: 'enterprise' };
+      const plan = planMap[planRaw] || planRaw || null;
+      const signupUrl = plan ? `/signup?plan=${encodeURIComponent(plan)}` : '/signup';
+      window.location.replace(signupUrl);
     }
   }, []);
   // Spinner pendant la détection
