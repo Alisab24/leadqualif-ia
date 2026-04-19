@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
+import { FeatureGate } from '../components/PlanGuard'
 
 // ── Icônes SVG ──────────────────────────────────────────────────────────
 const IconTarget  = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -401,6 +402,7 @@ export default function ScraperPage() {
   const totalChaud    = rawLeads.filter(l => (l.score_initial || 0) >= 71).length
 
   return (
+    <FeatureGate feature="docs" mode="banner">
     <div className="flex flex-col h-full overflow-hidden bg-slate-50">
       {/* ── Toast ─────────────────────────────────────────────────── */}
       {toast && (
@@ -947,5 +949,6 @@ export default function ScraperPage() {
         )}
       </div>
     </div>
+    </FeatureGate>
   )
 }

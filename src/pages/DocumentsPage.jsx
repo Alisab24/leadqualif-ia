@@ -14,6 +14,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import ProfileManager from '../services/profileManager';
 import DevisToFactureService from '../services/devisToFactureService';
+import { FeatureGate } from '../components/PlanGuard';
 
 // ── Avancement automatique du pipeline depuis DocumentsPage ──────────────────
 // Ordre des statuts — cohérent avec Dashboard.jsx
@@ -988,6 +989,7 @@ ${rawHtml}
   }
 
   return (
+    <FeatureGate feature="docs" mode="banner">
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
       {/* ── En-tête de page (slim, intégré à la sidebar Layout) ── */}
       <div className="flex-none bg-white border-b border-slate-200 px-6 shadow-sm">
@@ -1408,6 +1410,7 @@ ${rawHtml}
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 };
 

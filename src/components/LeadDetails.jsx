@@ -11,6 +11,7 @@ import { supabase } from '../supabaseClient'
 import { aiService } from '../services/ai'
 import DocumentGenerator from './DocumentGenerator'
 import { tPipelineLabel, tScore } from '../i18n'
+import { usePlanGuard, FeatureGate } from './PlanGuard'
 
 /* ─── Helpers WhatsApp ────────────────────────────────────── */
 const toWAPhone = (raw = '') => {
@@ -112,6 +113,7 @@ const LeadDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { canAccess } = usePlanGuard()
 
   const [lead, setLead]                   = useState(null)
   const [agencyProfile, setAgencyProfile] = useState(null)
@@ -1123,6 +1125,7 @@ const LeadDetails = () => {
 
         {/* ═══ ONGLET IA ═══════════════════════════════════ */}
         {activeTab === 'ia' && (
+          <FeatureGate feature="ia" mode="banner">
           <div className="max-w-2xl mx-auto space-y-5">
 
             {/* Score + bouton analyser */}
@@ -1211,6 +1214,7 @@ const LeadDetails = () => {
               </div>
             )}
           </div>
+          </FeatureGate>
         )}
 
         {/* ═══ ONGLET DOCUMENTS ═══════════════════════════ */}
@@ -1447,6 +1451,7 @@ const LeadDetails = () => {
             {/* ── Agent IA banner ── */}
             {(msgChannel === 'all' || msgChannel === 'whatsapp') && (
               <div className="flex-none">
+                <FeatureGate feature="agentIA" mode="blur">
                 {lead?.auto_contacted_at ? (
                   <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
                     <span className="text-sm">🤖</span>
@@ -1492,6 +1497,7 @@ const LeadDetails = () => {
                     )}
                   </div>
                 )}
+                </FeatureGate>
               </div>
             )}
 
