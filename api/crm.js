@@ -385,133 +385,41 @@ async function advanceLeadStatut(supabase, leadId, targetStatut) {
   }
 }
 
-/* ── Templates par défaut LeadQualif Kit (Premier contact) ──────────────── */
-// Ces templates sont utilisés quand aucun template personnalisé n'est configuré.
-// Les agences clientes peuvent surcharger via Paramètres → Agent IA.
-const LEADQUALIF_TEMPLATES = {
-  // ─── WhatsApp ────────────────────────────────────────────────────────────
-  smma_wa: `Bonjour {{prenom}},
-
-J'ai vu que tu gères des campagnes Meta pour tes clients.
-
-On a développé LeadQualif — un outil qui génère des leads qualifiés avec score IA pour les agences comme la tienne.
-
-Je t'offre 50 leads gratuits sur ton secteur pour tester. Sans engagement.
-
-Ça t'intéresse ?`,
-
-  immo_wa: `Bonjour {{prenom}},
-
-J'ai vu que votre agence est active sur {{ville}}.
-
-LeadQualif identifie automatiquement les propriétaires et acheteurs potentiels dans votre zone avec un score IA.
-
-Je vous offre 50 contacts qualifiés sur {{ville}} pour tester.
-
-Ça vous intéresse ?`,
-
-  default_wa: `Bonjour {{prenom}},
-
-J'ai vu que vous êtes actif dans le secteur {{secteur}}.
-
-On a développé LeadQualif — un outil qui génère des leads qualifiés avec score IA et automatise le premier contact.
-
-Je vous offre 50 leads gratuits pour tester. Sans engagement.
-
-Ça vous intéresse ?`,
-
-  // ─── Email — Objet ────────────────────────────────────────────────────────
-  smma_email_subject:    `50 leads qualifiés offerts pour {{nom_agence}}`,
-  immo_email_subject:    `50 contacts vendeurs offerts sur {{ville}}`,
-  default_email_subject: `50 leads qualifiés offerts — LeadQualif`,
-
-  // ─── Email — Corps ────────────────────────────────────────────────────────
-  smma_email_body: `Bonjour {{prenom}},
-
-Je m'appelle {{ton_prenom}}, fondateur de LeadQualif.
-
-J'ai vu que {{nom_agence}} gère des campagnes Meta pour ses clients — et je parie que trouver des prospects qualifiés prend beaucoup de temps à ton équipe.
-
-LeadQualif automatise exactement ça :
-→ Scraping automatique (Facebook Pages + Pages Jaunes)
-→ Score IA 0-100 : Chaud / Tiède / Froid
-→ Agent WhatsApp qui contacte les leads chauds en 5 minutes
-
-Je t'offre 50 leads qualifiés gratuits sur ton secteur pour tester.
-
-Tu veux que je te les envoie ?
-
-Bonne journée,
-{{ton_prenom}}
-LeadQualif — leadqualif.com`,
-
-  immo_email_body: `Bonjour {{prenom}},
-
-Je m'appelle {{ton_prenom}}, fondateur de LeadQualif.
-
-J'ai vu que votre agence est spécialisée sur {{ville}} — et je sais que trouver des vendeurs potentiels avant la concurrence est un enjeu clé.
-
-LeadQualif identifie automatiquement :
-→ Les propriétaires susceptibles de vendre dans votre zone
-→ Les acheteurs actifs en recherche
-→ Avec un Score IA pour prioriser les plus chauds
-
-Je vous offre 50 contacts qualifiés sur {{ville}} pour tester.
-
-Vous voulez que je vous les envoie ?
-
-Bien cordialement,
-{{ton_prenom}}
-LeadQualif — leadqualif.com`,
-
-  default_email_body: `Bonjour {{prenom}},
-
-Je m'appelle {{ton_prenom}}, fondateur de LeadQualif.
-
-LeadQualif automatise la qualification de vos leads avec un score IA 0-100 et un agent de premier contact automatique — pour que vos commerciaux se concentrent uniquement sur les prospects chauds.
-
-Je vous offre 50 leads qualifiés gratuits sur votre secteur pour tester.
-
-Vous voulez que je vous les envoie ?
-
-Cordialement,
-{{ton_prenom}}
-LeadQualif — leadqualif.com`,
-}
+// NOTE : Les templates par défaut NexaPro ont été retirés.
+// Chaque agence cliente configure ses propres templates dans Paramètres → Agent IA.
+// En l'absence de template, la génération est déléguée à Claude (si clé Anthropic configurée).
 
 /* ── Action : auto-contact agent IA ──────────────────────────────────────── */
 async function generateClaudeMessage(lead, agencyName, apiKey, channel = 'whatsapp') {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
 
-  const secteur = (lead.secteur_activite || lead.type_service || lead.secteur || '').toLowerCase()
-  let contexte = 'Secteur inconnu. Message générique sur : automatiser la qualification des leads et gagner du temps dans la prospection.'
-  if (secteur.includes('smma') || secteur.includes('marketing') || secteur.includes('agence')) {
-    contexte = 'Le lead travaille dans le secteur SMMA/Marketing. Axe sur : générer des leads qualifiés, automatiser la prospection, augmenter le ROI publicité.'
-  } else if (secteur.includes('immo') || secteur.includes('immobilier') || secteur.includes('bien') || secteur.includes('achat')) {
-    contexte = 'Le lead est dans l\'immobilier. Axe sur : trouver des propriétaires et acheteurs qualifiés, automatiser la qualification des prospects.'
-  }
+  const leadInfo = [
+    `Nom : ${lead.nom || 'inconnu'}`,
+    lead.secteur_activite || lead.secteur ? `Secteur : ${lead.secteur_activite || lead.secteur}` : null,
+    lead.localisation_souhaitee || lead.adresse ? `Ville : ${lead.localisation_souhaitee || lead.adresse}` : null,
+    lead.score_ia || lead.score ? `Score IA : ${lead.score_ia || lead.score}%` : null,
+  ].filter(Boolean).join(' | ')
 
   const isEmail = channel === 'email'
   const prompt = isEmail
-    ? `Tu es un assistant commercial expert pour ${agencyName || 'LeadQualif'}.
-Génère un email de premier contact professionnel pour ce lead.
+    ? `Tu es un assistant commercial pour l'agence "${agencyName}".
+Génère un email de premier contact professionnel à envoyer à un prospect.
 
 Règles STRICTES :
 - Objet de l'email sur la 1ère ligne, préfixé par "Objet: "
 - Corps de l'email ensuite (séparé par une ligne vide)
 - Maximum 4-5 phrases, ton professionnel et chaleureux
 - Personnalisé avec le prénom du lead si disponible
-- Termine par une question ouverte et une signature avec ${agencyName}
+- Termine par une question ouverte et une signature au nom de ${agencyName}
 - Maximum 1 emoji
 - Langue : français
-- Ne mentionne PAS le nom de l'outil ou du logiciel
+- Le message doit correspondre à l'activité de l'agence "${agencyName}", PAS à un outil tiers
 
-Contexte : ${contexte}
-Lead : Nom: ${lead.nom || 'le contact'} | Secteur: ${lead.secteur_activite || lead.secteur || 'non précisé'} | Score: ${lead.score_ia || lead.score || 0}%
+Prospect : ${leadInfo}
 
 Génère UNIQUEMENT l'email (Objet + corps), sans guillemets ni préambule.`
-    : `Tu es un assistant commercial expert pour ${agencyName || 'LeadQualif'}.
-Génère un message WhatsApp de premier contact pour ce lead.
+    : `Tu es un assistant commercial pour l'agence "${agencyName}".
+Génère un message WhatsApp de premier contact pour ce prospect.
 
 Règles STRICTES :
 - Maximum 3 phrases courtes
@@ -520,10 +428,9 @@ Règles STRICTES :
 - Termine OBLIGATOIREMENT par une question ouverte simple
 - Maximum 1 emoji
 - Langue : français
-- Ne mentionne PAS le nom de l'outil ou du logiciel
+- Le message doit représenter l'agence "${agencyName}" et son activité, PAS un outil tiers
 
-Contexte : ${contexte}
-Lead : Nom: ${lead.nom || 'le contact'} | Secteur: ${lead.secteur_activite || lead.secteur || 'non précisé'} | Score: ${lead.score_ia || lead.score || 0}%
+Prospect : ${leadInfo}
 
 Génère UNIQUEMENT le message WhatsApp, sans guillemets ni préambule.`
 
@@ -579,7 +486,7 @@ async function handleAutoContact(req, res, supabase, user) {
   if ((count || 0) >= 20) return res.status(429).json({ error: 'Rate limit atteint (20 messages/heure max)' })
 
   // ── Variables communes ────────────────────────────────────────────────────
-  const agencyName = profile.nom_agence || profile.nom_complet || 'LeadQualif'
+  const agencyName = profile.nom_agence || profile.nom_complet || 'notre agence'
   const tonPrenom  = (profile.nom_complet || '').split(' ')[0] || profile.nom_complet || 'L\'équipe'
   const secteur    = (lead.secteur_activite || lead.type_service || lead.secteur || '').toLowerCase()
   const isSmma     = secteur.includes('smma') || secteur.includes('marketing') || secteur.includes('agence')
@@ -598,22 +505,31 @@ async function handleAutoContact(req, res, supabase, user) {
     .replace(/\{\{nom_agence\}\}/gi, leadAgence)
     .replace(/\{\{ton_prenom\}\}/gi, tonPrenom)
 
-  // ── Résolution des templates ──────────────────────────────────────────────
-  // Priorité : template personnalisé (agency_settings) → LeadQualif par défaut
-  const customWa      = isSmma ? settings?.agent_smma_template
-                      : isImmo ? settings?.agent_immo_template
-                      :          settings?.agent_default_template
-  const defaultWaKey  = isSmma ? 'smma_wa'  : isImmo ? 'immo_wa'  : 'default_wa'
-  const defaultEmSubj = isSmma ? 'smma_email_subject' : isImmo ? 'immo_email_subject' : 'default_email_subject'
-  const defaultEmBody = isSmma ? 'smma_email_body'    : isImmo ? 'immo_email_body'    : 'default_email_body'
+  // ── Résolution du template configuré par l'agence ────────────────────────
+  // Priorité secteur : SMMA → Immo → Défaut
+  const customWa = isSmma ? settings?.agent_smma_template
+                 : isImmo ? settings?.agent_immo_template
+                 :          settings?.agent_default_template
 
   // ── Message WhatsApp ──────────────────────────────────────────────────────
   let waMessage = ''
   if (customWa) {
+    // Template configuré par l'agence → appliquer les variables
     waMessage = applyVars(customWa)
+  } else if (anthropicKey) {
+    // Pas de template configuré mais clé Anthropic disponible → génération IA générique
+    try {
+      waMessage = await generateClaudeMessage(lead, agencyName, anthropicKey, 'whatsapp')
+    } catch (e) {
+      console.warn('[crm/auto-contact] claude wa generation failed:', e.message)
+      return res.status(503).json({ skipped: true, reason: `Génération IA échouée : ${e.message}` })
+    }
   } else {
-    // Template LeadQualif par défaut — pas besoin de clé Anthropic
-    waMessage = applyVars(LEADQUALIF_TEMPLATES[defaultWaKey])
+    // Ni template ni clé Anthropic → l'agence doit configurer ses templates
+    return res.status(422).json({
+      skipped: true,
+      reason: 'Aucun template Agent IA configuré. Allez dans Paramètres → Agent IA pour personnaliser vos messages.',
+    })
   }
 
   // ── Message Email ─────────────────────────────────────────────────────────
@@ -621,14 +537,24 @@ async function handleAutoContact(req, res, supabase, user) {
   let emailBody    = ''
   if (hasEmail) {
     if (customWa) {
-      // Si l'agence a un template custom WhatsApp, l'adapter pour email
+      // Template WhatsApp de l'agence adapté en email
       emailSubject = `Premier contact — ${agencyName}`
       emailBody    = applyVars(customWa)
-    } else {
-      // Utiliser le template email LeadQualif par défaut
-      emailSubject = applyVars(LEADQUALIF_TEMPLATES[defaultEmSubj])
-      emailBody    = applyVars(LEADQUALIF_TEMPLATES[defaultEmBody])
+    } else if (anthropicKey) {
+      // Génération IA pour email (objet + corps)
+      try {
+        const generated  = await generateClaudeMessage(lead, agencyName, anthropicKey, 'email')
+        const lines      = generated.split('\n')
+        const subjectLine = lines.find(l => l.toLowerCase().startsWith('objet:'))
+        emailSubject = subjectLine ? subjectLine.replace(/^objet:\s*/i, '').trim() : `Premier contact — ${agencyName}`
+        emailBody    = lines.filter(l => !l.toLowerCase().startsWith('objet:')).join('\n').trim()
+      } catch (e) {
+        console.warn('[crm/auto-contact] claude email generation failed:', e.message)
+        // L'email échoue → on tentera quand même le WhatsApp si disponible
+        emailBody = ''
+      }
     }
+    // Si ni template ni clé → emailBody reste vide → canal email ignoré
   }
 
   // ── Vérification canaux disponibles ──────────────────────────────────────
