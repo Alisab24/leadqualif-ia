@@ -1451,7 +1451,27 @@ const LeadDetails = () => {
             {/* ── Agent IA banner ── */}
             {(msgChannel === 'all' || msgChannel === 'whatsapp') && (
               <div className="flex-none">
-                <FeatureGate feature="agentIA" mode="blur">
+                <FeatureGate feature="agentIA" mode="blur" fallback={
+                  <div className="w-full rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-lg">🤖</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-indigo-800 flex items-center gap-1">
+                          🔒 Agent IA <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-indigo-600 text-white rounded-full ml-1">Plan Agence</span>
+                        </p>
+                        <p className="text-[11px] text-indigo-600 mt-0.5 leading-snug">
+                          Génère &amp; envoie un message personnalisé par WhatsApp + Email en 1 clic
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => window.location.href = '/settings?tab=facturation'}
+                        className="flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        Débloquer →
+                      </button>
+                    </div>
+                  </div>
+                }>
                 {lead?.auto_contacted_at ? (
                   <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
                     <span className="text-sm">🤖</span>
