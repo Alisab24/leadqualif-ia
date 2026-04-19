@@ -1334,6 +1334,83 @@ async function handleSendInvitation(req, res, supabase, user) {
   return res.status(200).json({ success: true, token: inviteToken, invite_link: inviteLink, is_refresh: isRefresh, email_sent: emailSent })
 }
 
+/* ── Action : Agent 2 Qualificateur — suggestion de réponse (semi-auto) ───── */
+async function handleSuggestResponse(req, res, supabase, user) {
+  const { leadId } = req.body || {}
+  if (!leadId) return res.status(400).json({ error: 'leadId requis' })
+
+  const { data: profile } = await supabase.from('profiles')
+    .select('agency_id, nom_complet, nom_agence').eq('user_id', user.id).single()
+  if (!profile?.agency_id) return res.status(403).json({ error: 'Agence introuvable' })
+
+  // Clé Anthropic
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('anthropic_api_key').eq('agency_id', profile.agency_id).maybeSingle()
+  const anthropicKey = ws?.anthropic_api_key || process.env.ANTHROPIC_API_KEY
+  if (!anthropicKey) return res.status(422).json({ error: 'Clé Anthropic non configurée dans Paramètres → Workspace' })
+
+  // Infos lead
+  const { data: lead } = await supabase.from('leads')
+    .select('nom, secteur_activite, secteur, score_ia, score, statut, email, telephone')
+    .eq('id', leadId).eq('agency_id', profile.agency_id).single()
+  if (!lead) return res.status(404).json({ error: 'Lead introuvable' })
+
+  // Historique des 20 derniers messages
+  const { data: msgs } = await supabase.from('conversations')
+    .select('direction, channel, content, subject, created_at')
+    .eq('lead_id', leadId).eq('agency_id', profile.agency_id)
+    .order('created_at', { ascending: true }).limit(20)
+
+  const agencyName = profile.nom_agence || profile.nom_complet || 'notre agence'
+
+  // Construire l'historique de conversation pour Claude
+  const convHistory = (msgs || []).map(m => {
+    const who = m.direction === 'outbound' ? `[${agencyName}]` : `[Lead ${lead.nom || ''}]`
+    const prefix = m.channel === 'email' && m.subject ? `(Email: ${m.subject}) ` : ''
+    return `${who}: ${prefix}${m.content}`
+  }).join('\n')
+
+  // Analyser ce qu'on sait déjà pour orienter la qualification
+  const knownInfo = [
+    lead.secteur_activite || lead.secteur ? `secteur: ${lead.secteur_activite || lead.secteur}` : null,
+    lead.score_ia || lead.score ? `score IA: ${lead.score_ia || lead.score}%` : null,
+  ].filter(Boolean).join(', ')
+
+  const prompt = `Tu es un agent commercial qualificateur pour l'agence "${agencyName}".
+Ton objectif : qualifier ce lead en découvrant budget, besoin principal, timing et décideur.
+
+Informations connues sur le lead :
+- Nom : ${lead.nom || 'inconnu'}
+${knownInfo ? `- ${knownInfo}` : ''}
+
+Historique de la conversation :
+${convHistory || '(aucun échange précédent)'}
+
+INSTRUCTIONS :
+1. Réponds naturellement au dernier message du lead (si il y en a un)
+2. Pose UNE SEULE question de qualification parmi celles non encore posées :
+   - Budget disponible ?
+   - Quel est le besoin principal / objectif ?
+   - Quel est le timing (quand voulez-vous démarrer) ?
+   - Qui prend la décision finale ?
+3. Maximum 3 phrases, ton chaleureux et professionnel
+4. Langue : français
+
+Génère UNIQUEMENT le message de réponse, sans guillemets ni préambule.`
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
+  })
+  if (!r.ok) throw new Error(`Claude API ${r.status}`)
+  const d = await r.json()
+  const suggestion = (d.content?.[0]?.text || '').trim()
+  if (!suggestion) return res.status(500).json({ error: 'Génération IA vide' })
+
+  return res.status(200).json({ suggestion })
+}
+
 /* ── Handler principal ────────────────────────────────────────────────────── */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -1363,6 +1440,7 @@ export default async function handler(req, res) {
     if (action === 'send-document-email') return await handleSendDocumentEmail(req, res, supabase, user)
     if (action === 'fetch-email-inbox')   return await handleFetchEmailInbox(req, res, supabase, user)
     if (action === 'send-invitation')     return await handleSendInvitation(req, res, supabase, user)
+    if (action === 'suggest-response')   return await handleSuggestResponse(req, res, supabase, user)
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[crm/${action}] Erreur:`, err)
