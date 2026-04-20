@@ -510,10 +510,10 @@ const DocumentsPage = () => {
     setSigningDoc(doc.id);
     try {
       const { data: { session } } = await (await import('../supabaseClient')).supabase.auth.getSession();
-      const res = await fetch('/api/docuseal', {
+      const res = await fetch('/api/workspace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ action: 'send-for-signature', documentId: doc.id }),
+        body: JSON.stringify({ action: 'docuseal-send', documentId: doc.id }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
