@@ -33,30 +33,47 @@ async function docusealFetch(path, method = 'GET', body = null) {
 }
 
 function buildDocumentHtml(doc) {
-  const body  = doc.html_content || doc.contenu || ''
+  // Priorité : preview_html (le plus complet) > contenu_html > contenu > html_content
+  const existingHtml = doc.preview_html || doc.contenu_html || doc.html_content || doc.contenu || ''
   const title = doc.titre || doc.reference || 'Document'
+
+  // Si le doc a déjà un HTML complet, on y ajoute juste le bloc signature
+  if (existingHtml && existingHtml.trim().startsWith('<!DOCTYPE')) {
+    // Injecter le bloc signature avant </body>
+    const sigBlock = `
+<div style="margin-top:48px;display:flex;justify-content:space-between;gap:32px;border-top:2px solid #e5e7eb;padding-top:24px;page-break-inside:avoid">
+  <div style="flex:1">
+    <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:4px">Signature du client</p>
+    <div style="border-bottom:1px solid #9ca3af;height:56px;margin-bottom:8px"></div>
+    <p style="font-size:10px;color:#9ca3af">Date : ____________________</p>
+  </div>
+  <div style="flex:1">
+    <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:4px">Signature émetteur</p>
+    <div style="border-bottom:1px solid #9ca3af;height:56px;margin-bottom:8px"></div>
+    <p style="font-size:10px;color:#9ca3af">Date : ____________________</p>
+  </div>
+</div>`
+    return existingHtml.replace('</body>', sigBlock + '</body>')
+  }
+
+  // Sinon, construire un HTML minimal avec le contenu disponible
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><title>${title}</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;margin:40px;line-height:1.5}
-  h1{font-size:18px;margin-bottom:16px}
-  .sig-section{margin-top:48px;display:flex;justify-content:space-between;gap:32px;border-top:1px solid #e5e7eb;padding-top:24px}
-  .sig-block{flex:1}
-  .sig-label{font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:4px}
-  .sig-field{border-bottom:1px solid #9ca3af;height:48px;margin-bottom:8px}
-  .sig-date{font-size:10px;color:#9ca3af}
 </style></head><body>
-${body}
-<div class="sig-section">
-  <div class="sig-block">
-    <div class="sig-label">Signature du client</div>
-    <div class="sig-field"></div>
-    <div class="sig-date">Date : ____________________</div>
+<h1>${title}</h1>
+${existingHtml || '<p>Document à signer</p>'}
+<div style="margin-top:48px;display:flex;justify-content:space-between;gap:32px;border-top:2px solid #e5e7eb;padding-top:24px">
+  <div style="flex:1">
+    <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280">Signature du client</p>
+    <div style="border-bottom:1px solid #9ca3af;height:56px;margin-bottom:8px"></div>
+    <p style="font-size:10px;color:#9ca3af">Date : ____________________</p>
   </div>
-  <div class="sig-block">
-    <div class="sig-label">Signature émetteur</div>
-    <div class="sig-field"></div>
-    <div class="sig-date">Date : ____________________</div>
+  <div style="flex:1">
+    <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280">Signature émetteur</p>
+    <div style="border-bottom:1px solid #9ca3af;height:56px;margin-bottom:8px"></div>
+    <p style="font-size:10px;color:#9ca3af">Date : ____________________</p>
   </div>
 </div>
 </body></html>`
