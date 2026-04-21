@@ -110,6 +110,24 @@ export default function WorkspaceSettings() {
   const [appearanceSaving, setAppearanceSaving] = useState(false)
   const setApp = (key, val) => setAppearance(p => ({ ...p, [key]: val }))
 
+  // Upload image → base64 dataURL
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingSig, setUploadingSig]   = useState(false)
+
+  const handleImageUpload = (file, fieldKey, stateSetter, loadingSetter) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) return alert('Format non supporté. Utilisez JPG, PNG, SVG ou GIF.')
+    if (file.size > 1024 * 1024) return alert('Image trop lourde (max 1 Mo). Compressez-la avant de l\'importer.')
+    loadingSetter(true)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      stateSetter(p => ({ ...p, [fieldKey]: e.target.result }))
+      loadingSetter(false)
+    }
+    reader.onerror = () => { alert('Erreur de lecture du fichier.'); loadingSetter(false) }
+    reader.readAsDataURL(file)
+  }
+
   // Test buttons state
   const [testEmailTo,     setTestEmailTo]     = useState('')
   const [testEmailResult, setTestEmailResult] = useState(null)
@@ -347,13 +365,31 @@ export default function WorkspaceSettings() {
                     placeholder="Ex: Agence Dupont Immobilier" />
                 </Field>
 
-                <Field label="URL du logo" hint="Lien direct vers votre logo (JPG, PNG, SVG)">
-                  <Input value={form.agency_logo_url} onChange={e => set('agency_logo_url', e.target.value)}
-                    placeholder="https://monsite.com/logo.png" />
+                <Field label="Logo de l'agence" hint="Importez depuis votre PC ou collez une URL (JPG, PNG, SVG — max 1 Mo)">
+                  <div className="flex gap-2">
+                    <Input value={form.agency_logo_url?.startsWith('data:') ? '(image importée depuis votre PC)' : form.agency_logo_url}
+                      readOnly={form.agency_logo_url?.startsWith('data:')}
+                      onChange={e => set('agency_logo_url', e.target.value)}
+                      placeholder="https://monsite.com/logo.png" />
+                    <label className={`shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border cursor-pointer transition-colors ${
+                      uploadingLogo ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                    }`}>
+                      {uploadingLogo ? '⏳' : '📁'} {uploadingLogo ? 'Import…' : 'Importer'}
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={e => handleImageUpload(e.target.files?.[0], 'agency_logo_url', setForm, setUploadingLogo)} />
+                    </label>
+                  </div>
                   {form.agency_logo_url && (
-                    <div className="mt-2 flex items-center gap-3">
-                      <img src={form.agency_logo_url} alt="Logo preview" className="h-12 w-auto rounded-lg border border-slate-200 object-contain p-1" onError={e => e.target.style.display='none'} />
-                      <span className="text-xs text-slate-400">Aperçu du logo</span>
+                    <div className="mt-2 flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200 w-fit">
+                      <img src={form.agency_logo_url} alt="Logo preview" className="h-12 w-auto rounded-lg object-contain"
+                        onError={e => e.target.style.display='none'} />
+                      <div>
+                        <p className="text-xs font-medium text-slate-600">Aperçu logo</p>
+                        {form.agency_logo_url?.startsWith('data:') && (
+                          <button type="button" onClick={() => set('agency_logo_url', '')}
+                            className="text-[11px] text-red-500 hover:underline mt-0.5">Supprimer</button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </Field>
@@ -384,17 +420,34 @@ export default function WorkspaceSettings() {
                 {/* Logo */}
                 <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
                   <h2 className="text-base font-bold text-slate-800">🖼️ Logo de l'agence</h2>
-                  <Field label="URL du logo" hint="Lien direct vers votre logo (PNG, SVG). Apparaît dans les documents PDF.">
-                    <Input value={appearance.logo_url} onChange={e => setApp('logo_url', e.target.value)}
-                      placeholder="https://monsite.com/logo.png" />
-                  </Field>
-                  {appearance.logo_url && (
-                    <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 inline-flex items-center gap-3">
-                      <img src={appearance.logo_url} alt="Logo" className="h-14 object-contain"
-                        onError={e => e.target.style.display = 'none'} />
-                      <span className="text-xs text-slate-400">Aperçu logo</span>
+                  <Field label="Logo" hint="Importez depuis votre PC ou collez une URL (PNG, SVG, JPG — max 1 Mo). Apparaît dans les documents PDF.">
+                    <div className="flex gap-2">
+                      <Input value={appearance.logo_url?.startsWith('data:') ? '(image importée depuis votre PC)' : appearance.logo_url}
+                        readOnly={appearance.logo_url?.startsWith('data:')}
+                        onChange={e => setApp('logo_url', e.target.value)}
+                        placeholder="https://monsite.com/logo.png" />
+                      <label className={`shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border cursor-pointer transition-colors ${
+                        uploadingLogo ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                      }`}>
+                        {uploadingLogo ? '⏳' : '📁'} {uploadingLogo ? 'Import…' : 'Importer'}
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={e => handleImageUpload(e.target.files?.[0], 'logo_url', setAppearance, setUploadingLogo)} />
+                      </label>
                     </div>
-                  )}
+                    {appearance.logo_url && (
+                      <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 inline-flex items-center gap-3 w-fit">
+                        <img src={appearance.logo_url} alt="Logo" className="h-14 object-contain"
+                          onError={e => e.target.style.display = 'none'} />
+                        <div>
+                          <p className="text-xs font-medium text-slate-600">Aperçu logo</p>
+                          {appearance.logo_url?.startsWith('data:') && (
+                            <button type="button" onClick={() => setApp('logo_url', '')}
+                              className="text-[11px] text-red-500 hover:underline mt-0.5">Supprimer</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </Field>
                 </section>
 
                 {/* Signature + ville */}
@@ -404,17 +457,32 @@ export default function WorkspaceSettings() {
                     <Input value={appearance.ville_agence} onChange={e => setApp('ville_agence', e.target.value)}
                       placeholder="ex : Paris, Lyon, Casablanca…" />
                   </Field>
-                  <Field label="URL image de signature" hint="PNG transparent recommandé. Affichée dans le bloc signature des documents.">
-                    <Input value={appearance.signature_url} onChange={e => setApp('signature_url', e.target.value)}
-                      placeholder="https://monsite.com/signature.png" />
-                  </Field>
-                  {appearance.signature_url && (
-                    <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 inline-block">
-                      <p className="text-xs text-slate-400 mb-2">Aperçu signature :</p>
-                      <img src={appearance.signature_url} alt="Signature" className="h-16 object-contain"
-                        onError={e => e.target.style.display = 'none'} />
+                  <Field label="Signature" hint="Importez votre signature depuis votre PC ou collez une URL. PNG fond transparent recommandé.">
+                    <div className="flex gap-2">
+                      <Input value={appearance.signature_url?.startsWith('data:') ? '(signature importée depuis votre PC)' : appearance.signature_url}
+                        readOnly={appearance.signature_url?.startsWith('data:')}
+                        onChange={e => setApp('signature_url', e.target.value)}
+                        placeholder="https://monsite.com/signature.png" />
+                      <label className={`shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border cursor-pointer transition-colors ${
+                        uploadingSig ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'
+                      }`}>
+                        {uploadingSig ? '⏳' : '✍️'} {uploadingSig ? 'Import…' : 'Importer'}
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={e => handleImageUpload(e.target.files?.[0], 'signature_url', setAppearance, setUploadingSig)} />
+                      </label>
                     </div>
-                  )}
+                    {appearance.signature_url && (
+                      <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 inline-block w-fit">
+                        <p className="text-xs text-slate-400 mb-2">Aperçu signature :</p>
+                        <img src={appearance.signature_url} alt="Signature" className="h-16 object-contain"
+                          onError={e => e.target.style.display = 'none'} />
+                        {appearance.signature_url?.startsWith('data:') && (
+                          <button type="button" onClick={() => setApp('signature_url', '')}
+                            className="block text-[11px] text-red-500 hover:underline mt-1">Supprimer</button>
+                        )}
+                      </div>
+                    )}
+                  </Field>
                 </section>
 
                 {/* Couleurs */}
