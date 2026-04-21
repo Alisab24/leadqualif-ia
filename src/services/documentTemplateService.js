@@ -75,7 +75,8 @@ export class DocumentTemplateService {
       }
       
       // 6️⃣ Ajouter à la timeline du lead
-      await this.addToTimeline(data.lead.id, templateData.title, savedDocument[0]);
+      const agencyId = data.agency?.agency_id || data.agency?.id
+      await this.addToTimeline(data.lead.id, templateData.title, savedDocument[0], agencyId);
       
       return {
         success: true,
@@ -117,31 +118,21 @@ export class DocumentTemplateService {
   }
   
   /**
-   * Ajoute une entrée dans la timeline du lead
-   * @param {string} leadId - ID du lead
-   * @param {string} documentTitle - Titre du document
-   * @param {Object} document - Document sauvegardé
+   * Ajoute un événement CRM lors de la génération d'un document
    */
-  static async addToTimeline(leadId, documentTitle, document) {
+  static async addToTimeline(leadId, documentTitle, document, agencyId) {
+    if (!agencyId) return // agency_id requis par crm_events
     try {
-      const { error } = await supabase
-        .from('timeline')
-        .insert([{
-          lead_id: leadId,
-          type: 'document_generated',
-          titre: `📄 ${documentTitle} généré`,
-          description: `${documentTitle} ${document.reference} créé avec succès`,
-          statut: 'complété',
-          document_id: document.id,
-          created_at: new Date().toISOString()
-        }]);
-      
-      if (error) {
-        console.error('Erreur ajout timeline:', error);
-      }
-    } catch (error) {
-      console.error('Erreur timeline:', error);
-    }
+      await supabase.from('crm_events').insert([{
+        lead_id: leadId,
+        agency_id: agencyId,
+        type: 'document_generated',
+        title: `📄 ${documentTitle} généré`,
+        description: `${documentTitle} ${document.reference} créé avec succès`,
+        metadata: { document_id: document.id },
+        created_at: new Date().toISOString()
+      }])
+    } catch (_) { /* non-bloquant */ }
   }
   
   /**

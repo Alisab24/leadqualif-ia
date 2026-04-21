@@ -897,28 +897,18 @@ export default function DocumentGenerator({ lead, agencyId, agencyType, onDocume
             console.log('✅ Document inséré dans la table documents');
             console.log('✅ Données insérées:', insertedData);
             
-            // 🎯 AJOUTER DANS LA TIMELINE DU LEAD
+            // 🎯 AJOUTER DANS CRM_EVENTS
             try {
-              const { error: timelineError } = await supabase
-                .from('timeline')
-                .insert({
-                  lead_id: lead.id,
-                  type: 'document_status_updated',
-                  titre: `📄 ${docType.label} générée`,
-                  description: `${docType.label} ${documentData.number} généré pour un montant de ${insertTotalTTC || 0} ${agencyProfile.devise || 'EUR'}`,
-                  statut: 'complété',
-                  created_at: new Date().toISOString()
-                });
-              
-              if (timelineError) {
-                console.error('❌ Erreur timeline:', timelineError);
-                console.error('❌ Détails erreur timeline:', timelineError.details);
-              } else {
-                console.log('✅ Timeline mise à jour');
-              }
-            } catch (timelineErr) {
-              console.error('❌ Erreur timeline:', timelineErr);
-            }
+              await supabase.from('crm_events').insert({
+                lead_id: lead.id,
+                agency_id: resolvedAgencyId,
+                type: 'document_generated',
+                title: `📄 ${docType.label} généré`,
+                description: `${docType.label} ${documentData.number} — ${insertTotalTTC || 0} ${agencyProfile?.devise || 'EUR'}`,
+                metadata: { document_number: documentData.number, total_ttc: insertTotalTTC },
+                created_at: new Date().toISOString()
+              });
+            } catch (_) { /* non-bloquant */ }
           }
         }
       } catch (error) {
