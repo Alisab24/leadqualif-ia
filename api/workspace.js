@@ -40,11 +40,9 @@ async function docusealFetch(path, method = 'GET', body = null) {
 }
 
 /**
- * Construit un HTML minimal pour DocuSeal.
- * RÈGLE CRITIQUE : les marqueurs {{Signature}} et {{Date}} doivent être
- * dans des balises <p> simples — pas dans des <div> stylisés.
- * DocuSeal parse le texte brut du HTML pour trouver les {{markers}}.
- * Noms exacts attendus par DocuSeal : "Signature" (majuscule), "Date" (majuscule).
+ * Construit un HTML pour DocuSeal.
+ * Les coordonnées des champs sont définies explicitement dans l'appel API
+ * (areas: [{x, y, w, h, page}]) — pas de marqueurs {{}} requis.
  */
 function buildDocumentHtml(doc) {
   const title  = doc.titre    || doc.reference || 'Document'
@@ -86,11 +84,11 @@ function buildDocumentHtml(doc) {
 
 <p>En signant ce document, le client reconnait en avoir pris connaissance et en accepte les termes.</p>
 
-<p><strong>Signature du client :</strong></p>
-<p>{{Signature}}</p>
+<p style="margin-top:32px"><strong>Signature du client :</strong></p>
+<p style="border:1px dashed #aaa;min-height:60px;padding:8px;background:#f9f9f9">&nbsp;</p>
 
-<p><strong>Date :</strong></p>
-<p>{{Date}}</p>
+<p style="margin-top:16px"><strong>Date :</strong></p>
+<p style="border:1px dashed #aaa;min-height:28px;padding:8px;background:#f9f9f9">&nbsp;</p>
 
 </body>
 </html>`
@@ -119,23 +117,30 @@ async function handleDocusealSend(supabase, profile, body) {
   console.log(`[DocuSeal] Template HTML markers: {{Signature}}=${hasSignature}, {{Date}}=${hasDate}`)
   console.log(`[DocuSeal] HTML snippet around marker:`, docHtml.substring(docHtml.indexOf('{{Signature}}') - 20, docHtml.indexOf('{{Signature}}') + 40))
 
-  // DocuSeal Cloud REQUIERT les deux ensemble :
-  //   1. {{Marker}} dans le HTML → position du champ dans le PDF rendu
-  //   2. fields array → type du champ (signature, date, text...)
-  // SANS fields array → DocuSeal crée le template mais fields:[] → soumission 422
-  // IMPORTANT : pas de "role" dans les fields (ça causait la 422 précédente)
+  // Approche coordonnées : pas de {{markers}}, on définit les champs avec areas (x,y,w,h en %)
+  // DocuSeal place les champs à ces positions dans le PDF rendu depuis le HTML.
+  // page:1, coordonnées en fraction de la page (0.0–1.0)
   const template = await docusealFetch('/templates/html', 'POST', {
     html:   docHtml,
     name:   docTitle,
     fields: [
-      { name: 'Signature', type: 'signature' },
-      { name: 'Date',      type: 'date'      },
+      {
+        name: 'Signature',
+        type: 'signature',
+        required: true,
+        areas: [{ x: 0.05, y: 0.73, w: 0.55, h: 0.09, page: 1 }],
+      },
+      {
+        name: 'Date',
+        type: 'date',
+        required: true,
+        areas: [{ x: 0.05, y: 0.84, w: 0.35, h: 0.05, page: 1 }],
+      },
     ],
   })
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
   console.log('[DocuSeal] Template id:', template.id, '| fields count:', template.fields?.length)
 
-  // Le rôle par défaut créé par DocuSeal pour un template HTML est "First Party"
   const submissionPayload = {
     template_id: template.id,
     send_email:  true,
