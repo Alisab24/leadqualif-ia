@@ -125,11 +125,17 @@ async function handleDocusealSend(supabase, profile, body) {
   })
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
 
+  // DocuSeal crée automatiquement un rôle dans le template (ex: "First Party")
+  // Il FAUT utiliser ce nom exact dans le submitter, sinon → 422
+  const templateRole = template.submitters?.[0]?.name || template.schema?.[0]?.role || 'First Party'
+  console.log(`[DocuSeal] Template id=${template.id}, role détecté="${templateRole}"`)
+
   const submission = await docusealFetch('/submissions', 'POST', {
     template_id: template.id,
     send_email:  true,
     submitters: [
       {
+        role:  templateRole,
         email: signerEmail,
         name:  signerName,
         message: {
