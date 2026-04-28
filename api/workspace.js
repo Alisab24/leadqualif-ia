@@ -119,19 +119,33 @@ async function handleDocusealSend(supabase, profile, body) {
   console.log(`[DocuSeal] Template HTML markers: {{Signature}}=${hasSignature}, {{Date}}=${hasDate}`)
   console.log(`[DocuSeal] HTML snippet around marker:`, docHtml.substring(docHtml.indexOf('{{Signature}}') - 20, docHtml.indexOf('{{Signature}}') + 40))
 
+  // DocuSeal Cloud REQUIERT les deux ensemble :
+  //   1. {{Marker}} dans le HTML → position du champ dans le PDF rendu
+  //   2. fields array → type du champ (signature, date, text...)
+  // SANS fields array → DocuSeal crée le template mais fields:[] → soumission 422
+  // IMPORTANT : pas de "role" dans les fields (ça causait la 422 précédente)
   const template = await docusealFetch('/templates/html', 'POST', {
-    html: docHtml,
-    name: docTitle,
+    html:   docHtml,
+    name:   docTitle,
+    fields: [
+      { name: 'Signature', type: 'signature' },
+      { name: 'Date',      type: 'date'      },
+    ],
   })
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
+  console.log('[DocuSeal] Template id:', template.id, '| fields count:', template.fields?.length)
 
-  // Log complet de la réponse template pour voir le nom du rôle exact
-  console.log('[DocuSeal] Template response:', JSON.stringify(template).substring(0, 800))
-
-  // Payload soumission — sans role (auto-assigné si un seul rôle dans le template)
+  // Le rôle par défaut créé par DocuSeal pour un template HTML est "First Party"
   const submissionPayload = {
     template_id: template.id,
-    submitters: [{ email: signerEmail }],
+    send_email:  true,
+    submitters: [
+      {
+        role:  'First Party',
+        email: signerEmail,
+        name:  signerName,
+      },
+    ],
   }
   console.log('[DocuSeal] Submission payload:', JSON.stringify(submissionPayload))
 
