@@ -41,11 +41,10 @@ async function docusealFetch(path, method = 'GET', body = null) {
 
 /**
  * Construit un HTML minimal pour DocuSeal.
- * RÈGLES DOCUSEAL :
- *  - Marqueurs {{field_name}} SANS espaces (underscores uniquement)
- *  - DocuSeal détecte automatiquement ces marqueurs et crée les champs
- *  - Un seul signataire (le client) — plus simple et plus fiable
- *  - Champs reconnus par défaut : {{signature}}, {{date}}, {{initials}}, {{text}}, etc.
+ * RÈGLE CRITIQUE : les marqueurs {{Signature}} et {{Date}} doivent être
+ * dans des balises <p> simples — pas dans des <div> stylisés.
+ * DocuSeal parse le texte brut du HTML pour trouver les {{markers}}.
+ * Noms exacts attendus par DocuSeal : "Signature" (majuscule), "Date" (majuscule).
  */
 function buildDocumentHtml(doc) {
   const title  = doc.titre    || doc.reference || 'Document'
@@ -53,7 +52,7 @@ function buildDocumentHtml(doc) {
   const email  = doc.client_email || doc.email_destinataire || ''
   const ref    = doc.reference || doc.numero_document || ''
   const amount = doc.total_ttc  ? `${Number(doc.total_ttc).toLocaleString('fr-FR')} ${doc.devise || '€'}` : ''
-  const date   = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const today  = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -61,41 +60,37 @@ function buildDocumentHtml(doc) {
   <meta charset="UTF-8">
   <title>${title}</title>
   <style>
-    body  { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; margin: 48px 56px; line-height: 1.6; }
-    h1    { font-size: 20px; color: #111827; margin: 0 0 4px; }
-    .sub  { font-size: 12px; color: #6b7280; margin-bottom: 24px; }
-    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-    td    { padding: 5px 0; vertical-align: top; }
-    .lbl  { color: #6b7280; font-size: 11px; width: 150px; }
-    hr    { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
-    .sig-box  { border: 1px dashed #9ca3af; min-height: 72px; padding: 8px; border-radius: 4px; background: #f9fafb; }
-    .date-box { border: 1px dashed #9ca3af; padding: 6px 8px; border-radius: 4px; background: #f9fafb; min-height: 28px; margin-top: 12px; }
-    .label { font-size: 11px; color: #6b7280; margin: 12px 0 4px; }
+    body  { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 48px 56px; line-height: 1.7; }
+    h1    { font-size: 20px; margin: 0 0 4px; }
+    hr    { border: none; border-top: 1px solid #ccc; margin: 24px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td    { padding: 4px 0; }
+    .lbl  { color: #666; font-size: 11px; width: 160px; }
   </style>
 </head>
 <body>
 
-  <h1>${title}</h1>
-  <p class="sub">${ref ? 'Ref. ' + ref + ' - ' : ''}${date}</p>
+<h1>${title}</h1>
+<p style="color:#666;font-size:12px">${ref ? 'Ref: ' + ref + ' - ' : ''}${today}</p>
 
-  <table>
-    <tr><td class="lbl">Client</td><td><strong>${client}</strong></td></tr>
-    ${email  ? `<tr><td class="lbl">Email</td><td>${email}</td></tr>` : ''}
-    ${amount ? `<tr><td class="lbl">Montant TTC</td><td><strong>${amount}</strong></td></tr>` : ''}
-    ${ref    ? `<tr><td class="lbl">Reference</td><td>${ref}</td></tr>` : ''}
-  </table>
+<hr>
 
-  <hr>
-  <p style="font-size:12px;color:#374151;margin-bottom:28px">
-    En signant ce document, les parties reconnaissent en avoir pris connaissance
-    et en acceptent les termes et conditions.
-  </p>
+<table>
+  <tr><td class="lbl">Client :</td><td><strong>${client}</strong></td></tr>
+  ${email  ? `<tr><td class="lbl">Email :</td><td>${email}</td></tr>` : ''}
+  ${amount ? `<tr><td class="lbl">Montant TTC :</td><td><strong>${amount}</strong></td></tr>` : ''}
+  ${ref    ? `<tr><td class="lbl">Reference :</td><td>${ref}</td></tr>` : ''}
+</table>
 
-  <p style="font-weight:700;font-size:13px;margin-bottom:16px">Signature du client</p>
-  <p class="label">Signature</p>
-  <div class="sig-box">{{signature}}</div>
-  <p class="label">Date</p>
-  <div class="date-box">{{date}}</div>
+<hr>
+
+<p>En signant ce document, le client reconnait en avoir pris connaissance et en accepte les termes.</p>
+
+<p><strong>Signature du client :</strong></p>
+<p>{{Signature}}</p>
+
+<p><strong>Date :</strong></p>
+<p>{{Date}}</p>
 
 </body>
 </html>`
@@ -116,10 +111,16 @@ async function handleDocusealSend(supabase, profile, body) {
   const agencyName  = profile.agency_name || profile.nom_complet || "L'agence"
   const docTitle    = doc.titre || doc.reference || 'Document à signer'
 
-  // HTML avec {{signature}} et {{date}} — noms standard DocuSeal, un seul signataire
-  // DocuSeal détecte automatiquement ces marqueurs depuis le HTML
+  // HTML avec {{Signature}} et {{Date}} — noms standards DocuSeal en <p> simples
+  const docHtml = buildDocumentHtml(doc)
+  // Log de debug : vérifier que les marqueurs sont bien présents dans le HTML envoyé
+  const hasSignature = docHtml.includes('{{Signature}}')
+  const hasDate      = docHtml.includes('{{Date}}')
+  console.log(`[DocuSeal] Template HTML markers: {{Signature}}=${hasSignature}, {{Date}}=${hasDate}`)
+  console.log(`[DocuSeal] HTML snippet around marker:`, docHtml.substring(docHtml.indexOf('{{Signature}}') - 20, docHtml.indexOf('{{Signature}}') + 40))
+
   const template = await docusealFetch('/templates/html', 'POST', {
-    html: buildDocumentHtml(doc),
+    html: docHtml,
     name: docTitle,
   })
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
