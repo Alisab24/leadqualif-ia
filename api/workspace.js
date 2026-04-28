@@ -32,64 +32,79 @@ async function docusealFetch(path, method = 'GET', body = null) {
   return data
 }
 
-// Bloc signature avec marqueurs DocuSeal {{nom_champ}} requis pour la détection des champs
-function buildSignatureBlock() {
-  return `
-<div style="margin-top:48px;border-top:2px solid #e5e7eb;padding-top:28px;page-break-inside:avoid">
-  <table style="width:100%;border-collapse:collapse">
-    <tr>
-      <td style="width:50%;padding-right:24px;vertical-align:top">
-        <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin:0 0 8px">Signature du client</p>
-        <div style="min-height:70px;border:1px dashed #d1d5db;border-radius:4px;padding:8px;background:#fafafa">
-          {{Signature Client}}
-        </div>
-        <p style="font-size:11px;color:#6b7280;margin:6px 0 4px">Date</p>
-        <div style="min-height:32px;border:1px dashed #d1d5db;border-radius:4px;padding:4px 8px;background:#fafafa">
-          {{Date Client}}
-        </div>
-      </td>
-      <td style="width:50%;padding-left:24px;vertical-align:top">
-        <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin:0 0 8px">Signature de l'émetteur</p>
-        <div style="min-height:70px;border:1px dashed #d1d5db;border-radius:4px;padding:8px;background:#fafafa">
-          {{Signature Agence}}
-        </div>
-        <p style="font-size:11px;color:#6b7280;margin:6px 0 4px">Date</p>
-        <div style="min-height:32px;border:1px dashed #d1d5db;border-radius:4px;padding:4px 8px;background:#fafafa">
-          {{Date Agence}}
-        </div>
-      </td>
-    </tr>
-  </table>
-</div>`
-}
-
+/**
+ * Construit un HTML simple et propre pour DocuSeal.
+ * Les marqueurs {{Signature Client}} etc. DOIVENT être du texte brut visible
+ * dans le HTML pour que DocuSeal les détecte. On n'injecte PAS dans le preview_html
+ * complexe (38k chars) car DocuSeal peut rater les marqueurs.
+ * On construit un résumé du document + une page de signature claire.
+ */
 function buildDocumentHtml(doc) {
-  const title = doc.titre || doc.reference || 'Document'
-  const sigBlock = buildSignatureBlock()
+  const title    = doc.titre    || doc.reference || 'Document'
+  const client   = doc.client_nom || 'Client'
+  const email    = doc.client_email || doc.email_destinataire || ''
+  const ref      = doc.reference || doc.numero_document || ''
+  const amount   = doc.total_ttc  ? `${Number(doc.total_ttc).toLocaleString('fr-FR')} ${doc.devise || '€'}` : ''
+  const date     = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  // Priorité : preview_html (le plus complet) > contenu_html > html_content > contenu
-  const existingHtml = doc.preview_html || doc.contenu_html || doc.html_content || doc.contenu || ''
-
-  if (existingHtml && existingHtml.trim().toLowerCase().startsWith('<!doctype')) {
-    // HTML complet → injecter le bloc signature avant </body>
-    return existingHtml.replace(/<\/body>/i, sigBlock + '\n</body>')
-  }
-
-  // Pas de HTML complet → construire un document minimal propre
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <title>${title}</title>
   <style>
-    body { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; margin: 48px; line-height: 1.6; }
-    h1 { font-size: 18px; margin-bottom: 20px; color: #111827; }
+    body  { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; margin: 48px 56px; line-height: 1.6; }
+    h1    { font-size: 20px; color: #111827; margin: 0 0 4px; }
+    .ref  { font-size: 12px; color: #6b7280; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    td    { padding: 6px 0; vertical-align: top; }
+    .lbl  { color: #6b7280; font-size: 11px; width: 140px; }
+    hr    { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+    .sig-box { border: 1px dashed #9ca3af; min-height: 64px; padding: 8px; border-radius: 4px; background: #f9fafb; }
+    .sig-section { display: table; width: 100%; margin-top: 16px; }
+    .sig-col  { display: table-cell; width: 48%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; }
+    .sig-col + .sig-col { margin-left: 4%; }
+    .sig-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #374151; margin-bottom: 8px; }
   </style>
 </head>
 <body>
-<h1>${title}</h1>
-${existingHtml || '<p>Veuillez signer ce document.</p>'}
-${sigBlock}
+
+  <h1>${title}</h1>
+  <p class="ref">${ref ? 'Réf. ' + ref + ' · ' : ''}${date}</p>
+
+  <table>
+    <tr><td class="lbl">Client</td><td><strong>${client}</strong></td></tr>
+    ${email   ? `<tr><td class="lbl">Email</td><td>${email}</td></tr>` : ''}
+    ${amount  ? `<tr><td class="lbl">Montant TTC</td><td><strong>${amount}</strong></td></tr>` : ''}
+    ${ref     ? `<tr><td class="lbl">Référence</td><td>${ref}</td></tr>` : ''}
+  </table>
+
+  <hr>
+  <p style="font-size:12px;color:#374151;margin-bottom:20px">
+    En signant ce document, les parties reconnaissent en avoir pris connaissance
+    et en acceptent les termes et conditions.
+  </p>
+
+  <div class="sig-section">
+    <div class="sig-col">
+      <p class="sig-title">Signature du client</p>
+      <div class="sig-box">{{Signature Client}}</div>
+      <p style="font-size:11px;color:#6b7280;margin:8px 0 4px">Date</p>
+      <div style="border:1px dashed #9ca3af;padding:4px 8px;border-radius:4px;background:#f9fafb;min-height:28px">
+        {{Date Client}}
+      </div>
+    </div>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <div class="sig-col" style="margin-left:4%">
+      <p class="sig-title">Signature de l'émetteur</p>
+      <div class="sig-box">{{Signature Agence}}</div>
+      <p style="font-size:11px;color:#6b7280;margin:8px 0 4px">Date</p>
+      <div style="border:1px dashed #9ca3af;padding:4px 8px;border-radius:4px;background:#f9fafb;min-height:28px">
+        {{Date Agence}}
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>`
 }
@@ -109,11 +124,17 @@ async function handleDocusealSend(supabase, profile, body) {
   const agencyName  = profile.agency_name || profile.nom_complet || "L'agence"
   const docTitle    = doc.titre || doc.reference || 'Document à signer'
 
-  // Les marqueurs {{Signature Client}} etc. sont intégrés dans le HTML
-  // DocuSeal les détecte automatiquement — pas besoin de "fields" séparé
+  // HTML simple avec {{Signature Client}}/{{Date Client}} etc. intégrés
+  // + fields array pour spécifier type (signature/date) et rôle (Signer/Approver)
   const template = await docusealFetch('/templates/html', 'POST', {
-    html: buildDocumentHtml(doc),
-    name: docTitle,
+    html:   buildDocumentHtml(doc),
+    name:   docTitle,
+    fields: [
+      { name: 'Signature Client', role: 'Signer',   type: 'signature' },
+      { name: 'Date Client',      role: 'Signer',   type: 'date'      },
+      { name: 'Signature Agence', role: 'Approver', type: 'signature' },
+      { name: 'Date Agence',      role: 'Approver', type: 'date'      },
+    ],
   })
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
 
