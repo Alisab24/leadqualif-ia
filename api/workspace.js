@@ -126,24 +126,16 @@ async function handleDocusealSend(supabase, profile, body) {
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
 
   // Log complet de la réponse template pour voir le nom du rôle exact
-  console.log('[DocuSeal] Template response:', JSON.stringify(template).substring(0, 600))
+  console.log('[DocuSeal] Template response:', JSON.stringify(template).substring(0, 800))
 
-  // Récupérer le nom du rôle depuis la réponse du template
-  const templateRole = template.submitters?.[0]?.name
-    || template.schema?.[0]?.role
-    || 'First Party'
-  console.log(`[DocuSeal] Template id=${template.id}, role="${templateRole}", signerEmail="${signerEmail}"`)
-
-  // Appel minimal — juste template_id + role + email, sans options avancées
-  const submission = await docusealFetch('/submissions', 'POST', {
+  // Payload soumission — sans role (auto-assigné si un seul rôle dans le template)
+  const submissionPayload = {
     template_id: template.id,
-    submitters: [
-      {
-        role:  templateRole,
-        email: signerEmail,
-      },
-    ],
-  })
+    submitters: [{ email: signerEmail }],
+  }
+  console.log('[DocuSeal] Submission payload:', JSON.stringify(submissionPayload))
+
+  const submission = await docusealFetch('/submissions', 'POST', submissionPayload)
   if (!submission?.id) throw new Error('Création de la soumission DocuSeal échouée')
 
   const signerSlug = submission.submitters?.[0]?.slug || null
