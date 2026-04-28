@@ -20,32 +20,40 @@ const DOCUSEAL_BASE = (process.env.DOCUSEAL_BASE_URL || 'https://api.docuseal.co
 
 async function docusealFetch(path, method = 'GET', body = null) {
   const apiKey = process.env.DOCUSEAL_API_KEY
-  if (!apiKey) throw Object.assign(new Error('Service de signature temporairement indisponible.'), { status: 422 })
+  if (!apiKey) throw Object.assign(new Error('Clé API DocuSeal manquante (DOCUSEAL_API_KEY non configurée).'), { status: 503 })
   const opts = {
     method,
     headers: { 'X-Auth-Token': apiKey, 'Content-Type': 'application/json' },
   }
   if (body) opts.body = JSON.stringify(body)
   const r = await fetch(`${DOCUSEAL_BASE}${path}`, opts)
-  const data = await r.json()
-  if (!r.ok) throw Object.assign(new Error(data.error || `DocuSeal ${r.status}`), { status: r.status })
+  let data
+  try { data = await r.json() } catch (_) { data = {} }
+  if (!r.ok) {
+    const msg = typeof data?.error === 'string' ? data.error
+      : typeof data?.message === 'string' ? data.message
+      : JSON.stringify(data)
+    console.error(`[DocuSeal] ${method} ${path} → ${r.status}:`, msg)
+    throw Object.assign(new Error(`DocuSeal ${r.status}: ${msg}`), { status: r.status })
+  }
   return data
 }
 
 /**
- * Construit un HTML simple et propre pour DocuSeal.
- * Les marqueurs {{Signature Client}} etc. DOIVENT être du texte brut visible
- * dans le HTML pour que DocuSeal les détecte. On n'injecte PAS dans le preview_html
- * complexe (38k chars) car DocuSeal peut rater les marqueurs.
- * On construit un résumé du document + une page de signature claire.
+ * Construit un HTML minimal pour DocuSeal.
+ * RÈGLES DOCUSEAL :
+ *  - Marqueurs {{field_name}} SANS espaces (underscores uniquement)
+ *  - DocuSeal détecte automatiquement ces marqueurs et crée les champs
+ *  - Un seul signataire (le client) — plus simple et plus fiable
+ *  - Champs reconnus par défaut : {{signature}}, {{date}}, {{initials}}, {{text}}, etc.
  */
 function buildDocumentHtml(doc) {
-  const title    = doc.titre    || doc.reference || 'Document'
-  const client   = doc.client_nom || 'Client'
-  const email    = doc.client_email || doc.email_destinataire || ''
-  const ref      = doc.reference || doc.numero_document || ''
-  const amount   = doc.total_ttc  ? `${Number(doc.total_ttc).toLocaleString('fr-FR')} ${doc.devise || '€'}` : ''
-  const date     = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const title  = doc.titre    || doc.reference || 'Document'
+  const client = doc.client_nom || 'Client'
+  const email  = doc.client_email || doc.email_destinataire || ''
+  const ref    = doc.reference || doc.numero_document || ''
+  const amount = doc.total_ttc  ? `${Number(doc.total_ttc).toLocaleString('fr-FR')} ${doc.devise || '€'}` : ''
+  const date   = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -55,55 +63,39 @@ function buildDocumentHtml(doc) {
   <style>
     body  { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; margin: 48px 56px; line-height: 1.6; }
     h1    { font-size: 20px; color: #111827; margin: 0 0 4px; }
-    .ref  { font-size: 12px; color: #6b7280; margin-bottom: 24px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    td    { padding: 6px 0; vertical-align: top; }
-    .lbl  { color: #6b7280; font-size: 11px; width: 140px; }
+    .sub  { font-size: 12px; color: #6b7280; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    td    { padding: 5px 0; vertical-align: top; }
+    .lbl  { color: #6b7280; font-size: 11px; width: 150px; }
     hr    { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
-    .sig-box { border: 1px dashed #9ca3af; min-height: 64px; padding: 8px; border-radius: 4px; background: #f9fafb; }
-    .sig-section { display: table; width: 100%; margin-top: 16px; }
-    .sig-col  { display: table-cell; width: 48%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; }
-    .sig-col + .sig-col { margin-left: 4%; }
-    .sig-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #374151; margin-bottom: 8px; }
+    .sig-box  { border: 1px dashed #9ca3af; min-height: 72px; padding: 8px; border-radius: 4px; background: #f9fafb; }
+    .date-box { border: 1px dashed #9ca3af; padding: 6px 8px; border-radius: 4px; background: #f9fafb; min-height: 28px; margin-top: 12px; }
+    .label { font-size: 11px; color: #6b7280; margin: 12px 0 4px; }
   </style>
 </head>
 <body>
 
   <h1>${title}</h1>
-  <p class="ref">${ref ? 'Réf. ' + ref + ' · ' : ''}${date}</p>
+  <p class="sub">${ref ? 'Ref. ' + ref + ' - ' : ''}${date}</p>
 
   <table>
     <tr><td class="lbl">Client</td><td><strong>${client}</strong></td></tr>
-    ${email   ? `<tr><td class="lbl">Email</td><td>${email}</td></tr>` : ''}
-    ${amount  ? `<tr><td class="lbl">Montant TTC</td><td><strong>${amount}</strong></td></tr>` : ''}
-    ${ref     ? `<tr><td class="lbl">Référence</td><td>${ref}</td></tr>` : ''}
+    ${email  ? `<tr><td class="lbl">Email</td><td>${email}</td></tr>` : ''}
+    ${amount ? `<tr><td class="lbl">Montant TTC</td><td><strong>${amount}</strong></td></tr>` : ''}
+    ${ref    ? `<tr><td class="lbl">Reference</td><td>${ref}</td></tr>` : ''}
   </table>
 
   <hr>
-  <p style="font-size:12px;color:#374151;margin-bottom:20px">
+  <p style="font-size:12px;color:#374151;margin-bottom:28px">
     En signant ce document, les parties reconnaissent en avoir pris connaissance
     et en acceptent les termes et conditions.
   </p>
 
-  <div class="sig-section">
-    <div class="sig-col">
-      <p class="sig-title">Signature du client</p>
-      <div class="sig-box">{{Signature Client}}</div>
-      <p style="font-size:11px;color:#6b7280;margin:8px 0 4px">Date</p>
-      <div style="border:1px dashed #9ca3af;padding:4px 8px;border-radius:4px;background:#f9fafb;min-height:28px">
-        {{Date Client}}
-      </div>
-    </div>
-    &nbsp;&nbsp;&nbsp;&nbsp;
-    <div class="sig-col" style="margin-left:4%">
-      <p class="sig-title">Signature de l'émetteur</p>
-      <div class="sig-box">{{Signature Agence}}</div>
-      <p style="font-size:11px;color:#6b7280;margin:8px 0 4px">Date</p>
-      <div style="border:1px dashed #9ca3af;padding:4px 8px;border-radius:4px;background:#f9fafb;min-height:28px">
-        {{Date Agence}}
-      </div>
-    </div>
-  </div>
+  <p style="font-weight:700;font-size:13px;margin-bottom:16px">Signature du client</p>
+  <p class="label">Signature</p>
+  <div class="sig-box">{{signature}}</div>
+  <p class="label">Date</p>
+  <div class="date-box">{{date}}</div>
 
 </body>
 </html>`
@@ -124,17 +116,11 @@ async function handleDocusealSend(supabase, profile, body) {
   const agencyName  = profile.agency_name || profile.nom_complet || "L'agence"
   const docTitle    = doc.titre || doc.reference || 'Document à signer'
 
-  // HTML simple avec {{Signature Client}}/{{Date Client}} etc. intégrés
-  // + fields array pour spécifier type (signature/date) et rôle (Signer/Approver)
+  // HTML avec {{signature}} et {{date}} — noms standard DocuSeal, un seul signataire
+  // DocuSeal détecte automatiquement ces marqueurs depuis le HTML
   const template = await docusealFetch('/templates/html', 'POST', {
-    html:   buildDocumentHtml(doc),
-    name:   docTitle,
-    fields: [
-      { name: 'Signature Client', role: 'Signer',   type: 'signature' },
-      { name: 'Date Client',      role: 'Signer',   type: 'date'      },
-      { name: 'Signature Agence', role: 'Approver', type: 'signature' },
-      { name: 'Date Agence',      role: 'Approver', type: 'date'      },
-    ],
+    html: buildDocumentHtml(doc),
+    name: docTitle,
   })
   if (!template?.id) throw new Error('Création du template DocuSeal échouée')
 
@@ -143,18 +129,12 @@ async function handleDocusealSend(supabase, profile, body) {
     send_email:  true,
     submitters: [
       {
-        role: 'Signer',
         email: signerEmail,
         name:  signerName,
         message: {
-          subject: `${docTitle} — Signature requise`,
-          body: `Bonjour ${signerName},\n\nVeuillez signer le document "${docTitle}" envoyé par ${agencyName}.\n\nCliquez sur le lien pour signer en ligne.\n\nCordialement,\n${agencyName}`,
+          subject: `${docTitle} - Signature requise`,
+          body: `Bonjour ${signerName},\n\nVeuillez signer le document "${docTitle}" envoye par ${agencyName}.\n\nCliquez sur le lien pour signer en ligne.\n\nCordialement,\n${agencyName}`,
         },
-      },
-      {
-        role:  'Approver',
-        email: profile.email || 'contact@nexapro.tech',
-        name:  agencyName,
       },
     ],
   })
