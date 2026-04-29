@@ -107,48 +107,45 @@ async function handleDocusealSend(supabase, profile, body) {
   const signerEmail = doc.client_email || doc.email_destinataire
   const signerName  = doc.client_nom   || doc.destinataire_nom || 'Client'
   const agencyName  = profile.agency_name || profile.nom_complet || "L'agence"
-  const docTitle    = doc.titre || doc.reference || 'Document à signer'
+  const docTitle    = doc.titre || doc.reference || 'Document a signer'
 
-  // ── Stratégie : utiliser le template existant dans le compte DocuSeal ──────
-  // On liste les templates disponibles et on prend le premier (celui configuré
-  // dans l'interface DocuSeal par l'agence), plutôt que d'en créer un nouveau.
-  // Si DOCUSEAL_TEMPLATE_ID est défini en env, on l'utilise directement.
-  let templateId = process.env.DOCUSEAL_TEMPLATE_ID ? Number(process.env.DOCUSEAL_TEMPLATE_ID) : null
-
-  if (!templateId) {
-    const templates = await docusealFetch('/templates?limit=10')
-    const list = Array.isArray(templates) ? templates : (templates?.data || [])
-    console.log('[DocuSeal] Templates disponibles:', list.map(t => `${t.id}:${t.name}(${t.fields?.length||0}champs)`).join(', '))
-    // Prendre le template avec le plus de champs (le plus complet)
-    const best = list.filter(t => (t.fields?.length || 0) > 0).sort((a, b) => (b.fields?.length||0) - (a.fields?.length||0))[0]
-      || list[0]
-    if (!best?.id) throw Object.assign(new Error('Aucun template DocuSeal trouvé. Créez-en un dans votre compte DocuSeal.'), { status: 422 })
-    templateId = best.id
-    console.log(`[DocuSeal] Template sélectionné: id=${templateId}, name="${best.name}", fields=${best.fields?.length}`)
-  } else {
-    console.log(`[DocuSeal] Template fixe depuis env: id=${templateId}`)
+  // ── Créer le template avec champs positionnés par coordonnées ────────────
+  // Les marqueurs {{}} ne fonctionnent pas via l'API Cloud DocuSeal.
+  // On utilise areas (x,y,w,h en fraction 0-1) pour positionner les champs
+  // directement dans le PDF rendu depuis le HTML.
+  const templatePayload = {
+    html:   buildDocumentHtml(doc),
+    name:   docTitle,
+    fields: [
+      {
+        name:     'Signature',
+        type:     'signature',
+        required: true,
+        submitter_role: 'First Party',
+        areas:    [{ x: 0.05, y: 0.72, w: 0.55, h: 0.10, page: 1 }],
+      },
+      {
+        name:     'Date',
+        type:     'date',
+        required: false,
+        submitter_role: 'First Party',
+        areas:    [{ x: 0.05, y: 0.84, w: 0.35, h: 0.05, page: 1 }],
+      },
+    ],
   }
-
-  // ── Récupérer les rôles du template ───────────────────────────────────────
-  const templateDetail = await docusealFetch(`/templates/${templateId}`)
-  const roles = templateDetail.submitters?.map(s => s.name) || ['First Party']
-  console.log('[DocuSeal] Rôles du template:', roles)
-
-  // Construire les submitters : client en premier rôle, agence en second (si existe)
-  const submitters = []
-  submitters.push({ role: roles[0], email: signerEmail, name: signerName })
-  if (roles[1]) {
-    const agencyEmail = profile.email || process.env.AGENCY_EMAIL || 'contact@nexapro.tech'
-    submitters.push({ role: roles[1], email: agencyEmail, name: agencyName })
-  }
+  console.log('[DocuSeal] Creating template:', docTitle)
+  const template = await docusealFetch('/templates/html', 'POST', templatePayload)
+  if (!template?.id) throw new Error('Création du template DocuSeal échouée')
+  console.log('[DocuSeal] Template id:', template.id, '| fields:', JSON.stringify(template.fields?.map(f=>f.name)))
 
   const submissionPayload = {
-    template_id: templateId,
+    template_id: template.id,
     send_email:  true,
-    submitters,
+    submitters: [
+      { role: 'First Party', email: signerEmail, name: signerName },
+    ],
   }
   console.log('[DocuSeal] Submission payload:', JSON.stringify(submissionPayload))
-
   const submission = await docusealFetch('/submissions', 'POST', submissionPayload)
   if (!submission?.id) throw new Error('Création de la soumission DocuSeal échouée')
 
