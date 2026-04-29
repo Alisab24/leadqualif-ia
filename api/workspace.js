@@ -109,48 +109,43 @@ async function handleDocusealSend(supabase, profile, body) {
   const agencyName  = profile.agency_name || profile.nom_complet || "L'agence"
   const docTitle    = doc.titre || doc.reference || 'Document à signer'
 
-  // HTML avec {{Signature}} et {{Date}} — noms standards DocuSeal en <p> simples
-  const docHtml = buildDocumentHtml(doc)
-  // Log de debug : vérifier que les marqueurs sont bien présents dans le HTML envoyé
-  const hasSignature = docHtml.includes('{{Signature}}')
-  const hasDate      = docHtml.includes('{{Date}}')
-  console.log(`[DocuSeal] Template HTML markers: {{Signature}}=${hasSignature}, {{Date}}=${hasDate}`)
-  console.log(`[DocuSeal] HTML snippet around marker:`, docHtml.substring(docHtml.indexOf('{{Signature}}') - 20, docHtml.indexOf('{{Signature}}') + 40))
+  // ── Stratégie : utiliser le template existant dans le compte DocuSeal ──────
+  // On liste les templates disponibles et on prend le premier (celui configuré
+  // dans l'interface DocuSeal par l'agence), plutôt que d'en créer un nouveau.
+  // Si DOCUSEAL_TEMPLATE_ID est défini en env, on l'utilise directement.
+  let templateId = process.env.DOCUSEAL_TEMPLATE_ID ? Number(process.env.DOCUSEAL_TEMPLATE_ID) : null
 
-  // Approche coordonnées : pas de {{markers}}, on définit les champs avec areas (x,y,w,h en %)
-  // DocuSeal place les champs à ces positions dans le PDF rendu depuis le HTML.
-  // page:1, coordonnées en fraction de la page (0.0–1.0)
-  const template = await docusealFetch('/templates/html', 'POST', {
-    html:   docHtml,
-    name:   docTitle,
-    fields: [
-      {
-        name: 'Signature',
-        type: 'signature',
-        required: true,
-        areas: [{ x: 0.05, y: 0.73, w: 0.55, h: 0.09, page: 1 }],
-      },
-      {
-        name: 'Date',
-        type: 'date',
-        required: true,
-        areas: [{ x: 0.05, y: 0.84, w: 0.35, h: 0.05, page: 1 }],
-      },
-    ],
-  })
-  if (!template?.id) throw new Error('Création du template DocuSeal échouée')
-  console.log('[DocuSeal] Template id:', template.id, '| fields count:', template.fields?.length)
+  if (!templateId) {
+    const templates = await docusealFetch('/templates?limit=10')
+    const list = Array.isArray(templates) ? templates : (templates?.data || [])
+    console.log('[DocuSeal] Templates disponibles:', list.map(t => `${t.id}:${t.name}(${t.fields?.length||0}champs)`).join(', '))
+    // Prendre le template avec le plus de champs (le plus complet)
+    const best = list.filter(t => (t.fields?.length || 0) > 0).sort((a, b) => (b.fields?.length||0) - (a.fields?.length||0))[0]
+      || list[0]
+    if (!best?.id) throw Object.assign(new Error('Aucun template DocuSeal trouvé. Créez-en un dans votre compte DocuSeal.'), { status: 422 })
+    templateId = best.id
+    console.log(`[DocuSeal] Template sélectionné: id=${templateId}, name="${best.name}", fields=${best.fields?.length}`)
+  } else {
+    console.log(`[DocuSeal] Template fixe depuis env: id=${templateId}`)
+  }
+
+  // ── Récupérer les rôles du template ───────────────────────────────────────
+  const templateDetail = await docusealFetch(`/templates/${templateId}`)
+  const roles = templateDetail.submitters?.map(s => s.name) || ['First Party']
+  console.log('[DocuSeal] Rôles du template:', roles)
+
+  // Construire les submitters : client en premier rôle, agence en second (si existe)
+  const submitters = []
+  submitters.push({ role: roles[0], email: signerEmail, name: signerName })
+  if (roles[1]) {
+    const agencyEmail = profile.email || process.env.AGENCY_EMAIL || 'contact@nexapro.tech'
+    submitters.push({ role: roles[1], email: agencyEmail, name: agencyName })
+  }
 
   const submissionPayload = {
-    template_id: template.id,
+    template_id: templateId,
     send_email:  true,
-    submitters: [
-      {
-        role:  'First Party',
-        email: signerEmail,
-        name:  signerName,
-      },
-    ],
+    submitters,
   }
   console.log('[DocuSeal] Submission payload:', JSON.stringify(submissionPayload))
 
