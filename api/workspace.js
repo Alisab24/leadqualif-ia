@@ -85,10 +85,10 @@ function buildDocumentHtml(doc) {
 <p>En signant ce document, le client reconnait en avoir pris connaissance et en accepte les termes.</p>
 
 <p style="margin-top:32px"><strong>Signature du client :</strong></p>
-<p style="border:1px dashed #aaa;min-height:60px;padding:8px;background:#f9f9f9">&nbsp;</p>
+<p>{%raw%}{{Signature}}{%endraw%}</p>
 
 <p style="margin-top:16px"><strong>Date :</strong></p>
-<p style="border:1px dashed #aaa;min-height:28px;padding:8px;background:#f9f9f9">&nbsp;</p>
+<p>{%raw%}{{Date}}{%endraw%}</p>
 
 </body>
 </html>`
@@ -113,25 +113,11 @@ async function handleDocusealSend(supabase, profile, body) {
   // Les marqueurs {{}} ne fonctionnent pas via l'API Cloud DocuSeal.
   // On utilise areas (x,y,w,h en fraction 0-1) pour positionner les champs
   // directement dans le PDF rendu depuis le HTML.
+  // Liquid escape {%raw%}...{%endraw%} dans le HTML pour que DocuSeal Cloud
+  // ne supprime pas les {{markers}} lors du traitement Liquid avant détection des champs.
   const templatePayload = {
-    html:   buildDocumentHtml(doc),
-    name:   docTitle,
-    fields: [
-      {
-        name:     'Signature',
-        type:     'signature',
-        required: true,
-        submitter_role: 'First Party',
-        areas:    [{ x: 0.05, y: 0.72, w: 0.55, h: 0.10, page: 1 }],
-      },
-      {
-        name:     'Date',
-        type:     'date',
-        required: false,
-        submitter_role: 'First Party',
-        areas:    [{ x: 0.05, y: 0.84, w: 0.35, h: 0.05, page: 1 }],
-      },
-    ],
+    html: buildDocumentHtml(doc),
+    name: docTitle,
   }
   console.log('[DocuSeal] Creating template:', docTitle)
   const template = await docusealFetch('/templates/html', 'POST', templatePayload)
