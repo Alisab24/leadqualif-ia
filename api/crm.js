@@ -883,16 +883,107 @@ function buildDocHtml(doc, agency) {
   const devise = doc.devise || cj.devise || '€'
   const fmt    = v => Number(v || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })
   const date   = doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')
-  const an = agency?.nom_agence || 'Votre agence'
-  const ae = agency?.email || ''
-  const aa = agency?.adresse_legale || agency?.adresse || ''
-  const as = agency?.siret || agency?.numero_enregistrement || ''
-  const itemsHtml = items.map(i => `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">${i.description||''}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:center;">${i.quantity||1}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:right;font-weight:600;">${fmt(i.amount??i.unitPrice??i.total)} ${devise}</td></tr>`).join('')
+
+  // Agency info
+  const an          = agency?.nom_agence || 'Votre agence'
+  const ae          = agency?.email || ''
+  const at          = agency?.telephone || ''
+  const aa          = agency?.adresse_legale || agency?.adresse || ''
+  const as          = agency?.siret || agency?.numero_enregistrement || ''
+  const agencyLegal = agency?.mention_legale || ''
+  const conditions  = agency?.conditions_paiement || ''
+  const cartePT     = agency?.carte_pro_t || ''
+  const cartePS     = agency?.carte_pro_s || ''
+  const agencyCity  = agency?.ville_agence || agency?.ville || aa?.split(',')[0]?.trim() || ''
+  const agencySigUrl = agency?.signature_url || null
+
+  // Client signature (if already signed)
+  const clientSigData = doc.signature_data || null
+  const signerName    = doc.signer_confirmed || doc.client_nom || ''
+  const signedAt      = doc.signed_at ? new Date(doc.signed_at).toLocaleDateString('fr-FR') : null
+
+  const itemsHtml = items.map(i =>
+    `<tr><td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827;">${i.description||''}</td><td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280;text-align:center;">${i.quantity||1}</td><td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#111827;text-align:right;">${fmt(i.amount??i.unitPrice??i.total)} ${devise}</td></tr>`
+  ).join('')
+
   const totalsHtml = totals.map(t => {
     const isTtc = (t.label||'').toUpperCase().includes('TOTAL TTC')
-    return `<tr style="${isTtc?'background:#eff6ff;':''}"><td colspan="2" style="padding:6px 12px;text-align:right;font-size:${isTtc?'14':'12'}px;font-weight:${isTtc?'700':'400'};color:${isTtc?'#1d4ed8':'#6b7280'};border-top:1px solid #e5e7eb;">${t.label}</td><td style="padding:6px 12px;text-align:right;font-size:${isTtc?'14':'12'}px;font-weight:${isTtc?'700':'600'};color:${isTtc?'#1d4ed8':'#374151'};border-top:1px solid #e5e7eb;">${fmt(t.amount)} ${devise}</td></tr>`
+    return `<tr style="${isTtc?'background:#eff6ff;':''}"><td colspan="2" style="padding:8px 14px;font-size:${isTtc?'15':'13'}px;font-weight:${isTtc?'700':'400'};color:${isTtc?'#1d4ed8':'#6b7280'};text-align:right;border-top:1px solid #e5e7eb;">${t.label}</td><td style="padding:8px 14px;font-size:${isTtc?'15':'13'}px;font-weight:${isTtc?'700':'600'};color:${isTtc?'#1d4ed8':'#374151'};text-align:right;border-top:1px solid #e5e7eb;">${fmt(t.amount)} ${devise}</td></tr>`
   }).join('')
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111827;background:#fff;line-height:1.5;}.page{max-width:800px;margin:0 auto;padding:36px;}table{border-collapse:collapse;}</style></head><body><div class="page"><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e5e7eb;padding-bottom:20px;margin-bottom:24px;"><div><div style="font-size:22px;font-weight:800;color:#1e3a5f;">${an}</div><div style="font-size:12px;color:#6b7280;margin-top:4px;">${aa?`<div>${aa}</div>`:''}${ae?`<div>${ae}</div>`:''}${as?`<div>N° ${as}</div>`:''}</div></div><div style="text-align:right;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">${label}</div><div style="font-size:13px;color:#6b7280;">${doc.reference?`Réf: ${doc.reference}`:''}</div><div style="font-size:12px;color:#9ca3af;">Date: ${date}</div></div></div><div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:6px;padding:14px 18px;margin-bottom:24px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:6px;">Client</div><div style="font-size:16px;font-weight:700;">${doc.client_nom||'—'}</div>${doc.client_email?`<div style="font-size:12px;color:#6b7280;margin-top:2px;">${doc.client_email}</div>`:''}</div>${items.length?`<div style="margin-bottom:24px;"><table style="width:100%;"><thead><tr style="background:#f3f4f6;"><th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Description</th><th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:60px;">Qté</th><th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:120px;">Montant</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot>${totalsHtml}</tfoot></table></div>`:''}<div style="margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;">${agency?.mention_legale?`<div>${agency.mention_legale}</div>`:''}<div>Document généré par NexaPro</div></div></div></body></html>`
+
+  const carteBadges = [
+    cartePT ? `<span style="display:inline-block;padding:2px 8px;border:1.5px solid #3b82f6;border-radius:4px;color:#3b82f6;font-size:10px;font-weight:600;margin-right:4px;">Carte Pro Transaction n° ${cartePT}</span>` : '',
+    cartePS ? `<span style="display:inline-block;padding:2px 8px;border:1.5px solid #3b82f6;border-radius:4px;color:#3b82f6;font-size:10px;font-weight:600;">Carte Pro Syndic n° ${cartePS}</span>` : '',
+  ].filter(Boolean).join('')
+
+  // Agency signature block
+  const agencySigBlock = agencySigUrl
+    ? `<img src="${agencySigUrl}" alt="Signature agence" style="height:52px;object-fit:contain;display:block;margin:4px 0;">`
+    : `<div style="height:44px;border-bottom:1px solid #9ca3af;margin-bottom:6px;"></div>`
+
+  // Client signature block — show actual signature if already signed, otherwise blank line
+  const clientSigBlock = clientSigData
+    ? `<img src="${clientSigData}" alt="Signature client" style="height:52px;object-fit:contain;display:block;margin:4px 0;">`
+    : `<div style="height:44px;border-bottom:1px solid #9ca3af;margin-bottom:6px;"></div>`
+
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"/><title>${label} ${doc.reference||''}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111827;background:#fff;line-height:1.5;}.page{max-width:800px;margin:0 auto;padding:40px 36px;}table{border-collapse:collapse;width:100%;}</style>
+</head><body><div class="page">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e5e7eb;padding-bottom:24px;margin-bottom:28px;">
+    <div>
+      <div style="font-size:22px;font-weight:800;color:#1e3a5f;">${an}</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:4px;line-height:1.6;">
+        ${aa ? `<div>${aa}</div>` : ''}
+        ${ae ? `<div>Email : ${ae}</div>` : ''}
+        ${at ? `<div>Tél : ${at}</div>` : ''}
+        ${as ? `<div>N° ${as}</div>` : ''}
+      </div>
+      ${carteBadges ? `<div style="margin-top:8px;">${carteBadges}</div>` : ''}
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:22px;font-weight:700;color:#1e3a5f;">${label}</div>
+      <div style="font-size:14px;color:#6b7280;margin-top:4px;">${doc.reference ? `Réf : ${doc.reference}` : ''}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:2px;">Date : ${date}</div>
+    </div>
+  </div>
+  <div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:6px;padding:16px 20px;margin-bottom:28px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:8px;">Client</div>
+    <div style="font-size:16px;font-weight:700;color:#111827;">${doc.client_nom||'—'}</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:4px;line-height:1.6;">
+      ${doc.client_email     ? `<div>Email : ${doc.client_email}</div>`     : ''}
+      ${doc.client_telephone ? `<div>Tél : ${doc.client_telephone}</div>` : ''}
+    </div>
+  </div>
+  ${items.length ? `
+  <div style="margin-bottom:28px;">
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;border-bottom:2px solid #e5e7eb;padding-bottom:8px;">Détail des prestations</div>
+    <table><thead><tr style="background:#f3f4f6;">
+      <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Description</th>
+      <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:80px;">Qté</th>
+      <th style="padding:10px 14px;text-align:right;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:140px;">Montant</th>
+    </tr></thead><tbody>${itemsHtml}</tbody><tfoot>${totalsHtml}</tfoot></table>
+  </div>` : ''}
+  <div style="display:flex;gap:32px;margin-top:48px;padding-top:20px;border-top:1px solid #e5e7eb;">
+    <div style="flex:1;padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:6px;">SIGNATURE AGENCE</div>
+      ${agencySigBlock}
+      <div style="font-size:12px;font-weight:600;color:#374151;">${an}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Fait à ${agencyCity||'__________'}, le ${date}</div>
+    </div>
+    <div style="flex:1;padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:6px;">SIGNATURE CLIENT</div>
+      ${clientSigBlock}
+      <div style="font-size:12px;font-weight:600;color:#374151;">${signerName}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Fait à ${agencyCity||'__________'}, le ${signedAt||'___________'}</div>
+    </div>
+  </div>
+  <div style="margin-top:36px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;">
+    ${agencyLegal ? `<div>${agencyLegal}</div>` : ''}
+    ${conditions  ? `<div>${conditions}</div>`  : ''}
+    <div style="margin-top:4px;">Document généré par <strong>NexaPro</strong></div>
+  </div>
+</div></body></html>`
 }
 
 async function handleSendDocumentEmail(req, res, supabase, user) {
@@ -904,7 +995,7 @@ async function handleSendDocumentEmail(req, res, supabase, user) {
   if (!doc.client_email) return res.status(400).json({ error: 'Aucun email client sur ce document' })
 
   const { data: agencyArr } = await supabase.from('profiles')
-    .select('nom_agence, email, telephone, adresse_legale, adresse, siret, numero_enregistrement, mention_legale, conditions_paiement, carte_pro_t, carte_pro_s')
+    .select('nom_agence, email, telephone, adresse_legale, adresse, siret, numero_enregistrement, mention_legale, conditions_paiement, carte_pro_t, carte_pro_s, signature_url, ville_agence, ville')
     .eq('agency_id', doc.agency_id).order('created_at', { ascending: true }).limit(1)
   const agency = Array.isArray(agencyArr) ? agencyArr[0] : agencyArr
 
