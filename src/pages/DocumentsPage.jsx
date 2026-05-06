@@ -477,9 +477,10 @@ const DocumentsPage = () => {
     if (!window.confirm(`Envoyer le document à ${doc.client_email} ?`)) return;
     setSendingEmail(doc.id);
     try {
+      const { data: { session } } = await (await import('../supabaseClient')).supabase.auth.getSession();
       const res = await fetch('/api/crm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ action: 'send-document-email', documentId: doc.id }),
       });
       const data = await res.json();
