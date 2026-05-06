@@ -1,12 +1,11 @@
 /**
  * Vercel Serverless Function — /api/qualify
  *
- * ✅ SÉCURITÉ : OpenAI est appelé UNIQUEMENT côté serveur.
- *    OPENAI_API_KEY n'est jamais exposé au navigateur.
+ * ✅ SÉCURITÉ : Anthropic est appelé UNIQUEMENT côté serveur.
+ *    ANTHROPIC_API_KEY n'est jamais exposé au navigateur.
  *    → Configurer dans Vercel Dashboard > Settings > Environment Variables
  *
- * NE JAMAIS utiliser VITE_OPENAI_API_KEY : ce préfixe intègre la clé
- * dans le bundle JavaScript public (visible dans DevTools).
+ * Utilise Claude Haiku (rapide, économique) pour scorer les leads.
  */
 
 export default async function handler(req, res) {
@@ -20,10 +19,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: true, message: 'Méthode non autorisée. Utilisez POST.' });
   }
 
-  // Vérifier la clé API (côté serveur uniquement)
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || apiKey === 'REMPLACER_PAR_NOUVELLE_CLE') {
-    console.error('[qualify] OPENAI_API_KEY non configurée dans les variables d\'environnement Vercel');
+  // Vérifier la clé API Anthropic (côté serveur uniquement)
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error('[qualify] ANTHROPIC_API_KEY non configurée dans les variables d\'environnement Vercel');
     return res.status(503).json({
       error: true,
       message: 'Service IA non disponible — clé API non configurée',
@@ -44,7 +43,7 @@ export default async function handler(req, res) {
   }
 
   const prompt = `Tu es un expert en qualification de leads.
-Analyse ce prospect et retourne STRICTEMENT ce JSON :
+Analyse ce prospect et retourne STRICTEMENT ce JSON (sans texte autour) :
 {
   "score": number (0-100),
   "niveau": "chaud" | "tiède" | "froid",
@@ -56,30 +55,34 @@ Données :
 ${JSON.stringify(lead, null, 2)}`;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 256,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
-        response_format: { type: 'json_object' }
       })
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`OpenAI HTTP ${response.status}: ${errText}`);
+      throw new Error(`Anthropic HTTP ${response.status}: ${errText}`);
     }
 
     const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) throw new Error('Réponse OpenAI vide');
+    const content = data?.content?.[0]?.text;
+    if (!content) throw new Error('Réponse Anthropic vide');
 
-    const qualification = JSON.parse(content);
+    // Extraire le JSON de la réponse (Claude peut parfois ajouter du texte autour)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('JSON introuvable dans la réponse');
+
+    const qualification = JSON.parse(jsonMatch[0]);
 
     const score = Math.max(0, Math.min(100, parseInt(qualification.score) || 0));
     const niveaux = ['chaud', 'tiède', 'froid'];
@@ -96,8 +99,8 @@ ${JSON.stringify(lead, null, 2)}`;
     });
 
   } catch (error) {
-    console.error('[qualify] Erreur OpenAI:', error.message);
-    // Fallback automatique sans clé — ne bloque pas le formulaire
+    console.error('[qualify] Erreur Anthropic:', error.message);
+    // Fallback automatique — ne bloque pas le formulaire
     return res.status(200).json({
       score: 30,
       niveau: 'froid',
