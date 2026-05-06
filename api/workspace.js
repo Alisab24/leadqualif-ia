@@ -195,6 +195,184 @@ async function handleDocusealWebhook(req, res) {
   return res.status(200).json({ ok: true })
 }
 
+// ── Signature maison (sans DocuSeal) ──────────────────────────────────────
+
+/**
+ * sign-request : génère un token unique, envoie un email au client avec le lien
+ * Requiert auth (agence)
+ */
+async function handleSignRequest(supabase, profile, body) {
+  const { documentId } = body
+  if (!documentId) throw Object.assign(new Error('documentId requis'), { status: 400 })
+
+  const { data: doc } = await supabase.from('documents')
+    .select('*').eq('id', documentId).eq('agency_id', profile.agency_id).single()
+  if (!doc) throw Object.assign(new Error('Document introuvable'), { status: 404 })
+
+  const signerEmail = doc.client_email || doc.email_destinataire
+  if (!signerEmail) throw Object.assign(new Error("Email client requis pour la signature."), { status: 400 })
+
+  if (doc.signature_status === 'completed') throw Object.assign(new Error('Document déjà signé.'), { status: 400 })
+
+  // Générer un token UUID unique
+  const { randomUUID } = await import('node:crypto')
+  const signToken = randomUUID()
+
+  // Sauvegarder le token dans la DB
+  await supabase.from('documents').update({
+    signature_token:  signToken,
+    signature_status: 'awaiting',
+    statut:           'envoyé',
+    updated_at:       new Date().toISOString(),
+  }).eq('id', documentId)
+
+  // Construire le lien de signature
+  const baseUrl = process.env.APP_URL || 'https://www.leadqualif.com'
+  const signUrl = `${baseUrl}/sign/${signToken}`
+
+  // Récupérer les settings email de l'agence
+  const { data: ws } = await supabase.from('workspace_settings')
+    .select('resend_api_key, from_email, from_name, agency_name')
+    .eq('agency_id', profile.agency_id).maybeSingle()
+
+  const resendKey = ws?.resend_api_key || process.env.RESEND_API_KEY
+  const fromEmail = ws?.from_email  || process.env.RESEND_FROM_EMAIL || 'noreply@leadqualif.com'
+  const fromName  = ws?.from_name   || ws?.agency_name || profile.nom_complet || 'LeadQualif'
+  const agencyName = ws?.agency_name || profile.nom_complet || fromName
+  const docTitle   = doc.titre || doc.reference || 'Document'
+  const clientName = doc.client_nom || signerEmail
+
+  if (resendKey) {
+    const emailRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: `${fromName} <${fromEmail}>`,
+        to:   [signerEmail],
+        subject: `Signature requise : ${docTitle}`,
+        html: `
+<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b">
+<div style="background:#1e293b;padding:24px 32px">
+  <h2 style="color:#fff;margin:0;font-size:20px">${agencyName}</h2>
+  <p style="color:#94a3b8;margin:4px 0 0;font-size:13px">Signature électronique requise</p>
+</div>
+<div style="padding:32px">
+  <p>Bonjour <strong>${clientName}</strong>,</p>
+  <p>${agencyName} vous invite à signer le document :</p>
+  <div style="background:#f8fafc;border-left:4px solid #10b981;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0">
+    <strong style="font-size:16px">${docTitle}</strong>
+    ${doc.reference ? `<br><span style="font-size:12px;color:#64748b">Réf. ${doc.reference}</span>` : ''}
+    ${doc.total_ttc ? `<br><span style="font-size:14px;color:#1e293b;margin-top:4px;display:block">Montant : <strong>${Number(doc.total_ttc).toLocaleString('fr-FR')} ${doc.devise || '€'}</strong></span>` : ''}
+  </div>
+  <div style="text-align:center;margin:32px 0">
+    <a href="${signUrl}" style="background:#10b981;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:16px;display:inline-block">
+      ✍️ Signer le document
+    </a>
+  </div>
+  <p style="font-size:12px;color:#64748b">Ce lien est personnel et sécurisé. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+  <p style="font-size:12px;color:#64748b">Lien direct : <a href="${signUrl}" style="color:#10b981">${signUrl}</a></p>
+</div>
+<div style="background:#f8fafc;padding:16px 32px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0">
+  ${agencyName} — propulsé par LeadQualif
+</div>
+</body></html>`,
+      }),
+    })
+    if (!emailRes.ok) {
+      const errData = await emailRes.json().catch(() => ({}))
+      console.warn('[sign-request] Email non envoyé:', errData)
+    }
+  }
+
+  // Ajouter à la timeline CRM
+  try {
+    await supabase.from('crm_events').insert([{
+      lead_id:    doc.lead_id,
+      agency_id:  profile.agency_id,
+      type:       'signature_requested',
+      title:      `✍️ Signature demandée`,
+      description: `Lien de signature envoyé à ${signerEmail} pour "${docTitle}"`,
+      metadata:   { document_id: documentId, sign_url: signUrl },
+      created_at: new Date().toISOString(),
+    }])
+  } catch (_) { /* non-bloquant */ }
+
+  return { success: true, sign_url: signUrl, signer_email: signerEmail }
+}
+
+/**
+ * sign-info : retourne les infos du document pour la page de signature (pas d'auth)
+ */
+async function handleSignInfo(supabase, body) {
+  const { token } = body
+  if (!token) throw Object.assign(new Error('Token manquant'), { status: 400 })
+
+  const { data: doc } = await supabase.from('documents')
+    .select('id, titre, reference, client_nom, client_email, total_ttc, devise, signature_status')
+    .eq('signature_token', token).maybeSingle()
+
+  if (!doc) throw Object.assign(new Error('Lien de signature invalide ou expiré.'), { status: 404 })
+  if (doc.signature_status === 'completed') return { already_signed: true }
+
+  return {
+    document: {
+      id:         doc.id,
+      titre:      doc.titre,
+      reference:  doc.reference,
+      client_nom: doc.client_nom,
+      client_email: doc.client_email,
+      total_ttc:  doc.total_ttc,
+      devise:     doc.devise,
+    }
+  }
+}
+
+/**
+ * sign-submit : reçoit la signature dessinée et enregistre (pas d'auth, token suffit)
+ */
+async function handleSignSubmit(supabase, req, body) {
+  const { token, signatureData, signerName } = body
+  if (!token)         throw Object.assign(new Error('Token manquant'), { status: 400 })
+  if (!signatureData) throw Object.assign(new Error('Signature manquante'), { status: 400 })
+  if (!signerName)    throw Object.assign(new Error('Nom requis'), { status: 400 })
+
+  // Vérifier que le token existe et n'est pas déjà utilisé
+  const { data: doc } = await supabase.from('documents')
+    .select('id, lead_id, agency_id, titre, reference, signature_status')
+    .eq('signature_token', token).maybeSingle()
+
+  if (!doc) throw Object.assign(new Error('Lien invalide ou expiré.'), { status: 404 })
+  if (doc.signature_status === 'completed') throw Object.assign(new Error('Document déjà signé.'), { status: 400 })
+
+  const signerIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null
+
+  await supabase.from('documents').update({
+    signature_data:     signatureData,
+    signer_confirmed:   signerName,
+    signature_status:   'completed',
+    signed_at:          new Date().toISOString(),
+    signer_ip:          signerIp,
+    signature_token:    null, // invalider le token après signature
+    statut:             'signé',
+    updated_at:         new Date().toISOString(),
+  }).eq('id', doc.id)
+
+  // CRM event
+  try {
+    await supabase.from('crm_events').insert([{
+      lead_id:    doc.lead_id,
+      agency_id:  doc.agency_id,
+      type:       'document_signed',
+      title:      `✅ Document signé`,
+      description: `"${doc.titre || doc.reference}" signé par ${signerName}`,
+      metadata:   { document_id: doc.id, signer_ip: signerIp },
+      created_at: new Date().toISOString(),
+    }])
+  } catch (_) { /* non-bloquant */ }
+
+  return { success: true }
+}
+
 // ── Masquer les clés sensibles ─────────────────────────────────────────────
 function maskKey(val) {
   if (!val) return ''
@@ -373,29 +551,38 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' })
 
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
-  if (!token) return res.status(401).json({ error: 'Non authentifié' })
-
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'Config Supabase manquante' })
 
   const supabase = createClient(supabaseUrl, supabaseKey)
-  const profile = await getAgencyId(supabase, token)
-  if (!profile) return res.status(401).json({ error: 'Token invalide' })
-
   const { action, ...body } = req.body || {}
 
-  // Le webhook DocuSeal n'a pas de token utilisateur
+  // ── Actions publiques (pas d'auth requise) ────────────────────────────────
   if (action === 'docuseal-webhook') return await handleDocusealWebhook(req, res)
+  if (action === 'sign-info')   {
+    try { return res.status(200).json(await handleSignInfo(supabase, body)) }
+    catch (err) { return res.status(err.status || 500).json({ error: err.message }) }
+  }
+  if (action === 'sign-submit') {
+    try { return res.status(200).json(await handleSignSubmit(supabase, req, body)) }
+    catch (err) { return res.status(err.status || 500).json({ error: err.message }) }
+  }
+
+  // ── Actions authentifiées ─────────────────────────────────────────────────
+  const authToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
+  if (!authToken) return res.status(401).json({ error: 'Non authentifié' })
+  const profile = await getAgencyId(supabase, authToken)
+  if (!profile)  return res.status(401).json({ error: 'Token invalide' })
 
   try {
-    if (action === 'get-settings')      return res.status(200).json(await handleGetSettings(supabase, profile))
-    if (action === 'save-settings')     return res.status(200).json(await handleSaveSettings(supabase, profile, body))
-    if (action === 'test-email')        return res.status(200).json(await handleTestEmail(supabase, profile, body))
-    if (action === 'test-whatsapp')     return res.status(200).json(await handleTestWhatsApp(supabase, profile, body))
-    if (action === 'docuseal-send')     return res.status(200).json(await handleDocusealSend(supabase, profile, body))
-    if (action === 'docuseal-status')   return res.status(200).json(await handleDocusealStatus(supabase, profile, body))
+    if (action === 'get-settings')    return res.status(200).json(await handleGetSettings(supabase, profile))
+    if (action === 'save-settings')   return res.status(200).json(await handleSaveSettings(supabase, profile, body))
+    if (action === 'test-email')      return res.status(200).json(await handleTestEmail(supabase, profile, body))
+    if (action === 'test-whatsapp')   return res.status(200).json(await handleTestWhatsApp(supabase, profile, body))
+    if (action === 'sign-request')    return res.status(200).json(await handleSignRequest(supabase, profile, body))
+    if (action === 'docuseal-send')   return res.status(200).json(await handleDocusealSend(supabase, profile, body))
+    if (action === 'docuseal-status') return res.status(200).json(await handleDocusealStatus(supabase, profile, body))
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[workspace/${action}]`, err.message)

@@ -500,7 +500,7 @@ const DocumentsPage = () => {
     }
   };
 
-  // ── Envoi pour signature électronique via DocuSeal ──────────────────────
+  // ── Envoi pour signature électronique (page signature maison) ───────────
   const handleSendForSignature = async (doc) => {
     if (!doc.client_email) {
       alert('❌ Email client requis pour la signature. Renseignez-le dans la fiche lead.');
@@ -513,14 +513,14 @@ const DocumentsPage = () => {
       const res = await fetch('/api/workspace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ action: 'docuseal-send', documentId: doc.id }),
+        body: JSON.stringify({ action: 'sign-request', documentId: doc.id }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        alert(`✅ Lien de signature envoyé à ${data.signer_email}\n\nLe client recevra un email avec le lien pour signer.`);
+        alert(`✅ Email envoyé à ${data.signer_email}\n\nLe client recevra un lien pour signer.\n\nLien direct :\n${data.sign_url}`);
         await fetchDocuments();
       } else {
-        alert(`❌ ${data.error || 'Erreur lors de l\'envoi pour signature. Contactez le support.'}`);
+        alert(`❌ ${data.error || 'Erreur lors de l\'envoi pour signature.'}`);
       }
     } catch (err) {
       alert(`❌ Erreur réseau : ${err.message}`);

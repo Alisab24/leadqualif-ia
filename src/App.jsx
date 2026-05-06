@@ -13,6 +13,7 @@ import Settings from './pages/Settings';
 import WorkspaceSettings from './pages/WorkspaceSettings';
 import IntegrationsSettings from './pages/IntegrationsSettings';
 import Stats from './pages/Stats';
+import SignPage from './pages/SignPage';
 import DocumentPreviewPage from './pages/DocumentPreviewPage';
 import InvoiceQuoteDocument from './pages/InvoiceQuoteDocument';
 import DocumentViewer from './components/DocumentViewer';
@@ -94,6 +95,7 @@ export default function App() {
           <Route path="/auth/confirm" element={<AuthConfirm />} />
           <Route path="/estimation" element={<Estimation />} />
           <Route path="/estimation/:agencyId" element={<Estimation />} />
+          <Route path="/sign/:token" element={<SignPage />} />
 
           {/* Private */}
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
