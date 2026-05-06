@@ -811,9 +811,12 @@ const DocumentsPage = () => {
     </div>
     <div style="flex:1;padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:6px;">SIGNATURE CLIENT</div>
-      <div style="height:44px;border-bottom:1px solid #9ca3af;margin-bottom:6px;"></div>
-      <div style="font-size:12px;font-weight:600;color:#374151;">${doc.client_nom || ''}</div>
-      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Fait à ${agencyCity || '__________'}, le ___________</div>
+      ${doc.signature_data
+        ? `<img src="${doc.signature_data}" alt="Signature client" style="height:52px;object-fit:contain;display:block;margin:4px 0;">`
+        : `<div style="height:44px;border-bottom:1px solid #9ca3af;margin-bottom:6px;"></div>`
+      }
+      <div style="font-size:12px;font-weight:600;color:#374151;">${doc.signer_confirmed || doc.client_nom || ''}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Fait à ${agencyCity || '__________'}, le ${doc.signed_at ? new Date(doc.signed_at).toLocaleDateString('fr-FR') : '___________'}</div>
     </div>
   </div>
   <div style="margin-top:36px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;">
