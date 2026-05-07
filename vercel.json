@@ -30,9 +30,6 @@
     "api/submit-lead.js": {
       "maxDuration": 10
     },
-    "api/webhooks/whatsapp.js": {
-      "maxDuration": 10
-    },
     "api/workspace.js": {
       "maxDuration": 20
     },

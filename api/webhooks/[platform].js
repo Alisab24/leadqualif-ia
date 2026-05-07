@@ -1,29 +1,68 @@
 /**
  * POST /api/webhooks/:platform
- * Handler universel — reçoit les leads depuis 8 sources différentes.
+ * Handler universel — reçoit les leads depuis 9 sources différentes.
  *
  * Platforms supportées :
  *   systeme | facebook-leads | tiktok | google-ads |
- *   typeform | tally | wordpress | universal
+ *   typeform | tally | wordpress | universal | whatsapp
  *
- * Auth : X-LeadQualif-Key: lq_live_xxx  (header ou ?key=xxx)
+ * Auth :
+ *   - Toutes les plateformes sauf whatsapp : X-LeadQualif-Key: lq_live_xxx
+ *   - whatsapp : signature HMAC-SHA1 Twilio (X-Twilio-Signature)
  *
- * Flux :
- *   1. Valider la clé API → trouver l'agence
- *   2. Parser le payload selon la plateforme
- *   3. Dédoublonner par email
- *   4. Créer ou enrichir le lead
- *   5. Scorer avec Claude IA
- *   6. Si score >= 70 → auto-contact
- *   7. Logger dans webhook_logs
+ * Note : bodyParser désactivé pour pouvoir lire le body brut (Twilio HMAC).
  */
 
+import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+
+// Désactiver le body parser Vercel — on lit le body brut pour Twilio
+export const config = { api: { bodyParser: false } }
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+// ── Lecture body brut ─────────────────────────────────────────────────────────
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', chunk => chunks.push(chunk))
+    req.on('end',  () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+// ── Twilio helpers ────────────────────────────────────────────────────────────
+function parseFormBody(raw) {
+  const params = {}
+  for (const pair of raw.toString().split('&')) {
+    const [k, v] = pair.split('=').map(decodeURIComponent)
+    if (k) params[k] = v || ''
+  }
+  return params
+}
+
+function validateTwilioSig(authToken, twilioSig, url, params) {
+  if (!authToken || !twilioSig) return false
+  const sortedKeys = Object.keys(params).sort()
+  let str = url
+  for (const key of sortedKeys) str += key + (params[key] ?? '')
+  const expected = crypto.createHmac('sha1', authToken).update(Buffer.from(str, 'utf-8')).digest('base64')
+  try { return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(twilioSig)) } catch { return false }
+}
+
+function twimlOk(res) {
+  res.setHeader('Content-Type', 'text/xml')
+  return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>')
+}
+
+function normWANumber(n) {
+  if (!n) return null
+  const clean = String(n).replace(/^whatsapp:/i, '').trim()
+  return clean.startsWith('+') ? clean : '+' + clean
+}
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
@@ -243,7 +282,7 @@ export default async function handler(req, res) {
 
   // Facebook envoie un GET pour vérifier le webhook
   if (req.method === 'GET') {
-    const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query
+    const { 'hub.mode': mode, 'hub.challenge': challenge } = req.query
     if (mode === 'subscribe' && challenge) return res.status(200).send(challenge)
     return res.status(200).json({ ok: true, message: 'LeadQualif webhook actif' })
   }
@@ -251,25 +290,93 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST requis' })
 
   const platform = (req.query.platform || '').toLowerCase()
-  const parser   = PARSERS[platform]
-  if (!parser) return res.status(400).json({ error: `Plateforme inconnue: "${platform}". Valeurs: ${Object.keys(PARSERS).join(', ')}` })
+
+  // ── Lire le body brut une fois ────────────────────────────────────────────
+  const rawBody = await getRawBody(req)
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRANCHE WHATSAPP (Twilio) — auth différente, format form-encoded
+  // ══════════════════════════════════════════════════════════════════════════
+  if (platform === 'whatsapp') {
+    const params     = parseFormBody(rawBody)
+    const authToken  = process.env.TWILIO_AUTH_TOKEN
+    const twilioSig  = req.headers['x-twilio-signature'] || ''
+    const host       = req.headers['x-forwarded-host'] || req.headers.host || ''
+    const proto      = req.headers['x-forwarded-proto'] || 'https'
+    const webhookUrl = `${proto}://${host}/api/webhooks/whatsapp`
+
+    const isDev = !authToken || process.env.NODE_ENV === 'development'
+    if (!isDev && !validateTwilioSig(authToken, twilioSig, webhookUrl, params)) {
+      console.error('[whatsapp] Signature Twilio invalide')
+      return res.status(403).json({ error: 'Signature invalide' })
+    }
+
+    const { From, To, Body: MsgBody, MessageSid, NumMedia, MediaUrl0 } = params
+    if (!From || !MsgBody) return twimlOk(res)
+
+    const fromNumber = normWANumber(From)
+    const toNumber   = normWANumber(To)
+    const content    = NumMedia > '0' && MediaUrl0
+      ? `[Média] ${MediaUrl0}${MsgBody ? '\n' + MsgBody : ''}`
+      : MsgBody
+
+    let lead = null, agencyId = null
+
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, nom, agency_id, telephone')
+      .or(`telephone.eq.${fromNumber},telephone.eq.${fromNumber.replace('+', '')},telephone.eq.0${fromNumber.slice(3)}`)
+      .limit(1)
+
+    if (leads?.length > 0) {
+      lead = leads[0]; agencyId = lead.agency_id
+    } else {
+      const { data: settings } = await supabase
+        .from('agency_settings').select('agency_id')
+        .eq('twilio_whatsapp_number', toNumber).limit(1)
+      if (!settings?.length) return twimlOk(res)
+      agencyId = settings[0].agency_id
+
+      const { data: newLead } = await supabase.from('leads').insert({
+        nom: `Contact WhatsApp ${fromNumber}`, telephone: fromNumber,
+        agency_id: agencyId, source: 'whatsapp_inbound', statut: 'Nouveau',
+        message: content.slice(0, 500),
+      }).select().single()
+      lead = newLead
+    }
+
+    await supabase.from('conversations').insert({
+      lead_id: lead?.id || null, agency_id: agencyId, channel: 'whatsapp',
+      direction: 'inbound', from_number: fromNumber, to_number: toNumber,
+      content, status: 'delivered', twilio_sid: MessageSid || null, thread_status: 'pending',
+    }).then(() => {})
+
+    return twimlOk(res)
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRANCHE LEADS (toutes les autres plateformes) — JSON + clé API
+  // ══════════════════════════════════════════════════════════════════════════
+  const parser = PARSERS[platform]
+  if (!parser) return res.status(400).json({ error: `Plateforme inconnue: "${platform}". Valeurs: ${Object.keys(PARSERS).join(', ')}, whatsapp` })
+
+  // Parser JSON depuis le body brut
+  let body = {}
+  try { body = JSON.parse(rawBody.toString() || '{}') } catch (e) {
+    return res.status(400).json({ error: 'Body JSON invalide', detail: e.message })
+  }
 
   // ── 1. Authentification par clé API ──────────────────────────────────────
   const apiKey = (req.headers['x-leadqualif-key'] || req.query.key || '').trim()
   if (!apiKey) return res.status(401).json({ error: 'Clé API requise (header X-LeadQualif-Key ou ?key=)' })
 
   const { data: keyRow, error: keyErr } = await supabase
-    .from('api_keys')
-    .select('id, agency_id, is_active')
-    .eq('key', apiKey)
-    .single()
+    .from('api_keys').select('id, agency_id, is_active').eq('key', apiKey).single()
 
   if (keyErr || !keyRow) return res.status(401).json({ error: 'Clé API invalide' })
   if (!keyRow.is_active)  return res.status(401).json({ error: 'Clé API désactivée' })
 
   const agencyId = keyRow.agency_id
-
-  // Mise à jour last_used_at (fire-and-forget)
   supabase.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', keyRow.id).then(() => {})
 
   // ── 2. Parser le payload ──────────────────────────────────────────────────
@@ -277,14 +384,11 @@ export default async function handler(req, res) {
   try {
     if (platform === 'universal') {
       const { data: mRow } = await supabase
-        .from('webhook_mappings')
-        .select('mapping')
-        .eq('agency_id', agencyId)
-        .eq('platform', 'universal')
-        .maybeSingle()
-      parsed = PARSERS.universal(req.body, mRow?.mapping || {})
+        .from('webhook_mappings').select('mapping')
+        .eq('agency_id', agencyId).eq('platform', 'universal').maybeSingle()
+      parsed = PARSERS.universal(body, mRow?.mapping || {})
     } else {
-      parsed = PARSERS[platform](req.body)
+      parsed = PARSERS[platform](body)
     }
   } catch (e) {
     console.error(`[webhook/${platform}] parse error:`, e.message)
@@ -298,91 +402,59 @@ export default async function handler(req, res) {
     return res.status(422).json({ error: 'Email invalide ou manquant', parsed })
   }
 
-  // ── 3. Dédoublonnage + create/update lead ──────────────────────────────────
+  // ── 3. Dédoublonnage + create/update lead ─────────────────────────────────
   const { data: existing } = await supabase
-    .from('leads')
-    .select('id, nom, telephone, source_platform')
-    .eq('agency_id', agencyId)
-    .eq('email', email)
-    .maybeSingle()
+    .from('leads').select('id, nom, telephone, source_platform')
+    .eq('agency_id', agencyId).eq('email', email).maybeSingle()
 
   let leadId, action
 
   if (existing) {
-    // Enrichir si téléphone manquant
     const updates = {}
     if (phone && !existing.telephone) updates.telephone = phone
     if (!existing.source_platform)    updates.source_platform = source
     if (Object.keys(updates).length) {
       await supabase.from('leads').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', existing.id)
     }
-    leadId = existing.id
-    action = 'updated'
+    leadId = existing.id; action = 'updated'
   } else {
-    const { data: newLead, error: insertErr } = await supabase
-      .from('leads')
-      .insert({
-        agency_id:       agencyId,
-        nom,
-        email,
-        telephone:       phone || null,
-        source:          source,
-        source_platform: source,
-        source_detail:   detail || null,
-        statut_crm:      'Nouveau',
-        created_at:      new Date().toISOString(),
-        updated_at:      new Date().toISOString(),
-      })
-      .select('id')
-      .single()
+    const { data: newLead, error: insertErr } = await supabase.from('leads').insert({
+      agency_id: agencyId, nom, email, telephone: phone || null,
+      source, source_platform: source, source_detail: detail || null,
+      statut_crm: 'Nouveau', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).select('id').single()
 
     if (insertErr) {
       console.error(`[webhook/${platform}] insert error:`, insertErr.message)
       return res.status(500).json({ error: 'Erreur création lead', detail: insertErr.message })
     }
-    leadId = newLead.id
-    action = 'created'
+    leadId = newLead.id; action = 'created'
   }
 
   // ── 4. Répondre 200 immédiatement ─────────────────────────────────────────
   res.status(200).json({ ok: true, action, leadId, platform, source })
 
-  // ── 5. Scoring IA (après la réponse) ──────────────────────────────────────
+  // ── 5. Scoring IA + auto-contact ──────────────────────────────────────────
   try {
     const { data: ws } = await supabase
-      .from('workspace_settings')
-      .select('anthropic_api_key')
-      .eq('agency_id', agencyId)
-      .maybeSingle()
+      .from('workspace_settings').select('anthropic_api_key')
+      .eq('agency_id', agencyId).maybeSingle()
     const anthropicKey = ws?.anthropic_api_key || process.env.ANTHROPIC_API_KEY
 
     const scoring = await scoreLead({ firstName, lastName, email, phone, source }, anthropicKey)
+    await supabase.from('leads').update({
+      score_ia: scoring.score, score: scoring.score,
+      niveau_ia: scoring.niveau, raison_ia: scoring.raison, action_ia: scoring.action,
+      updated_at: new Date().toISOString(),
+    }).eq('id', leadId)
 
-    await supabase
-      .from('leads')
-      .update({
-        score_ia:    scoring.score,
-        score:       scoring.score,
-        niveau_ia:   scoring.niveau,
-        raison_ia:   scoring.raison,
-        action_ia:   scoring.action,
-        updated_at:  new Date().toISOString(),
-      })
-      .eq('id', leadId)
-
-    // ── 6. Auto-contact si lead chaud ────────────────────────────────────────
     if (action === 'created' && scoring.score >= 70) {
       const APP_URL = process.env.VITE_APP_URL || process.env.APP_URL || 'https://app.leadqualif.com'
       const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('agency_id', agencyId)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single()
-
+        .from('profiles').select('user_id').eq('agency_id', agencyId)
+        .order('created_at', { ascending: true }).limit(1).single()
       if (profileRow?.user_id) {
-        await fetch(`${APP_URL}/api/crm`, {
+        fetch(`${APP_URL}/api/crm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Internal-Agency': agencyId },
           body: JSON.stringify({ action: 'auto-contact', leadId }),
@@ -393,13 +465,9 @@ export default async function handler(req, res) {
     console.warn(`[webhook/${platform}] post-response error:`, e.message)
   }
 
-  // ── 7. Log ────────────────────────────────────────────────────────────────
+  // ── 6. Log ────────────────────────────────────────────────────────────────
   supabase.from('webhook_logs').insert({
-    agency_id:  agencyId,
-    platform,
-    payload:    req.body,
-    lead_id:    leadId,
-    action,
-    created_at: new Date().toISOString(),
+    agency_id: agencyId, platform, payload: body,
+    lead_id: leadId, action, created_at: new Date().toISOString(),
   }).then(() => {})
 }
