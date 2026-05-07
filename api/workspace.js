@@ -546,6 +546,102 @@ async function handleTestWhatsApp(supabase, profile, body) {
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
+/* ── API Keys ─────────────────────────────────────────────────────────────── */
+
+async function handleGetApiKey(supabase, profile) {
+  const { data } = await supabase
+    .from('api_keys')
+    .select('id, key, name, is_active, last_used_at, created_at')
+    .eq('agency_id', profile.agency_id)
+    .order('created_at', { ascending: true })
+  return { keys: data || [] }
+}
+
+async function handleGenerateApiKey(supabase, profile, body) {
+  const name = body.name || 'Clé principale'
+  const key  = 'lq_live_' + Array.from(crypto.getRandomValues(new Uint8Array(20)))
+    .map(b => b.toString(16).padStart(2, '0')).join('')
+  const { data, error } = await supabase
+    .from('api_keys')
+    .insert({ agency_id: profile.agency_id, key, name, is_active: true })
+    .select('id, key, name, is_active, created_at')
+    .single()
+  if (error) throw new Error(error.message)
+  return { key: data }
+}
+
+async function handleRevokeApiKey(supabase, profile, body) {
+  const { keyId } = body
+  if (!keyId) throw Object.assign(new Error('keyId requis'), { status: 400 })
+  const { error } = await supabase
+    .from('api_keys')
+    .update({ is_active: false })
+    .eq('id', keyId)
+    .eq('agency_id', profile.agency_id)
+  if (error) throw new Error(error.message)
+  return { ok: true }
+}
+
+/* ── Webhook Mappings ─────────────────────────────────────────────────────── */
+
+async function handleGetWebhookMapping(supabase, profile, body) {
+  const platform = body.platform || 'universal'
+  const { data } = await supabase
+    .from('webhook_mappings')
+    .select('mapping, sample_json')
+    .eq('agency_id', profile.agency_id)
+    .eq('platform', platform)
+    .maybeSingle()
+  return { mapping: data?.mapping || {}, sampleJson: data?.sample_json || '' }
+}
+
+async function handleSaveWebhookMapping(supabase, profile, body) {
+  const { platform = 'universal', mapping, sampleJson } = body
+  if (!mapping) throw Object.assign(new Error('mapping requis'), { status: 400 })
+  const { error } = await supabase
+    .from('webhook_mappings')
+    .upsert({
+      agency_id:   profile.agency_id,
+      platform,
+      mapping,
+      sample_json: sampleJson || null,
+      updated_at:  new Date().toISOString(),
+    }, { onConflict: 'agency_id,platform' })
+  if (error) throw new Error(error.message)
+  return { ok: true }
+}
+
+/* ── Test Webhook ─────────────────────────────────────────────────────────── */
+
+async function handleTestWebhook(supabase, profile, body) {
+  const { platform, apiKey } = body
+  if (!platform || !apiKey) throw Object.assign(new Error('platform et apiKey requis'), { status: 400 })
+
+  // Payload de test selon la plateforme
+  const testPayloads = {
+    systeme:          { contact: { email: `test_${Date.now()}@example.com`, first_name: 'Test', last_name: 'Webhook', phone_number: '' }, funnel_name: 'Test Funnel' },
+    'facebook-leads': { field_data: [{ name: 'email', values: [`test_${Date.now()}@example.com`] }, { name: 'full_name', values: ['Test Webhook'] }] },
+    tiktok:           { lead_info: { fields: { email: `test_${Date.now()}@example.com`, first_name: 'Test', last_name: 'Webhook' } } },
+    'google-ads':     { lead: { column_data: [{ column_id: 'EMAIL', string_value: `test_${Date.now()}@example.com` }, { column_id: 'FIRST_NAME', string_value: 'Test' }] } },
+    typeform:         { form_response: { answers: [{ type: 'email', email: `test_${Date.now()}@example.com`, field: { ref: 'email' } }, { type: 'short_text', text: 'Test Webhook', field: { title: 'Nom' } }] } },
+    tally:            { data: { fields: [{ type: 'EMAIL', label: 'Email', value: `test_${Date.now()}@example.com` }, { label: 'Nom', value: 'Test Webhook' }] } },
+    wordpress:        { email: `test_${Date.now()}@example.com`, 'your-name': 'Test Webhook', form_name: 'Test Form' },
+    universal:        { email: `test_${Date.now()}@example.com`, name: 'Test Webhook', phone: '' },
+  }
+
+  const payload = testPayloads[platform]
+  if (!payload) throw Object.assign(new Error(`Plateforme de test inconnue: ${platform}`), { status: 400 })
+
+  const APP_URL = process.env.VITE_APP_URL || process.env.APP_URL || 'https://app.leadqualif.com'
+  const r = await fetch(`${APP_URL}/api/webhooks/${platform}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-LeadQualif-Key': apiKey },
+    body: JSON.stringify(payload),
+  })
+  const result = await r.json().catch(() => ({}))
+  return { ok: r.ok, status: r.status, result }
+}
+
 export default async function handler(req, res) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
@@ -576,13 +672,20 @@ export default async function handler(req, res) {
   if (!profile)  return res.status(401).json({ error: 'Token invalide' })
 
   try {
-    if (action === 'get-settings')    return res.status(200).json(await handleGetSettings(supabase, profile))
-    if (action === 'save-settings')   return res.status(200).json(await handleSaveSettings(supabase, profile, body))
-    if (action === 'test-email')      return res.status(200).json(await handleTestEmail(supabase, profile, body))
-    if (action === 'test-whatsapp')   return res.status(200).json(await handleTestWhatsApp(supabase, profile, body))
-    if (action === 'sign-request')    return res.status(200).json(await handleSignRequest(supabase, profile, body))
-    if (action === 'docuseal-send')   return res.status(200).json(await handleDocusealSend(supabase, profile, body))
-    if (action === 'docuseal-status') return res.status(200).json(await handleDocusealStatus(supabase, profile, body))
+    if (action === 'get-settings')       return res.status(200).json(await handleGetSettings(supabase, profile))
+    if (action === 'save-settings')      return res.status(200).json(await handleSaveSettings(supabase, profile, body))
+    if (action === 'test-email')         return res.status(200).json(await handleTestEmail(supabase, profile, body))
+    if (action === 'test-whatsapp')      return res.status(200).json(await handleTestWhatsApp(supabase, profile, body))
+    if (action === 'sign-request')       return res.status(200).json(await handleSignRequest(supabase, profile, body))
+    if (action === 'docuseal-send')      return res.status(200).json(await handleDocusealSend(supabase, profile, body))
+    if (action === 'docuseal-status')    return res.status(200).json(await handleDocusealStatus(supabase, profile, body))
+    // ── Clés API & Webhooks ──────────────────────────────────────────────────
+    if (action === 'get-api-key')        return res.status(200).json(await handleGetApiKey(supabase, profile))
+    if (action === 'generate-api-key')   return res.status(200).json(await handleGenerateApiKey(supabase, profile, body))
+    if (action === 'revoke-api-key')     return res.status(200).json(await handleRevokeApiKey(supabase, profile, body))
+    if (action === 'get-webhook-mapping')  return res.status(200).json(await handleGetWebhookMapping(supabase, profile, body))
+    if (action === 'save-webhook-mapping') return res.status(200).json(await handleSaveWebhookMapping(supabase, profile, body))
+    if (action === 'test-webhook')       return res.status(200).json(await handleTestWebhook(supabase, profile, body))
     return res.status(400).json({ error: `Action inconnue: "${action}"` })
   } catch (err) {
     console.error(`[workspace/${action}]`, err.message)

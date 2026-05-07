@@ -799,6 +799,12 @@ const LeadDetails = () => {
                 }`}>
                   {lead.lead_role === 'proprietaire' ? '🔑 Propriétaire' : '🏠 Client'}
                 </span>
+                {lead.source_platform && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-violet-100 text-violet-700 border border-violet-200"
+                    title={lead.source_detail ? `Source : ${lead.source_platform} — ${lead.source_detail}` : `Source : ${lead.source_platform}`}>
+                    🔗 {lead.source_platform}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -917,6 +923,8 @@ const LeadDetails = () => {
                     { icon: '🏠', label: 'Type de bien', value: lead.type_bien },
                     { icon: '📍', label: 'Localisation', value: lead.localisation_souhaitee },
                     { icon: '🌍', label: 'Source',       value: lead.source?.replace('_', ' ') },
+                    { icon: '🔗', label: 'Plateforme',   value: lead.source_platform },
+                    { icon: '📋', label: 'Détail source', value: lead.source_detail },
                     { icon: '📅', label: 'Créé le',      value: fmt.date(lead.created_at) },
                     { icon: '🔄', label: 'Mis à jour',   value: fmt.date(lead.updated_at) },
                   ].filter(r => r.value).map(row => (

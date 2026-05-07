@@ -156,6 +156,7 @@ export default function Dashboard() {
   const [panelEmailProvider, setPanelEmailProvider] = useState(null); // 'google' | 'microsoft' | 'smtp' | null
   const [filterQualification, setFilterQualification] = useState('all');
   const [filterAssignment, setFilterAssignment] = useState('all'); // 'all' | 'mine' | 'unassigned'
+  const [filterSource, setFilterSource] = useState('all'); // 'all' | platform name
   const [currentUserId, setCurrentUserId] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -227,8 +228,13 @@ export default function Dashboard() {
       filterAssignment === 'mine' ? lead.assigned_to === currentUserId :
       filterAssignment === 'unassigned' ? !lead.assigned_to : true;
 
-    return matchesSearch && matchesFilter && matchesArchive && matchesAssign;
+    const matchesSource = filterSource === 'all' || lead.source_platform === filterSource;
+
+    return matchesSearch && matchesFilter && matchesArchive && matchesAssign && matchesSource;
   });
+
+  // Sources disponibles dans les leads chargés
+  const availableSources = [...new Set(leads.filter(l => l.source_platform).map(l => l.source_platform))].sort();
 
   // === LOG CRM EVENT ===
   const logCrmEvent = async (leadId, type, title, description = '', metadata = {}) => {
@@ -916,8 +922,29 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Filtre source (affiché seulement si au moins un lead a une source) */}
+          {availableSources.length > 0 && (
+            <div className="flex gap-1 flex-wrap">
+              <button
+                onClick={() => setFilterSource('all')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  filterSource === 'all' ? 'bg-violet-700 text-white' : 'bg-white text-violet-600 border border-violet-200 hover:bg-violet-50'
+                }`}
+              >🔗 Toutes sources</button>
+              {availableSources.map(src => (
+                <button
+                  key={src}
+                  onClick={() => setFilterSource(src === filterSource ? 'all' : src)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    filterSource === src ? 'bg-violet-600 text-white' : 'bg-white text-violet-600 border border-violet-200 hover:bg-violet-50'
+                  }`}
+                >{src}</button>
+              ))}
+            </div>
+          )}
+
           {/* Compteur résultats */}
-          {(searchQuery || filterQualification !== 'all' || filterAssignment !== 'all') && (
+          {(searchQuery || filterQualification !== 'all' || filterAssignment !== 'all' || filterSource !== 'all') && (
             <span className="text-xs text-slate-500 whitespace-nowrap">
               {filteredLeads.length} résultat{filteredLeads.length !== 1 ? 's' : ''}
             </span>
@@ -1095,6 +1122,12 @@ export default function Dashboard() {
                                   className="shrink-0 w-5 h-5 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500
                                              flex items-center justify-center text-white text-[9px] font-bold">
                                   {lead.assigned_to === currentUserId ? 'M' : '👤'}
+                                </span>
+                              )}
+                              {lead.source_platform && (
+                                <span title={`Source : ${lead.source_platform}`}
+                                  className="shrink-0 text-[9px] px-1 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold hidden sm:inline-flex">
+                                  🔗 {lead.source_platform}
                                 </span>
                               )}
                             </div>
@@ -2077,6 +2110,15 @@ function KanbanCard({
           {lead.statut}
         </span>
       </div>
+      {/* Source platform badge */}
+      {lead.source_platform && (
+        <div className="mt-1.5">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-violet-50 text-violet-600 border border-violet-100"
+            title={lead.source_detail ? `${lead.source_platform} — ${lead.source_detail}` : lead.source_platform}>
+            🔗 {lead.source_platform}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

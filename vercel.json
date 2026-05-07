@@ -38,6 +38,9 @@
     },
     "api/crm.js": {
       "maxDuration": 30
+    },
+    "api/webhooks/[platform].js": {
+      "maxDuration": 15
     }
   },
   "headers": [
