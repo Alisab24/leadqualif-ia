@@ -765,25 +765,31 @@ export default function Dashboard() {
   if (loading) return <div className="flex h-screen items-center justify-center">Chargement...</div>;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen w-full bg-gradient-to-br from-slate-50 via-slate-50 to-blue-50/30 overflow-hidden font-sans">
       {/* ===== HEADER ===== */}
-      <header className="flex-none h-auto bg-white border-b border-slate-200 px-6 z-40 shadow-sm shrink-0">
+      <header className="flex-none h-auto bg-white/90 border-b border-slate-200/80 px-6 z-40 shadow-sm shrink-0 backdrop-blur-sm">
         {/* Ligne principale */}
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-slate-900 hidden md:block">Pipeline</h1>
-            <div className="flex gap-2">
-              <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">{stats.total} leads</span>
+            <div>
+              <h1 className="text-xl font-extrabold text-slate-900 hidden md:block leading-none">Pipeline</h1>
+              <p className="text-[10px] text-slate-400 font-medium hidden md:block mt-0.5">CRM</p>
+            </div>
+            <div className="flex gap-1.5">
+              <span className="flex items-center gap-1 bg-blue-500/10 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold border border-blue-200/60">
+                <svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><circle cx="6" cy="6" r="5"/></svg>
+                {stats.total} leads
+              </span>
               {agencyType === 'smma' ? (
                 stats.chauds > 0 && (
-                  <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100 hidden sm:flex items-center gap-1">
-                    🔥 {stats.chauds} chaud{stats.chauds > 1 ? 's' : ''}
+                  <span className="hidden sm:flex items-center gap-1 bg-red-500/10 text-red-700 px-2.5 py-1 rounded-full text-xs font-bold border border-red-200/60">
+                    🔥 {stats.chauds}
                   </span>
                 )
               ) : (
                 stats.potential > 0 && (
-                  <span className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-100 hidden sm:block">
-                    {stats.potential.toLocaleString()} €
+                  <span className="hidden sm:flex items-center gap-1 bg-emerald-500/10 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-bold border border-emerald-200/60">
+                    💰 {stats.potential.toLocaleString()} €
                   </span>
                 )
               )}
@@ -806,22 +812,22 @@ export default function Dashboard() {
             </button>
 
             {/* Kanban / Liste toggle */}
-            <div className="flex bg-slate-100 rounded-lg p-1">
+            <div className="flex bg-slate-100 rounded-xl p-1 shadow-inner">
               <button
                 onClick={() => setViewMode('kanban')}
                 title="Vue Kanban"
-                className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <span className="hidden md:inline">📋 Kanban</span>
-                <span className="md:hidden">📋</span>
+                <span className="hidden md:inline">⊞ Kanban</span>
+                <span className="md:hidden">⊞</span>
               </button>
               <button
                 onClick={() => setViewMode('list')}
                 title="Vue Liste"
-                className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <span className="hidden md:inline">☰ Liste</span>
-                <span className="md:hidden">☰</span>
+                <span className="hidden md:inline">≡ Liste</span>
+                <span className="md:hidden">≡</span>
               </button>
             </div>
 
@@ -829,7 +835,7 @@ export default function Dashboard() {
             {canAccess('docs') ? (
               <button
                 onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 text-sm font-medium shadow-sm transition-all hover:shadow"
                 title="Importer depuis CSV / Excel"
               >
                 <span>📥</span>
@@ -838,7 +844,7 @@ export default function Dashboard() {
             ) : (
               <button
                 onClick={() => navigate('/settings?tab=facturation')}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-slate-50 text-sm font-medium shadow-sm opacity-70"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 text-sm font-medium shadow-sm opacity-70"
                 title="Fonctionnalité Solo+ — Passer à un plan supérieur"
               >
                 <span>🔒</span>
@@ -851,10 +857,10 @@ export default function Dashboard() {
               <button
                 data-new-lead
                 onClick={() => setShowLeadForm(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 text-sm font-semibold shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5"
                 title={t('pipeline.newLead')}
               >
-                <span>➕</span>
+                <span>+</span>
                 <span className="hidden sm:inline">{t('pipeline.newLead')}</span>
               </button>
             </AddLeadGate>
@@ -1046,15 +1052,25 @@ export default function Dashboard() {
               const lead = leads.find(l => l.id === activeDragId);
               if (!lead) return null;
               const badge = getScoreBadge(lead);
+              const accentColor = badge.text === 'text-green-700' ? '#16a34a' : badge.text === 'text-yellow-700' ? '#ca8a04' : '#dc2626';
               return (
-                <div className="bg-white p-3 rounded-xl shadow-2xl border-2 border-blue-400 w-[300px] rotate-2 opacity-95">
-                  <div className="font-bold text-slate-900 text-sm mb-1">{lead.nom}</div>
-                  <div className="flex items-center gap-2 text-xs font-bold text-green-600 mb-2">
-                    <span>💰</span><span>{lead.budget ? lead.budget.toLocaleString('fr-FR') + ' €' : '—'}</span>
+                <div className="bg-white rounded-xl shadow-2xl border border-blue-300 w-[290px] rotate-2 opacity-95 overflow-hidden">
+                  <div className="h-1" style={{ background: accentColor }} />
+                  <div className="p-3">
+                    <div className="font-bold text-slate-900 text-sm mb-1.5">{lead.nom}</div>
+                    {lead.email && <div className="text-xs text-slate-400 mb-1 truncate">{lead.email}</div>}
+                    <div className="flex items-center justify-between mt-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full ${badge.bg} ${badge.text}`}>
+                        {badge.label}
+                        {badge.score > 0 && <span className="opacity-60">{badge.score}%</span>}
+                      </span>
+                      {getLeadBudget(lead, agencyType === 'smma') && (
+                        <span className="text-xs font-semibold text-emerald-600">
+                          {getLeadBudget(lead, agencyType === 'smma')}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
-                    {badge.label}
-                  </span>
                 </div>
               );
             })() : null}
@@ -1922,6 +1938,17 @@ export default function Dashboard() {
 
 // ===== COMPOSANTS KANBAN DnD =====
 
+/* Couleurs accent par statut pipeline */
+const COLUMN_ACCENT = {
+  'À traiter':     { bar: 'bg-slate-400',   header: 'from-slate-50',  dot: 'bg-slate-400'  },
+  'Contacté':      { bar: 'bg-blue-500',    header: 'from-blue-50',   dot: 'bg-blue-500'   },
+  'RDV fixé':      { bar: 'bg-orange-500',  header: 'from-orange-50', dot: 'bg-orange-500' },
+  'Offre en cours':{ bar: 'bg-yellow-500',  header: 'from-yellow-50', dot: 'bg-yellow-500' },
+  'Négociation':   { bar: 'bg-purple-500',  header: 'from-purple-50', dot: 'bg-purple-500' },
+  'Gagné':         { bar: 'bg-emerald-500', header: 'from-emerald-50',dot: 'bg-emerald-500'},
+  'Perdu':         { bar: 'bg-red-400',     header: 'from-red-50',    dot: 'bg-red-400'    },
+};
+
 function KanbanColumn({
   statut, idx, leads, statuts, activeDragId,
   getScoreBadge, statutColor, agencyType,
@@ -1930,22 +1957,33 @@ function KanbanColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: statut });
   const { t } = useTranslation();
+  const accent = COLUMN_ACCENT[statut] || COLUMN_ACCENT['À traiter'];
 
   return (
     <div
       ref={setNodeRef}
-      className={`min-w-[320px] max-w-[320px] flex flex-col h-full max-h-[85vh] rounded-xl border transition-all duration-200 ${
+      className={`min-w-[300px] max-w-[300px] flex flex-col h-full max-h-[85vh] rounded-2xl border transition-all duration-200 overflow-hidden ${
         isOver
-          ? 'bg-blue-50 border-blue-400 shadow-lg shadow-blue-100'
-          : 'bg-slate-100/50 border-slate-200'
+          ? 'border-blue-400 shadow-xl shadow-blue-100/60 scale-[1.01]'
+          : 'bg-white/70 border-slate-200/80 shadow-sm'
       }`}
+      style={{ backdropFilter: 'blur(8px)' }}
     >
-      <div className="p-4 font-bold text-slate-700 bg-white/80 rounded-t-xl flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm border-b border-slate-200/50">
-        {tPipelineLabel(statut)}
-        <span className="bg-white text-xs px-2 py-1 rounded-full shadow-sm text-slate-500 border">{leads.length}</span>
+      {/* Barre de couleur top */}
+      <div className={`h-1 w-full ${accent.bar} shrink-0`} />
+
+      {/* En-tête colonne */}
+      <div className={`px-4 py-3 bg-gradient-to-r ${accent.header} to-white flex justify-between items-center sticky top-0 z-10 border-b border-slate-100`}>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${accent.dot}`} />
+          <span className="font-bold text-slate-800 text-sm">{tPipelineLabel(statut)}</span>
+        </div>
+        <span className="text-xs font-bold text-slate-500 bg-white px-2.5 py-1 rounded-full shadow-sm border border-slate-100">
+          {leads.length}
+        </span>
       </div>
 
-      <div className="p-3 space-y-3 overflow-y-auto flex-1">
+      <div className="p-2.5 space-y-2.5 overflow-y-auto flex-1 bg-slate-50/50">
         {leads.map(lead => (
           <KanbanCard
             key={lead.id}
@@ -1968,10 +2006,13 @@ function KanbanColumn({
 
         {/* Zone de dépôt vide */}
         {leads.length === 0 && (
-          <div className={`flex items-center justify-center h-16 rounded-xl border-2 border-dashed text-xs transition-all ${
+          <div className={`flex flex-col items-center justify-center h-20 rounded-xl border-2 border-dashed text-xs transition-all gap-1 ${
             isOver ? 'border-blue-400 text-blue-500 bg-blue-50' : 'border-slate-200 text-slate-400'
           }`}>
-            {isOver ? `⬇ ${t('common.noData')}` : t('lead.noLeads')}
+            {isOver
+              ? <span>⬇ Déposer ici</span>
+              : <><span className="text-base opacity-40">○</span><span>{t('lead.noLeads')}</span></>
+            }
           </div>
         )}
       </div>
@@ -1993,6 +2034,11 @@ function KanbanCard({
 
   const badge = getScoreBadge(lead);
 
+  /* Accent latéral selon score */
+  const accentColor =
+    badge.text === 'text-green-700'  ? '#16a34a' :
+    badge.text === 'text-yellow-700' ? '#ca8a04' : '#dc2626';
+
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
     zIndex: 999,
@@ -2002,7 +2048,7 @@ function KanbanCard({
     return (
       <div
         ref={setNodeRef}
-        className="bg-blue-50 border-2 border-dashed border-blue-300 rounded-xl h-[120px] opacity-50"
+        className="rounded-xl h-[130px] opacity-40 border-2 border-dashed border-blue-300 bg-blue-50"
       />
     );
   }
@@ -2011,114 +2057,139 @@ function KanbanCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-300 transition-all duration-200"
+      className="group relative bg-white rounded-xl shadow-sm border border-slate-100 cursor-grab active:cursor-grabbing
+                 hover:shadow-md hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
       onClick={() => onSelect(lead)}
     >
-      {/* Drag handle hint + actions */}
-      <div className="flex justify-between mb-2">
-        <div className="flex items-center gap-1">
-          {/* Drag handle */}
-          <span
-            {...attributes}
-            {...listeners}
-            className="text-slate-300 hover:text-slate-500 cursor-grab text-xs mr-1 select-none"
-            onClick={e => e.stopPropagation()}
-            title="Glisser pour déplacer"
-          >⠿</span>
-          <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded">
-            {agencyType === 'smma' ? '📣' : '🏠'}{' '}
-            {getLeadType(lead, agencyType === 'smma') || (agencyType === 'smma' ? 'Service' : 'Projet')}
-          </span>
-        </div>
-        <div className="flex gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); onNavigate(lead.id); }}
-            className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full flex items-center justify-center shadow-sm"
-            title="Voir les détails"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
-          </button>
-          {lead.telephone && (
+      {/* Barre latérale colorée score */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+        style={{ background: accentColor }}
+      />
+
+      <div className="pl-3 pr-3 pt-3 pb-2.5">
+
+        {/* Header : type + actions */}
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-1.5">
+            {/* Drag handle */}
+            <span
+              {...attributes}
+              {...listeners}
+              className="text-slate-200 hover:text-slate-400 cursor-grab text-xs select-none transition-colors"
+              onClick={e => e.stopPropagation()}
+              title="Glisser"
+            >⠿</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              {agencyType === 'smma' ? '📣' : '🏠'}{' '}
+              {getLeadType(lead, agencyType === 'smma') || (agencyType === 'smma' ? 'Service' : 'Projet')}
+            </span>
+          </div>
+
+          {/* Actions — visibles au hover */}
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             <button
-              onClick={(e) => { e.stopPropagation(); if (onWhatsApp) onWhatsApp(lead); }}
-              className="w-6 h-6 bg-green-50 hover:bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-sm"
-              title={`WhatsApp · ${lead.telephone}`}
+              onClick={(e) => { e.stopPropagation(); onNavigate(lead.id); }}
+              className="w-6 h-6 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 flex items-center justify-center transition-colors"
+              title="Détails"
             >
-              <WhatsAppIcon size={12} />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="11" height="11"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
             </button>
+            {lead.telephone && (
+              <button
+                onClick={(e) => { e.stopPropagation(); if (onWhatsApp) onWhatsApp(lead); }}
+                className="w-6 h-6 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 flex items-center justify-center transition-colors"
+                title={`WhatsApp · ${lead.telephone}`}
+              >
+                <WhatsAppIcon size={11} />
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onRdv(lead); }}
+              className="w-6 h-6 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-500 flex items-center justify-center transition-colors"
+              title="RDV"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="11" height="11"><path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd"/></svg>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
+              className="w-6 h-6 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-500 flex items-center justify-center transition-colors"
+              title="Archiver"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="11" height="11"><path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2zM2 7.5v7A1.5 1.5 0 003.5 16h13a1.5 1.5 0 001.5-1.5v-7H2zm5 2a.5.5 0 000 1h6a.5.5 0 000-1H7z"/></svg>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(lead.id); }}
+              className="w-6 h-6 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 flex items-center justify-center transition-colors"
+              title="Supprimer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="11" height="11"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Nom lead */}
+        <div className="font-bold text-slate-900 text-sm mb-2 leading-tight truncate pr-1">{lead.nom}</div>
+
+        {/* Infos contact + budget */}
+        <div className="space-y-1 mb-3">
+          {lead.email && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11" className="shrink-0"><path d="M2.5 3A1.5 1.5 0 001 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0115 5.293V4.5A1.5 1.5 0 0013.5 3h-11z"/><path d="M15 6.954L8.978 9.86a2.25 2.25 0 01-1.956 0L1 6.954V11.5A1.5 1.5 0 002.5 13h11a1.5 1.5 0 001.5-1.5V6.954z"/></svg>
+              <span className="truncate">{lead.email}</span>
+            </div>
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx + 1]); }}
-            className="w-6 h-6 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm font-bold text-xs"
-            title="Avancer"
-          >→</button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx - 1]); }}
-            className="w-6 h-6 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm font-bold text-xs"
-            title="Reculer"
-          >←</button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onRdv(lead); }}
-            className="w-6 h-6 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm"
-            title="RDV"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd"/></svg>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
-            className="w-6 h-6 bg-amber-50 hover:bg-amber-100 text-amber-500 rounded-full flex items-center justify-center shadow-sm"
-            title="Archiver"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2zM2 7.5v7A1.5 1.5 0 003.5 16h13a1.5 1.5 0 001.5-1.5v-7H2zm5 2a.5.5 0 000 1h6a.5.5 0 000-1H7z"/></svg>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(lead.id); }}
-            className="w-6 h-6 bg-red-50 hover:bg-red-100 text-red-400 rounded-full flex items-center justify-center shadow-sm"
-            title="Supprimer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd"/></svg>
-          </button>
+          {lead.telephone && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11" className="shrink-0"><path fillRule="evenodd" d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.149.15 2.263.43 3.322a13.422 13.422 0 009.248 9.248c1.06.28 2.173.43 3.322.43h1.5a1.5 1.5 0 001.5-1.5v-1.148a1.5 1.5 0 00-1.175-1.465l-3.223-.716a1.5 1.5 0 00-1.341.343l-.793.793a11.927 11.927 0 01-6.394-6.394l.793-.793a1.5 1.5 0 00.343-1.34L5.465 3.175A1.5 1.5 0 004 2H3.5z" clipRule="evenodd"/></svg>
+              <span>{lead.telephone}</span>
+            </div>
+          )}
+          {getLeadBudget(lead, agencyType === 'smma') && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11" className="shrink-0"><path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z"/></svg>
+              <span>{getLeadBudget(lead, agencyType === 'smma')}</span>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Nom */}
-      <div className="font-bold text-slate-900 mb-2 text-sm">{lead.nom}</div>
-
-      {/* Infos */}
-      <div className="space-y-1 mb-2">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12" className="shrink-0 text-slate-400"><path d="M2.5 3A1.5 1.5 0 001 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0115 5.293V4.5A1.5 1.5 0 0013.5 3h-11z"/><path d="M15 6.954L8.978 9.86a2.25 2.25 0 01-1.956 0L1 6.954V11.5A1.5 1.5 0 002.5 13h11a1.5 1.5 0 001.5-1.5V6.954z"/></svg>
-          <span className="truncate">{lead.email || '—'}</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12" className="shrink-0 text-slate-400"><path fillRule="evenodd" d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.149.15 2.263.43 3.322a13.422 13.422 0 009.248 9.248c1.06.28 2.173.43 3.322.43h1.5a1.5 1.5 0 001.5-1.5v-1.148a1.5 1.5 0 00-1.175-1.465l-3.223-.716a1.5 1.5 0 00-1.341.343l-.793.793a11.927 11.927 0 01-6.394-6.394l.793-.793a1.5 1.5 0 00.343-1.34L5.465 3.175A1.5 1.5 0 004 2H3.5z" clipRule="evenodd"/></svg>
-          <span>{lead.telephone || '—'}</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12" className="shrink-0"><path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z"/></svg>
-          <span>{getLeadBudget(lead, agencyType === 'smma') || '—'}</span>
-        </div>
-      </div>
-
-      {/* Score badge IA */}
-      <div className="flex items-center justify-between mt-2">
-        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${badge.bg} ${badge.text}`}>
-          {badge.label}
-          {badge.score > 0 && <span className="ml-1 opacity-70">{badge.score}%</span>}
-        </span>
-        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statutColor(lead.statut)}`}>
-          {lead.statut}
-        </span>
-      </div>
-      {/* Source platform badge */}
-      {lead.source_platform && (
-        <div className="mt-1.5">
-          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-violet-50 text-violet-600 border border-violet-100"
-            title={lead.source_detail ? `${lead.source_platform} — ${lead.source_detail}` : lead.source_platform}>
-            🔗 {lead.source_platform}
+        {/* Footer : score + navigation rapide */}
+        <div className="border-t border-slate-50 pt-2 flex items-center justify-between gap-2">
+          {/* Score pill */}
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full ${badge.bg} ${badge.text}`}>
+            {badge.label}
+            {badge.score > 0 && <span className="opacity-60 font-medium">{badge.score}%</span>}
           </span>
+
+          {/* Flèches pipeline rapide */}
+          <div className="flex gap-1 items-center shrink-0">
+            {idx > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx - 1]); }}
+                className="w-5 h-5 rounded bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center text-[10px] font-bold transition-colors"
+                title="Reculer"
+              >‹</button>
+            )}
+            {idx < statuts.length - 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onUpdateStatus(lead.id, statuts[idx + 1]); }}
+                className="w-5 h-5 rounded bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 flex items-center justify-center text-[10px] font-bold transition-colors"
+                title="Avancer"
+              >›</button>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Source platform badge */}
+        {lead.source_platform && (
+          <div className="mt-1.5">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-violet-50 text-violet-600 border border-violet-100"
+              title={lead.source_detail ? `${lead.source_platform} — ${lead.source_detail}` : lead.source_platform}>
+              🔗 {lead.source_platform}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

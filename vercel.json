@@ -40,6 +40,12 @@
       "maxDuration": 15
     }
   },
+  "crons": [
+    {
+      "path": "/api/workspace?cron=relances",
+      "schedule": "0 8 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

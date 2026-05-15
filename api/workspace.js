@@ -642,9 +642,225 @@ async function handleTestWebhook(supabase, profile, body) {
   return { ok: r.ok, status: r.status, result }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// RELANCES AUTOMATIQUES — Devis & Factures non signés / impayés
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Envoie les relances pour toutes les agences.
+ * Appelé quotidiennement par Vercel Cron (GET /api/workspace?cron=relances).
+ * Sécurisé par CRON_SECRET dans Authorization header.
+ *
+ * Calendrier relances :
+ *   Devis  envoyé → J+3, J+7, J+14
+ *   Facture envoyée → J+7, J+14, J+30
+ */
+const RELANCE_SCHEDULE = {
+  devis:   [3, 7, 14],
+  facture: [7, 14, 30],
+}
+
+async function handleRunRelances(supabase) {
+  const now = new Date()
+  const results = { sent: 0, skipped: 0, errors: 0, details: [] }
+
+  // ── 1. Charger tous les documents en attente (devis/facture envoyés) ────────
+  const { data: docs, error: docsErr } = await supabase
+    .from('documents')
+    .select(`
+      id, type, statut, titre, reference, montant_ttc, montant_ht,
+      client_nom, client_email, telephone_client,
+      agency_id, lead_id, updated_at, created_at,
+      relances_sent
+    `)
+    .in('type', ['devis', 'facture'])
+    .in('statut', ['envoyé', 'envoyée', 'émis', 'émise', 'En attente'])
+    .not('client_email', 'is', null)
+
+  if (docsErr) {
+    console.error('[relances] Erreur lecture documents:', docsErr.message)
+    return { ...results, error: docsErr.message }
+  }
+
+  if (!docs?.length) return { ...results, message: 'Aucun document en attente' }
+
+  // ── 2. Charger les settings de chaque agence (Resend, Twilio, noms) ─────────
+  const agencyIds = [...new Set(docs.map(d => d.agency_id))]
+  const { data: wsRows } = await supabase
+    .from('workspace_settings')
+    .select('agency_id, resend_api_key, from_email, from_name, agency_name, twilio_account_sid, twilio_auth_token, twilio_whatsapp_number, relances_enabled, relances_devis, relances_facture')
+    .in('agency_id', agencyIds)
+
+  const wsMap = {}
+  for (const ws of (wsRows || [])) wsMap[ws.agency_id] = ws
+
+  // ── 3. Pour chaque document, calculer quelles relances sont dues ─────────────
+  for (const doc of docs) {
+    const ws = wsMap[doc.agency_id]
+    if (!ws) continue
+
+    // Vérifier si les relances sont activées pour cette agence (défaut: true)
+    if (ws.relances_enabled === false) continue
+
+    // Overrides par type si configurés dans settings
+    const schedule = (doc.type === 'devis'
+      ? ws.relances_devis   || RELANCE_SCHEDULE.devis
+      : ws.relances_facture || RELANCE_SCHEDULE.facture)
+
+    // Date de référence : quand le doc a été mis à "envoyé"
+    const sentAt    = new Date(doc.updated_at || doc.created_at)
+    const daysSince = Math.floor((now - sentAt) / 86400000)
+
+    // relances_sent stocke les jours déjà traités, ex: [3, 7]
+    const alreadySent = Array.isArray(doc.relances_sent) ? doc.relances_sent : []
+
+    // Trouver la relance due (le dernier palier atteint non encore envoyé)
+    const dueDay = schedule
+      .filter(d => daysSince >= d && !alreadySent.includes(d))
+      .sort((a, b) => a - b)[0]  // le plus proche en premier
+
+    if (!dueDay) { results.skipped++; continue }
+
+    // ── 4. Envoyer l'email de relance ─────────────────────────────────────────
+    const typeLabel = doc.type === 'devis' ? 'devis' : 'facture'
+    const montant   = doc.montant_ttc ? `${Number(doc.montant_ttc).toLocaleString('fr-FR')} €` : ''
+    const subject   = dueDay <= 3
+      ? `Rappel : votre ${typeLabel} ${doc.reference || ''} est en attente`
+      : dueDay <= 7
+      ? `Relance : ${typeLabel} ${doc.reference || ''} — Avez-vous des questions ?`
+      : `Dernière relance : ${typeLabel} ${doc.reference || ''}`
+
+    const html = buildRelanceHtml({
+      doc, ws, typeLabel, montant, dueDay, daysSince,
+      appUrl: process.env.VITE_APP_URL || 'https://app.leadqualif.com',
+    })
+
+    let emailOk = false
+    try {
+      const resendKey = ws.resend_api_key || process.env.RESEND_API_KEY
+      const fromEmail = ws.from_email    || process.env.RESEND_FROM || 'noreply@leadqualif.com'
+      const fromName  = ws.from_name     || ws.agency_name || 'LeadQualif'
+
+      if (resendKey && doc.client_email) {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: `${fromName} <${fromEmail}>`,
+            to:   [doc.client_email],
+            subject,
+            html,
+          }),
+        })
+        emailOk = r.ok
+        if (!r.ok) console.error(`[relances] Email J+${dueDay} doc ${doc.id} →`, await r.text().catch(() => ''))
+      }
+    } catch (e) {
+      console.error(`[relances] Email error doc ${doc.id}:`, e.message)
+      results.errors++
+    }
+
+    // ── 5. WhatsApp si disponible et numéro client présent ───────────────────
+    if (ws.twilio_account_sid && ws.twilio_auth_token && ws.twilio_whatsapp_number && doc.telephone_client) {
+      try {
+        const phone = String(doc.telephone_client).replace(/[^\d+]/g, '')
+        const toWA  = phone.startsWith('+') ? `whatsapp:${phone}` : `whatsapp:+33${phone.replace(/^0/, '')}`
+        const waMsg = `Bonjour ${doc.client_nom || ''},\n\n` +
+          `Je me permets de vous relancer concernant votre ${typeLabel} ${doc.reference || ''} ` +
+          (montant ? `d'un montant de ${montant} ` : '') +
+          `envoyé il y a ${daysSince} jour${daysSince > 1 ? 's' : ''}.\n\n` +
+          `N'hésitez pas à me contacter pour toute question.\n\n— ${ws.from_name || ws.agency_name || 'L\'agence'}`
+
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${ws.twilio_account_sid}/Messages.json`
+        const creds     = Buffer.from(`${ws.twilio_account_sid}:${ws.twilio_auth_token}`).toString('base64')
+        await fetch(twilioUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ From: `whatsapp:${ws.twilio_whatsapp_number}`, To: toWA, Body: waMsg }).toString(),
+        })
+      } catch (e) { /* WA non bloquant */ }
+    }
+
+    // ── 6. Marquer la relance comme envoyée sur le document ───────────────────
+    const newRelances = [...alreadySent, dueDay]
+    await supabase
+      .from('documents')
+      .update({ relances_sent: newRelances, updated_at: new Date().toISOString() })
+      .eq('id', doc.id)
+
+    // Log dans crm_events pour historique
+    if (doc.lead_id) {
+      await supabase.from('crm_events').insert({
+        lead_id:    doc.lead_id,
+        agency_id:  doc.agency_id,
+        type:       'relance',
+        title:      `📨 Relance automatique J+${dueDay} — ${doc.reference || typeLabel}`,
+        description: `Email${ws.twilio_whatsapp_number && doc.telephone_client ? ' + WhatsApp' : ''} envoyé à ${doc.client_email || doc.client_nom}`,
+        statut:     'complété',
+        created_at: new Date().toISOString(),
+      }).catch(() => {})
+    }
+
+    results.sent++
+    results.details.push({ docId: doc.id, type: doc.type, day: dueDay, email: emailOk, client: doc.client_nom })
+  }
+
+  console.log(`[relances] Terminé — envoyées: ${results.sent}, ignorées: ${results.skipped}, erreurs: ${results.errors}`)
+  return results
+}
+
+function buildRelanceHtml({ doc, ws, typeLabel, montant, dueDay, daysSince, appUrl }) {
+  const agence = ws.from_name || ws.agency_name || 'Votre agence'
+  const urgence = dueDay >= 14
+    ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:16px 0;color:#991b1b;font-size:14px;">⚠️ Cette relance est importante — merci de bien vouloir répondre rapidement.</div>`
+    : ''
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px;">
+<div style="max-width:560px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+  <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px 28px;">
+    <div style="font-size:18px;font-weight:700;color:white;">${agence}</div>
+    <div style="font-size:13px;color:#c4b5fd;margin-top:4px;">Relance automatique</div>
+  </div>
+  <div style="padding:28px;">
+    <p style="font-size:15px;color:#1e293b;margin:0 0 16px;">Bonjour <strong>${doc.client_nom || 'cher client'}</strong>,</p>
+    <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 16px;">
+      Je me permets de vous relancer concernant votre <strong>${typeLabel}</strong>
+      ${doc.reference ? `<strong>${doc.reference}</strong>` : ''}
+      ${montant ? `d'un montant de <strong>${montant}</strong>` : ''}
+      qui vous a été envoyé il y a <strong>${daysSince} jour${daysSince > 1 ? 's' : ''}</strong>.
+    </p>
+    ${urgence}
+    <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 24px;">
+      Avez-vous des questions ? Je suis disponible pour en discuter.
+    </p>
+    <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:14px;">
+      Consulter le document →
+    </a>
+  </div>
+  <div style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;">
+    Ce message est envoyé automatiquement par ${agence}. Pour vous désabonner, contactez-nous.
+  </div>
+</div></body></html>`
+}
+
 export default async function handler(req, res) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
+
+  // ── VERCEL CRON — GET /api/workspace?cron=relances ───────────────────────
+  if (req.method === 'GET' && req.query.cron === 'relances') {
+    const cronSecret = process.env.CRON_SECRET
+    const authHeader = req.headers.authorization || ''
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: 'Non autorisé' })
+    }
+    const supabase = createClient(
+      process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+    const result = await handleRunRelances(supabase)
+    return res.status(200).json({ ok: true, timestamp: new Date().toISOString(), ...result })
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' })
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL

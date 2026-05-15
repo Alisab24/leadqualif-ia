@@ -103,6 +103,7 @@ const getSmartRecommendation = (lead) => {
 const CRM_ICONS = {
   edit: '✏️', rdv: '📅', whatsapp: '💬', email: '📧',
   call: '📞', document: '📄', ia_suggestion: '🧠', note: '📝',
+  vapi_call_started: '🤖', vapi_call_ended: '📋',
 }
 
 const initials = (name = '') =>
@@ -192,6 +193,10 @@ const LeadDetails = () => {
   const [agentLoading,  setAgentLoading]  = useState(false)
   const [agentResult,   setAgentResult]   = useState(null)
 
+  // ─── Vapi vocal IA ───────────────────────────────────────
+  const [vapiSettings,  setVapiSettings]  = useState(null)  // { api_key, assistant_id, phone_number_id, enabled }
+  const [vapiCalling,   setVapiCalling]   = useState(false)
+
   // ─── Chargement lead + équipe + intégrations ─────────────
   useEffect(() => {
     if (id) {
@@ -233,11 +238,67 @@ const LeadDetails = () => {
         const { data: prof } = await supabase
           .from('profiles').select('*').eq('user_id', data.agency_id).single()
         setAgencyProfile(prof || { agency_id: data.agency_id })
+
+        // Charger les settings Vapi
+        const { data: ws } = await supabase
+          .from('workspace_settings')
+          .select('vapi_api_key, vapi_assistant_id, vapi_phone_number_id, vapi_enabled')
+          .eq('agency_id', data.agency_id).maybeSingle()
+        if (ws?.vapi_enabled && ws?.vapi_api_key && ws?.vapi_assistant_id) {
+          setVapiSettings(ws)
+        }
       }
     } catch (err) {
       setError(err.message || 'Erreur de chargement')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ─── Déclencher un appel Vapi ─────────────────────────────
+  const triggerVapiCall = async () => {
+    if (!vapiSettings || !lead?.telephone || vapiCalling) return
+    setVapiCalling(true)
+    try {
+      const phone = lead.telephone.startsWith('+') ? lead.telephone : '+' + lead.telephone.replace(/\D/g, '')
+      const r = await fetch('https://api.vapi.ai/call/phone', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${vapiSettings.vapi_api_key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumberId:  vapiSettings.vapi_phone_number_id,
+          assistantId:    vapiSettings.vapi_assistant_id,
+          customer: { number: phone, name: lead.nom || '' },
+          assistantOverrides: {
+            metadata: {
+              lead_id:   lead.id,
+              agency_id: lead.agency_id,
+              lead_nom:  lead.nom,
+            },
+          },
+        }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.message || 'Erreur Vapi')
+
+      // Log CRM
+      await supabase.from('crm_events').insert({
+        lead_id: lead.id, agency_id: lead.agency_id,
+        type: 'vapi_call_started',
+        title: 'Appel vocal IA lancé',
+        description: `Appel Vapi vers ${phone} — Call ID : ${data.id || '?'}`,
+        metadata: { call_id: data.id, phone },
+      })
+
+      showToast(`📞 Appel IA lancé vers ${phone}`)
+      // Rafraîchir l'historique après 2s
+      setTimeout(() => fetchHistory(), 2500)
+    } catch (err) {
+      showToast(`❌ Erreur appel : ${err.message}`, 'error')
+    } finally {
+      setVapiCalling(false)
     }
   }
 
@@ -832,6 +893,22 @@ const LeadDetails = () => {
             >
               <IconPhone /><span className="hidden sm:inline">Appeler</span>
             </button>
+            {/* Bouton Appel IA Vapi — visible uniquement si configuré + numéro présent */}
+            {vapiSettings && lead.telephone && (
+              <button
+                onClick={triggerVapiCall}
+                disabled={vapiCalling}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600
+                           hover:from-violet-700 hover:to-indigo-700 text-white rounded-lg text-xs font-semibold
+                           transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Lancer un appel vocal IA via Vapi"
+              >
+                {vapiCalling
+                  ? <><span className="animate-spin">⏳</span><span className="hidden sm:inline">Appel…</span></>
+                  : <><span>🤖</span><span className="hidden sm:inline">Appel IA</span></>
+                }
+              </button>
+            )}
             <button
               onClick={() => {
                 switchTab('messages')

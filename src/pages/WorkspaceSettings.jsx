@@ -31,6 +31,8 @@ const TABS = [
   { key: 'email',         icon: '📧', label: 'Email',          configKey: 'email' },
   { key: 'whatsapp',      icon: '💬', label: 'WhatsApp',       configKey: 'whatsapp' },
   { key: 'calendar',      icon: '📅', label: 'Calendrier',     configKey: 'calendar' },
+  { key: 'relances',      icon: '🔁', label: 'Relances',       configKey: 'relances' },
+  { key: 'vapi',          icon: '📞', label: 'Agent Vocal',    configKey: 'vapi' },
   { key: 'notifications', icon: '🔔', label: 'Notifications',  configKey: 'notifications' },
 ]
 
@@ -88,6 +90,69 @@ const TestResult = ({ result }) => {
         : 'bg-red-50 border-red-200 text-red-600'
     }`}>
       {result.success ? `✅ ${result.message}` : `❌ ${result.error}`}
+    </div>
+  )
+}
+
+/* ── RelanceDelayEditor : éditeur de jours de relance ──────────────────── */
+const RelanceDelayEditor = ({ value, onChange, max = 60, presets = [] }) => {
+  const days = Array.isArray(value) ? [...value].sort((a, b) => a - b) : []
+  const [inputVal, setInputVal] = useState('')
+
+  const add = () => {
+    const n = parseInt(inputVal, 10)
+    if (!n || n <= 0 || n > max) return
+    if (!days.includes(n)) onChange([...days, n])
+    setInputVal('')
+  }
+
+  const remove = (d) => onChange(days.filter(x => x !== d))
+
+  return (
+    <div className="space-y-3">
+      {/* Jours actifs */}
+      <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 bg-slate-50 rounded-xl border border-slate-200">
+        {days.map(d => (
+          <span key={d} className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 shadow-sm">
+            J+{d}
+            <button type="button" onClick={() => remove(d)}
+              className="text-slate-400 hover:text-red-500 text-xs font-bold leading-none transition-colors">×</button>
+          </span>
+        ))}
+        {days.length === 0 && (
+          <span className="text-xs text-slate-400 italic self-center px-2">Ajoutez des jours ci-dessous…</span>
+        )}
+      </div>
+
+      {/* Ajouter un jour */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">J+</span>
+          <input type="number" min="1" max={max} value={inputVal}
+            onChange={e => setInputVal(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && add()}
+            placeholder="ex: 7"
+            className="w-full pl-8 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+        </div>
+        <button type="button" onClick={add}
+          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">
+          + Ajouter
+        </button>
+      </div>
+
+      {/* Presets */}
+      {presets.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-slate-400 font-medium">Raccourcis :</span>
+          {presets.map(preset => (
+            <button key={preset.join(',')} type="button"
+              onClick={() => onChange(preset)}
+              className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:border-indigo-300 hover:text-indigo-700 transition-colors text-slate-600">
+              {preset.map(d => `J+${d}`).join(', ')}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -155,6 +220,15 @@ export default function WorkspaceSettings() {
     notify_new_lead: true, notify_hot_lead: true, notify_new_message: true,
     // Agent IA
     anthropic_api_key: '',
+    // Relances automatiques
+    relances_enabled: true,
+    relances_devis: [3, 7, 14],
+    relances_facture: [7, 14, 30],
+    // Vapi.ai
+    vapi_api_key: '',
+    vapi_assistant_id: '',
+    vapi_phone_number_id: '',
+    vapi_enabled: false,
   })
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }))
@@ -235,6 +309,8 @@ export default function WorkspaceSettings() {
         email:         true, // Configuré via Intégrations (OAuth/SMTP) ou Resend fallback
         whatsapp:      !!(form.twilio_account_sid && form.twilio_auth_token && form.twilio_whatsapp_number),
         calendar:      true,
+        relances:      !!(form.relances_enabled && (form.relances_devis?.length || form.relances_facture?.length)),
+        vapi:          !!(form.vapi_enabled && form.vapi_api_key && form.vapi_assistant_id),
         notifications: !!(form.notification_email),
       })
       setTimeout(() => setSaveOk(false), 3000)
@@ -783,6 +859,184 @@ export default function WorkspaceSettings() {
                   </div>
                 </Field>
               </section>
+            )}
+
+            {/* ═══ ONGLET RELANCES ═════════════════════════════ */}
+            {activeTab === 'relances' && (
+              <div className="space-y-5">
+
+                <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 text-xs text-orange-700">
+                  🔁 Les relances automatiques envoient des rappels par email (et WhatsApp si configuré) aux clients
+                  qui n'ont pas répondu à un devis ou payé une facture. Elles s'exécutent <strong>chaque jour à 8h</strong>.
+                </div>
+
+                {/* Activer / Désactiver */}
+                <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                  <Toggle
+                    checked={!!form.relances_enabled}
+                    onChange={e => set('relances_enabled', e.target.checked)}
+                    label="Activer les relances automatiques"
+                  />
+                </section>
+
+                {/* Relances Devis */}
+                <section className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4 transition-opacity ${!form.relances_enabled ? 'opacity-40 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold text-slate-800">📄 Devis en attente</h2>
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                      status = <code>sent</code>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Relancez automatiquement les devis envoyés mais pas encore acceptés.
+                    Indiquez les jours après envoi (ex: J+3, J+7, J+14).
+                  </p>
+                  <RelanceDelayEditor
+                    value={form.relances_devis}
+                    onChange={v => set('relances_devis', v)}
+                    max={60}
+                    presets={[[3,7,14],[3,7,14,30],[7,14]]}
+                  />
+                </section>
+
+                {/* Relances Factures */}
+                <section className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4 transition-opacity ${!form.relances_enabled ? 'opacity-40 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold text-slate-800">🧾 Factures impayées</h2>
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                      status = <code>overdue</code>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Relancez automatiquement les factures dont l'échéance est dépassée.
+                    Indiquez les jours après l'échéance.
+                  </p>
+                  <RelanceDelayEditor
+                    value={form.relances_facture}
+                    onChange={v => set('relances_facture', v)}
+                    max={90}
+                    presets={[[7,14,30],[7,14,30,60],[14,30]]}
+                  />
+                </section>
+
+                {/* Preview calendrier */}
+                {form.relances_enabled && (
+                  <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+                    <h2 className="text-sm font-bold text-slate-700">📆 Aperçu du calendrier de relances</h2>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Devis', days: form.relances_devis, color: 'blue' },
+                        { label: 'Factures', days: form.relances_facture, color: 'orange' },
+                      ].map(({ label, days, color }) => (
+                        <div key={label} className="flex items-start gap-3">
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-lg mt-0.5 ${
+                            color === 'blue'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-orange-100 text-orange-700'
+                          }`}>{label}</span>
+                          <div className="flex flex-wrap gap-2">
+                            {(Array.isArray(days) ? days : []).sort((a,b)=>a-b).map(d => (
+                              <div key={d} className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg border ${
+                                color === 'blue'
+                                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                                  : 'bg-orange-50 border-orange-200 text-orange-700'
+                              }`}>
+                                <span className="font-bold">J+{d}</span>
+                              </div>
+                            ))}
+                            {(!days || days.length === 0) && (
+                              <span className="text-xs text-slate-400 italic">Aucune relance configurée</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      ⏰ Exécution quotidienne à 8h UTC — chaque relance n'est envoyée qu'une seule fois.
+                    </p>
+                  </section>
+                )}
+
+              </div>
+            )}
+
+            {/* ═══ ONGLET VAPI — AGENT VOCAL IA ═══════════════ */}
+            {activeTab === 'vapi' && (
+              <div className="space-y-5">
+
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-4 space-y-2">
+                  <p className="text-sm font-bold text-indigo-800">📞 Agent vocal IA — Vapi.ai</p>
+                  <p className="text-xs text-indigo-700">
+                    Déclenchez des appels sortants automatiques depuis les fiches leads. Vapi utilise la voix IA pour
+                    qualifier ou relancer vos prospects. Les transcripts sont enregistrés dans le CRM.
+                  </p>
+                  <a href="https://vapi.ai" target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline">
+                    🔗 Créer un compte sur Vapi.ai
+                  </a>
+                </div>
+
+                <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold text-slate-800">Configuration Vapi</h2>
+                    <Toggle
+                      checked={!!form.vapi_enabled}
+                      onChange={e => set('vapi_enabled', e.target.checked)}
+                      label="Activer l'agent vocal"
+                    />
+                  </div>
+
+                  <Field label="Clé API Vapi" hint="Disponible dans votre dashboard Vapi.ai → API Keys">
+                    <Input type="password" value={form.vapi_api_key}
+                      onChange={e => set('vapi_api_key', e.target.value)}
+                      placeholder="••••••••••••••••••••••••••••••••"
+                      autoComplete="off" />
+                  </Field>
+
+                  <Field label="Assistant ID" hint="L'ID de votre assistant vocal configuré dans Vapi">
+                    <Input value={form.vapi_assistant_id}
+                      onChange={e => set('vapi_assistant_id', e.target.value)}
+                      placeholder="asst_xxxxxxxxxxxxxxxx" />
+                  </Field>
+
+                  <Field label="Phone Number ID" hint="L'ID du numéro de téléphone configuré dans Vapi (pour les appels sortants)">
+                    <Input value={form.vapi_phone_number_id}
+                      onChange={e => set('vapi_phone_number_id', e.target.value)}
+                      placeholder="phn_xxxxxxxxxxxxxxxx" />
+                  </Field>
+
+                  {form.vapi_enabled && (form.vapi_api_key || form.vapi_assistant_id) && (
+                    <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 text-xs text-green-700 space-y-1">
+                      <p className="font-semibold">✅ Agent vocal activé</p>
+                      <p>Un bouton "📞 Appel IA" apparaîtra dans les fiches leads pour déclencher un appel sortant.</p>
+                    </div>
+                  )}
+                </section>
+
+                <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+                  <h2 className="text-sm font-bold text-slate-700">🔗 URL Webhook Vapi</h2>
+                  <p className="text-xs text-slate-500">
+                    Configurez cette URL dans votre assistant Vapi pour recevoir les transcripts et événements d'appel.
+                  </p>
+                  <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                    <code className="text-xs text-slate-700 flex-1 font-mono break-all">
+                      https://[votre-domaine]/api/webhooks/vapi
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText('https://nexap.vercel.app/api/webhooks/vapi')}
+                      className="shrink-0 text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors"
+                    >
+                      📋 Copier
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Optionnel : définissez la variable <code className="bg-slate-100 px-1 rounded">VAPI_WEBHOOK_SECRET</code> dans Vercel
+                    et renseignez-la dans le header <code className="bg-slate-100 px-1 rounded">x-vapi-secret</code> de vos webhooks Vapi.
+                  </p>
+                </section>
+
+              </div>
             )}
 
             {/* ═══ ONGLET NOTIFICATIONS ════════════════════════ */}

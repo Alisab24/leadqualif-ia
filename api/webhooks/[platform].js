@@ -355,10 +355,85 @@ export default async function handler(req, res) {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // BRANCHE VAPI — appels vocaux IA (Vapi.ai webhooks)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (platform === 'vapi') {
+    let body = {}
+    try { body = JSON.parse(rawBody.toString() || '{}') } catch {}
+
+    const msg     = body.message || body
+    const msgType = msg.type || body.type || ''
+    const call    = msg.call || {}
+    const callId  = call.id || body.call_id || null
+    const agencyId = call.metadata?.agency_id || body.metadata?.agency_id || null
+
+    // Vérifier secret optionnel (VAPI_WEBHOOK_SECRET)
+    const secret = req.headers['x-vapi-secret'] || ''
+    const envSecret = process.env.VAPI_WEBHOOK_SECRET
+    if (envSecret && secret !== envSecret) {
+      return res.status(403).json({ error: 'Invalid Vapi secret' })
+    }
+
+    // call-started → log CRM
+    if (msgType === 'call-started' && agencyId && callId) {
+      const leadId = call.metadata?.lead_id || null
+      if (leadId) {
+        await supabase.from('crm_events').insert({
+          lead_id: leadId, agency_id: agencyId,
+          type: 'vapi_call_started',
+          title: 'Appel vocal IA démarré',
+          description: `Call ID Vapi : ${callId}`,
+          metadata: { call_id: callId, type: msgType },
+        })
+      }
+      return res.status(200).json({ ok: true })
+    }
+
+    // call-ended → stocker transcript + résumé
+    if (msgType === 'call-ended') {
+      const transcript = msg.transcript || call.transcript || ''
+      const summary    = msg.summary    || call.summary    || ''
+      const duration   = call.endedAt && call.startedAt
+        ? Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000)
+        : null
+      const endedReason = msg.endedReason || call.endedReason || ''
+      const leadId = call.metadata?.lead_id || null
+
+      if (leadId && agencyId) {
+        // Log transcript dans CRM events
+        await supabase.from('crm_events').insert({
+          lead_id: leadId, agency_id: agencyId,
+          type: 'vapi_call_ended',
+          title: `Appel vocal IA terminé${duration ? ` (${Math.floor(duration / 60)}m${duration % 60}s)` : ''}`,
+          description: summary || transcript.slice(0, 500) || 'Appel terminé sans transcript.',
+          metadata: {
+            call_id: callId,
+            duration_seconds: duration,
+            ended_reason: endedReason,
+            transcript: transcript.slice(0, 5000),
+            summary,
+          },
+        })
+
+        // Si le résumé indique un lead chaud, avancer vers "Contacté"
+        if (summary && summary.toLowerCase().includes('intéressé')) {
+          await supabase.from('leads')
+            .update({ statut: 'Contacté', updated_at: new Date().toISOString() })
+            .eq('id', leadId).eq('statut', 'À traiter')
+        }
+      }
+      return res.status(200).json({ ok: true, event: 'call-ended', call_id: callId })
+    }
+
+    // Autres events (transcripts partiels, etc.)
+    return res.status(200).json({ ok: true, event: msgType || 'unknown' })
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // BRANCHE LEADS (toutes les autres plateformes) — JSON + clé API
   // ══════════════════════════════════════════════════════════════════════════
   const parser = PARSERS[platform]
-  if (!parser) return res.status(400).json({ error: `Plateforme inconnue: "${platform}". Valeurs: ${Object.keys(PARSERS).join(', ')}, whatsapp` })
+  if (!parser) return res.status(400).json({ error: `Plateforme inconnue: "${platform}". Valeurs: ${Object.keys(PARSERS).join(', ')}, whatsapp, vapi` })
 
   // Parser JSON depuis le body brut
   let body = {}
