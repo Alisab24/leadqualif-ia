@@ -111,8 +111,9 @@ export function usePlanGuard() {
       let effectiveStatus = planSource.subscription_status || 'inactive'
 
       // Normaliser les anciens noms de plans
-      if (effectivePlan === 'pro')    effectivePlan = 'growth'
-      if (effectivePlan === 'agency') effectivePlan = 'enterprise'
+      if (effectivePlan === 'pro')     effectivePlan = 'growth'
+      if (effectivePlan === 'agence')  effectivePlan = 'growth'
+      if (effectivePlan === 'agency')  effectivePlan = 'enterprise'
 
       // Détecter un essai expiré côté client (webhook Stripe pas encore reçu)
       // Si le statut est encore "trialing" mais que la date de fin est passée,
@@ -433,7 +434,7 @@ export function FeatureGate({ feature, children, fallback, mode = 'blur' }) {
           >
             Débloquer le plan {planName} →
           </button>
-          <p className="text-xs text-slate-400 mt-3">14 jours gratuits · Sans carte bancaire · Annulation à tout moment</p>
+          <p className="text-xs text-slate-400 mt-3">Sans engagement · Annulation à tout moment</p>
         </div>
       )
     }
@@ -456,7 +457,7 @@ export function FeatureGate({ feature, children, fallback, mode = 'blur' }) {
           >
             Débloquer →
           </button>
-          <p className="text-xs text-slate-400 mt-2">14 jours offerts · Sans carte bancaire</p>
+          <p className="text-xs text-slate-400 mt-2">Annulation à tout moment · Sans engagement</p>
         </div>
       </div>
     )

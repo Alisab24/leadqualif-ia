@@ -227,6 +227,13 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
     : (subscriptionInfo.plan || 'free')
   // Indique si le client a déjà eu un abonnement Stripe (pour adapter le libellé du bouton)
   const hadSubscription = !!subscriptionInfo.stripe_customer_id
+  // L'essai a DÉJÀ été utilisé si current_period_end est défini (Stripe l'a créé)
+  // OU si le statut a été 'trialing' à un moment (même expiré)
+  const trialAlreadyUsed = !!(
+    subscriptionInfo.current_period_end ||
+    trialExpiredClient ||
+    (subscriptionInfo.status === 'inactive' && subscriptionInfo.stripe_customer_id)
+  )
   const activeFeatures = PLAN_ACTIVE_FEATURES[currentPlan] || PLAN_ACTIVE_FEATURES.free
 
   const planDisplay = {
@@ -313,10 +320,16 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
         <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 flex items-start gap-4">
           <span className="text-2xl mt-0.5">⚡</span>
           <div>
-            <p className="font-bold text-amber-900 text-base">Aucun abonnement actif</p>
-            <p className="text-sm text-amber-700 mt-1">Choisissez un plan ci-dessous pour débloquer toutes les fonctionnalités</p>
+            <p className="font-bold text-amber-900 text-base">
+              {trialAlreadyUsed ? 'Votre période d\'essai est terminée' : 'Aucun abonnement actif'}
+            </p>
+            <p className="text-sm text-amber-700 mt-1">
+              {trialAlreadyUsed
+                ? 'Choisissez un plan payant pour continuer à utiliser toutes les fonctionnalités.'
+                : 'Choisissez un plan ci-dessous pour débloquer toutes les fonctionnalités'}
+            </p>
             <div className="flex flex-wrap gap-3 mt-3 text-xs font-medium text-amber-600">
-              <span>🎯 14 jours d'essai gratuit</span>
+              {!trialAlreadyUsed && <span>🎯 14 jours d'essai gratuit</span>}
               <span>🚫 Sans engagement</span>
               <span>🔒 Paiement sécurisé Stripe</span>
             </div>
@@ -381,7 +394,9 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
                   Facturé {plan.annualTotal}€/an — économie {(plan.monthlyPrice - plan.annualMonthly) * 12}€
                 </p>
               )}
-              <p className="text-[11px] text-green-600 font-medium mt-0.5">🎯 14 jours offerts</p>
+              {!trialAlreadyUsed && (
+                <p className="text-[11px] text-green-600 font-medium mt-0.5">🎯 14 jours offerts</p>
+              )}
 
               <ul className="mt-3 space-y-1.5 flex-1 mb-4">
                 {plan.features.map(f => (
@@ -412,8 +427,8 @@ function BillingTab({ subscriptionInfo, stripeLoading, stripeError, onSubscribe,
                     ? '⏳…'
                     : isCurrent
                     ? '✅ Plan actuel'
-                    : hadSubscription
-                    ? 'Choisir ce plan →'
+                    : trialAlreadyUsed
+                    ? "S'abonner →"
                     : "Démarrer l'essai gratuit"}
                 </button>
               )}
