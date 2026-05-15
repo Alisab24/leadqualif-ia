@@ -116,6 +116,37 @@ export default async function handler(req, res) {
     const basePlan = plan.replace('_annual', '').replace('credits_', '')
     const isOneTime = planData.mode === 'payment'
 
+    // ── Étape 1 : résoudre le customer Stripe + détecter si l'essai est déjà utilisé ──
+    let trialDays = isOneTime ? 0 : (planData.trialDays || 14)
+    let resolvedCustomerId = null
+
+    if (userEmail) {
+      const existing = await stripe.customers.list({ email: userEmail, limit: 1 })
+      if (existing.data.length > 0) {
+        resolvedCustomerId = existing.data[0].id
+
+        // Vérifier si ce customer a déjà eu un abonnement (essai ou payant)
+        // Si oui → pas de nouvel essai gratuit, paiement immédiat
+        const prevSubs = await stripe.subscriptions.list({
+          customer: resolvedCustomerId,
+          limit: 1,
+          status: 'all',   // inclut canceled, trialing, active, past_due
+        })
+        if (prevSubs.data.length > 0) {
+          trialDays = 0
+        }
+      } else {
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          name: agencyName || userEmail,
+          metadata: { userId: userId || '' },
+        })
+        resolvedCustomerId = customer.id
+      }
+    }
+    // Sans email : Stripe collecte l'email et crée le customer automatiquement
+
+    // ── Étape 2 : construire la session avec trialDays résolu ──
     const sessionParams = {
       payment_method_types: ['card'],
       mode: isOneTime ? 'payment' : 'subscription',
@@ -130,7 +161,7 @@ export default async function handler(req, res) {
       }],
       ...(isOneTime ? {} : {
         subscription_data: {
-          trial_period_days: planData.trialDays || 14,
+          ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
           metadata: { userId: userId || '', plan: basePlan, billingCycle: plan.includes('annual') ? 'annual' : 'monthly', agencyName: agencyName || '' },
         },
       }),
@@ -139,23 +170,8 @@ export default async function handler(req, res) {
       metadata: { userId: userId || '', plan: isOneTime ? plan : basePlan, billingCycle: plan.includes('annual') ? 'annual' : 'monthly' },
       locale: 'fr',
       allow_promotion_codes: true,
-    };
-
-    // Avec email : on relie à un customer Stripe existant ou on en crée un
-    if (userEmail) {
-      const existing = await stripe.customers.list({ email: userEmail, limit: 1 });
-      if (existing.data.length > 0) {
-        sessionParams.customer = existing.data[0].id;
-      } else {
-        const customer = await stripe.customers.create({
-          email: userEmail,
-          name: agencyName || userEmail,
-          metadata: { userId: userId || '' },
-        });
-        sessionParams.customer = customer.id;
-      }
+      ...(resolvedCustomerId ? { customer: resolvedCustomerId } : {}),
     }
-    // Sans email : Stripe collecte l'email et crée le customer automatiquement
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
