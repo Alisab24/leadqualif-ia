@@ -857,7 +857,7 @@ export default function Settings() {
       // Sélectionner uniquement les colonnes nécessaires (évite de charger des données massives)
       const { data, error } = await supabase
         .from('profiles')
-        .select('role,nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,signature_url,ville_agence,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
+        .select('role,nom_agence,telephone,adresse,pays,devise,symbole_devise,format_devise,calendly_link,logo_url,signature_url,ville_agence,couleur_primaire,couleur_secondaire,type_agence,nom_legal,statut_juridique,numero_enregistrement,adresse_legale,mention_legale,conditions_paiement,carte_pro_t,carte_pro_s,activite_principale,numero_tva,facebook_pixel_id,google_ads_id,google_ads_label,notification_email,notification_webhook,show_amount_in_words,form_settings,crm_settings,subscription_status,subscription_plan,subscription_current_period_end,stripe_customer_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
