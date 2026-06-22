@@ -431,6 +431,7 @@ async function handleSaveSettings(supabase, profile, body) {
     calendar_timezone, working_hours_start, working_hours_end,
     working_days, appointment_duration, booking_link,
     notification_email, notify_new_lead, notify_hot_lead, notify_new_message,
+    notification_webhook,
     anthropic_api_key,
   } = body
 
@@ -447,6 +448,7 @@ async function handleSaveSettings(supabase, profile, body) {
     calendar_timezone, working_hours_start, working_hours_end,
     working_days, appointment_duration, booking_link,
     notification_email, notify_new_lead, notify_hot_lead, notify_new_message,
+    notification_webhook,
   }
 
   // Ne mettre à jour les clés que si elles ne sont pas masquées (l'user a saisi une nouvelle valeur)

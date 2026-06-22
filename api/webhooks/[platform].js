@@ -509,7 +509,36 @@ export default async function handler(req, res) {
   // ── 4. Répondre 200 immédiatement ─────────────────────────────────────────
   res.status(200).json({ ok: true, action, leadId, platform, source })
 
-  // ── 5. Scoring IA + auto-contact ──────────────────────────────────────────
+  // ── 5. Notification webhook (Make / Zapier / n8n) ─────────────────────────
+  if (action === 'created') {
+    try {
+      const { data: wsNotif } = await supabase
+        .from('workspace_settings').select('notification_webhook')
+        .eq('agency_id', agencyId).maybeSingle()
+
+      const hookUrl = wsNotif?.notification_webhook
+      if (hookUrl) {
+        fetch(hookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lead_id:  leadId,
+            nom,
+            email,
+            telephone: phone || null,
+            source,
+            platform,
+            agency_id: agencyId,
+            created_at: new Date().toISOString(),
+          }),
+        }).catch(e => console.warn('[webhook] notification_webhook error:', e.message))
+      }
+    } catch (e) {
+      console.warn('[webhook] notification_webhook lookup error:', e.message)
+    }
+  }
+
+  // ── 6. Scoring IA + auto-contact ──────────────────────────────────────────
   try {
     const { data: ws } = await supabase
       .from('workspace_settings').select('anthropic_api_key')
@@ -540,7 +569,7 @@ export default async function handler(req, res) {
     console.warn(`[webhook/${platform}] post-response error:`, e.message)
   }
 
-  // ── 6. Log ────────────────────────────────────────────────────────────────
+  // ── 7. Log ────────────────────────────────────────────────────────────────
   supabase.from('webhook_logs').insert({
     agency_id: agencyId, platform, payload: body,
     lead_id: leadId, action, created_at: new Date().toISOString(),
