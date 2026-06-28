@@ -14,7 +14,32 @@
  */
 
 import crypto from 'crypto'
+import https  from 'https'
 import { createClient } from '@supabase/supabase-js'
+
+/** POST JSON vers une URL externe — plus fiable que fetch() en serverless */
+function postJson(url, payload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload)
+    const u    = new URL(url)
+    const req  = https.request({
+      hostname: u.hostname,
+      path:     u.pathname + u.search,
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      let data = ''
+      res.on('data', chunk => { data += chunk })
+      res.on('end', () => resolve({ status: res.statusCode, body: data }))
+    })
+    req.on('error', reject)
+    req.write(body)
+    req.end()
+  })
+}
 
 // Désactiver le body parser Vercel — on lit le body brut pour Twilio
 export const config = { api: { bodyParser: false } }
@@ -568,12 +593,8 @@ export default async function handler(req, res) {
       }
       console.log('[make] Payload envoyé:', JSON.stringify(makePayload))
       try {
-        await fetch(MAKE_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(makePayload),
-        })
-        console.log('[make] POST réussi')
+        const r = await postJson(MAKE_URL, makePayload)
+        console.log('[make] POST réussi, status:', r.status, 'réponse:', r.body)
       } catch (e) {
         console.error('[make] POST échoué (non-bloquant):', e.message)
       }
