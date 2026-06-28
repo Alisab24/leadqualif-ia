@@ -17,7 +17,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { sendTransactional } from '../emails/send.js';
+import { sendTransactional } from '../../lib/sendEmail.js';
 
 // ── Désactiver le body parser Vercel ──────────────────────────────────────────
 // Sans cela, Vercel re-sérialise le JSON et la signature Stripe ne correspond plus.
