@@ -552,6 +552,30 @@ export default async function handler(req, res) {
       updated_at: new Date().toISOString(),
     }).eq('id', leadId)
 
+    // ── Notification Make (hardcodé — contournement bug config webhook) ────────
+    if (action === 'created') {
+      const MAKE_URL = process.env.MAKE_WEBHOOK_URL || 'https://hook.eu1.make.com/6h8dc4rwd95pzsvefxk8uwj54cqspr3j'
+      const eventLabel = scoring.score >= 70 ? 'hot_lead' : scoring.score >= 40 ? 'warm_lead' : 'cold_lead'
+      try {
+        fetch(MAKE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nom:        nom || `${firstName} ${lastName}`.trim(),
+            email,
+            telephone:  phone || null,
+            budget:     null,
+            score:      scoring.score,
+            event:      eventLabel,
+            source:     source || platform,
+            created_at: new Date().toISOString(),
+          }),
+        }).catch(e => console.error('[make] POST échoué (non-bloquant):', e.message))
+      } catch (e) {
+        console.error('[make] Erreur inattendue (non-bloquante):', e.message)
+      }
+    }
+
     if (action === 'created' && scoring.score >= 70) {
       const APP_URL = process.env.VITE_APP_URL || process.env.APP_URL || 'https://app.leadqualif.com'
       const { data: profileRow } = await supabase
