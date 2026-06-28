@@ -322,6 +322,29 @@ export default function Estimation() {
       const { error: insertError } = await supabase.from('leads').insert([leadPayload]);
       if (insertError) throw insertError;
 
+      /* ── Notification Make (hardcodé — indépendant du champ config) ── */
+      try {
+        const MAKE_URL = 'https://hook.eu1.make.com/6h8dc4rwd95pzsvefxk8uwj54cqspr3j';
+        const eventLabel = scoreIA >= 70 ? 'hot_lead' : scoreIA >= 40 ? 'warm_lead' : 'cold_lead';
+        const makePayload = {
+          nom:        s.nom,
+          email:      s.email,
+          telephone:  s.telephone || null,
+          budget:     s.budget || s.prix_vente || null,
+          score:      scoreIA,
+          event:      eventLabel,
+          source:     'formulaire_web',
+          created_at: new Date().toISOString(),
+        };
+        await fetch(MAKE_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(makePayload),
+        });
+      } catch (makeErr) {
+        console.warn('[make] Notification non-bloquante échouée:', makeErr.message);
+      }
+
       setScoreData({ score: scoreIA });
       setSubmitted(true);
     } catch (err) {
