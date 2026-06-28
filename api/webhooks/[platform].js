@@ -552,27 +552,30 @@ export default async function handler(req, res) {
       updated_at: new Date().toISOString(),
     }).eq('id', leadId)
 
-    // ── Notification Make (hardcodé — contournement bug config webhook) ────────
+    // ── Notification Make — awaité pour garantir envoi complet ──────────────
     if (action === 'created') {
       const MAKE_URL = process.env.MAKE_WEBHOOK_URL || 'https://hook.eu1.make.com/6h8dc4rwd95pzsvefxk8uwj54cqspr3j'
       const eventLabel = scoring.score >= 70 ? 'hot_lead' : scoring.score >= 40 ? 'warm_lead' : 'cold_lead'
+      const makePayload = {
+        nom:        nom || `${firstName} ${lastName}`.trim(),
+        email,
+        telephone:  phone || null,
+        budget:     null,
+        score:      scoring.score,
+        event:      eventLabel,
+        source:     source || platform,
+        created_at: new Date().toISOString(),
+      }
+      console.log('[make] Payload envoyé:', JSON.stringify(makePayload))
       try {
-        fetch(MAKE_URL, {
+        await fetch(MAKE_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nom:        nom || `${firstName} ${lastName}`.trim(),
-            email,
-            telephone:  phone || null,
-            budget:     null,
-            score:      scoring.score,
-            event:      eventLabel,
-            source:     source || platform,
-            created_at: new Date().toISOString(),
-          }),
-        }).catch(e => console.error('[make] POST échoué (non-bloquant):', e.message))
+          body: JSON.stringify(makePayload),
+        })
+        console.log('[make] POST réussi')
       } catch (e) {
-        console.error('[make] Erreur inattendue (non-bloquante):', e.message)
+        console.error('[make] POST échoué (non-bloquant):', e.message)
       }
     }
 

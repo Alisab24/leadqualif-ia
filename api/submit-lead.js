@@ -78,6 +78,31 @@ export default async function handler(req, res) {
     const result = await leadsService.saveLead(leadData)
 
     if (result.success) {
+      // ── Notification Make — AVANT res.json pour éviter coupure Vercel ────────
+      const MAKE_URL = process.env.MAKE_WEBHOOK_URL || 'https://hook.eu1.make.com/6h8dc4rwd95pzsvefxk8uwj54cqspr3j'
+      const eventLabel = niveau_interet === 'CHAUD' ? 'hot_lead' : niveau_interet === 'TIÈDE' ? 'warm_lead' : 'cold_lead'
+      const makePayload = {
+        nom,
+        email,
+        telephone,
+        budget:     prix || null,
+        score,
+        event:      eventLabel,
+        source:     'formulaire_web',
+        created_at: new Date().toISOString(),
+      }
+      console.log('[make] Payload envoyé:', JSON.stringify(makePayload))
+      try {
+        await fetch(MAKE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(makePayload),
+        })
+        console.log('[make] POST réussi')
+      } catch (e) {
+        console.error('[make] POST échoué (non-bloquant):', e.message)
+      }
+
       res.status(200).json({
         success: true,
         message: 'Lead sauvegardé avec succès',
@@ -87,28 +112,6 @@ export default async function handler(req, res) {
           message: 'Votre demande a été analysée et sauvegardée'
         }
       })
-
-      // ── Notification Make (hardcodé — contournement bug config webhook) ────
-      const MAKE_URL = process.env.MAKE_WEBHOOK_URL || 'https://hook.eu1.make.com/6h8dc4rwd95pzsvefxk8uwj54cqspr3j'
-      const eventLabel = niveau_interet === 'CHAUD' ? 'hot_lead' : niveau_interet === 'TIÈDE' ? 'warm_lead' : 'cold_lead'
-      try {
-        fetch(MAKE_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nom,
-            email,
-            telephone,
-            budget:     prix || null,
-            score,
-            event:      eventLabel,
-            source:     'formulaire_web',
-            created_at: new Date().toISOString(),
-          }),
-        }).catch(e => console.error('[make] POST échoué (non-bloquant):', e.message))
-      } catch (e) {
-        console.error('[make] Erreur inattendue (non-bloquante):', e.message)
-      }
     } else {
       res.status(500).json({
         success: false,
